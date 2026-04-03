@@ -1,4 +1,5 @@
-const ical = require('cal-parser');
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { calendarDb } from './firebase';
 
 export interface CalendarEvent {
   id: string;
@@ -7,7 +8,7 @@ export interface CalendarEvent {
   endDate: Date;
   description: string;
   location?: string;
-  // Metadata from description variables
+  // Metadata fields
   writer?: string;
   verified: boolean;
   verifier?: string;
@@ -17,140 +18,34 @@ export interface CalendarEvent {
   cancelled: boolean;
 }
 
-const ICAL_URL = 'https://calendar.google.com/calendar/ical/087dacadb902e1f2f2102dd67c7a2f1190e0b9232daf98979ff2e4389469227a%40group.calendar.google.com/public/basic.ics';
-
-/**
- * Parse metadata variables from the event description.
- * Format: {verified=0, verifier=, writer=Martín Ávila, subject=quimica, type=taller.evaluado, outstanding=1}
- * 
- * - verified: 1 = verified by teacher, 0 = not
- * - verifier: teacher name (empty if not verified)
- * - writer: who created the event (directiva member or teacher)
- * - subject: school subject (quimica, lenguaje, etc.)
- * - type: event type (evaluacion.sumativa, evaluacion.formativa, tarea, taller, taller.evaluado, etc.)
- * - outstanding: 1 = highlighted (green), 0 = normal (gray)
- * 
- * The entire {…} block is stripped from the displayed description.
- */
-function parseDescriptionVariables(rawDescription: string): {
-  cleanDescription: string;
-  writer?: string;
-  verified: boolean;
-  verifier?: string;
-  subject?: string;
-  eventType?: string;
-  outstanding: boolean;
-} {
-  let desc = rawDescription || '';
-  let writer: string | undefined;
-  let verified = false;
-  let verifier: string | undefined;
-  let subject: string | undefined;
-  let eventType: string | undefined;
-  let outstanding = false;
-
-  // Strip ALL HTML tags first, before anything else
-  desc = desc.replace(/<br\s*\/?>/gi, '\n');
-  desc = desc.replace(/<[^>]*>/g, '');
-  desc = desc.replace(/&amp;/g, '&');
-  desc = desc.replace(/&lt;/g, '<');
-  desc = desc.replace(/&gt;/g, '>');
-  desc = desc.replace(/&quot;/g, '"');
-  desc = desc.replace(/&#39;/g, "'");
-
-  // Now match the {key=value, key=value, ...} block (HTML-free)
-  const varsMatch = desc.match(/\{([^}]+)\}/);
-  if (varsMatch) {
-    const varsString = varsMatch[1];
-    desc = desc.replace(varsMatch[0], '');
-
-    const pairs = varsString.split(',');
-    for (const pair of pairs) {
-      const eqIndex = pair.indexOf('=');
-      if (eqIndex === -1) continue;
-      const key = pair.substring(0, eqIndex).trim().toLowerCase();
-      const value = pair.substring(eqIndex + 1).trim();
-
-      switch (key) {
-        case 'verified':
-          verified = value === '1';
-          break;
-        case 'verifier':
-          verifier = value || undefined;
-          break;
-        case 'writer':
-          writer = value || undefined;
-          break;
-        case 'subject':
-          subject = value || undefined;
-          break;
-        case 'type':
-          eventType = value || undefined;
-          break;
-        case 'outstanding':
-          outstanding = value === '1';
-          break;
-      }
-    }
-  }
-
-  // Clean up leftover whitespace
-  desc = desc.replace(/\n{3,}/g, '\n\n').trim();
-
-  return {
-    cleanDescription: desc || 'No hay información disponible',
-    writer,
-    verified,
-    verifier,
-    subject,
-    eventType,
-    outstanding,
-  };
-}
-
-export async function fetchCalendarEvents(url: string = ICAL_URL): Promise<CalendarEvent[]> {
+export async function fetchCalendarEvents(courseId: string): Promise<CalendarEvent[]> {
   try {
-    const response = await fetch(url);
-    const icsText = await response.text();
-    const parsed = ical.parseString(icsText);
+    const q = query(collection(calendarDb, `HNC-LCH.${courseId}`), orderBy('createdAt', 'asc'));
+    const snapshot = await getDocs(q);
 
-    if (!parsed.events || parsed.events.length === 0) {
-      return [];
-    }
-
-    return parsed.events.map((event: any, index: number) => {
-      const rawTitle = event.summary?.value || 'Sin título';
-      const startDate = event.dtstart?.value ? new Date(event.dtstart.value) : new Date();
-      const endDate = event.dtend?.value ? new Date(event.dtend.value) : startDate;
-      const rawDescription = event.description?.value || '';
-      const location = event.location?.value || undefined;
-      const id = event.uid?.value || `event-${index}`;
-
-      const vars = parseDescriptionVariables(rawDescription);
-
-      const cancelled =
-        rawTitle.toUpperCase().includes('SUSPENDIDO') ||
-        rawTitle.toUpperCase().includes('[CANCELADA]') ||
-        rawTitle.toUpperCase().includes('CANCELADA');
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Use createdAt as fallback startDate if date format missing
+      const startDateObj = data.createdAt ? data.createdAt.toDate() : new Date();
 
       return {
-        id,
-        title: rawTitle.replace(/\[CANCELADA\]/gi, '').trim(),
-        startDate,
-        endDate,
-        description: vars.cleanDescription,
-        location,
-        writer: vars.writer,
-        verified: vars.verified,
-        verifier: vars.verifier,
-        subject: vars.subject,
-        eventType: vars.eventType,
-        outstanding: vars.outstanding,
-        cancelled,
+        id: doc.id,
+        title: data.title || 'Sin título',
+        startDate: startDateObj,
+        endDate: new Date(startDateObj.getTime() + 60 * 60 * 1000), // Default 1hr
+        description: data.description || 'No hay descripción disponible.',
+        location: data.location,
+        writer: data.authorName,
+        verified: data.verified || false,
+        verifier: data.verifier,
+        subject: data.subject,
+        eventType: data.type,
+        outstanding: data.outstanding || false,
+        cancelled: data.title?.toUpperCase().includes('CANCELADA') || false,
       };
-    }).sort((a: CalendarEvent, b: CalendarEvent) => a.startDate.getTime() - b.startDate.getTime());
+    });
   } catch (error) {
-    console.error('Error fetching iCal events:', error);
+    console.error('Error fetching Firebase events:', error);
     return [];
   }
 }
@@ -167,15 +62,15 @@ export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarE
 
   return events.filter(event => {
     const s = new Date(event.startDate);
-    return s.getUTCFullYear() === targetYear &&
-           s.getUTCMonth() === targetMonth &&
-           s.getUTCDate() === targetDay;
+    return s.getFullYear() === targetYear &&
+           s.getMonth() === targetMonth &&
+           s.getDate() === targetDay;
   });
 }
 
 export function formatTime(date: Date): string {
-  const hours = date.getUTCHours().toString().padStart(2, '0');
-  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 

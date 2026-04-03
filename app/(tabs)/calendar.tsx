@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
+import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
+import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
 import {
   fetchCalendarEvents,
@@ -11,6 +13,9 @@ import {
   formatTime,
   CalendarEvent,
 } from '@/services/ical-service';
+import { useSession } from '@/services/auth-service';
+import { db } from '@/services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +25,28 @@ export default function CalendarScreen() {
   const [selectedPageIndex, setSelectedPageIndex] = useState(todayIndex);
   const pagerRef = useRef<PagerView>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const router = useRouter();
+  const { user } = useSession();
+
+  const allowedRoles = ['HNT', 'Admin', 'CEE', 'Directiva'];
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const role = userDoc.data()?.role || 'Estudiante';
+          setUserRole(role);
+        } catch (e) {
+          console.error("Error fetching role:", e);
+        }
+      }
+    };
+    fetchRole();
+  }, [user]);
+
+  const canAddEvents = userRole ? allowedRoles.includes(userRole) : false;
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -28,12 +55,18 @@ export default function CalendarScreen() {
   // iCal events
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
+  // Auto-reload events dynamically when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        // Silent reload when returning from Add Event screen
+        loadEvents(true);
+      }
+    }, [user])
+  );
 
-  // Scroll pager to today on first render
   useEffect(() => {
     const timer = setTimeout(() => {
       pagerRef.current?.setPage(todayIndex);
@@ -41,11 +74,27 @@ export default function CalendarScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const loadEvents = async () => {
-    setLoading(true);
-    const events = await fetchCalendarEvents();
-    setAllEvents(events);
-    setLoading(false);
+  const loadEvents = async (silent = false) => {
+    if (!user) return;
+    if (!silent) setLoading(true);
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const courseId = userDoc.data()?.courseId;
+      if (courseId) {
+        const events = await fetchCalendarEvents(courseId);
+        setAllEvents(events);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadEvents(true);
+    setRefreshing(false);
   };
 
   const handleDaySelect = (index: number) => {
@@ -137,8 +186,10 @@ export default function CalendarScreen() {
             {weekDays.map((day, index) => (
               <View key={`${weekStart.toISOString()}-${index}`} style={[styles.page, { width }]}>
                 <DailyTimeline
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin || canAddEvents}
                   events={getEventsForDate(allEvents, day.dateObj)}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
                 />
               </View>
             ))}
@@ -153,26 +204,30 @@ export default function CalendarScreen() {
             {weekDays.map((day, index) => (
               <View key={`${weekStart.toISOString()}-${index}`} style={styles.page}>
                 <DailyTimeline
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin || canAddEvents}
                   events={getEventsForDate(allEvents, day.dateObj)}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
                 />
               </View>
             ))}
           </PagerView>
         )
       )}
+
     </View>
   );
 }
 
-function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: CalendarEvent[] }) {
+function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: boolean; events: CalendarEvent[], refreshing: boolean, onRefresh: () => void }) {
   if (events.length === 0) {
     return (
       <ScrollView
         contentContainerStyle={[styles.timelineScroll, styles.emptyContainer]}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#93B9A9" colors={['#93B9A9']} />}
       >
-        <CustomIcon name="calendar" size={48} color="#CECDC1" />
+        <CalendarDaysIcon size={72} color="#CECDC1" style={{ marginBottom: 12 }} />
         <ThemedText style={styles.emptyTitle}>Sin eventos</ThemedText>
         <ThemedText style={styles.emptySubtitle}>No hay eventos programados para este día.</ThemedText>
         <View style={{ height: 120 }} />
@@ -184,6 +239,7 @@ function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: Calendar
     <ScrollView
       contentContainerStyle={styles.timelineScroll}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#93B9A9" colors={['#93B9A9']} />}
     >
       {events.map((event, index) => (
         <View key={event.id} style={styles.timelineRow}>
@@ -196,10 +252,11 @@ function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: Calendar
           </View>
           <View style={styles.eventColumn}>
             <ClassCard
+              id={event.id}
               title={event.title}
               time={`${formatTime(new Date(event.startDate))} - ${formatTime(new Date(event.endDate))}`}
               desc={event.description}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin} // Now correctly receiving isAdmin which includes canAddEvents
               writer={event.writer}
               verified={event.verified}
               verifier={event.verifier}
@@ -207,6 +264,7 @@ function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: Calendar
               eventType={event.eventType}
               outstanding={event.outstanding}
               cancelled={event.cancelled}
+              fullEvent={event}
             />
           </View>
         </View>
@@ -215,8 +273,8 @@ function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: Calendar
       <View style={styles.footerUpdateRow}>
         <CustomIcon name="check-circle" size={16} color="#93B9A9" />
         <View style={styles.footerUpdateTextContainer}>
-          <ThemedText style={styles.footerUpdateSub}>Sincronizado desde Google Calendar</ThemedText>
-          <ThemedText style={styles.footerUpdateName}>Feed iCal - "Info | LCH | 2°k"</ThemedText>
+          <ThemedText style={styles.footerUpdateSub}>Sincronizado desde la fuente nativa</ThemedText>
+          <ThemedText style={styles.footerUpdateName}>HaNet Calendar v1.0.0</ThemedText>
         </View>
       </View>
       <ThemedText style={styles.footerDisclaimer}>
@@ -229,13 +287,29 @@ function DailyTimeline({ isAdmin, events }: { isAdmin: boolean; events: Calendar
   );
 }
 
-function ClassCard({ title, time, desc, isAdmin, writer, verified, verifier, subject, eventType, outstanding, cancelled }: any) {
+function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier, subject, eventType, outstanding, cancelled, fullEvent }: any) {
   const cardColor = cancelled ? '#4A3535' : outstanding ? '#42564F' : '#3E3E3A';
+  const router = useRouter();
 
   // Format event type for display
   const formatType = (type?: string) => {
     if (!type) return null;
     return type.replace(/\./g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+  };
+
+  const handleEdit = () => {
+    router.push({
+      pathname: '/create-event',
+      params: {
+        id: id,
+        title: title,
+        description: desc,
+        startDate: fullEvent.startDate,
+        subject: subject,
+        type: eventType,
+        location: fullEvent.location || 'Sala 304-B (P3)',
+      }
+    });
   };
 
   return (
@@ -288,9 +362,9 @@ function ClassCard({ title, time, desc, isAdmin, writer, verified, verifier, sub
         )}
       </View>
       {isAdmin && (
-        <View style={styles.bottomStrip}>
+        <TouchableOpacity style={styles.bottomStrip} onPress={handleEdit}>
           <ThemedText style={styles.bottomStripText}>Editar información</ThemedText>
-        </View>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -300,6 +374,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#292927',
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 120,
+    right: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#42564F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    zIndex: 1000,
   },
   devToggle: {
     position: 'absolute',

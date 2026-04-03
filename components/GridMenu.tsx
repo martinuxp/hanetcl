@@ -1,20 +1,28 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { CustomIcon } from '@/components/ui/custom-icon';
 import { TouchableRipple } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
+// Premium Native Animated Icons
+import { SparklesIcon } from '@/assets/animated-icons/sparks';
+import { GraduationCapIcon } from '@/assets/animated-icons/graduation-cap';
+import { HandCoinsIcon } from '@/assets/animated-icons/hand-coins';
+import { MessageCircleIcon } from '@/assets/animated-icons/message-circle';
+import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
+import { Square2StackIcon } from '@/assets/animated-icons/tasks';
+
 type GridItemProps = {
   title: string;
-  icon: any;
+  IconComponent: React.ComponentType<any>;
   height: number;
   badgeText?: string;
   layout?: 'default' | 'side-badge';
   href?: any;
+  iconSize?: number;
 };
 
-function GridItem({ title, icon, height, badgeText, layout = 'default', href }: GridItemProps) {
+function GridItem({ title, IconComponent, height, badgeText, layout = 'default', href, iconSize }: GridItemProps) {
   const isSideBadge = layout === 'side-badge';
   const router = useRouter();
 
@@ -30,7 +38,7 @@ function GridItem({ title, icon, height, badgeText, layout = 'default', href }: 
         <View style={styles.gridItemInnerSide}>
           <View style={styles.sideContent}>
             <View style={styles.iconContainerSide}>
-              <CustomIcon name={icon as any} size={26} color="#292927" />
+              <IconComponent size={iconSize || 28} color="#292927" />
             </View>
             <ThemedText style={styles.itemTitleSide}>{title}</ThemedText>
           </View>
@@ -49,7 +57,7 @@ function GridItem({ title, icon, height, badgeText, layout = 'default', href }: 
             </View>
           )}
           <View style={styles.iconContainerDefault}>
-            <CustomIcon name={icon as any} size={26} color="#292927" />
+            <IconComponent size={iconSize || 32} color="#292927" />
           </View>
           <ThemedText style={styles.itemTitleDefault}>{title}</ThemedText>
         </View>
@@ -63,44 +71,48 @@ export default function GridMenu() {
     <View style={styles.container}>
       {/* Left Column */}
       <View style={styles.column}>
-        <GridItem 
-          title="Eventos" 
-          icon="star" 
-          height={148} 
+        <GridItem
+          title="Eventos"
+          IconComponent={SparklesIcon}
+          height={148}
         />
-        <GridItem 
-          title="Mis clases" 
-          icon="graduationcap" 
-          height={102} 
+        <GridItem
+          title="Mis clases"
+          IconComponent={GraduationCapIcon}
+          height={102}
         />
-        <GridItem 
-          title="Pagos" 
-          icon="wallet" 
-          height={76} 
+        <GridItem
+          title="Pagos"
+          IconComponent={HandCoinsIcon}
+          height={82}
+          iconSize={26}
         />
       </View>
 
       {/* Right Column */}
       <View style={styles.column}>
-        <GridItem 
-          title="Feed y comunidad" 
-          icon="feed" 
-          height={119} 
+        <GridItem
+          title="Feed y comunidad"
+          IconComponent={MessageCircleIcon}
+          height={125}
           badgeText="Pronto disponible!"
+          iconSize={25}
         />
-        <GridItem 
-          title="Calendario" 
-          icon="calendar" 
-          height={74} 
+        <GridItem
+          title="Calendario"
+          IconComponent={CalendarDaysIcon}
+          height={74}
           badgeText="3 días Prox."
           layout="side-badge"
           href="/calendar"
+          iconSize={26}
         />
-        <GridItem 
-          title="Calificaciones y asistencias" 
-          icon="notes" 
-          height={133} 
+        <GridItem
+          title="Calificaciones y asistencias"
+          IconComponent={Square2StackIcon}
+          height={133}
           badgeText="3 calificaciones nuevas"
+          iconSize={28}
         />
       </View>
     </View>

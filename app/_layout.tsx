@@ -28,7 +28,7 @@ const fontConfig = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { user, initializing } = useSession();
-  
+
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -48,7 +48,7 @@ export default function RootLayout() {
   const baseTheme = colorScheme === 'dark' ? MD3DarkTheme : MD3LightTheme;
   const paperTheme = {
     ...baseTheme,
-    fonts: configureFonts({config: fontConfig}),
+    fonts: configureFonts({ config: fontConfig }),
   };
 
   return (
@@ -60,6 +60,24 @@ export default function RootLayout() {
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="verify" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            <Stack.Screen 
+              name="create-event" 
+              options={{ 
+                presentation: 'formSheet', 
+                headerShown: false,
+                sheetGrabberVisible: true,
+                sheetAllowedDetents: [0.5, 1.0]
+              }} 
+            />
+            <Stack.Screen 
+              name="event-info" 
+              options={{ 
+                presentation: 'formSheet', 
+                headerShown: false,
+                sheetGrabberVisible: true,
+                sheetAllowedDetents: [0.5, 1.0]
+              }} 
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

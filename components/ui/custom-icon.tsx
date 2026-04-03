@@ -1,5 +1,5 @@
 import * as React from "react"
-import Svg, { Path, Circle, Rect, G } from "react-native-svg"
+import Svg, { Path, Circle, Rect, G, Line } from "react-native-svg"
 import type { SvgProps } from "react-native-svg"
 
 type IconProps = SvgProps & {
@@ -17,13 +17,48 @@ type IconProps = SvgProps & {
     | 'chevron-left'
     | 'chevron-right'
     | 'check-circle'
-    | 'book';
+    | 'book'
+    | 'clock'
+    | 'map-pin'
+    | 'tag'
+    | 'file-text';
   size?: number;
   color?: string;
 }
 
 export function CustomIcon({ name, size = 24, color = "#FAFAF9", ...props }: IconProps) {
   switch (name) {
+    case 'clock':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+          <Path d="M12 6v6l4 2" stroke={color} strokeWidth={1.5} />
+        </Svg>
+      );
+    case 'map-pin':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke={color} strokeWidth={1.5} />
+          <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth={1.5} />
+        </Svg>
+      );
+    case 'tag':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={color} strokeWidth={1.5} />
+          <Line x1="7" y1="7" x2="7.01" y2="7" stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'file-text':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth={1.5} />
+          <Path d="M14 2v6h6" stroke={color} strokeWidth={1.5} />
+          <Line x1="16" y1="13" x2="8" y2="13" stroke={color} strokeWidth={1.5} />
+          <Line x1="16" y1="17" x2="8" y2="17" stroke={color} strokeWidth={1.5} />
+          <Line x1="10" y1="9" x2="8" y2="9" stroke={color} strokeWidth={1.5} />
+        </Svg>
+      );
     case 'home':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>

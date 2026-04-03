@@ -7,6 +7,7 @@ import {
   useSession, 
   signInWithEmail, 
   signUpWithEmail,
+  checkEnrollment,
   resetPassword 
 } from '@/services/auth-service';
 import { SvgXml } from 'react-native-svg';
@@ -41,7 +42,7 @@ export default function AuthScreen() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [rut, setRut] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'none'>('none');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -62,12 +63,31 @@ export default function AuthScreen() {
       if (activeTab === 'login') {
         await signInWithEmail(email, password);
       } else {
-        if (!name || !acceptedTerms) {
-          setError('Completa tu nombre y acepta los términos.');
+        if (!rut || !acceptedTerms) {
+          setError('Ingresa tu RUT y acepta los términos.');
           setLoading(false);
           return;
         }
-        await signUpWithEmail(email, password, name);
+
+        // 1. Verify RUT against Database
+        let enrollmentData;
+        try {
+          enrollmentData = await checkEnrollment(rut);
+        } catch (e: any) {
+          if (e.message === 'RUT_NOT_FOUND') {
+            setError('RUT no encontrado en la lista institucional.');
+          } else if (e.message === 'RUT_ALREADY_LINKED') {
+            setError('Este RUT ya tiene una cuenta HaNet creada.');
+          } else {
+            setError('Error validando RUT en el sistema.');
+          }
+          setLoading(false);
+          return;
+        }
+
+        // 2. Create the account with institutional data
+        const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+        await signUpWithEmail(email, password, cleanRut, enrollmentData.courseId, enrollmentData.fullName);
       }
     } catch (err: any) {
       console.error(err);
@@ -133,12 +153,12 @@ export default function AuthScreen() {
           <View style={styles.formSection}>
             {activeTab === 'signup' && (
               <View style={styles.inputContainer}>
-                <ThemedText style={styles.inputLabel}>Nombres y Apellidos</ThemedText>
+                <ThemedText style={styles.inputLabel}>RUT del alumno</ThemedText>
                 <TextInput
                   style={styles.inputField}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Tu nombre completo"
+                  value={rut}
+                  onChangeText={setRut}
+                  placeholder="Ej: 21.345.678-9"
                   placeholderTextColor="rgba(250,250,249,0.3)"
                 />
               </View>

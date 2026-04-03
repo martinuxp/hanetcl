@@ -13,7 +13,8 @@ import {
   sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
-import { auth } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { useEffect, useState } from 'react';
 
 // Required for AuthSession to work in browser/modal (native only)
@@ -32,10 +33,43 @@ export async function signInWithEmail(email: string, pass: string) {
   return signInWithEmailAndPassword(auth, email, pass);
 }
 
-export async function signUpWithEmail(email: string, pass: string, displayName: string) {
+export async function signUpWithEmail(email: string, pass: string, rut: string, courseId: string, fullName: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-  await updateProfile(userCredential.user, { displayName });
+  await updateProfile(userCredential.user, { displayName: fullName });
+  
+  // Save institutional profile to Firestore
+  await setDoc(doc(db, 'users', userCredential.user.uid), {
+    email,
+    rut,
+    courseId,
+    name: fullName,
+    createdAt: new Date().toISOString()
+  });
+  
+  // Mark the RUT as claimed in the enrollment DB
+  await setDoc(doc(db, 'LCH-enroll-hn', rut), { linkedUid: userCredential.user.uid }, { merge: true });
+
   return userCredential;
+}
+
+export async function checkEnrollment(rut: string) {
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  const docRef = doc(db, 'LCH-enroll-hn', cleanRut);
+  const docSnap = await getDoc(docRef);
+  
+  if (!docSnap.exists()) {
+    throw new Error('RUT_NOT_FOUND');
+  }
+  
+  const data = docSnap.data() as { fullName?: string, courseId?: string, linkedUid?: string };
+  if (data.linkedUid) {
+    throw new Error('RUT_ALREADY_LINKED');
+  }
+  
+  return {
+    fullName: data.fullName || 'Estudiante',
+    courseId: data.courseId || 'unknown'
+  };
 }
 
 export async function resetPassword(email: string) {

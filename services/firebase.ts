@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -17,6 +18,8 @@ const app = initializeApp(firebaseConfig);
 // On web, getReactNativePersistence is not available. Use getAuth() instead.
 // On native, use initializeAuth with AsyncStorage persistence.
 let auth: ReturnType<typeof getAuth>;
+const db = getFirestore(app, "hn-enrollmentdata");
+const calendarDb = getFirestore(app, "hn-calendar");
 
 if (Platform.OS === 'web') {
   auth = getAuth(app);
@@ -28,5 +31,5 @@ if (Platform.OS === 'web') {
   });
 }
 
-export { auth };
+export { auth, db, calendarDb };
 export default app;

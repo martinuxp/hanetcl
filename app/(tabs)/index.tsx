@@ -7,9 +7,11 @@ import GridMenu from '@/components/GridMenu';
 import NotificationSection from '@/components/NotificationSection';
 import NotificationModal from '@/components/NotificationModal';
 import { ThemedText } from '@/components/themed-text';
+import { useSession } from '@/services/auth-service';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user, signOut } = useSession();
   const [showNotifModal, setShowNotifModal] = useState(false);
 
   const handleActivateNotifications = () => {
@@ -32,14 +34,36 @@ export default function HomeScreen() {
         <InstitutionBanner />
         <GridMenu />
 
-        {/* Auth Button */}
+        {/* Temporary Navigation Button */}
         <TouchableOpacity
-          style={styles.authButton}
-          onPress={() => router.push('/auth')}
+          style={styles.tempButton}
+          onPress={() => router.navigate('/event-info')}
           activeOpacity={0.85}
         >
-          <ThemedText style={styles.authButtonText}>🔑 Iniciar sesión</ThemedText>
+          <ThemedText style={styles.tempButtonText}>📅 Ver Info de Evento (Test)</ThemedText>
         </TouchableOpacity>
+
+        {/* Auth / Signout Button */}
+        {user ? (
+          <TouchableOpacity
+            style={[styles.authButton, { backgroundColor: '#FF6A5F', marginBottom: 16 }]}
+            onPress={() => {
+              signOut();
+              alert('Sesión cerrada correctamente');
+            }}
+            activeOpacity={0.85}
+          >
+            <ThemedText style={styles.authButtonText}>🚪 Cerrar sesión ({user.email})</ThemedText>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.authButton}
+            onPress={() => router.push('/auth')}
+            activeOpacity={0.85}
+          >
+            <ThemedText style={styles.authButtonText}>🔑 Iniciar sesión</ThemedText>
+          </TouchableOpacity>
+        )}
 
         {/* Notification Activation Button */}
         <TouchableOpacity
@@ -96,6 +120,23 @@ const styles = StyleSheet.create({
   },
   authButtonText: {
     color: '#FAFAF9',
+    fontSize: 15,
+    fontFamily: 'DMSans_700Bold',
+    letterSpacing: -0.35,
+  },
+  tempButton: {
+    backgroundColor: '#3E3E3A',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    height: 48,
+    borderRadius: 360,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CECDC1',
+  },
+  tempButtonText: {
+    color: '#CECDC1',
     fontSize: 15,
     fontFamily: 'DMSans_700Bold',
     letterSpacing: -0.35,
