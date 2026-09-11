@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -7,7 +8,8 @@ import Animated, {
     withSequence,
     withRepeat,
     withTiming,
-    Easing
+    Easing,
+    useReducedMotion,
 } from 'react-native-reanimated';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -18,7 +20,8 @@ export interface AnimatedIconProps {
     style?: any;
 }
 
-export function Square2StackIcon({ size = 28, color = "#292927", style }: AnimatedIconProps) {
+export function Square2StackIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+    const reduceMotion = useReducedMotion();
     const frontX = useSharedValue(0);
     const frontY = useSharedValue(0);
 
@@ -27,6 +30,7 @@ export function Square2StackIcon({ size = 28, color = "#292927", style }: Animat
     const backOpacity = useSharedValue(1);
 
     useEffect(() => {
+        if (reduceMotion) return;
         // Front layer animation: x & y bounces up (+1) and back
         frontX.value = withRepeat(
             withSequence(
@@ -75,7 +79,7 @@ export function Square2StackIcon({ size = 28, color = "#292927", style }: Animat
             -1,
             true
         );
-    }, []);
+    }, [reduceMotion]);
 
     const frontProps = useAnimatedProps(() => ({
         transform: [{ translateX: frontX.value }, { translateY: frontY.value }] as any

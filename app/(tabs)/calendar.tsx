@@ -1,5 +1,7 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Platform, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
@@ -16,17 +18,16 @@ import {
 import { useSession } from '@/services/auth-service';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-
-const { width } = Dimensions.get('window');
+import { HanetButton } from '@/components/ui/hanet-button';
 
 export default function CalendarScreen() {
   // Mon=0, Tue=1, ... Sat=5, Sun=6  (getDay: Sun=0,Mon=1,...Sat=6)
   const todayIndex = (new Date().getDay() + 6) % 7;
   const [selectedPageIndex, setSelectedPageIndex] = useState(todayIndex);
   const pagerRef = useRef<PagerView>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, initializing } = useSession();
   const router = useRouter();
-  const { user } = useSession();
+  const { width } = useWindowDimensions();
 
   const allowedRoles = ['HNT', 'Admin', 'CEE', 'Directiva'];
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -56,40 +57,41 @@ export default function CalendarScreen() {
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Auto-reload events dynamically when the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        // Silent reload when returning from Add Event screen
-        loadEvents(true);
-      }
-    }, [user])
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      pagerRef.current?.setPage(todayIndex);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const loadEvents = async (silent = false) => {
-    if (!user) return;
+  const loadEvents = useCallback(async (silent = false) => {
+    if (initializing) return;
+    if (!user) {
+      setAllEvents([]);
+      setLoadError('Inicia sesión para ver el calendario de tu curso.');
+      setLoading(false);
+      return;
+    }
     if (!silent) setLoading(true);
+    setLoadError(null);
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const courseId = userDoc.data()?.courseId;
       if (courseId) {
         const events = await fetchCalendarEvents(courseId);
         setAllEvents(events);
+      } else {
+        setAllEvents([]);
+        setLoadError('Tu HaNet ID todavía no está vinculado a un curso.');
       }
     } catch (e) {
       console.error(e);
+      setLoadError('No pudimos actualizar el calendario. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [initializing, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!initializing) void loadEvents(true);
+    }, [initializing, loadEvents])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -123,24 +125,16 @@ export default function CalendarScreen() {
   const currentDayInfo = weekDays[selectedPageIndex];
 
   return (
-    <View style={styles.container}>
-      {/* Dev Toggle */}
-      <TouchableOpacity
-        style={styles.devToggle}
-        onPress={() => setIsAdmin(!isAdmin)}
-      >
-        <ThemedText style={{ color: 'white', fontSize: 10 }}>Toggle Rol: {isAdmin ? 'Admin' : 'Normal'}</ThemedText>
-      </TouchableOpacity>
-
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.arrowButton} onPress={goToPrevWeek}>
-          <CustomIcon name="chevron-left" size={20} color="#E2E1DA" />
-        </TouchableOpacity>
+        <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
+          <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
+        </Pressable>
         <ThemedText style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
-        <TouchableOpacity style={styles.arrowButton} onPress={goToNextWeek}>
-          <CustomIcon name="chevron-right" size={20} color="#E2E1DA" />
-        </TouchableOpacity>
+        <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
+          <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
+        </Pressable>
       </View>
 
       {/* Day Selector */}
@@ -150,25 +144,38 @@ export default function CalendarScreen() {
           const dayEvents = getEventsForDate(allEvents, day.dateObj);
           const hasEvents = dayEvents.length > 0;
           return (
-            <TouchableOpacity
+            <Pressable
               key={index}
-              style={[styles.dayChip, isSelected && styles.dayChipSelected]}
+              accessibilityRole="button"
+              accessibilityLabel={`${day.dayName} ${day.date}${hasEvents ? ', con eventos' : ''}`}
+              accessibilityState={{ selected: isSelected }}
+              style={({ pressed }) => [styles.dayChip, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
               onPress={() => handleDaySelect(index)}
-              activeOpacity={0.7}
             >
               <ThemedText style={[styles.dayName, isSelected && styles.dayNameSelected]}>{day.dayName}</ThemedText>
               <ThemedText style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>{day.date}</ThemedText>
               {hasEvents && <View style={styles.eventDot} />}
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
 
       {/* Loading */}
-      {loading ? (
+      {loading || initializing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#93B9A9" />
-          <ThemedText style={styles.loadingText}>Cargando eventos...</ThemedText>
+          <ActivityIndicator size="large" color={AppColors.success} />
+          <ThemedText accessibilityLiveRegion="polite" style={styles.loadingText}>Cargando eventos…</ThemedText>
+        </View>
+      ) : loadError ? (
+        <View accessibilityLiveRegion="polite" style={styles.statusContainer}>
+          <CalendarDaysIcon size={64} color={AppColors.surfaceSoft} />
+          <ThemedText style={styles.emptyTitle}>Calendario no disponible</ThemedText>
+          <ThemedText style={styles.statusText}>{loadError}</ThemedText>
+          <HanetButton
+            label={user ? 'Intentar de nuevo' : 'Iniciar sesión'}
+            onPress={() => user ? void loadEvents() : router.push('/auth')}
+            style={styles.statusButton}
+          />
         </View>
       ) : (
         /* Pages Swipe View */
@@ -186,7 +193,7 @@ export default function CalendarScreen() {
             {weekDays.map((day, index) => (
               <View key={`${weekStart.toISOString()}-${index}`} style={[styles.page, { width }]}>
                 <DailyTimeline
-                  isAdmin={isAdmin || canAddEvents}
+                  isAdmin={canAddEvents}
                   events={getEventsForDate(allEvents, day.dateObj)}
                   refreshing={refreshing}
                   onRefresh={onRefresh}
@@ -204,7 +211,7 @@ export default function CalendarScreen() {
             {weekDays.map((day, index) => (
               <View key={`${weekStart.toISOString()}-${index}`} style={styles.page}>
                 <DailyTimeline
-                  isAdmin={isAdmin || canAddEvents}
+                isAdmin={canAddEvents}
                   events={getEventsForDate(allEvents, day.dateObj)}
                   refreshing={refreshing}
                   onRefresh={onRefresh}
@@ -215,7 +222,7 @@ export default function CalendarScreen() {
         )
       )}
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -225,9 +232,9 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: bo
       <ScrollView
         contentContainerStyle={[styles.timelineScroll, styles.emptyContainer]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#93B9A9" colors={['#93B9A9']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} />}
       >
-        <CalendarDaysIcon size={72} color="#CECDC1" style={{ marginBottom: 12 }} />
+        <CalendarDaysIcon size={72} color={AppColors.surfaceSoft} style={{ marginBottom: 12 }} />
         <ThemedText style={styles.emptyTitle}>Sin eventos</ThemedText>
         <ThemedText style={styles.emptySubtitle}>No hay eventos programados para este día.</ThemedText>
         <View style={{ height: 120 }} />
@@ -239,13 +246,13 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: bo
     <ScrollView
       contentContainerStyle={styles.timelineScroll}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#93B9A9" colors={['#93B9A9']} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} />}
     >
       {events.map((event, index) => (
         <View key={event.id} style={styles.timelineRow}>
           <View style={styles.timeColumn}>
             <View style={[styles.timeBadge, index === 0 && styles.timeBadgeSolid]}>
-              <ThemedText style={[styles.timeText, index === 0 && { color: '#E2E1DA' }]}>
+              <ThemedText style={[styles.timeText, index === 0 && { color: AppColors.textSecondary }]}>
                 {formatTime(new Date(event.startDate))}
               </ThemedText>
             </View>
@@ -271,7 +278,7 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: bo
       ))}
 
       <View style={styles.footerUpdateRow}>
-        <CustomIcon name="check-circle" size={16} color="#93B9A9" />
+        <CustomIcon name="check-circle" size={16} color={AppColors.success} />
         <View style={styles.footerUpdateTextContainer}>
           <ThemedText style={styles.footerUpdateSub}>Sincronizado desde la fuente nativa</ThemedText>
           <ThemedText style={styles.footerUpdateName}>HaNet Calendar v1.0.0</ThemedText>
@@ -288,7 +295,7 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: bo
 }
 
 function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier, subject, eventType, outstanding, cancelled, fullEvent }: any) {
-  const cardColor = cancelled ? '#4A3535' : outstanding ? '#42564F' : '#3E3E3A';
+  const cardColor = cancelled ? '#4A3535' : outstanding ? AppColors.primary : AppColors.surface;
   const router = useRouter();
 
   // Format event type for display
@@ -319,7 +326,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <ThemedText style={[styles.classTitle, cancelled && { textDecorationLine: 'line-through' }]} numberOfLines={2}>
             {cancelled ? `⊘ ${title}` : title}
           </ThemedText>
-          <CustomIcon name="book" size={20} color="#E2E1DA" />
+          <CustomIcon name="book" size={20} color={AppColors.textSecondary} />
         </View>
         <ThemedText style={styles.classTime}>{time}</ThemedText>
 
@@ -343,7 +350,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
 
         {writer && (
           <View style={styles.verifyRow}>
-            <CustomIcon name="check-circle" size={18} color="#34C759" />
+            <CustomIcon name="check-circle" size={18} color={AppColors.success} />
             <View style={styles.verifyTextContainer}>
               <ThemedText style={styles.verifyLabel}>Info. escrita por un miembro de la directiva:</ThemedText>
               <ThemedText style={styles.verifyName}>{writer}</ThemedText>
@@ -353,7 +360,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
 
         {verified && verifier && (
           <View style={styles.verifyRow}>
-            <CustomIcon name="check-circle" size={18} color="#007AFF" />
+            <CustomIcon name="check-circle" size={18} color={AppColors.info} />
             <View style={styles.verifyTextContainer}>
               <ThemedText style={styles.verifyLabel}>Info. verificada por un docente:</ThemedText>
               <ThemedText style={styles.verifyName}>{verifier}</ThemedText>
@@ -362,9 +369,9 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
         )}
       </View>
       {isAdmin && (
-        <TouchableOpacity style={styles.bottomStrip} onPress={handleEdit}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${title}`} style={({ pressed }) => [styles.bottomStrip, pressed && styles.pressed]} onPress={handleEdit}>
           <ThemedText style={styles.bottomStripText}>Editar información</ThemedText>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
@@ -373,7 +380,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#292927',
+    backgroundColor: AppColors.textOnLight,
   },
   addButton: {
     position: 'absolute',
@@ -382,7 +389,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#42564F',
+    backgroundColor: AppColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
@@ -392,28 +399,22 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     zIndex: 1000,
   },
-  devToggle: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    backgroundColor: 'red',
-    padding: 4,
-    borderRadius: 4,
-    zIndex: 100,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 60,
+    marginTop: 8,
     marginBottom: 20,
     paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   arrowButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3E3E3A',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AppColors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -422,47 +423,52 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontFamily: 'DMSans_500Medium',
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
   },
   daySelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 20,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   dayChip: {
-    width: 42,
+    minWidth: 44,
+    flex: 1,
+    maxWidth: 54,
     height: 62,
     borderRadius: 12,
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayChipSelected: {
-    backgroundColor: '#42564F',
+    backgroundColor: AppColors.controlActive,
   },
   dayName: {
     fontSize: 12,
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontFamily: 'DMSans_700Bold',
     marginBottom: 2,
   },
   dayNameSelected: {
-    color: '#93B9A9',
+    color: AppColors.controlOnActive,
   },
   dayNumber: {
     fontSize: 16,
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontFamily: 'DMSans_700Bold',
   },
   dayNumberSelected: {
-    color: '#E2E1DA',
+    color: AppColors.controlOnActive,
   },
   eventDot: {
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#FF6A5F',
+    backgroundColor: AppColors.accent,
     marginTop: 3,
   },
   pagerView: {
@@ -478,10 +484,35 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 14,
     fontFamily: 'DMSans_500Medium',
     opacity: 0.7,
+  },
+  statusContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 100,
+  },
+  statusText: {
+    maxWidth: 360,
+    marginTop: 8,
+    color: AppColors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'DMSans_400Regular',
+    opacity: 0.72,
+    textAlign: 'center',
+  },
+  statusButton: {
+    minWidth: 190,
+    marginTop: 20,
+  },
+  pressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.97 }],
   },
   emptyContainer: {
     flex: 1,
@@ -490,13 +521,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 20,
     fontFamily: 'DMSans_700Bold',
     marginTop: 12,
   },
   emptySubtitle: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 14,
     fontFamily: 'DMSans_400Regular',
     opacity: 0.6,
@@ -504,6 +535,9 @@ const styles = StyleSheet.create({
   timelineScroll: {
     paddingHorizontal: 16,
     paddingBottom: 40,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   timelineRow: {
     flexDirection: 'row',
@@ -518,7 +552,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timeBadge: {
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -530,13 +564,13 @@ const styles = StyleSheet.create({
   timeBadgeGhost: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#3E3E3A',
+    borderColor: AppColors.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   timeText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 12,
     opacity: 0.8,
     fontFamily: 'DMSans_700Bold',
@@ -549,12 +583,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   pillText: {
-    color: '#292927',
+    color: AppColors.textOnLight,
     fontFamily: 'DMSans_700Bold',
     fontSize: 16,
   },
   classCard: {
-    backgroundColor: '#42564F',
+    backgroundColor: AppColors.primary,
     borderRadius: 24,
     borderCurve: 'continuous',
     overflow: 'hidden',
@@ -569,14 +603,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   classTitle: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 16,
     fontFamily: 'DMSans_700Bold',
     flex: 1,
     marginRight: 10,
   },
   classTime: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     opacity: 0.7,
     fontSize: 12,
     fontFamily: 'DMSans_400Regular',
@@ -595,13 +629,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   metaChipText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 11,
     fontFamily: 'DMSans_500Medium',
     opacity: 0.9,
   },
   classDesc: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: 'DMSans_400Regular',
@@ -618,14 +652,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   verifyLabel: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 11,
     lineHeight: 13,
     opacity: 0.8,
     fontFamily: 'DMSans_400Regular',
   },
   verifyName: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 14,
     lineHeight: 16,
     fontFamily: 'DMSans_700Bold',
@@ -638,7 +672,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bottomStripText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 13,
     fontFamily: 'DMSans_700Bold',
   },
@@ -653,21 +687,21 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   footerUpdateSub: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     opacity: 0.7,
     fontSize: 11,
     lineHeight: 13,
     fontFamily: 'DMSans_400Regular',
   },
   footerUpdateName: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 13,
     lineHeight: 15,
     fontFamily: 'DMSans_700Bold',
   },
   footerDisclaimer: {
     textAlign: 'center',
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     opacity: 0.6,
     fontSize: 10,
     fontFamily: 'DMSans_400Regular',

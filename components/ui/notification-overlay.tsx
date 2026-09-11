@@ -1,9 +1,9 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   runOnJS,
   interpolate,
   Extrapolation,
@@ -46,10 +46,10 @@ const MOCK_NOTIFICATIONS: NotificationInfo[] = [
 const getColorForType = (type: NotificationType) => {
   'worklet';
   switch (type) {
-    case 'warning': return '#FF8D28';  // Figma Orange
-    case 'danger': return '#FF383C';   // Red
-    case 'success': return '#34C759';  // Green
-    default: return '#8E8E93';
+    case 'warning': return AppColors.warning;
+    case 'danger': return AppColors.danger;
+    case 'success': return AppColors.success;
+    default: return AppColors.neutral;
   }
 };
 
@@ -130,8 +130,7 @@ export function NotificationOverlay() {
     });
 
   const animatedContainerStyle = useAnimatedStyle(() => {
-    // Height morphing: 
-    // Collapsed: Taller so it extends comfortably above the tab bar (90px).
+    // Collapsed: taller so it emerges softly from behind the tab bar.
     // Expanded: Auto sizing is ideal, but with animations we use a more constrained max height that fits the text securely sans excessive padding.
     const height = interpolate(progress.value, [0, 1], [90, 120], Extrapolation.CLAMP);
 
@@ -141,12 +140,12 @@ export function NotificationOverlay() {
     // Border Radius: Top edges super rounded when expanded, fully round when pill
     const borderTopRadius = interpolate(progress.value, [0, 1], [40, 32], Extrapolation.CLAMP);
 
-    const targetColor = currentNotification ? getColorForType(currentNotification.type) : '#34C759';
+    const targetColor = currentNotification ? getColorForType(currentNotification.type) : AppColors.success;
 
     const morphedColor = interpolateColor(
       progress.value,
       [0, 1],
-      ['#34C759', targetColor]
+      [AppColors.success, targetColor]
     );
 
     return {
@@ -252,11 +251,11 @@ const styles = StyleSheet.create({
     borderColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    // Push the icon higher since the bottom 49px is hidden behind the tab bar
-    transform: [{ translateY: -25 }]
+    // Push the icon higher since the bottom 49px is hidden behind the tab bar.
+    transform: [{ translateY: -25 }],
   },
   badgeText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 12,
     fontWeight: 'bold',
   }

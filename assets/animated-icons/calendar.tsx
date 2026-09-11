@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
@@ -8,7 +9,8 @@ import Animated, {
     withRepeat,
     withTiming,
     withDelay,
-    Easing
+    Easing,
+    useReducedMotion,
 } from 'react-native-reanimated';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -28,11 +30,13 @@ const DOTS = [
     { cx: 16, cy: 18 },
 ];
 
-export function CalendarDaysIcon({ size = 28, color = "#292927", style }: AnimatedIconProps) {
+export function CalendarDaysIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+    const reduceMotion = useReducedMotion();
     // Array of shared values for each dot's opacity
     const opacities = DOTS.map(() => useSharedValue(1));
 
     useEffect(() => {
+        if (reduceMotion) return;
         // Staggered blinking animation for dots
         DOTS.forEach((_, i) => {
             opacities[i].value = withDelay(
@@ -48,7 +52,7 @@ export function CalendarDaysIcon({ size = 28, color = "#292927", style }: Animat
                 )
             );
         });
-    }, []);
+    }, [reduceMotion]);
 
     return (
         <View style={style}>

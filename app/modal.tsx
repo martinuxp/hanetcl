@@ -1,5 +1,6 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, TextInput, TouchableOpacity, Switch, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, TextInput, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -9,14 +10,14 @@ import { ThemedView } from '@/components/themed-view';
 
 // Colores extraídos del Figma
 const COLORS = {
-  background: '#fafaf9',
-  surfacePrimary: '#252f2c', // Color oscuro para headers o inputs según el figma analizado
-  surfaceNeutral2: '#ebebe6', // Gris claro para bordes y pills no seleccionadas
-  surfaceNeutral9: '#292927', // Texto principal oscuro
-  textMuted: '#a0a09f', // opacity 0.75 approximate
-  border: '#ebebe6',
-  pillSelectedBg: '#465a54', // Asumiendo este color para el estado seleccionado basado en el branding (verde oscuro)
-  pillSelectedText: '#fafaf9',
+  background: AppColors.textPrimary,
+  surfacePrimary: AppColors.primaryStrong,
+  surfaceNeutral2: AppColors.neutral2, // Gris claro para bordes y pills no seleccionadas
+  surfaceNeutral9: AppColors.textOnLight, // Texto principal oscuro
+  textMuted: AppColors.neutral8,
+  border: AppColors.neutral2,
+  pillSelectedBg: AppColors.primary, // Asumiendo este color para el estado seleccionado basado en el branding (verde oscuro)
+  pillSelectedText: AppColors.textPrimary,
 };
 
 type PillProp = {
@@ -150,7 +151,7 @@ export default function ModalScreen() {
             style={[styles.checkbox, solicitarVerificacion && styles.checkboxActive]}
             onPress={() => setSolicitarVerificacion(!solicitarVerificacion)}
           >
-            {solicitarVerificacion && <Ionicons name="checkmark" size={14} color="#fafaf9" />}
+            {solicitarVerificacion && <Ionicons name="checkmark" size={14} color={AppColors.textPrimary} />}
           </TouchableOpacity>
           <ThemedText style={styles.checkboxLabel}>
             Solicitar al docente de la asignatura verificar la información después de agregarla
@@ -377,19 +378,19 @@ const styles = StyleSheet.create({
     // Si queremos que el de cancelar sea ligeramente distinto 
   },
   btnCancelText: {
-    color: '#fafaf9',
+    color: AppColors.textPrimary,
     fontWeight: '600',
     fontSize: 15,
   },
   btnAdd: {
-    backgroundColor: COLORS.surfacePrimary, // Color oscuro fuerte para el boton de agregar (#252f2c)
+    backgroundColor: COLORS.surfacePrimary,
     borderTopRightRadius: 30,
     borderBottomRightRadius: 30,
     borderTopLeftRadius: 15,
     borderBottomLeftRadius: 15,
   },
   btnAddText: {
-    color: '#fafaf9',
+    color: AppColors.textPrimary,
     fontWeight: 'bold',
     fontSize: 15,
   },

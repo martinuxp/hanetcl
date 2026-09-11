@@ -1,7 +1,7 @@
+import { AppColors } from '@/constants/design-tokens';
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { TouchableRipple } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
 // Premium Native Animated Icons
@@ -27,18 +27,22 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
   const router = useRouter();
 
   return (
-    <TouchableRipple
-      style={[styles.gridItem, { height }]}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={href ? `Abrir ${title}` : 'Próximamente disponible'}
+      accessibilityState={{ disabled: !href }}
+      disabled={!href}
+      style={({ pressed }) => [styles.gridItem, { height }, pressed && styles.gridItemPressed, !href && styles.gridItemUnavailable]}
       onPress={() => {
         if (href) router.push(href);
       }}
-      rippleColor="rgba(255, 255, 255, 0.2)"
     >
       {isSideBadge ? (
         <View style={styles.gridItemInnerSide}>
           <View style={styles.sideContent}>
             <View style={styles.iconContainerSide}>
-              <IconComponent size={iconSize || 28} color="#292927" />
+              <IconComponent size={iconSize || 28} color={AppColors.textOnLight} />
             </View>
             <ThemedText style={styles.itemTitleSide}>{title}</ThemedText>
           </View>
@@ -57,12 +61,12 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
             </View>
           )}
           <View style={styles.iconContainerDefault}>
-            <IconComponent size={iconSize || 32} color="#292927" />
+            <IconComponent size={iconSize || 32} color={AppColors.textOnLight} />
           </View>
           <ThemedText style={styles.itemTitleDefault}>{title}</ThemedText>
         </View>
       )}
-    </TouchableRipple>
+    </Pressable>
   );
 }
 
@@ -75,14 +79,15 @@ export default function GridMenu() {
           title="Eventos"
           IconComponent={SparklesIcon}
           height={148}
+          href="/events"
         />
         <GridItem
-          title="Mis clases"
+          title="ClassHall"
           IconComponent={GraduationCapIcon}
           height={102}
         />
         <GridItem
-          title="Pagos"
+          title="HaNet Wallet"
           IconComponent={HandCoinsIcon}
           height={82}
           iconSize={26}
@@ -132,10 +137,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   gridItem: {
-    backgroundColor: '#CECDC1',
+    backgroundColor: AppColors.surfaceSoft,
     borderRadius: 24,
     borderCurve: 'continuous',
     overflow: 'hidden',
+  },
+  gridItemPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
+  gridItemUnavailable: {
+    opacity: 0.82,
   },
   /* Default Layout Styles */
   gridItemInnerDefault: {
@@ -150,7 +162,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 32,
-    backgroundColor: '#52524D',
+    backgroundColor: AppColors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -159,13 +171,13 @@ const styles = StyleSheet.create({
     lineHeight: 13.53,
     letterSpacing: -0.275,
     fontFamily: 'DMSans_700Bold',
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
   },
   iconContainerDefault: {
     marginBottom: 8,
   },
   itemTitleDefault: {
-    color: '#292927',
+    color: AppColors.textOnLight,
     fontSize: 16,
     lineHeight: 19.68,
     letterSpacing: -0.4,
@@ -188,7 +200,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   itemTitleSide: {
-    color: '#292927',
+    color: AppColors.textOnLight,
     fontSize: 16,
     lineHeight: 19.68,
     letterSpacing: -0.4,
@@ -197,7 +209,7 @@ const styles = StyleSheet.create({
   },
   sideBadge: {
     width: 62,
-    backgroundColor: '#52524D',
+    backgroundColor: AppColors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -206,7 +218,7 @@ const styles = StyleSheet.create({
     lineHeight: 12.87,
     letterSpacing: -0.325,
     fontFamily: 'DMSans_700Bold',
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     marginBottom: 2,
   },
   sideBadgeTextSub: {
@@ -214,7 +226,7 @@ const styles = StyleSheet.create({
     lineHeight: 9.9,
     letterSpacing: -0.25,
     fontFamily: 'DMSans_500Medium',
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     opacity: 0.7,
   },
 });

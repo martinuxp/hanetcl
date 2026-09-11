@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -8,7 +9,8 @@ import Animated, {
     withSequence,
     withRepeat,
     withTiming,
-    Easing
+    Easing,
+    useReducedMotion,
 } from 'react-native-reanimated';
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -19,11 +21,13 @@ export interface AnimatedIconProps {
     style?: any;
 }
 
-export function MessageCircleIcon({ size = 28, color = "#292927", style }: AnimatedIconProps) {
+export function MessageCircleIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+    const reduceMotion = useReducedMotion();
     const rotation = useSharedValue(0);
     const scale = useSharedValue(1);
 
     useEffect(() => {
+        if (reduceMotion) return;
         // Wiggle rotation and bounce scale indefinitely
         const startWiggle = () => {
             rotation.value = withRepeat(
@@ -49,7 +53,7 @@ export function MessageCircleIcon({ size = 28, color = "#292927", style }: Anima
         };
 
         startWiggle();
-    }, []);
+    }, [reduceMotion]);
 
     const svgProps = useAnimatedProps(() => ({
         // Setting transform origins directly on SVG isn't simple, so we rotate about center

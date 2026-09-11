@@ -1,4 +1,4 @@
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { calendarDb } from './firebase';
 
 export interface CalendarEvent {
@@ -20,19 +20,31 @@ export interface CalendarEvent {
 
 export async function fetchCalendarEvents(courseId: string): Promise<CalendarEvent[]> {
   try {
-    const q = query(collection(calendarDb, `HNC-LCH.${courseId}`), orderBy('createdAt', 'asc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(calendarDb, `HNC-LCH.${courseId}`));
 
     return snapshot.docs.map(doc => {
       const data = doc.data();
-      // Use createdAt as fallback startDate if date format missing
-      const startDateObj = data.createdAt ? data.createdAt.toDate() : new Date();
+      const toDate = (value: unknown, fallback: Date) => {
+        if (value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+          return (value as { toDate: () => Date }).toDate();
+        }
+        if (value instanceof Date) return value;
+        if (typeof value === 'string' || typeof value === 'number') {
+          const parsed = new Date(value);
+          if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+        return fallback;
+      };
+
+      const createdAt = toDate(data.createdAt, new Date(0));
+      const startDateObj = toDate(data.startDate, createdAt.getTime() ? createdAt : new Date());
+      const endDateObj = toDate(data.endDate, new Date(startDateObj.getTime() + 90 * 60 * 1000));
 
       return {
         id: doc.id,
         title: data.title || 'Sin título',
         startDate: startDateObj,
-        endDate: new Date(startDateObj.getTime() + 60 * 60 * 1000), // Default 1hr
+        endDate: endDateObj,
         description: data.description || 'No hay descripción disponible.',
         location: data.location,
         writer: data.authorName,
@@ -43,7 +55,7 @@ export async function fetchCalendarEvents(courseId: string): Promise<CalendarEve
         outstanding: data.outstanding || false,
         cancelled: data.title?.toUpperCase().includes('CANCELADA') || false,
       };
-    });
+    }).sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   } catch (error) {
     console.error('Error fetching Firebase events:', error);
     return [];

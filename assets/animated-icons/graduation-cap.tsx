@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, G } from 'react-native-svg';
@@ -9,6 +10,7 @@ import Animated, {
     withRepeat,
     withDelay,
     Easing,
+    useReducedMotion,
 } from 'react-native-reanimated';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
@@ -20,12 +22,14 @@ export interface AnimatedIconProps {
     style?: any;
 }
 
-export function GraduationCapIcon({ size = 28, color = "#292927", style }: AnimatedIconProps) {
+export function GraduationCapIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+    const reduceMotion = useReducedMotion();
     const capY = useSharedValue(0);
     const capRotate = useSharedValue(0);
     const tasselRotate = useSharedValue(0);
 
     useEffect(() => {
+        if (reduceMotion) return;
         // We recreate the Framer motion variants behavior using useSharedValue and withSequence
 
         // Cap animation: y: [0, -2, 0], rotate: [0, -2, 2, 0], duration: 0.6
@@ -65,7 +69,7 @@ export function GraduationCapIcon({ size = 28, color = "#292927", style }: Anima
                 true
             )
         );
-    }, []);
+    }, [reduceMotion]);
 
     const capProps = useAnimatedProps(() => {
         // Translate origin to center (12, 12), rotate, translate back

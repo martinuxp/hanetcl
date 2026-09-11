@@ -1,10 +1,72 @@
 const functions = require("firebase-functions");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+const { FieldValue } = require("firebase-admin/firestore");
 const ical = require("ical-generator").default;
 
 // We delay the initialization to avoid deployment timeouts
 let app;
+
+function normalizeRut(value) {
+  return String(value || "")
+    .replace(/[^0-9kK]/g, "")
+    .toUpperCase();
+}
+
+function getAdminApp() {
+  if (!app) {
+    app = initializeApp();
+  }
+  return app;
+}
+
+// Creates a pending identity-link request. Approval is intentionally separate
+// so knowing a RUT is never enough to claim an academic identity.
+exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const rut = normalizeRut(data && data.rut);
+  if (!rut || rut.length < 7 || rut.length > 10) {
+    throw new functions.https.HttpsError("invalid-argument", "El RUT no es válido.");
+  }
+
+  const adminApp = getAdminApp();
+  const enrollmentDb = getFirestore(adminApp, "hn-enrollmentdata");
+  const enrollmentRef = enrollmentDb.collection("LCH-enroll-hn").doc(rut);
+  const enrollment = await enrollmentRef.get();
+
+  // Keep the response deliberately generic to avoid exposing enrollment data.
+  if (!enrollment.exists) {
+    throw new functions.https.HttpsError("not-found", "No se pudo procesar la solicitud.");
+  }
+
+  const existing = await enrollmentDb
+    .collection("identityLinkRequests")
+    .where("firebaseUid", "==", context.auth.uid)
+    .where("rut", "==", rut)
+    .where("status", "==", "pending")
+    .limit(1)
+    .get();
+
+  if (!existing.empty) {
+    return { requestId: existing.docs[0].id, status: "pending" };
+  }
+
+  const requestRef = enrollmentDb.collection("identityLinkRequests").doc();
+  await requestRef.set({
+    firebaseUid: context.auth.uid,
+    rut,
+    institutionId: data && typeof data.institutionId === "string"
+      ? data.institutionId.trim()
+      : null,
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { requestId: requestRef.id, status: "pending" };
+});
 
 exports.icalFeed = functions.https.onRequest(async (req, res) => {
   const courseId = req.query.courseId;
@@ -15,11 +77,9 @@ exports.icalFeed = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    if (!app) {
-      app = initializeApp();
-    }
+    const adminApp = getAdminApp();
     // Access the specifically named database for events
-    const db = getFirestore(app, "hn-calendar");
+    const db = getFirestore(adminApp, "hn-calendar");
     const eventsRef = db.collection(`HNC-LCH.${courseId}`);
     const snapshot = await eventsRef.get();
 

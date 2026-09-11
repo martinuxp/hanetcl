@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -9,6 +10,7 @@ import Animated, {
     withRepeat,
     withDelay,
     withTiming,
+    useReducedMotion,
 } from 'react-native-reanimated';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -19,7 +21,8 @@ export interface AnimatedIconProps {
     style?: any;
 }
 
-export function HandCoinsIcon({ size = 28, color = "#292927", style }: AnimatedIconProps) {
+export function HandCoinsIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+    const reduceMotion = useReducedMotion();
     const coin1Opacity = useSharedValue(0);
     const coin1Y = useSharedValue(-20);
 
@@ -27,6 +30,13 @@ export function HandCoinsIcon({ size = 28, color = "#292927", style }: AnimatedI
     const coin2Y = useSharedValue(-20);
 
     useEffect(() => {
+        if (reduceMotion) {
+            coin1Opacity.value = 1;
+            coin1Y.value = 0;
+            coin2Opacity.value = 1;
+            coin2Y.value = 0;
+            return;
+        }
         const springConfig = { damping: 15, stiffness: 150 };
 
         // Coin 1 drop
@@ -83,7 +93,7 @@ export function HandCoinsIcon({ size = 28, color = "#292927", style }: AnimatedI
 
         dropCoin1();
         dropCoin2();
-    }, []);
+    }, [reduceMotion]);
 
     const coin1Props = useAnimatedProps(() => ({
         opacity: coin1Opacity.value,

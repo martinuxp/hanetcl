@@ -7,10 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.muxp.hanetcl",
+      "bundleIdentifier": "art.muxp.hanetcl",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -25,9 +24,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.muxp.hanetcl"
+      "package": "art.muxp.hanetcl"
     },
     "web": {
       "output": "static",
@@ -61,6 +59,12 @@
         "projectId": "e886d8e0-3ad3-4978-bbaa-1c310b001d28"
       }
     },
-    "owner": "muxp"
+    "owner": "muxp",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e886d8e0-3ad3-4978-bbaa-1c310b001d28"
+    }
   }
 }

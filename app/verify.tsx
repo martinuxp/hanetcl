@@ -1,3 +1,4 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState, useRef } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -7,7 +8,7 @@ import Svg, { Path } from 'react-native-svg';
 function HanetLogo() {
   return (
     <Svg width={40} height={40} viewBox="0 0 24 36" fill="none">
-      <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill="#FF6A5F" />
+      <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill={AppColors.accent} />
     </Svg>
   );
 }
@@ -118,7 +119,7 @@ export default function VerifyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#292927' },
+  container: { flex: 1, backgroundColor: AppColors.textOnLight },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center',
@@ -132,13 +133,13 @@ const styles = StyleSheet.create({
   backButton: {
     width: 56, height: 40, justifyContent: 'center', alignItems: 'center',
   },
-  backArrow: { fontSize: 22, color: '#FAFAF9' },
+  backArrow: { fontSize: 22, color: AppColors.textPrimary },
   topBarTitle: {
-    fontSize: 18, fontFamily: 'DMSans_500Medium', color: '#FAFAF9',
+    fontSize: 18, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary,
   },
 
   card: {
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     borderRadius: 32, marginHorizontal: 12,
     padding: 32, gap: 20,
   },
@@ -147,11 +148,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headline: {
-    fontSize: 22, fontFamily: 'DMSans_700Bold', color: '#FAFAF9', letterSpacing: -0.6,
+    fontSize: 22, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, letterSpacing: -0.6,
   },
 
   subtitle: {
-    fontSize: 14, fontFamily: 'DMSans_400Regular', color: '#FAFAF9', opacity: 0.8, lineHeight: 20,
+    fontSize: 14, fontFamily: 'DMSans_400Regular', color: AppColors.textPrimary, opacity: 0.8, lineHeight: 20,
   },
   emailHighlight: {
     fontFamily: 'DMSans_700Bold', opacity: 1,
@@ -159,31 +160,31 @@ const styles = StyleSheet.create({
 
   codeRow: { flexDirection: 'row', gap: 12, justifyContent: 'center' },
   codeInput: {
-    width: 63, height: 83, backgroundColor: '#292927',
+    width: 63, height: 83, backgroundColor: AppColors.textOnLight,
     borderRadius: 16, fontSize: 28, fontFamily: 'DMSans_700Bold',
-    color: '#FAFAF9', textAlign: 'center',
+    color: AppColors.textPrimary, textAlign: 'center',
   },
 
   resendText: {
-    fontSize: 13, fontFamily: 'DMSans_500Medium', color: '#FAFAF9',
+    fontSize: 13, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary,
     opacity: 0.7, textAlign: 'center',
   },
 
   verifyButton: {
-    backgroundColor: '#465A54', height: 56, borderRadius: 28,
+    backgroundColor: AppColors.primary, height: 56, borderRadius: 28,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  verifyText: { fontSize: 15, fontFamily: 'DMSans_700Bold', color: '#FAFAF9' },
-  verifyArrow: { fontSize: 18, color: '#FAFAF9' },
+  verifyText: { fontSize: 15, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
+  verifyArrow: { fontSize: 18, color: AppColors.textPrimary },
 
   errorRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   errorIcon: { fontSize: 16 },
-  errorText: { fontSize: 12, fontFamily: 'DMSans_500Medium', color: '#FF6A5F' },
+  errorText: { fontSize: 12, fontFamily: 'DMSans_500Medium', color: AppColors.accent },
 
   explainText: {
-    fontSize: 13, fontFamily: 'DMSans_400Regular', color: '#FAFAF9',
+    fontSize: 13, fontFamily: 'DMSans_400Regular', color: AppColors.textPrimary,
     opacity: 0.6, textAlign: 'center', lineHeight: 18,
   },
 });

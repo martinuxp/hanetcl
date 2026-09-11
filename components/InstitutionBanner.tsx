@@ -1,5 +1,6 @@
+import { AppColors } from '@/constants/design-tokens';
 import React from 'react';
-import { View, StyleSheet, ImageBackground, Image } from 'react-native';
+import { View, StyleSheet, ImageBackground, Image, Platform } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 
 export default function InstitutionBanner() {
@@ -36,10 +37,9 @@ const styles = StyleSheet.create({
     height: 105,
     width: '100%',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    ...(Platform.OS === 'web'
+      ? ({ boxShadow: '0 4px 10px rgba(0,0,0,0.3)' } as any)
+      : { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }),
     elevation: 8,
   },
   imageStyle: {
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 32,
     borderCurve: 'continuous',
@@ -71,14 +71,14 @@ const styles = StyleSheet.create({
     height: 67,
   },
   title: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 24,
     lineHeight: 28.8,
     letterSpacing: -1.08,
     fontFamily: 'DMSans_700Bold',
     marginBottom: 0,
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 5.1,
+    ...(Platform.OS === 'web'
+      ? ({ textShadow: '0 4px 5px rgba(0,0,0,0.7)' } as any)
+      : { textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 5.1 }),
   },
 });

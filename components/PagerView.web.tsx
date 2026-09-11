@@ -3,7 +3,7 @@
 // This file is automatically picked by the Metro bundler on web (.web.tsx).
 
 import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView } from 'react-native';
 
 // Minimal interface matching what calendar.tsx uses
 interface PagerViewProps {

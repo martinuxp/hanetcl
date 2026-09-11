@@ -1,0 +1,85 @@
+import type { RegionalEvent } from '@/types/regional-events';
+
+/**
+ * Cartelera local para desarrollo visual y pruebas de navegación.
+ * Nunca se muestra en producción: la fuente definitiva es hn-events/regionalEvents.
+ */
+export const regionalEventFixtures: RegionalEvent[] = [
+  {
+    id: 'demo-musica-temuco',
+    slug: 'demo-musica-temuco',
+    title: 'Ciclo de música local — evento de prueba',
+    category: 'music',
+    summary: 'Una ficha de prueba para validar la vista de eventos, filtros y navegación.',
+    description: 'Este evento es parte de la cartelera de demostración de HaNet. Sus datos no corresponden a una actividad publicada.',
+    organizer: 'HaNet · datos de prueba',
+    images: [{ url: require('@/assets/events/candelabro-tour-chile.png'), alt: 'Integrantes de Candelabro en un lago' }],
+    location: { venueName: 'Espacio cultural de prueba', address: 'Centro de Temuco', city: 'Temuco', region: 'La Araucanía', country: 'CL' },
+    startsAt: new Date('2026-09-05T19:00:00-03:00'),
+    timezone: 'America/Santiago',
+    price: { currency: 'CLP', min: 4000, isFree: false, label: 'Desde $4.000' },
+    source: { type: 'community', name: 'Datos de prueba HaNet', url: '', ingestion: 'manual' },
+    offers: [{ type: 'student', label: 'Beneficio estudiante de prueba', verification: 'verified', requirements: 'Presentar credencial estudiantil.' }],
+    status: 'published',
+    featured: true,
+  },
+  {
+    id: 'demo-expo-temuco',
+    slug: 'demo-expo-temuco',
+    title: 'Muestra visual abierta — evento de prueba',
+    category: 'exhibition',
+    summary: 'Prueba de un evento gratuito y su estado de cartelera.',
+    description: 'Este evento es parte de la cartelera de demostración de HaNet. Sus datos no corresponden a una actividad publicada.',
+    organizer: 'HaNet · datos de prueba',
+    images: [{ url: require('@/assets/events/feria-universitaria.png'), alt: 'Encuentro de estudiantes en un gimnasio' }],
+    location: { venueName: 'Sala de exposiciones de prueba', address: 'Centro de Temuco', city: 'Temuco', region: 'La Araucanía', country: 'CL' },
+    startsAt: new Date('2026-09-12T12:00:00-03:00'),
+    endsAt: new Date('2026-09-12T18:00:00-03:00'),
+    timezone: 'America/Santiago',
+    price: { currency: 'CLP', isFree: true, label: 'Entrada liberada' },
+    source: { type: 'community', name: 'Datos de prueba HaNet', url: '', ingestion: 'manual' },
+    offers: [],
+    status: 'published',
+    featured: true,
+  },
+  {
+    id: 'demo-deportes-temuco',
+    slug: 'demo-deportes-temuco',
+    title: 'Encuentro deportivo universitario — evento de prueba',
+    category: 'sports',
+    summary: 'Prueba para la categoría Deportes y precios de cartelera.',
+    description: 'Este evento es parte de la cartelera de demostración de HaNet. Sus datos no corresponden a una actividad publicada.',
+    organizer: 'HaNet · datos de prueba',
+    images: [{ url: require('@/assets/events/feria-universitaria-thumb.png'), alt: 'Encuentro de estudiantes en un gimnasio' }],
+    location: { venueName: 'Recinto deportivo de prueba', address: 'Temuco', city: 'Temuco', region: 'La Araucanía', country: 'CL' },
+    startsAt: new Date('2026-09-19T16:00:00-03:00'),
+    timezone: 'America/Santiago',
+    price: { currency: 'CLP', min: 2500, max: 5000, isFree: false, label: 'Desde $2.500' },
+    source: { type: 'community', name: 'Datos de prueba HaNet', url: '', ingestion: 'manual' },
+    offers: [],
+    status: 'published',
+    featured: false,
+  },
+  {
+    id: 'demo-familia-temuco',
+    slug: 'demo-familia-temuco',
+    title: 'Tarde familiar en la ciudad — evento de prueba',
+    category: 'family',
+    summary: 'Prueba de una actividad familiar dentro de la cartelera regional.',
+    description: 'Este evento es parte de la cartelera de demostración de HaNet. Sus datos no corresponden a una actividad publicada.',
+    organizer: 'HaNet · datos de prueba',
+    images: [{ url: require('@/assets/events/candelabro-tour-chile.png'), alt: 'Integrantes de Candelabro en un lago' }],
+    location: { venueName: 'Plaza de prueba', address: 'Temuco', city: 'Temuco', region: 'La Araucanía', country: 'CL' },
+    startsAt: new Date('2026-09-26T15:00:00-03:00'),
+    timezone: 'America/Santiago',
+    price: { currency: 'CLP', isFree: true, label: 'Entrada liberada' },
+    source: { type: 'community', name: 'Datos de prueba HaNet', url: '', ingestion: 'manual' },
+    offers: [],
+    status: 'published',
+    featured: false,
+  },
+];
+
+export function isDemoRegionalEvent(event: RegionalEvent): boolean {
+  return event.source.name === 'Datos de prueba HaNet';
+}

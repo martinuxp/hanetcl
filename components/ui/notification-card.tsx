@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
+import { AppColors } from '@/constants/design-tokens';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -27,7 +28,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
     }
   };
 
-  const targetTextColor = (notification.type === 'danger' || notification.type === 'success') ? '#E2E1DA' : '#292927';
+  const targetTextColor = (notification.type === 'danger' || notification.type === 'success') ? AppColors.textSecondary : AppColors.textOnLight;
   const targetDescColor = (notification.type === 'danger' || notification.type === 'success') ? 'rgba(226, 225, 218, 0.8)' : 'rgba(41, 41, 39, 0.8)';
 
   // We use key on this component to trigger unmount/remount for FadeIn/FadeOut animations 
@@ -72,7 +73,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 19.68,
     letterSpacing: -0.4,
-    color: '#292927', // Default, overridden inline
+    color: AppColors.textOnLight, // Default, overridden inline
     marginBottom: 4,
     fontFamily: 'DMSans_700Bold', 
   },

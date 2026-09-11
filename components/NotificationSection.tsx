@@ -1,5 +1,6 @@
+import { AppColors } from '@/constants/design-tokens';
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { TouchableRipple } from 'react-native-paper';
@@ -9,7 +10,7 @@ export default function NotificationSection() {
     <View style={styles.container}>
       {/* Summary Bar */}
       <View style={styles.summaryBar}>
-        <CustomIcon name="notification" size={24} color="#FF6B6B" />
+        <CustomIcon name="notification" size={24} color={AppColors.accent} />
         <ThemedText style={styles.summaryText}>Tienes 3 notificaciones</ThemedText>
       </View>
 
@@ -22,7 +23,7 @@ export default function NotificationSection() {
             </View>
             <ThemedText style={styles.senderName}>Pagos UA Tco</ThemedText>
             {/* Note: In a real environment, you'd add a chevron right icon here, using standard text for now as it's not a major issue */}
-            <ThemedText style={{ color: '#465a54' }}>{'>'}</ThemedText>
+            <ThemedText style={{ color: AppColors.primary }}>{'>'}</ThemedText>
           </View>
           <ThemedText style={styles.timeText}>25m</ThemedText>
         </View>
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
     marginBottom: 80, // Space for Floating Alert and Bottom Tab Bar
   },
   summaryBar: {
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -61,14 +62,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   summaryText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 16,
     lineHeight: 19.68,
     letterSpacing: -0.4,
     fontFamily: 'DMSans_700Bold',
   },
   card: {
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     borderRadius: 32,
     borderCurve: 'continuous',
     padding: 24,
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: '#FAFAF9',
+    backgroundColor: AppColors.textPrimary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   notificationTitle: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 16,
     lineHeight: 19.68,
     letterSpacing: -0.4,
@@ -108,14 +109,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   senderName: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 18,
     lineHeight: 25.2,
     letterSpacing: -0.63,
     fontFamily: 'DMSans_500Medium',
   },
   timeText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     opacity: 0.7,
     fontSize: 14,
     fontFamily: 'DMSans_500Medium',
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
   },
   messageText: {
-    color: '#E2E1DA',
+    color: AppColors.textSecondary,
     fontSize: 14,
     fontFamily: 'DMSans_400Regular',
     lineHeight: 21,
@@ -132,14 +133,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   deleteButton: {
-    backgroundColor: '#FF6A5F',
+    backgroundColor: AppColors.accent,
     borderRadius: 30,
     borderCurve: 'continuous',
     paddingVertical: 12,
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#292927',
+    color: AppColors.textOnLight,
     fontSize: 14,
     fontFamily: 'DMSans_600SemiBold',
     lineHeight: 21,

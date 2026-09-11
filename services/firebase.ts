@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDK__CRF5iUlnGnRlembV9XUsnnajkFMaA",
@@ -15,21 +14,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// On web, getReactNativePersistence is not available. Use getAuth() instead.
-// On native, use initializeAuth with AsyncStorage persistence.
-let auth: ReturnType<typeof getAuth>;
+// Firebase JS SDK v12 does not expose getReactNativePersistence from the
+// public auth entrypoint. Keep one auth instance for every platform; native
+// persistence can be added later with a supported adapter without breaking
+// the current build.
+const auth = getAuth(app);
 const db = getFirestore(app, "hn-enrollmentdata");
 const calendarDb = getFirestore(app, "hn-calendar");
+// Regional events must remain isolated from institutional enrollment and course calendars.
+// Create this Firestore database before enabling the Events screen in production.
+const eventsDb = getFirestore(app, "hn-events");
 
-if (Platform.OS === 'web') {
-  auth = getAuth(app);
-} else {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const ReactNativeAsyncStorage = require('@react-native-async-storage/async-storage').default;
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-  });
-}
-
-export { auth, db, calendarDb };
+export { auth, db, calendarDb, eventsDb };
 export default app;

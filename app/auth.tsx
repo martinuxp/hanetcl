@@ -1,23 +1,23 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
-import { 
-  useGoogleAuth, 
-  useSession, 
+import {
+  useSession,
   signInWithEmail, 
   signUpWithEmail,
   checkEnrollment,
   resetPassword 
 } from '@/services/auth-service';
-import { SvgXml } from 'react-native-svg';
 import Svg, { Path, Rect, G, ClipPath, Defs } from 'react-native-svg';
 
 // Hanet logo (simplified from HanetCalendarvector.svg)
 function HanetLogo() {
   return (
     <Svg width={40} height={40} viewBox="0 0 24 36" fill="none">
-      <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill="#FF6A5F" />
+      <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill={AppColors.accent} />
     </Svg>
   );
 }
@@ -45,7 +45,6 @@ export default function AuthScreen() {
   const [rut, setRut] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'none'>('none');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const { user } = useSession();
   const [loading, setLoading] = useState(false);
@@ -105,7 +104,7 @@ export default function AuthScreen() {
     try {
       await resetPassword(email);
       alert('Correo de recuperación enviado.');
-    } catch (err) {
+    } catch {
       setError('Error al enviar el correo.');
     }
   };
@@ -115,22 +114,26 @@ export default function AuthScreen() {
     if (user) {
       router.replace('/(tabs)');
     }
-  }, [user]);
+  }, [router, user]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
           {/* Segmented Picker */}
           <View style={styles.segmentedPicker}>
             <TouchableOpacity
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'login' }}
               style={[styles.segmentBtn, activeTab === 'login' && styles.segmentBtnActive]}
               onPress={() => setActiveTab('login')}
             >
               <ThemedText style={[styles.segmentText, activeTab === 'login' && styles.segmentTextActive]}>Cuenta existente</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'signup' }}
               style={[styles.segmentBtn, activeTab === 'signup' && styles.segmentBtnActive]}
               onPress={() => setActiveTab('signup')}
             >
@@ -140,7 +143,7 @@ export default function AuthScreen() {
 
           {/* Welcome text */}
           {activeTab === 'login' && (
-            <ThemedText style={styles.welcomeText}>¡Que bien que vuelves!</ThemedText>
+            <ThemedText style={styles.welcomeText}>¡Qué bien que vuelves!</ThemedText>
           )}
 
           {/* Headline + Logo */}
@@ -155,6 +158,7 @@ export default function AuthScreen() {
               <View style={styles.inputContainer}>
                 <ThemedText style={styles.inputLabel}>RUT del alumno</ThemedText>
                 <TextInput
+                  accessibilityLabel="RUT del alumno"
                   style={styles.inputField}
                   value={rut}
                   onChangeText={setRut}
@@ -167,6 +171,7 @@ export default function AuthScreen() {
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>Email</ThemedText>
               <TextInput
+                accessibilityLabel="Correo electrónico"
                 style={styles.inputField}
                 value={email}
                 onChangeText={setEmail}
@@ -180,12 +185,13 @@ export default function AuthScreen() {
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>Contraseña</ThemedText>
               <TextInput
+                accessibilityLabel="Contraseña"
                 style={styles.inputField}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
                 placeholderTextColor="rgba(250,250,249,0.3)"
-                secureTextEntry={!showPassword}
+                secureTextEntry
               />
             </View>
 
@@ -194,18 +200,27 @@ export default function AuthScreen() {
                 {/* Gender picker */}
                 <View style={styles.genderPicker}>
                   <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityLabel="Masculino"
+                    accessibilityState={{ selected: gender === 'male' }}
                     style={[styles.genderBtn, gender === 'male' && styles.genderBtnActive]}
                     onPress={() => setGender('male')}
                   >
                     <ThemedText style={styles.genderIcon}>♂</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityLabel="Femenino"
+                    accessibilityState={{ selected: gender === 'female' }}
                     style={[styles.genderBtn, gender === 'female' && styles.genderBtnActive]}
                     onPress={() => setGender('female')}
                   >
                     <ThemedText style={styles.genderIcon}>♀</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityLabel="Prefiero no decirlo"
+                    accessibilityState={{ selected: gender === 'none' }}
                     style={[styles.genderBtn, gender === 'none' && styles.genderBtnActive]}
                     onPress={() => setGender('none')}
                   >
@@ -214,7 +229,7 @@ export default function AuthScreen() {
                 </View>
 
                 {/* T&C checkbox */}
-                <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
+                <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }} style={styles.checkboxRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
                   <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
                     {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
                   </View>
@@ -224,24 +239,26 @@ export default function AuthScreen() {
             )}
 
             {activeTab === 'login' && (
-              <TouchableOpacity onPress={handleForgotPassword}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Recuperar contraseña" style={styles.forgotButton} onPress={handleForgotPassword}>
                 <ThemedText style={styles.forgotText}>¿Olvidaste tus credenciales?</ThemedText>
               </TouchableOpacity>
             )}
 
             {error && (
-              <ThemedText style={{ color: '#FF6A5F', textAlign: 'center', marginBottom: 15, fontSize: 13 }}>
+              <ThemedText accessibilityLiveRegion="polite" style={{ color: AppColors.accent, textAlign: 'center', marginBottom: 15, fontSize: 13 }}>
                 {error}
               </ThemedText>
             )}
 
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
               style={[styles.ctaButton, loading && { opacity: 0.7 }]}
               onPress={handleEmailAuth}
               disabled={loading}
             >
               <ThemedText style={styles.ctaText}>
-                {loading ? 'Procesando...' : (activeTab === 'login' ? '¡Iniciemos!' : 'Crear cuenta HaNet ID')}
+                {loading ? 'Procesando…' : (activeTab === 'login' ? '¡Iniciemos!' : 'Crear cuenta HaNet ID')}
               </ThemedText>
               {!loading && <ThemedText style={styles.ctaArrow}>→</ThemedText>}
             </TouchableOpacity>
@@ -256,9 +273,12 @@ export default function AuthScreen() {
               )}
             </View>
             <TouchableOpacity 
+              accessibilityRole="button"
+              accessibilityLabel="Inicio con Google desactivado"
+              accessibilityState={{ disabled: true }}
+              disabled
               style={[styles.googleButton, { opacity: 0.5, backgroundColor: '#f5f5f5' }]} 
               activeOpacity={1}
-              onPress={() => alert('Inicio con Google desactivado temporalmente.')}
             >
               <GoogleIcon />
               <ThemedText style={[styles.googleText, { color: '#999' }]}>
@@ -269,18 +289,18 @@ export default function AuthScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#292927' },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 60, paddingVertical: 40 },
+  container: { flex: 1, backgroundColor: AppColors.textOnLight },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', width: '100%', maxWidth: 560, alignSelf: 'center', paddingBottom: 60, paddingVertical: 40 },
 
   // Segmented Picker
   segmentedPicker: {
     flexDirection: 'row',
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     borderRadius: 24,
     marginHorizontal: 44,
     padding: 8,
@@ -288,23 +308,23 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
-    height: 32,
-    borderRadius: 16,
+    minHeight: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  segmentBtnActive: { backgroundColor: '#465A54' },
+  segmentBtnActive: { backgroundColor: AppColors.controlActive },
   segmentText: {
     fontSize: 13,
     fontFamily: 'DMSans_500Medium',
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     opacity: 0.5,
   },
-  segmentTextActive: { opacity: 1 },
+  segmentTextActive: { opacity: 1, color: AppColors.controlOnActive, fontFamily: 'DMSans_700Bold' },
 
   // Welcome
   welcomeText: {
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     fontSize: 14,
     fontFamily: 'DMSans_500Medium',
     opacity: 0.7,
@@ -323,7 +343,7 @@ const styles = StyleSheet.create({
   headline: {
     fontSize: 32,
     fontFamily: 'DMSans_700Bold',
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     letterSpacing: -1.2,
     lineHeight: 38,
     paddingTop: 8,
@@ -332,7 +352,7 @@ const styles = StyleSheet.create({
   // Forms
   formSection: { paddingHorizontal: 44, gap: 16 },
   inputContainer: {
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 9,
@@ -342,14 +362,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontFamily: 'DMSans_400Regular',
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     opacity: 0.5,
     lineHeight: 14,
   },
   inputField: {
     fontSize: 15,
     fontFamily: 'DMSans_500Medium',
-    color: '#FAFAF9',
+    color: AppColors.textPrimary,
     padding: 0,
     height: 24,
   },
@@ -357,7 +377,7 @@ const styles = StyleSheet.create({
   // Gender
   genderPicker: {
     flexDirection: 'row',
-    backgroundColor: '#3E3E3A',
+    backgroundColor: AppColors.surface,
     borderRadius: 24,
     padding: 8,
     gap: 4,
@@ -369,40 +389,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  genderBtnActive: { backgroundColor: '#465A54' },
-  genderIcon: { fontSize: 22, color: '#FAFAF9' },
-  genderText: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: '#FAFAF9' },
+  genderBtnActive: { backgroundColor: AppColors.primary },
+  genderIcon: { fontSize: 22, color: AppColors.textPrimary },
+  genderText: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary },
 
   // Checkbox
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  checkboxRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: {
     width: 18, height: 18, borderRadius: 4,
-    borderWidth: 1.5, borderColor: '#FAFAF9',
+    borderWidth: 1.5, borderColor: AppColors.textPrimary,
     justifyContent: 'center', alignItems: 'center',
   },
-  checkboxChecked: { backgroundColor: '#465A54', borderColor: '#465A54' },
-  checkmark: { fontSize: 12, color: '#FAFAF9', lineHeight: 14 },
-  checkboxLabel: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: '#FAFAF9' },
+  checkboxChecked: { backgroundColor: AppColors.primary, borderColor: AppColors.primary },
+  checkmark: { fontSize: 12, color: AppColors.textPrimary, lineHeight: 14 },
+  checkboxLabel: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary },
 
   // Forgot
   forgotText: {
     fontSize: 13, fontFamily: 'DMSans_500Medium',
-    color: '#FAFAF9', textAlign: 'center', opacity: 0.8,
+    color: AppColors.textPrimary, textAlign: 'center', opacity: 0.8,
   },
+  forgotButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 
   // CTA
   ctaButton: {
-    backgroundColor: '#465A54',
+    backgroundColor: AppColors.primary,
     height: 56, borderRadius: 28,
     flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  ctaText: { fontSize: 15, fontFamily: 'DMSans_700Bold', color: '#FAFAF9' },
-  ctaArrow: { fontSize: 18, color: '#FAFAF9' },
+  ctaText: { fontSize: 15, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
+  ctaArrow: { fontSize: 18, color: AppColors.textPrimary },
 
   // Social
   socialSection: {
-    backgroundColor: '#FF6A5F',
+    backgroundColor: AppColors.accent,
     borderRadius: 32,
     marginHorizontal: 12,
     marginTop: 24,
@@ -412,11 +433,11 @@ const styles = StyleSheet.create({
   socialTextRow: { gap: 2 },
   socialTitle: {
     fontSize: 22, fontFamily: 'DMSans_700Bold',
-    color: '#292927', fontStyle: 'italic', letterSpacing: -0.6,
+    color: AppColors.textOnLight, fontStyle: 'italic', letterSpacing: -0.6,
   },
   socialSub: {
     fontSize: 12, fontFamily: 'DMSans_500Medium',
-    color: '#292927', opacity: 0.7,
+    color: AppColors.textOnLight, opacity: 0.7,
   },
   googleButton: {
     backgroundColor: '#F2F2F2',

@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,7 +25,7 @@ const fontConfig = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { user, initializing } = useSession();
+  const { initializing } = useSession();
 
   const [loaded, error] = useFonts({
     DMSans_400Regular,
@@ -59,6 +57,8 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="verify" options={{ headerShown: false }} />
+            <Stack.Screen name="event-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen 
               name="create-event" 

@@ -1,5 +1,6 @@
+import { AppColors } from '@/constants/design-tokens';
 import * as React from "react"
-import Svg, { Path, Circle, Rect, G, Line } from "react-native-svg"
+import Svg, { Path, Circle, Rect, Line } from "react-native-svg"
 import type { SvgProps } from "react-native-svg"
 
 type IconProps = SvgProps & {
@@ -16,6 +17,7 @@ type IconProps = SvgProps & {
     | 'warning' // Mingcute Warning
     | 'chevron-left'
     | 'chevron-right'
+    | 'search'
     | 'check-circle'
     | 'book'
     | 'clock'
@@ -26,7 +28,7 @@ type IconProps = SvgProps & {
   color?: string;
 }
 
-export function CustomIcon({ name, size = 24, color = "#FAFAF9", ...props }: IconProps) {
+export function CustomIcon({ name, size = 24, color = AppColors.textPrimary, ...props }: IconProps) {
   switch (name) {
     case 'clock':
       return (
@@ -139,6 +141,13 @@ export function CustomIcon({ name, size = 24, color = "#FAFAF9", ...props }: Ico
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
           <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'search':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Circle cx="11" cy="11" r="6.5" stroke={color} strokeWidth={1.5} />
+          <Path d="m16 16 4.5 4.5" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
         </Svg>
       );
     case 'check-circle':

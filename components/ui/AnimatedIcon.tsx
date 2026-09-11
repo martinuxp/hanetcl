@@ -7,7 +7,7 @@ import Animated, {
   withSequence,
   withDelay,
   Easing,
-  withSpring,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import { CustomIcon } from './custom-icon';
 
@@ -19,11 +19,13 @@ type AnimatedIconProps = {
 };
 
 export function AnimatedIcon({ name, size, color, animationType = 'none' }: AnimatedIconProps) {
+  const reduceMotion = useReducedMotion();
   const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
 
   useEffect(() => {
+    if (reduceMotion) return;
     // Random delay so icons don't animate exactly synchronously, looking more natural
     const delay = Math.random() * 500;
 
@@ -88,7 +90,7 @@ export function AnimatedIcon({ name, size, color, animationType = 'none' }: Anim
         )
       );
     }
-  }, [animationType]);
+  }, [animationType, reduceMotion, rotation, scale, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

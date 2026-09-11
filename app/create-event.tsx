@@ -1,5 +1,6 @@
+import { AppColors } from '@/constants/design-tokens';
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, Platform, TextInput, Alert, Modal, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, ScrollView, Platform, TextInput, Alert, Pressable } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,6 +11,8 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { useSession } from '@/services/auth-service';
 import { db, calendarDb } from '@/services/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { HanetChip } from '@/components/ui/hanet-chip';
 
 export default function CreateEventScreen() {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function CreateEventScreen() {
   const [eventType, setEventType] = useState((params.type as string) || 'Evaluación sumativa');
   const [location, setLocation] = useState((params.location as string) || 'Sala 304-B (P3)');
   const [loading, setLoading] = useState(false);
+  const [requestVerification, setRequestVerification] = useState(false);
 
   const handleConfirmDate = (date: Date) => {
     setStartDate(date);
@@ -67,6 +71,7 @@ export default function CreateEventScreen() {
           location: location.trim() || 'Liceo',
           subject: subject,
           type: eventType,
+          verificationRequested: requestVerification,
           updatedAt: serverTimestamp(),
         });
       } else {
@@ -79,6 +84,7 @@ export default function CreateEventScreen() {
           location: location.trim() || 'Liceo',
           subject: subject,
           type: eventType,
+          verificationRequested: requestVerification,
           authorUid: user.uid,
           authorName: user.displayName || 'Estudiante',
           createdAt: serverTimestamp(),
@@ -113,6 +119,7 @@ export default function CreateEventScreen() {
         </View>
 
         <TextInput
+          accessibilityLabel="Título del evento"
           placeholder="Añade un titulo"
           placeholderTextColor="rgba(62,62,58,0.6)"
           style={styles.modalTitleInput}
@@ -123,16 +130,16 @@ export default function CreateEventScreen() {
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Fecha y hora</ThemedText>
-          <TouchableRipple style={styles.datePickerBtn} onPress={() => setDatePickerVisibility(true)}>
+          <TouchableRipple accessibilityRole="button" accessibilityLabel="Elegir fecha y hora" style={styles.datePickerBtn} onPress={() => setDatePickerVisibility(true)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <ThemedText style={styles.datePickerText}>
                 {startDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })},{' '}
                 {startDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
               </ThemedText>
-              <CustomIcon name="clock" size={20} color="#E2E1DA" />
+              <CustomIcon name="clock" size={20} color={AppColors.textSecondary} />
             </View>
           </TouchableRipple>
-          
+
           <DateTimePickerModal
             isVisible={isDatePickerVisible}
             mode="datetime"
@@ -149,13 +156,14 @@ export default function CreateEventScreen() {
           <ThemedText style={styles.modalLabel}>Ubicación</ThemedText>
           <View style={[styles.datePickerBtn, { alignItems: 'center' }]}>
             <TextInput
+              accessibilityLabel="Ubicación del evento"
               style={[styles.datePickerText, { flex: 1, outlineStyle: 'none' as any }]}
               value={location}
               onChangeText={setLocation}
               placeholder="Ej: Sala 304-B"
               placeholderTextColor="rgba(250,250,249,0.5)"
             />
-            <CustomIcon name="map-pin" size={20} color="#E2E1DA" />
+            <CustomIcon name="map-pin" size={20} color={AppColors.textSecondary} />
           </View>
         </View>
 
@@ -165,13 +173,12 @@ export default function CreateEventScreen() {
             {subjectsList.map((s) => {
               const isSelected = subject === s;
               return (
-                <TouchableRipple
+                <HanetChip
                   key={s}
-                  style={[styles.chip, isSelected && styles.chipSelected]}
+                  label={s}
+                  selected={isSelected}
                   onPress={() => setSubject(s)}
-                >
-                  <ThemedText style={isSelected ? styles.chipTextSelected : styles.chipText}>{s}</ThemedText>
-                </TouchableRipple>
+                />
               );
             })}
           </ScrollView>
@@ -183,13 +190,12 @@ export default function CreateEventScreen() {
             {eventTypesList.map((t) => {
               const isSelected = eventType === t;
               return (
-                <TouchableRipple
+                <HanetChip
                   key={t}
-                  style={[styles.chip, isSelected && styles.chipSelected]}
+                  label={t}
+                  selected={isSelected}
                   onPress={() => setEventType(t)}
-                >
-                  <ThemedText style={isSelected ? styles.chipTextSelected : styles.chipText}>{t}</ThemedText>
-                </TouchableRipple>
+                />
               );
             })}
           </ScrollView>
@@ -197,13 +203,14 @@ export default function CreateEventScreen() {
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Subir documentos</ThemedText>
-          <TouchableRipple style={[styles.datePickerBtn, { justifyContent: 'center', backgroundColor: '#52524D' }]} onPress={() => { }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-              <CustomIcon name="file-text" size={20} color="#FAFAF9" />
-              <ThemedText style={[styles.datePickerText, { marginLeft: 10, color: '#FAFAF9' }]}>Adjunta documentos permitidos</ThemedText>
-            </View>
-          </TouchableRipple>
-          <ThemedText style={{ fontSize: 11, color: '#3E3E3A', opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
+          <HanetButton
+            label="Adjuntar documentos · Próximamente"
+            icon={<CustomIcon name="file-text" size={20} color={AppColors.textPrimary} />}
+            onPress={() => undefined}
+            disabled
+            variant="surface"
+          />
+          <ThemedText style={{ fontSize: 11, color: AppColors.surface, opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
             Formatos permitidos: PDF, Word, PowerPoint, Excel, imágenes (JPG, PNG, WEBP), video (MP4) y audio (MP3). Máx. 10 MB por archivo.
           </ThemedText>
         </View>
@@ -211,35 +218,38 @@ export default function CreateEventScreen() {
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Añadir descripción</ThemedText>
           <TextInput
+            accessibilityLabel="Descripción del evento"
             placeholder="Añade descripción adicional"
             placeholderTextColor="rgba(62,62,58,0.5)"
             multiline
             value={description}
             onChangeText={setDescription}
-            style={{ fontSize: 16, color: '#292927', minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: '#292927', fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
+            style={{ fontSize: 16, color: AppColors.textOnLight, minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: AppColors.textOnLight, fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
           />
-          <ThemedText style={{ fontSize: 11, color: '#3E3E3A', opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
+          <ThemedText style={{ fontSize: 11, color: AppColors.surface, opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
             La información que publiques podrá ser verificada por tu profesor de asignatura si es correcta, eliminada si es completamente incorrecta, o editada y verificada si requiere cambios.
           </ThemedText>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 40 }}>
-          <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: '#3E3E3A', marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
-            {/* Checkmark placeholder */}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel="Solicitar verificación docente"
+          accessibilityState={{ checked: requestVerification }}
+          onPress={() => setRequestVerification((current) => !current)}
+          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 40 }, pressed && { opacity: 0.75 }]}
+        >
+          <View style={{ width: 24, height: 24, borderRadius: 8, backgroundColor: requestVerification ? AppColors.accent : AppColors.surface, marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
+            {requestVerification && <CustomIcon name="check-circle" size={16} color={AppColors.textPrimary} />}
           </View>
-          <ThemedText style={{ flex: 1, fontSize: 13, color: '#3E3E3A', lineHeight: 18, fontFamily: 'DMSans_500Medium' }}>
+          <ThemedText style={{ flex: 1, fontSize: 13, color: AppColors.surface, lineHeight: 18, fontFamily: 'DMSans_500Medium' }}>
             Solicitar al docente de la asignatura verificar la información después de agregarla
           </ThemedText>
-        </View>
+        </Pressable>
 
         {/* Action Buttons inside scroll */}
         <View style={styles.modalFooter}>
-          <TouchableRipple style={styles.modalCancelBtn} onPress={() => router.back()} disabled={loading}>
-            <ThemedText style={styles.modalCancelText}>Cancelar</ThemedText>
-          </TouchableRipple>
-          <TouchableRipple style={[styles.modalSubmitBtn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
-            <ThemedText style={styles.modalSubmitText}>{loading ? 'Guardando...' : (isEditing ? 'Guardar cambios' : 'Agregar')}</ThemedText>
-          </TouchableRipple>
+          <HanetButton label="Cancelar" variant="surface" onPress={() => router.back()} disabled={loading} style={styles.footerButton} />
+          <HanetButton label={loading ? 'Guardando…' : (isEditing ? 'Guardar cambios' : 'Agregar')} onPress={handleSubmit} disabled={loading} style={styles.footerButton} />
         </View>
         <View style={{ height: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 40 }} />
 
@@ -249,22 +259,21 @@ export default function CreateEventScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#DFDFD6' },
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.neutral2,
+    borderTopLeftRadius: Platform.OS === 'android' ? 50 : 0,
+    borderTopRightRadius: Platform.OS === 'android' ? 50 : 0,
+    overflow: 'hidden',
+  },
   modalHeader: { paddingTop: 0, paddingBottom: 16 },
-  modalTitleInput: { fontSize: 32, fontFamily: 'DMSans_700Bold', letterSpacing: -2, color: '#292927', paddingBottom: 10, outlineStyle: 'none' as any },
-  separator: { height: 2, backgroundColor: '#292927', marginBottom: 25 },
+  modalTitleInput: { fontSize: 32, fontFamily: 'DMSans_700Bold', letterSpacing: -2, color: AppColors.textOnLight, paddingBottom: 10, outlineStyle: 'none' as any },
+  separator: { height: 2, backgroundColor: AppColors.textOnLight, marginBottom: 25 },
   modalSection: { marginBottom: 20 },
-  modalLabel: { color: '#292927', fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
-  datePickerBtn: { backgroundColor: '#3E3E3A', borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
-  datePickerText: { fontFamily: 'DMSans_700Bold', color: '#FAFAF9', fontSize: 13 },
+  modalLabel: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
+  datePickerBtn: { backgroundColor: AppColors.surface, borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
+  datePickerText: { fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontSize: 13 },
   chipScroll: { gap: 10, paddingRight: 20 },
-  chip: { paddingHorizontal: 18, paddingVertical: 0, borderRadius: 30, backgroundColor: '#52524D', height: 42, justifyContent: 'center' },
-  chipSelected: { backgroundColor: '#292927' },
-  chipText: { fontFamily: 'DMSans_500Medium', color: '#FAFAF9', fontSize: 13 },
-  chipTextSelected: { fontFamily: 'DMSans_700Bold', color: '#FAFAF9', fontSize: 13 },
-  modalFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  modalCancelBtn: { flex: 1, height: 50, borderRadius: 25, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginRight: 8, borderWidth: 1, borderColor: '#3E3E3A' },
-  modalSubmitBtn: { flex: 1, height: 50, borderRadius: 25, backgroundColor: '#292927', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  modalCancelText: { color: '#292927', fontFamily: 'DMSans_500Medium', fontSize: 16 },
-  modalSubmitText: { color: '#FAFAF9', fontFamily: 'DMSans_700Bold', fontSize: 16 },
+  modalFooter: { flexDirection: 'row', gap: 10, width: '100%' },
+  footerButton: { flex: 1 },
 });
