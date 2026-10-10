@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// ===============================================================
+// Base: hn-enrollmentdata
+// ===============================================================
+//
+// Datos de identidad y matrícula. Todo lo que se escribe aquí lo
+// escribe el backend (Cloud Functions con Admin SDK, que no pasa por
+// estas reglas). El cliente solo puede leer lo que le pertenece.
+//
+// Colección: users/{uid}
+//   - role: string       - 'Estudiante' | 'Directiva' | 'CEE' | 'Admin' | 'HNT'
+//   - courseId: string   - curso vinculado, por ejemplo '2k'
+//   Lectura: solo el propio usuario. Escritura: solo backend.
+//
+// Colección: accounts/{uid}
+//   - fullName, username, treatment ('ella' | 'el' | 'neutro')
+//   - termsAcceptedAt, createdAt, emailVerifiedAt
+//   Lectura: solo el propio usuario. Escritura: solo backend.
+//
+// Colecciones: usernames/{username}, emailCodes/{uid}
+//   Reserva de nombres y códigos de verificación. Sin acceso del cliente.
+//
+// Colección: LCH-enroll-hn/{rut}
+//   Registro académico importado. Sin acceso desde el cliente.
+//
+// Colección: identityLinkRequests/{requestId}
+//   - firebaseUid: string - quién pidió el vínculo
+//   - rut, institutionId, status, createdAt
+//   Lectura: solo quien la creó. Escritura: solo backend.
+//
+// Colección: identityLinks/{uid}
+//   Vínculo aprobado. Lectura: solo el propio usuario.
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow list, write: if false;
+    }
+
+    // Perfil global del HaNet ID (nombre, usuario, tratamiento).
+    match /accounts/{uid} {
+      allow get: if isOwner(uid);
+      allow list, write: if false;
+    }
+
+    // usernames y emailCodes solo los toca el backend: caen en el
+    // bloqueo general de más abajo.
+
+    match /identityLinks/{uid} {
+      allow get: if isOwner(uid);
+      allow list, write: if false;
+    }
+
+    match /identityLinkRequests/{requestId} {
+      // `list` solo funciona si la consulta filtra por el propio firebaseUid.
+      allow read: if isSignedIn() && resource.data.firebaseUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /LCH-enroll-hn/{rut} {
+      allow read, write: if false;
+    }
+
+    // Cualquier otra ruta queda cerrada.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

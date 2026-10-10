@@ -1,0 +1,116 @@
+rules_version = '2';
+
+// ===============================================================
+// Base: hn-calendar
+// ===============================================================
+//
+// Calendario por curso. Cada curso es una colección de primer nivel
+// llamada `HNC-LCH.{courseId}` (por ejemplo `HNC-LCH.2k`).
+//
+// Estas reglas no pueden leer `users/{uid}`, porque ese documento vive
+// en otra base (hn-enrollmentdata) y las reglas no cruzan bases. El rol
+// y el curso se leen desde los custom claims del token:
+//   - request.auth.token.role: string
+//   - request.auth.token.courseId: string
+// El backend es quien asigna esos claims; el cliente no puede cambiarlos.
+//
+// Documento: HNC-LCH.{courseId}/{eventId}
+//   - title: string (1..120)
+//   - description: string (0..2000)
+//   - startDate: timestamp
+//   - endDate: timestamp, posterior a startDate
+//   - location: string (1..120)
+//   - subject: string (1..60)
+//   - type: string (1..60)
+//   - verificationRequested: bool
+//   - authorUid: string   - inmutable, debe ser el uid de quien crea
+//   - authorName: string (1..80) - inmutable
+//   - createdAt: timestamp - inmutable, hora del servidor
+//   - updatedAt: timestamp - hora del servidor, solo en ediciones
+//   - cancelled: bool (opcional) - lo marca quien puede editar el curso
+//   Solo backend: verified, verifier, outstanding
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // El usuario pertenece al curso de esta colección.
+    function isInCourse(courseCollection) {
+      return isSignedIn()
+        && request.auth.token.courseId is string
+        && request.auth.token.courseId.size() > 0
+        && courseCollection == 'HNC-LCH.' + request.auth.token.courseId;
+    }
+
+    function canEditCourse(courseCollection) {
+      return isInCourse(courseCollection)
+        && request.auth.token.role in ['HNT', 'Admin', 'CEE', 'Directiva'];
+    }
+
+    function isText(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    // Se llama en create y en update: el documento resultante siempre
+    // debe quedar completo y con tipos válidos.
+    function isValidEvent(data) {
+      return data.keys().hasAll([
+          'title', 'description', 'startDate', 'endDate', 'location',
+          'subject', 'type', 'verificationRequested',
+          'authorUid', 'authorName', 'createdAt'
+        ])
+        && isText(data.title, 1, 120)
+        && isText(data.description, 0, 2000)
+        && data.startDate is timestamp
+        && data.endDate is timestamp
+        && data.endDate > data.startDate
+        && isText(data.location, 1, 120)
+        && isText(data.subject, 1, 60)
+        && isText(data.type, 1, 60)
+        && data.verificationRequested is bool
+        && isText(data.authorUid, 1, 128)
+        && isText(data.authorName, 1, 80)
+        && data.createdAt is timestamp
+        && (!('cancelled' in data) || data.cancelled is bool);
+    }
+
+    match /{courseCollection}/{eventId} {
+      allow read: if isInCourse(courseCollection);
+
+      allow create: if canEditCourse(courseCollection)
+        && request.resource.data.keys().hasOnly([
+          'title', 'description', 'startDate', 'endDate', 'location',
+          'subject', 'type', 'verificationRequested',
+          'authorUid', 'authorName', 'createdAt'
+        ])
+        && isValidEvent(request.resource.data)
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      // Solo se pueden tocar los campos editables. Autoría, fecha de
+      // creación y los campos de verificación quedan fuera del alcance
+      // del cliente.
+      allow update: if canEditCourse(courseCollection)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'startDate', 'endDate', 'location',
+          'subject', 'type', 'verificationRequested', 'updatedAt', 'cancelled'
+        ])
+        && isValidEvent(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+
+      // Borra quien puede editar el curso. Es un borrado definitivo: la app
+      // pide confirmación antes de llegar aquí.
+      allow delete: if canEditCourse(courseCollection);
+    }
+
+    // Subcolecciones y cualquier otra ruta quedan cerradas.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

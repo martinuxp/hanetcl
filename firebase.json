@@ -1,4 +1,14 @@
 {
+  "firestore": [
+    {
+      "database": "hn-enrollmentdata",
+      "rules": "firestore.enrollment.rules"
+    },
+    {
+      "database": "hn-calendar",
+      "rules": "firestore.calendar.rules"
+    }
+  ],
   "functions": {
     "source": "functions",
     "ignore": [
@@ -7,6 +17,24 @@
       "firebase-debug.log",
       "firebase-debug.*.log",
       "*.local"
+    ]
+  },
+  "hosting": {
+    "public": "hosting",
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
+    "headers": [
+      {
+        "source": "/email/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
+        ]
+      }
     ]
   }
 }

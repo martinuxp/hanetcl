@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase CLI cache
+.firebase/
+
+# Local secrets (invitation codes, keys)
+.secrets/

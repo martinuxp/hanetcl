@@ -1,5 +1,6 @@
-const functions = require("firebase-functions");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { FieldValue } = require("firebase-admin/firestore");
 const ical = require("ical-generator").default;
@@ -20,16 +21,21 @@ function getAdminApp() {
   return app;
 }
 
+// HaNet ID: sign-up profile and email verification by code.
+Object.assign(exports, require("./account").build(getAdminApp));
+
 // Creates a pending identity-link request. Approval is intentionally separate
 // so knowing a RUT is never enough to claim an academic identity.
-exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+exports.requestIdentityLink = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
   }
+  const data = request.data;
+  const uid = request.auth.uid;
 
   const rut = normalizeRut(data && data.rut);
   if (!rut || rut.length < 7 || rut.length > 10) {
-    throw new functions.https.HttpsError("invalid-argument", "El RUT no es válido.");
+    throw new HttpsError("invalid-argument", "El RUT no es válido.");
   }
 
   const adminApp = getAdminApp();
@@ -39,12 +45,12 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
 
   // Keep the response deliberately generic to avoid exposing enrollment data.
   if (!enrollment.exists) {
-    throw new functions.https.HttpsError("not-found", "No se pudo procesar la solicitud.");
+    throw new HttpsError("not-found", "No se pudo procesar la solicitud.");
   }
 
   const existing = await enrollmentDb
     .collection("identityLinkRequests")
-    .where("firebaseUid", "==", context.auth.uid)
+    .where("firebaseUid", "==", uid)
     .where("rut", "==", rut)
     .where("status", "==", "pending")
     .limit(1)
@@ -56,7 +62,7 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
 
   const requestRef = enrollmentDb.collection("identityLinkRequests").doc();
   await requestRef.set({
-    firebaseUid: context.auth.uid,
+    firebaseUid: uid,
     rut,
     institutionId: data && typeof data.institutionId === "string"
       ? data.institutionId.trim()
@@ -68,7 +74,57 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
   return { requestId: requestRef.id, status: "pending" };
 });
 
-exports.icalFeed = functions.https.onRequest(async (req, res) => {
+const CLAIM_ROLES = ["Estudiante", "Directiva", "CEE", "Admin", "HNT"];
+
+// Copies role and courseId from users/{uid} into the caller's token. The
+// hn-calendar rules cannot read hn-enrollmentdata, so they rely on these
+// claims; only this backend can set them.
+exports.syncMyClaims = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  const uid = request.auth.uid;
+  const adminApp = getAdminApp();
+  const snapshot = await getFirestore(adminApp, "hn-enrollmentdata")
+    .collection("users")
+    .doc(uid)
+    .get();
+  const profile = snapshot.exists ? snapshot.data() : {};
+
+  const role = CLAIM_ROLES.includes(profile.role) ? profile.role : "Estudiante";
+  // Kept verbatim: the client builds the collection name from this value.
+  const courseId = typeof profile.courseId === "string"
+    && profile.courseId.length > 0
+    && profile.courseId.length <= 64
+    && !profile.courseId.includes("/")
+    ? profile.courseId
+    : null;
+
+  const auth = getAuth(adminApp);
+  const current = (await auth.getUser(uid)).customClaims || {};
+  const changed = current.role !== role || (current.courseId || null) !== courseId;
+
+  if (changed) {
+    const next = { ...current, role };
+    if (courseId) next.courseId = courseId;
+    else delete next.courseId;
+    await auth.setCustomUserClaims(uid, next);
+  }
+
+  console.log("syncMyClaims", {
+    uid,
+    hasProfile: snapshot.exists,
+    role,
+    courseId,
+    rawCourseIdType: typeof profile.courseId,
+    changed,
+  });
+
+  return { role, courseId, changed };
+});
+
+exports.icalFeed = onRequest(async (req, res) => {
   const courseId = req.query.courseId;
   
   if (!courseId) {
