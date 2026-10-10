@@ -4,7 +4,6 @@ import { AnimatedIcon } from '@/components/ui/AnimatedIcon';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
-import { NotificationCard, NotificationInfo } from '@/components/ui/notification-card';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -12,26 +11,7 @@ import Animated, { Easing, FadeInRight, FadeOutLeft, useReducedMotion } from 're
 
 type PreviewMode = 'Inicio' | 'Eventos' | 'Calendario';
 
-const previewNotifications: Record<PreviewMode, NotificationInfo> = {
-  Inicio: {
-    id: 'inicio',
-    type: 'success',
-    title: 'Todo en orden',
-    description: 'Este es el estado base de una notificación positiva.',
-  },
-  Eventos: {
-    id: 'eventos',
-    type: 'warning',
-    title: 'Evento próximo',
-    description: 'Las alertas de actividades usan este tratamiento visual.',
-  },
-  Calendario: {
-    id: 'calendario',
-    type: 'danger',
-    title: 'Evaluación pendiente',
-    description: 'Los avisos importantes conservan contraste en el tema oscuro.',
-  },
-};
+const PREVIEW_MODES: PreviewMode[] = ['Inicio', 'Eventos', 'Calendario'];
 
 const previewIcon: Record<PreviewMode, React.ComponentProps<typeof CustomIcon>['name']> = {
   Inicio: 'home',
@@ -58,8 +38,6 @@ export default function UiShowcaseScreen() {
 
   const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
   const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
-  const notification = previewNotifications[previewMode];
-
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -102,7 +80,7 @@ export default function UiShowcaseScreen() {
 
         <Section title="Navegación contextual" description="La previsualización usa la misma transición que cambia los controles de la tab bar.">
           <View style={styles.chipWrap}>
-            {(Object.keys(previewNotifications) as PreviewMode[]).map((mode) => (
+            {PREVIEW_MODES.map((mode) => (
               <HanetChip key={mode} label={mode} selected={previewMode === mode} onPress={() => setPreviewMode(mode)} />
             ))}
           </View>
@@ -123,17 +101,9 @@ export default function UiShowcaseScreen() {
 
         <Section title="Iconos en movimiento" description="Estados de atención: pulso, flotación y aviso. Se pueden observar sin alterar datos.">
           <View style={styles.iconRow}>
-            <View style={styles.iconExample}><AnimatedIcon name="notification" size={26} color={AppColors.accent} animationType="wiggle" /><ThemedText style={styles.iconLabel}>Aviso</ThemedText></View>
-            <View style={styles.iconExample}><AnimatedIcon name="calendar" size={26} color={AppColors.textPrimary} animationType="float" /><ThemedText style={styles.iconLabel}>Flotar</ThemedText></View>
-            <View style={styles.iconExample}><AnimatedIcon name="star" size={26} color={AppColors.controlActive} animationType="pulse" /><ThemedText style={styles.iconLabel}>Pulso</ThemedText></View>
-          </View>
-        </Section>
-
-        <Section title="Aviso" description="La misma tarjeta que aparece desde la píldora de notificaciones de la barra.">
-          <View style={styles.notificationPreview}>
-            <Animated.View key={notification.id} entering={entering} exiting={exiting}>
-              <NotificationCard notification={notification} />
-            </Animated.View>
+            <View style={styles.iconExample}><AnimatedIcon name="notification" size={26} color={AppColors.accent} animationType="wiggle" loop /><ThemedText style={styles.iconLabel}>Aviso</ThemedText></View>
+            <View style={styles.iconExample}><AnimatedIcon name="calendar" size={26} color={AppColors.textPrimary} animationType="float" loop /><ThemedText style={styles.iconLabel}>Flotar</ThemedText></View>
+            <View style={styles.iconExample}><AnimatedIcon name="star" size={26} color={AppColors.controlActive} animationType="pulse" loop /><ThemedText style={styles.iconLabel}>Pulso</ThemedText></View>
           </View>
         </Section>
 
@@ -172,7 +142,6 @@ const styles = StyleSheet.create({
   iconRow: { flexDirection: 'row', gap: AppSpacing.sm },
   iconExample: { flex: 1, minHeight: 96, borderRadius: AppRadii.lg, backgroundColor: AppColors.surface, alignItems: 'center', justifyContent: 'center', gap: AppSpacing.sm },
   iconLabel: { color: AppColors.textSecondary, fontFamily: 'DMSans_500Medium', fontSize: 12 },
-  notificationPreview: { minHeight: 98, borderRadius: AppRadii.lg, backgroundColor: AppColors.surfaceRaised, overflow: 'hidden', justifyContent: 'center' },
   tokenRow: { flexDirection: 'row', gap: AppSpacing.sm },
   swatch: { flex: 1, height: 76, borderRadius: AppRadii.md, justifyContent: 'flex-end', padding: AppSpacing.sm },
   swatchText: { color: AppColors.textPrimary, fontFamily: 'DMSans_700Bold', fontSize: 11 },

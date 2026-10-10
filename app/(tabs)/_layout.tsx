@@ -60,11 +60,12 @@ function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: Mo
 
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
+      accessibilityHint={active ? undefined : `Cambiar a ${label}`}
       onPress={() => {
-        if (Platform.OS === 'ios') void Haptics.selectionAsync();
+        if (!active && Platform.OS === 'ios') void Haptics.selectionAsync();
         onPress();
       }}
       onFocus={() => setFocused(true)}
@@ -189,7 +190,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 >
                   <View style={styles.eventsSearchContent}>
                     <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-                    <ThemedText style={styles.eventsSearchText}>Buscar...</ThemedText>
+                    <ThemedText style={styles.eventsSearchText}>Buscar…</ThemedText>
                   </View>
                 </Pressable>
               ) : isCalendar && canAddEvents ? (

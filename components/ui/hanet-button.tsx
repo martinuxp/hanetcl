@@ -14,6 +14,8 @@ type HanetButtonProps = {
 };
 
 export function HanetButton({ label, onPress, variant = 'primary', icon, disabled = false, accessibilityHint, style }: HanetButtonProps) {
+  const [focused, setFocused] = React.useState(false);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -22,9 +24,12 @@ export function HanetButton({ label, onPress, variant = 'primary', icon, disable
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
+        focused && styles.focused,
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -47,5 +52,6 @@ const styles = StyleSheet.create({
   label: { color: AppColors.textPrimary, fontSize: 16, lineHeight: 24, fontFamily: 'DMSans_700Bold', textAlign: 'center' },
   surfaceLabel: { color: AppColors.textPrimary },
   pressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
+  focused: { borderWidth: 2, borderColor: AppColors.controlActive },
   disabled: { opacity: 0.5 },
 });

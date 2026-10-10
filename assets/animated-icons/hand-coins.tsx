@@ -19,24 +19,29 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
-export function HandCoinsIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function HandCoinsIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
-    const coin1Opacity = useSharedValue(0);
-    const coin1Y = useSharedValue(-20);
+    const coin1Opacity = useSharedValue(1);
+    const coin1Y = useSharedValue(0);
 
-    const coin2Opacity = useSharedValue(0);
-    const coin2Y = useSharedValue(-20);
+    const coin2Opacity = useSharedValue(1);
+    const coin2Y = useSharedValue(0);
 
     useEffect(() => {
-        if (reduceMotion) {
+        if (reduceMotion || !animated) {
             coin1Opacity.value = 1;
             coin1Y.value = 0;
             coin2Opacity.value = 1;
             coin2Y.value = 0;
             return;
         }
+        coin1Opacity.value = 0;
+        coin1Y.value = -20;
+        coin2Opacity.value = 0;
+        coin2Y.value = -20;
         const springConfig = { damping: 15, stiffness: 150 };
 
         // Coin 1 drop
@@ -93,7 +98,7 @@ export function HandCoinsIcon({ size = 28, color = AppColors.textOnLight, style 
 
         dropCoin1();
         dropCoin2();
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     const coin1Props = useAnimatedProps(() => ({
         opacity: coin1Opacity.value,

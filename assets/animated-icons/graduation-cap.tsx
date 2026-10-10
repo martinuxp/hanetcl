@@ -20,16 +20,17 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
-export function GraduationCapIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function GraduationCapIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
     const capY = useSharedValue(0);
     const capRotate = useSharedValue(0);
     const tasselRotate = useSharedValue(0);
 
     useEffect(() => {
-        if (reduceMotion) return;
+        if (reduceMotion || !animated) return;
         // We recreate the Framer motion variants behavior using useSharedValue and withSequence
 
         // Cap animation: y: [0, -2, 0], rotate: [0, -2, 2, 0], duration: 0.6
@@ -69,7 +70,7 @@ export function GraduationCapIcon({ size = 28, color = AppColors.textOnLight, st
                 true
             )
         );
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     const capProps = useAnimatedProps(() => {
         // Translate origin to center (12, 12), rotate, translate back

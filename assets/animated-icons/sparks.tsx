@@ -20,9 +20,10 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
-export function SparklesIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function SparklesIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
     // We have 3 paths. We'll animate opacity and scale.
     const path0Scale = useSharedValue(1);
@@ -67,11 +68,11 @@ export function SparklesIcon({ size = 28, color = AppColors.textOnLight, style }
     };
 
     useEffect(() => {
-        if (reduceMotion) return;
+        if (reduceMotion || !animated) return;
         startAnimation(path0Scale, path0Opacity, 0);
         startAnimation(path1Scale, path1Opacity, 150);
         startAnimation(path2Scale, path2Opacity, 300);
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     const getAnimatedProps = (scaleObj: any, opacityObj: any) => useAnimatedProps(() => ({
         opacity: opacityObj.value,

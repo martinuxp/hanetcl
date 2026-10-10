@@ -72,10 +72,10 @@ export default function EventsScreen() {
       </View>
 
       <View style={styles.segmented}>
-        <View style={[styles.segment, styles.segmentActive]}>
-          <ThemedText style={styles.segmentActiveText}>Cerca de mi</ThemedText>
+        <View accessible accessibilityRole="tab" accessibilityState={{ selected: true }} style={[styles.segment, styles.segmentActive]}>
+          <ThemedText style={styles.segmentActiveText}>Cerca de mí</ThemedText>
         </View>
-        <View style={styles.segment}>
+        <View accessible accessibilityRole="tab" accessibilityState={{ selected: false, disabled: true }} style={styles.segment}>
           <ThemedText style={styles.segmentText}>En mi institución</ThemedText>
         </View>
       </View>
@@ -112,7 +112,7 @@ export default function EventsScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filters}
         renderItem={({ item }) => (
-          <HanetChip label={item.label} selected={category === item.value} onPress={() => setCategory(item.value)} />
+          <HanetChip accessibilityRole="tab" label={item.label} selected={category === item.value} onPress={() => setCategory(item.value)} />
         )}
       />
 

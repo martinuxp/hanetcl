@@ -19,6 +19,7 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
 const DOTS = [
@@ -30,13 +31,13 @@ const DOTS = [
     { cx: 16, cy: 18 },
 ];
 
-export function CalendarDaysIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function CalendarDaysIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
     // Array of shared values for each dot's opacity
     const opacities = DOTS.map(() => useSharedValue(1));
 
     useEffect(() => {
-        if (reduceMotion) return;
+        if (reduceMotion || !animated) return;
         // Staggered blinking animation for dots
         DOTS.forEach((_, i) => {
             opacities[i].value = withDelay(
@@ -52,7 +53,7 @@ export function CalendarDaysIcon({ size = 28, color = AppColors.textOnLight, sty
                 )
             );
         });
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     return (
         <View style={style}>

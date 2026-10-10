@@ -19,15 +19,16 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
-export function MessageCircleIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function MessageCircleIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
     const rotation = useSharedValue(0);
     const scale = useSharedValue(1);
 
     useEffect(() => {
-        if (reduceMotion) return;
+        if (reduceMotion || !animated) return;
         // Wiggle rotation and bounce scale indefinitely
         const startWiggle = () => {
             rotation.value = withRepeat(
@@ -53,7 +54,7 @@ export function MessageCircleIcon({ size = 28, color = AppColors.textOnLight, st
         };
 
         startWiggle();
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     const svgProps = useAnimatedProps(() => ({
         // Setting transform origins directly on SVG isn't simple, so we rotate about center

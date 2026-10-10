@@ -18,9 +18,10 @@ export interface AnimatedIconProps {
     size?: number;
     color?: string;
     style?: any;
+    animated?: boolean;
 }
 
-export function Square2StackIcon({ size = 28, color = AppColors.textOnLight, style }: AnimatedIconProps) {
+export function Square2StackIcon({ size = 28, color = AppColors.textOnLight, style, animated = false }: AnimatedIconProps) {
     const reduceMotion = useReducedMotion();
     const frontX = useSharedValue(0);
     const frontY = useSharedValue(0);
@@ -30,7 +31,7 @@ export function Square2StackIcon({ size = 28, color = AppColors.textOnLight, sty
     const backOpacity = useSharedValue(1);
 
     useEffect(() => {
-        if (reduceMotion) return;
+        if (reduceMotion || !animated) return;
         // Front layer animation: x & y bounces up (+1) and back
         frontX.value = withRepeat(
             withSequence(
@@ -79,7 +80,7 @@ export function Square2StackIcon({ size = 28, color = AppColors.textOnLight, sty
             -1,
             true
         );
-    }, [reduceMotion]);
+    }, [animated, reduceMotion]);
 
     const frontProps = useAnimatedProps(() => ({
         transform: [{ translateX: frontX.value }, { translateY: frontY.value }] as any

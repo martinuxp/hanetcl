@@ -47,11 +47,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    lineHeight: 32,
+    lineHeight: 38,
     fontFamily: 'DMSans_700Bold',
   },
   subtitle: {
     fontSize: 20,
+    lineHeight: 26,
     fontFamily: 'DMSans_700Bold',
   },
   link: {
