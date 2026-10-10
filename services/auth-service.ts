@@ -77,6 +77,32 @@ export async function redeemInviteCode(words: string[]) {
   return result.data;
 }
 
+// ─── Institutional link ──────────────────────────────────────────────────────
+export type LinkStatus = {
+  institutionId: string;
+  institutionName: string;
+  /** 'sent' also covers an email that is not on the roster: the app cannot tell them apart. */
+  status: 'none' | 'sent' | 'email-confirmed';
+  email?: string;
+  person?: { fullName: string; rut: string; curso: string };
+};
+
+export async function startInstitutionalLink(email: string) {
+  const result = await httpsCallable<{ email: string }, { resendInSeconds: number }>(functions, 'startInstitutionalLink')({ email });
+  return result.data;
+}
+
+export async function getInstitutionalLinkStatus() {
+  const result = await httpsCallable<void, LinkStatus>(functions, 'getInstitutionalLinkStatus')();
+  return result.data;
+}
+
+export async function completeInstitutionalLink() {
+  await httpsCallable(functions, 'completeInstitutionalLink')();
+  // The backend just wrote role and course into the token.
+  await auth.currentUser?.getIdToken(true);
+}
+
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 export type OnboardingStep = 'verify-email' | 'join-beta' | 'link' | 'done';
 
@@ -98,8 +124,7 @@ export function routeForStep(step: OnboardingStep) {
   switch (step) {
     case 'verify-email': return '/verify-email' as const;
     case 'join-beta': return '/join-beta' as const;
-    // The institutional link screens are not built yet.
-    case 'link':
+    case 'link': return '/link-institution' as const;
     case 'done': return '/(tabs)' as const;
   }
 }

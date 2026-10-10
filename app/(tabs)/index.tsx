@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
-import { useSession } from '@/services/auth-service';
+import { getOnboardingStep, routeForStep, useSession } from '@/services/auth-service';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { CustomIcon } from '@/components/ui/custom-icon';
 
@@ -16,6 +16,17 @@ export default function HomeScreen() {
   // accounts makes it stop matching.
   const [hntUid, setHntUid] = useState<string | null>(null);
   const isHnt = !!user && hntUid === user.uid;
+
+  // An account that has not finished joining its institution goes back to
+  // the step it is missing instead of seeing an empty Home.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getOnboardingStep(user)
+      .then(step => { if (active && step !== 'done') router.replace(routeForStep(step)); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [router, user]);
 
   // Only decides whether to draw the entry; the panel and its backend check the role again.
   useEffect(() => {

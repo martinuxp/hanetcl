@@ -85,6 +85,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="verify-email" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="join-beta" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="link-institution" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="hnt-admin" options={{ headerShown: false }} />
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />

@@ -35,6 +35,15 @@
           }
         ]
       }
+    ],
+    "rewrites": [
+      {
+        "source": "/vincular",
+        "function": {
+          "functionId": "confirmInstitutionalLink",
+          "region": "us-central1"
+        }
+      }
     ]
   }
 }

@@ -104,4 +104,34 @@ ${nameLine}
   return { subject: `${code} es tu código de HaNet`, html, text };
 }
 
-module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail };
+function magicLinkEmail({ fullName, institutionName, url, minutes }) {
+  const firstName = String(fullName || "").trim().split(/\s+/)[0] || "";
+  const greeting = firstName ? `Hola ${escapeHtml(firstName)}, estás` : "Estás";
+
+  const html = layout(`
+<tr><td style="padding:44px 32px 24px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
+<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Conecta tu HaNet ID</p>
+<p style="margin:22px 0 0;">${greeting} a un paso de unirte a ${escapeHtml(institutionName)} en HaNet. Confirma que este correo institucional es tuyo:</p>
+</td></tr>
+<tr><td align="center" style="padding:0 32px;">
+<a href="${escapeHtml(url)}" style="display:inline-block;padding:16px 32px;border-radius:360px;background:#282829;font-family:'DM Sans',Arial,sans-serif;font-size:16px;font-weight:700;color:#f9f9fa;text-decoration:none;">Confirmar mi correo</a>
+</td></tr>
+<tr><td style="padding:24px 32px 44px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
+<p style="margin:0;">El link funciona durante ${minutes} minutos. Después de confirmar, vuelve a la app para revisar tus datos.</p>
+<p style="margin:16px 0 0;font-size:13px;line-height:18px;">Si el botón no abre, copia esta dirección en tu navegador:<br>${escapeHtml(url)}</p>
+</td></tr>`);
+
+  const text = [
+    "Conecta tu HaNet ID",
+    "",
+    `Confirma que este correo institucional es tuyo para unirte a ${institutionName}:`,
+    url,
+    "",
+    `El link funciona durante ${minutes} minutos.`,
+    "¿No reconoces este correo? Puedes ignorarlo.",
+  ].join("\n");
+
+  return { subject: `Confirma tu correo para unirte a ${institutionName}`, html, text };
+}
+
+module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, escapeHtml };
