@@ -1,78 +1,83 @@
 import { ThemedText } from '@/components/themed-text';
-import { HanetButton } from '@/components/ui/hanet-button';
-import { CustomIcon } from '@/components/ui/custom-icon';
-import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
-import { resetPassword, signInWithEmail, useSession } from '@/services/auth-service';
+import { HanetField, HanetSegmented } from '@/components/ui/hanet-auth-fields';
+import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import {
+  describeAuthError,
+  resetPassword,
+  signInWithEmail,
+  signUpWithEmail,
+  useSession,
+} from '@/services/auth-service';
+import type { Treatment } from '@/services/auth-service';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
-type FieldName = 'email' | 'password';
+const ICONS = {
+  logo: require('@/assets/icons/auth/logo-mark.svg'),
+  at: require('@/assets/icons/auth/at-sign.svg'),
+  mail: require('@/assets/icons/auth/mail.svg'),
+  eye: require('@/assets/icons/auth/eye-closed.svg'),
+  arrow: require('@/assets/icons/auth/arrow-right-long.svg'),
+  male: require('@/assets/icons/auth/gender-male.svg'),
+  female: require('@/assets/icons/auth/gender-female.svg'),
+};
 
-function HanetLogo() {
-  return (
-    <Svg accessibilityLabel="HaNet" width={40} height={40} viewBox="0 0 24 36" fill="none">
-      <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill={AppColors.accent} />
-    </Svg>
-  );
-}
+type Mode = 'login' | 'signup';
 
-function getAuthErrorMessage(error: unknown) {
-  const code = typeof error === 'object' && error !== null && 'code' in error
-    ? String(error.code)
-    : '';
-
-  switch (code) {
-    case 'auth/invalid-credential':
-    case 'auth/user-not-found':
-    case 'auth/wrong-password':
-      return 'El correo o la contraseña no coinciden.';
-    case 'auth/user-disabled':
-      return 'Esta cuenta está desactivada. Contacta a tu institución.';
-    case 'auth/too-many-requests':
-      return 'Hubo demasiados intentos. Espera un momento e inténtalo nuevamente.';
-    case 'auth/network-request-failed':
-      return 'No pudimos conectarnos. Revisa tu conexión a internet.';
-    default:
-      return 'No pudimos iniciar sesión. Inténtalo nuevamente.';
-  }
-}
+const USERNAME_PATTERN = /^[a-z0-9._]{3,24}$/;
+const MIN_PASSWORD = 8;
 
 export default function AuthScreen() {
   const router = useRouter();
   const { user } = useSession();
-  const passwordRef = useRef<TextInput>(null);
+  const [mode, setMode] = useState<Mode>('login');
+
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [focusedField, setFocusedField] = useState<FieldName | null>(null);
+  const [treatment, setTreatment] = useState<Treatment>('neutro');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showErrors, setShowErrors] = useState(false);
+  // Sign-up creates the session before the profile is saved; the redirect
+  // below must wait until the whole step is done.
+  const submitting = useRef(false);
+
+  const usernameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (user) router.replace('/(tabs)');
+    if (!user || submitting.current) return;
+    router.replace(user.emailVerified ? '/(tabs)' : '/verify-email');
   }, [router, user]);
 
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
+  const cleanUsername = username.trim().toLowerCase();
+  const invalid = {
+    fullName: fullName.trim().length < 2,
+    username: !USERNAME_PATTERN.test(cleanUsername),
+    email: !/^\S+@\S+\.\S+$/.test(email.trim()),
+    password: password.length < MIN_PASSWORD,
   };
 
-  const handleEmailAuth = async () => {
+  const changeMode = (next: Mode) => {
+    setMode(next);
     setError(null);
     setNotice(null);
+    setShowErrors(false);
+  };
 
+  const handleLogin = async () => {
+    setError(null);
+    setNotice(null);
     if (!email.trim() || !password) {
       setError('Completa el correo y la contraseña.');
       return;
@@ -82,7 +87,7 @@ export default function AuthScreen() {
     try {
       await signInWithEmail(email, password);
     } catch (authError) {
-      setError(getAuthErrorMessage(authError));
+      setError(describeAuthError(authError, 'No pudimos iniciar sesión. Inténtalo nuevamente.'));
     } finally {
       setLoading(false);
     }
@@ -91,7 +96,6 @@ export default function AuthScreen() {
   const handleForgotPassword = async () => {
     setError(null);
     setNotice(null);
-
     if (!email.trim()) {
       setError('Escribe tu correo para enviarte el enlace de recuperación.');
       return;
@@ -102,11 +106,62 @@ export default function AuthScreen() {
       await resetPassword(email);
       setNotice('Te enviamos un enlace para restablecer tu contraseña.');
     } catch (resetError) {
-      setError(getAuthErrorMessage(resetError));
+      setError(describeAuthError(resetError, 'No pudimos enviar el enlace. Inténtalo nuevamente.'));
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSignUp = async () => {
+    setError(null);
+    setNotice(null);
+    setShowErrors(true);
+
+    if (invalid.fullName || invalid.username || invalid.email || invalid.password) {
+      setError(
+        invalid.fullName ? 'Escribe tus nombres y apellidos.'
+          : invalid.username ? 'El HaNet ID debe tener entre 3 y 24 letras, números, puntos o guiones bajos.'
+            : invalid.email ? 'Ese correo no parece válido.'
+              : `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`,
+      );
+      return;
+    }
+    if (!acceptedTerms) {
+      setError('Debes aceptar los Términos y Condiciones.');
+      return;
+    }
+
+    setLoading(true);
+    submitting.current = true;
+    try {
+      await signUpWithEmail(email, password, {
+        fullName: fullName.trim(),
+        username: cleanUsername,
+        treatment,
+        acceptedTerms,
+      });
+      router.replace('/verify-email');
+    } catch (signUpError) {
+      setError(describeAuthError(signUpError, 'No pudimos crear tu cuenta. Inténtalo nuevamente.'));
+    } finally {
+      submitting.current = false;
+      setLoading(false);
+    }
+  };
+
+  const isSignUp = mode === 'signup';
+
+  const passwordToggle = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      hitSlop={10}
+      onPress={() => setPasswordVisible(visible => !visible)}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <Image source={ICONS.eye} style={[styles.icon, !passwordVisible && styles.iconMuted]} contentFit="contain" />
+    </Pressable>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -116,125 +171,150 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.topBar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Volver"
-              hitSlop={8}
-              onPress={goBack}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <CustomIcon name="chevron-left" size={22} color={AppColors.controlOnActive} />
-            </Pressable>
-            <ThemedText style={styles.topBarTitle}>Iniciar sesión</ThemedText>
-          </View>
-
-          <View style={styles.content}>
-            <ThemedText style={styles.eyebrow}>¡Qué bien que vuelves!</ThemedText>
-
-            <View style={styles.headlineRow}>
-              <ThemedText accessibilityRole="header" style={styles.headline}>HaNet ID</ThemedText>
-              <HanetLogo />
-            </View>
-
-            <ThemedText style={styles.intro}>
-              Accede con el correo asociado a tu identidad HaNet.
-            </ThemedText>
-
-            <View style={styles.formSection}>
-              <View style={[styles.inputContainer, focusedField === 'email' && styles.inputFocused]}>
-                <ThemedText style={styles.inputLabel}>Correo electrónico</ThemedText>
-                <TextInput
-                  accessibilityLabel="Correo electrónico"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  onBlur={() => setFocusedField(null)}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocusedField('email')}
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  placeholder="nombre@correo.com"
-                  placeholderTextColor="rgba(249,249,250,0.38)"
-                  returnKeyType="next"
-                  style={styles.inputField}
-                  textContentType="emailAddress"
-                  value={email}
-                />
-              </View>
-
-              <View style={[styles.inputContainer, focusedField === 'password' && styles.inputFocused]}>
-                <ThemedText style={styles.inputLabel}>Contraseña</ThemedText>
-                <View style={styles.passwordRow}>
-                  <TextInput
-                    ref={passwordRef}
-                    accessibilityLabel="Contraseña"
-                    autoCapitalize="none"
-                    autoComplete="current-password"
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setPassword}
-                    onFocus={() => setFocusedField('password')}
-                    onSubmitEditing={() => void handleEmailAuth()}
-                    placeholder="••••••••"
-                    placeholderTextColor="rgba(249,249,250,0.38)"
-                    returnKeyType="go"
-                    secureTextEntry={!passwordVisible}
-                    style={[styles.inputField, styles.passwordInput]}
-                    textContentType="password"
-                    value={password}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    hitSlop={8}
-                    onPress={() => setPasswordVisible((value) => !value)}
-                    style={({ pressed }) => [styles.passwordToggle, pressed && styles.pressed]}
-                  >
-                    <ThemedText style={styles.passwordToggleText}>{passwordVisible ? 'Ocultar' : 'Mostrar'}</ThemedText>
-                  </Pressable>
-                </View>
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Recuperar contraseña"
-                accessibilityState={{ disabled: loading }}
-                disabled={loading}
-                onPress={() => void handleForgotPassword()}
-                style={({ pressed }) => [styles.forgotButton, pressed && !loading && styles.pressed]}
-              >
-                <ThemedText style={styles.forgotText}>¿Olvidaste tu contraseña?</ThemedText>
-              </Pressable>
-
-              {error && (
-                <View accessibilityLiveRegion="assertive" style={styles.feedbackRow}>
-                  <CustomIcon name="warning" size={18} color={AppColors.accent} />
-                  <ThemedText style={styles.errorText}>{error}</ThemedText>
-                </View>
-              )}
-
-              {notice && (
-                <View accessibilityLiveRegion="polite" style={styles.feedbackRow}>
-                  <CustomIcon name="check-circle" size={18} color={AppColors.controlActive} />
-                  <ThemedText style={styles.noticeText}>{notice}</ThemedText>
-                </View>
-              )}
-
-              <HanetButton
-                accessibilityHint="Acceder a HaNet con estas credenciales"
-                disabled={loading}
-                label={loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
-                onPress={() => void handleEmailAuth()}
-                style={styles.ctaButton}
+          <View style={styles.card}>
+            <View style={styles.tabs}>
+              <HanetSegmented
+                accessibilityLabel="Tipo de cuenta"
+                value={mode}
+                onChange={changeMode}
+                options={[
+                  { value: 'login', label: 'Cuenta existente', accessibilityLabel: 'Cuenta existente' },
+                  { value: 'signup', label: 'Cuenta nueva', accessibilityLabel: 'Cuenta nueva' },
+                ]}
               />
             </View>
 
-            <View style={styles.registrationNotice}>
-              <ThemedText style={styles.registrationTitle}>¿Aún no tienes HaNet ID?</ThemedText>
-              <ThemedText style={styles.registrationText}>
-                El registro institucional estará disponible cuando terminemos el enlace seguro de matrículas.
-              </ThemedText>
+            {!isSignUp && <ThemedText style={styles.welcome}>¡Qué bien que vuelves!</ThemedText>}
+
+            <View style={styles.headline}>
+              <ThemedText accessibilityRole="header" style={styles.headlineText}>HaNet ID</ThemedText>
+              <Image source={ICONS.logo} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet" />
             </View>
+
+            {isSignUp && (
+              <>
+                <HanetField
+                  label="Nombres y Apellidos"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  textContentType="name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => usernameRef.current?.focus()}
+                  invalid={showErrors && invalid.fullName}
+                  editable={!loading}
+                />
+                <HanetField
+                  ref={usernameRef}
+                  label="HaNet ID (nombre de usuario)"
+                  value={username}
+                  onChangeText={(text) => setUsername(text.replace(/\s/g, '').toLowerCase())}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username-new"
+                  textContentType="username"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                  leading={<Image source={ICONS.at} style={styles.icon} contentFit="contain" />}
+                  invalid={showErrors && invalid.username}
+                  editable={!loading}
+                />
+              </>
+            )}
+
+            <HanetField
+              ref={emailRef}
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              trailing={<Image source={ICONS.mail} style={styles.icon} contentFit="contain" />}
+              invalid={isSignUp && showErrors && invalid.email}
+              editable={!loading}
+            />
+
+            <HanetField
+              ref={passwordRef}
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!passwordVisible}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              textContentType={isSignUp ? 'newPassword' : 'password'}
+              returnKeyType={isSignUp ? 'done' : 'go'}
+              onSubmitEditing={isSignUp ? undefined : handleLogin}
+              trailing={passwordToggle}
+              invalid={isSignUp && showErrors && invalid.password}
+              editable={!loading}
+            />
+
+            {isSignUp ? (
+              <>
+                <View>
+                  <ThemedText style={styles.sectionLabel}>¿Cómo prefieres que te tratemos?</ThemedText>
+                  <HanetSegmented
+                    tall
+                    accessibilityLabel="Tratamiento"
+                    value={treatment}
+                    onChange={setTreatment}
+                    options={[
+                      { value: 'el', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'neutro', label: 'No decirlo', accessibilityLabel: 'No decirlo' },
+                    ]}
+                  />
+                </View>
+
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel="Acepto los Términos y Condiciones"
+                  accessibilityState={{ checked: acceptedTerms }}
+                  onPress={() => setAcceptedTerms(accepted => !accepted)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.terms, pressed && styles.pressed]}
+                >
+                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                    {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
+                  </View>
+                  <ThemedText style={styles.termsText}>Acepto los Términos y Condiciones.</ThemedText>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleForgotPassword}
+                disabled={loading}
+                hitSlop={8}
+                style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}
+              >
+                <ThemedText style={styles.forgotText}>Olvidé mis credenciales</ThemedText>
+              </Pressable>
+            )}
+
+            {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
+            {!!notice && <ThemedText accessibilityLiveRegion="polite" style={styles.notice}>{notice}</ThemedText>}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading, busy: loading }}
+              disabled={loading}
+              onPress={isSignUp ? handleSignUp : handleLogin}
+              style={({ pressed }) => [styles.submit, pressed && styles.pressed, loading && styles.submitBusy]}
+            >
+              <ThemedText style={styles.submitText}>
+                {loading ? (isSignUp ? 'Creando tu cuenta…' : 'Entrando…') : isSignUp ? 'Crear cuenta HaNet ID' : '¡Iniciemos!'}
+              </ThemedText>
+              {!loading && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -243,133 +323,149 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: AppColors.canvas },
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.canvas,
+  },
+  flex: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 480,
     alignSelf: 'center',
-    paddingHorizontal: AppSpacing.xl,
-    paddingBottom: 48,
+    padding: AppSpacing.md,
   },
-  topBar: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.md,
+  card: {
+    padding: AppSpacing.xxl,
+    gap: AppSpacing.xl,
+    borderRadius: AppRadii.xl,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: AppRadii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.controlActive,
+  tabs: {
+    paddingBottom: AppSpacing.md,
   },
-  topBarTitle: {
-    color: AppColors.textPrimary,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 17,
-    lineHeight: 24,
-  },
-  content: { flex: 1, justifyContent: 'center', paddingVertical: AppSpacing.xl },
-  eyebrow: {
-    color: AppColors.textSecondary,
+  welcome: {
+    marginBottom: -AppSpacing.md,
     fontFamily: 'DMSans_500Medium',
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: AppSpacing.xs,
-  },
-  headlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: AppSpacing.sm,
+    letterSpacing: -0.35,
+    color: AppColors.textSecondary,
   },
   headline: {
-    color: AppColors.textPrimary,
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 34,
-    lineHeight: 40,
-    letterSpacing: -1.2,
-  },
-  intro: {
-    color: AppColors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: AppSpacing.xl,
-    maxWidth: 360,
-  },
-  formSection: { gap: AppSpacing.md },
-  inputContainer: {
-    minHeight: 62,
-    borderRadius: AppRadii.md,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    backgroundColor: AppColors.surface,
-    justifyContent: 'center',
-    paddingHorizontal: AppSpacing.lg,
-    paddingVertical: AppSpacing.sm,
-  },
-  inputFocused: { borderColor: AppColors.controlActive },
-  inputLabel: {
-    color: AppColors.textSecondary,
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  inputField: {
-    minHeight: 26,
-    color: AppColors.textPrimary,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    padding: 0,
-    outlineStyle: 'none' as any,
-  },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: AppSpacing.sm },
-  passwordInput: { flex: 1 },
-  passwordToggle: { minWidth: 60, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  passwordToggleText: {
-    color: AppColors.textSecondary,
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  forgotButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  forgotText: {
-    color: AppColors.textSecondary,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  feedbackRow: {
-    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: AppSpacing.sm,
-    paddingHorizontal: AppSpacing.md,
   },
-  errorText: { flex: 1, color: AppColors.accent, fontSize: 13, lineHeight: 19 },
-  noticeText: { flex: 1, color: AppColors.textSecondary, fontSize: 13, lineHeight: 19 },
-  ctaButton: { minHeight: 56, width: '100%' },
-  registrationNotice: {
-    marginTop: AppSpacing.xl,
-    borderRadius: AppRadii.lg,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.surface,
-    padding: AppSpacing.lg,
-    gap: AppSpacing.xs,
-  },
-  registrationTitle: {
+  headlineText: {
+    flex: 1,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 36,
+    lineHeight: 43,
+    letterSpacing: -1.62,
     color: AppColors.textPrimary,
+  },
+  logo: {
+    width: 47,
+    height: 43,
+  },
+  icon: {
+    width: 24,
+    height: 24,
+  },
+  iconMuted: {
+    opacity: 0.55,
+  },
+  sectionLabel: {
+    marginBottom: AppSpacing.sm,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.24,
+    color: AppColors.textSecondary,
+    opacity: 0.75,
+  },
+  terms: {
+    minHeight: AppTouch.minimum,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: AppColors.textSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    borderColor: AppColors.accent,
+    backgroundColor: AppColors.accent,
+  },
+  checkmark: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  termsText: {
+    flex: 1,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+  },
+  forgot: {
+    minHeight: AppTouch.minimum,
+    alignSelf: 'flex-end',
+    justifyContent: 'center',
+  },
+  forgotText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+  },
+  error: {
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
+    color: AppColors.accent,
   },
-  registrationText: { color: AppColors.textSecondary, fontSize: 13, lineHeight: 19 },
-  pressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
+  notice: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  submit: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.xl,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.primary,
+  },
+  submitBusy: {
+    opacity: 0.6,
+  },
+  submitText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
 });

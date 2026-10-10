@@ -83,6 +83,7 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
+            <Stack.Screen name="verify-email" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
@@ -95,15 +96,7 @@ export default function RootLayout() {
                 sheetAllowedDetents: [0.5, 1.0]
               }} 
             />
-            <Stack.Screen 
-              name="event-info" 
-              options={{ 
-                presentation: 'formSheet', 
-                headerShown: false,
-                sheetGrabberVisible: true,
-                sheetAllowedDetents: [0.5, 1.0]
-              }} 
-            />
+            <Stack.Screen name="event-info" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="light" />
         </ThemeProvider>

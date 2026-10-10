@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDK__CRF5iUlnGnRlembV9XUsnnajkFMaA",
@@ -25,5 +26,7 @@ const calendarDb = getFirestore(app, "hn-calendar");
 // Create this Firestore database before enabling the Events screen in production.
 const eventsDb = getFirestore(app, "hn-events");
 
-export { auth, db, calendarDb, eventsDb };
+const functions = getFunctions(app);
+
+export { auth, db, calendarDb, eventsDb, functions };
 export default app;
