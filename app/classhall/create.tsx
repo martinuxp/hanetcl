@@ -1,0 +1,289 @@
+import { withSheetFrame } from '@/components/ui/sheet-frame';
+import { ThemedText } from '@/components/themed-text';
+import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { describeAuthError } from '@/services/auth-service';
+import { HALL_THEMES, HALL_THEME_IDS, createHall, listHallCourses } from '@/services/classhall-service';
+import type { HallTheme } from '@/services/classhall-service';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function CreateHallScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const [subject, setSubject] = useState('');
+  const [courses, setCourses] = useState<string[] | null>(null);
+  const [course, setCourse] = useState<string | null>(null);
+  const [theme, setTheme] = useState<HallTheme>('backToSchool');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    listHallCourses()
+      .then(list => { if (active) setCourses(list); })
+      .catch(loadError => {
+        if (!active) return;
+        setCourses([]);
+        setError(describeAuthError(loadError, 'No pudimos cargar los cursos. Cierra y vuelve a intentarlo.'));
+      });
+    return () => { active = false; };
+  }, []);
+
+  const ready = subject.trim().length >= 2 && !!course;
+
+  const submit = async () => {
+    if (!ready || !course || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createHall(subject, course, theme);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.back();
+    } catch (createError) {
+      setError(describeAuthError(createError, 'No pudimos crear el Hall. Inténtalo nuevamente.'));
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ScrollView
+      style={styles.sheet}
+      contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <ThemedText accessibilityRole="header" style={styles.title}>Crear un Hall</ThemedText>
+      <ThemedText style={styles.lead}>
+        Un Hall es tu asignatura en un curso. Al crearlo recibes un código para que tus estudiantes se unan.
+      </ThemedText>
+
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Asignatura</ThemedText>
+        <TextInput
+          accessibilityLabel="Asignatura"
+          value={subject}
+          onChangeText={(text) => { setSubject(text); setError(null); }}
+          placeholder="Lenguaje y Literatura"
+          placeholderTextColor={AppColors.surfaceMuted}
+          maxLength={60}
+          editable={!submitting}
+          selectionColor={AppColors.accent}
+          style={styles.input}
+        />
+      </View>
+
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Curso</ThemedText>
+        {courses === null && <ActivityIndicator style={styles.loader} color={AppColors.textSecondary} />}
+        {courses?.length === 0 && !error && (
+          <ThemedText style={styles.hint}>Tu institución todavía no tiene cursos en su nómina.</ThemedText>
+        )}
+        <View style={styles.chips} accessibilityRole="radiogroup">
+          {courses?.map(option => {
+            const selected = option === course;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                disabled={submitting}
+                onPress={() => { setCourse(option); setError(null); }}
+                style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+              >
+                <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Portada</ThemedText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.themes} accessibilityRole="radiogroup">
+          {HALL_THEME_IDS.map((id, index) => {
+            const selected = id === theme;
+            return (
+              <Pressable
+                key={id}
+                accessibilityRole="radio"
+                accessibilityLabel={`Portada ${index + 1}`}
+                accessibilityState={{ selected }}
+                disabled={submitting}
+                onPress={() => setTheme(id)}
+                style={({ pressed }) => [styles.theme, selected && styles.themeSelected, pressed && styles.pressed]}
+              >
+                <Image source={HALL_THEMES[id]} style={styles.themeImage} contentFit="cover" />
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready || submitting, busy: submitting }}
+        disabled={!ready || submitting}
+        onPress={submit}
+        style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
+      >
+        <ThemedText style={styles.submitText}>{submitting ? 'Creando…' : 'Crear Hall'}</ThemedText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.back()}
+        style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
+      >
+        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  sheet: {
+    flex: 1,
+    backgroundColor: AppColors.surface,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    padding: AppSpacing.xl,
+    gap: AppSpacing.xl,
+  },
+  title: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 24,
+    lineHeight: 29,
+    letterSpacing: -1.08,
+    color: AppColors.textPrimary,
+  },
+  lead: {
+    marginTop: -AppSpacing.md,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    lineHeight: 21,
+    letterSpacing: -0.3,
+    color: AppColors.textSecondary,
+  },
+  field: {
+    gap: AppSpacing.sm,
+  },
+  label: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.3,
+    color: AppColors.textPrimary,
+  },
+  input: {
+    minHeight: 56,
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.canvas,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+    outlineStyle: 'none' as never,
+  },
+  loader: {
+    alignSelf: 'flex-start',
+  },
+  hint: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AppSpacing.sm,
+  },
+  chip: {
+    minHeight: AppTouch.minimum,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.canvas,
+  },
+  chipSelected: {
+    backgroundColor: AppColors.controlActive,
+  },
+  chipText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
+  },
+  chipTextSelected: {
+    color: AppColors.controlOnActive,
+  },
+  themes: {
+    gap: AppSpacing.sm,
+  },
+  theme: {
+    width: 132,
+    height: 64,
+    overflow: 'hidden',
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  themeSelected: {
+    borderColor: AppColors.controlActive,
+  },
+  themeImage: {
+    flex: 1,
+  },
+  error: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.errorText,
+  },
+  submit: {
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.primary,
+  },
+  submitDisabled: {
+    backgroundColor: AppColors.surfaceMuted,
+    opacity: 0.65,
+  },
+  submitText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+  },
+  cancel: {
+    minHeight: 44,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+  },
+  cancelText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+});
+
+export default withSheetFrame(CreateHallScreen, AppColors.surface);

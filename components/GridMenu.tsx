@@ -85,6 +85,7 @@ export default function GridMenu() {
           title="ClassHall"
           IconComponent={GraduationCapIcon}
           height={102}
+          href="/classhall"
         />
         <GridItem
           title="HaNet Wallet"

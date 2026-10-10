@@ -1,3 +1,4 @@
+import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
@@ -396,7 +397,7 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: 'center',
     padding: AppSpacing.md,
-    paddingBottom: AppSpacing.xxl,
+    paddingBottom: TAB_BAR_CLEARANCE,
     gap: AppSpacing.md,
   },
   topBar: {

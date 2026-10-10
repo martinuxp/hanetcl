@@ -6,7 +6,6 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -385,25 +384,6 @@ export default function EventInfoScreen() {
           )}
         </View>
       </ScrollView>
-
-      <View style={[styles.bottomBarWrapper, { bottom: Math.max(insets.bottom, 12) + 12 }]}>
-        <BlurView
-          intensity={Platform.OS === 'android' ? 0 : 80}
-          tint="dark"
-          style={[styles.bottomBar, Platform.OS === 'android' && styles.bottomBarSolid]}
-        >
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir al inicio" onPress={() => router.replace('/')} style={({ pressed }) => [styles.bottomIcon, pressed && styles.pressed]}>
-            <CustomIcon name="home" size={24} color={AppColors.textSecondary} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={goBack} style={({ pressed }) => [styles.backPill, pressed && styles.pressed]}>
-            <CustomIcon name="chevron-left" size={18} color={AppColors.controlOnActive} />
-            <ThemedText style={styles.backPillText}>Volver</ThemedText>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ir a mi perfil" onPress={() => router.replace('/explore')} style={({ pressed }) => [styles.bottomIcon, pressed && styles.pressed]}>
-            <CustomIcon name="user" size={24} color={AppColors.textSecondary} />
-          </Pressable>
-        </BlurView>
-      </View>
 
       <Modal visible={manageStep !== 'closed'} transparent animationType="fade" statusBarTranslucent onRequestClose={closeManage}>
         <View style={styles.modalOverlay}>
@@ -784,53 +764,6 @@ const styles = StyleSheet.create({
   },
   missingButton: {
     marginTop: AppSpacing.md,
-  },
-  bottomBarWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  bottomBar: {
-    width: '90%',
-    maxWidth: 330,
-    height: 64,
-    borderRadius: AppRadii.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: AppSpacing.md,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(82, 82, 77, 0.4)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.3)',
-  },
-  bottomBarSolid: {
-    backgroundColor: 'rgba(60, 59, 62, 0.96)',
-  },
-  bottomIcon: {
-    width: 70,
-    height: AppTouch.minimum,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backPill: {
-    width: 118,
-    height: 40,
-    borderRadius: AppRadii.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: AppColors.controlActive,
-  },
-  backPillText: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 14,
-    lineHeight: 21,
-    letterSpacing: -0.35,
-    color: AppColors.controlOnActive,
   },
   modalOverlay: {
     flex: 1,

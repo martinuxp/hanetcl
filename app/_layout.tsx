@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -7,6 +8,7 @@ import { PaperProvider, MD3DarkTheme, configureFonts } from 'react-native-paper'
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { GlobalTabBar } from '@/components/AppTabBar';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
 
@@ -57,6 +59,16 @@ const paperTheme = {
   },
 };
 
+// Android's form sheet (react-native-screens 4.26) can open with no height,
+// leaving an invisible sheet that still takes touches, so there these screens
+// are transparent modals that draw their own sheet (see sheet-frame.tsx).
+function sheetOptions(detents: number[]) {
+  if (Platform.OS === 'android') {
+    return { presentation: 'transparentModal', headerShown: false, animation: 'fade' } as const;
+  }
+  return { presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: detents } as const;
+}
+
 export default function RootLayout() {
   const { initializing } = useSession();
 
@@ -90,26 +102,14 @@ export default function RootLayout() {
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            <Stack.Screen 
-              name="create-event" 
-              options={{ 
-                presentation: 'formSheet', 
-                headerShown: false,
-                sheetGrabberVisible: true,
-                sheetAllowedDetents: [0.5, 1.0]
-              }} 
-            />
-            <Stack.Screen
-              name="edit-profile"
-              options={{
-                presentation: 'formSheet',
-                headerShown: false,
-                sheetGrabberVisible: true,
-                sheetAllowedDetents: [0.75, 1.0]
-              }}
-            />
+            <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />
+            <Stack.Screen name="edit-profile" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
+            <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
+            <Stack.Screen name="classhall/join" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="classhall/create" options={sheetOptions([0.75, 1.0])} />
           </Stack>
+          <GlobalTabBar />
           <StatusBar style="light" />
         </ThemeProvider>
       </PaperProvider>

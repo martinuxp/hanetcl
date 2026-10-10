@@ -1,3 +1,4 @@
+import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
@@ -27,7 +28,7 @@ function initialsOf(name: string) {
   return (parts[0][0] + (second?.[0] ?? '')).toLocaleUpperCase('es');
 }
 
-export default function EditProfileScreen() {
+function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, initializing } = useSession();
@@ -360,3 +361,5 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
 });
+
+export default withSheetFrame(EditProfileScreen, AppColors.neutral2);

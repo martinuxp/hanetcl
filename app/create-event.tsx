@@ -1,3 +1,4 @@
+import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors } from '@/constants/design-tokens';
 import React, { useRef, useState } from 'react';
 import { StyleSheet, View, ScrollView, Platform, TextInput, Pressable, KeyboardAvoidingView } from 'react-native';
@@ -33,7 +34,7 @@ function describeSaveError(error: unknown) {
   return 'No se pudo guardar el evento. Revisa tu conexión e inténtalo de nuevo.';
 }
 
-export default function CreateEventScreen() {
+function CreateEventScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useSession();
@@ -326,3 +327,5 @@ const styles = StyleSheet.create({
   modalFooter: { flexDirection: 'row', gap: 10, width: '100%' },
   footerButton: { flex: 1 },
 });
+
+export default withSheetFrame(CreateEventScreen, AppColors.neutral2);
