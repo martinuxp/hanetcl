@@ -7,6 +7,10 @@
     {
       "database": "hn-calendar",
       "rules": "firestore.calendar.rules"
+    },
+    {
+      "database": "hn-classhall",
+      "rules": "firestore.classhall.rules"
     }
   ],
   "functions": {

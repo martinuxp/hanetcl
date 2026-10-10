@@ -11,6 +11,7 @@ const ROLE_NOTES: Record<MemberRole, string> = {
   Estudiante: 'Ve el calendario de su curso.',
   Directiva: 'Directiva de curso. Publica en el calendario de su curso.',
   CEE: 'Centro de estudiantes. Publica en el calendario de su curso.',
+  Profesor: 'Docente. Crea Halls en ClassHall y publica en ellos.',
   Admin: 'Administración de la institución. Publica en el calendario.',
   HNT: 'Equipo HaNet. Además, entra a este panel.',
 };

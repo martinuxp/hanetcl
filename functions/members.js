@@ -5,7 +5,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // People of an institution, for the HNT panel: who is on the roster, who
 // already linked their HaNet ID, with which role, and the actions on them.
 
-const ROLES = ["Estudiante", "Directiva", "CEE", "Admin", "HNT"];
+const ROLES = ["Estudiante", "Directiva", "CEE", "Profesor", "Admin", "HNT"];
 const MAX_MEMBERS = 1000;
 
 function identityDb(getAdminApp) {

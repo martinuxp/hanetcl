@@ -30,6 +30,9 @@ Object.assign(exports, require("./institutions").build(getAdminApp));
 // People of an institution: roles and unlinking, for the HNT panel.
 Object.assign(exports, require("./members").build(getAdminApp));
 
+// ClassHall: Halls per subject and course, and joining them by code.
+Object.assign(exports, require("./classhall").build(getAdminApp));
+
 // Data for the profile screen.
 Object.assign(exports, require("./profile").build(getAdminApp));
 
@@ -86,7 +89,7 @@ exports.requestIdentityLink = onCall(async (request) => {
   return { requestId: requestRef.id, status: "pending" };
 });
 
-const CLAIM_ROLES = ["Estudiante", "Directiva", "CEE", "Admin", "HNT"];
+const CLAIM_ROLES = ["Estudiante", "Directiva", "CEE", "Profesor", "Admin", "HNT"];
 
 // Copies role and courseId from users/{uid} into the caller's token. The
 // hn-calendar rules cannot read hn-enrollmentdata, so they rely on these

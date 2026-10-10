@@ -24,7 +24,7 @@ export type RosterImportResult = {
   rejectedCount: number;
 };
 
-export const MEMBER_ROLES = ['Estudiante', 'Directiva', 'CEE', 'Admin', 'HNT'] as const;
+export const MEMBER_ROLES = ['Estudiante', 'Directiva', 'CEE', 'Profesor', 'Admin', 'HNT'] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
 export type Member = {
