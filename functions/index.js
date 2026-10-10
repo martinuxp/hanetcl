@@ -27,6 +27,9 @@ Object.assign(exports, require("./account").build(getAdminApp));
 // Institutions, their invitation phrases and rosters, plus the HNT panel.
 Object.assign(exports, require("./institutions").build(getAdminApp));
 
+// Data for the profile screen.
+Object.assign(exports, require("./profile").build(getAdminApp));
+
 // Identity link through the institutional email.
 Object.assign(exports, require("./link").build(getAdminApp));
 

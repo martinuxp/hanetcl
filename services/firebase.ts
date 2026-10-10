@@ -1,7 +1,11 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
+import type { Auth, Persistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { getFirestore } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDK__CRF5iUlnGnRlembV9XUsnnajkFMaA",
@@ -15,11 +19,25 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Firebase JS SDK v12 does not expose getReactNativePersistence from the
-// public auth entrypoint. Keep one auth instance for every platform; native
-// persistence can be added later with a supported adapter without breaking
-// the current build.
-const auth = getAuth(app);
+// On native the session has to be stored explicitly or it is lost every time
+// the app closes. The React Native build of the SDK ships
+// getReactNativePersistence, but its typings do not declare it.
+function createAuth(): Auth {
+  const getReactNativePersistence = (firebaseAuth as unknown as {
+    getReactNativePersistence?: (storage: typeof AsyncStorage) => Persistence;
+  }).getReactNativePersistence;
+
+  if (Platform.OS !== 'web' && typeof getReactNativePersistence === 'function') {
+    try {
+      return firebaseAuth.initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+    } catch {
+      // Already initialised (fast refresh): fall through to the existing instance.
+    }
+  }
+  return firebaseAuth.getAuth(app);
+}
+
+const auth = createAuth();
 const db = getFirestore(app, "hn-enrollmentdata");
 const calendarDb = getFirestore(app, "hn-calendar");
 // Regional events must remain isolated from institutional enrollment and course calendars.
@@ -27,6 +45,7 @@ const calendarDb = getFirestore(app, "hn-calendar");
 const eventsDb = getFirestore(app, "hn-events");
 
 const functions = getFunctions(app);
+const storage = getStorage(app);
 
-export { auth, db, calendarDb, eventsDb, functions };
+export { auth, db, calendarDb, eventsDb, functions, storage };
 export default app;

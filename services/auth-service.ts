@@ -103,12 +103,65 @@ export async function completeInstitutionalLink() {
   await auth.currentUser?.getIdToken(true);
 }
 
+// ─── Profile ─────────────────────────────────────────────────────────────────
+export type MyProfile = {
+  fullName: string;
+  username: string | null;
+  treatment: Treatment;
+  /** Id of the typeface chosen for the profile name (see constants/name-fonts.ts). */
+  nameFont: string;
+  linked: boolean;
+  role: string | null;
+  courseId: string | null;
+  institutionName: string | null;
+  institutionFullName: string | null;
+  /** Milliseconds since epoch of the account's creation. */
+  memberSince: number | null;
+};
+
+export async function getMyProfile() {
+  const result = await httpsCallable<void, MyProfile>(functions, 'getMyProfile')();
+  return result.data;
+}
+
+// ─── Welcome ─────────────────────────────────────────────────────────────────
+// Set when the link completes and read once by Home, which plays the welcome.
+let pendingWelcome: { institutionName?: string } | null = null;
+
+export function setPendingWelcome(institutionName?: string) {
+  pendingWelcome = { institutionName };
+}
+
+export function consumePendingWelcome() {
+  const pending = pendingWelcome;
+  pendingWelcome = null;
+  return pending;
+}
+
+/** First name and treatment for greeting the signed-in account. */
+export async function getGreetingProfile(user: User): Promise<{ firstName: string; treatment: Treatment }> {
+  const account = (await getDoc(doc(db, 'accounts', user.uid))).data();
+  const fullName: string = account?.fullName || user.displayName || '';
+  return {
+    firstName: fullName.trim().split(/\s+/)[0] ?? '',
+    treatment: account?.treatment === 'ella' || account?.treatment === 'el' ? account.treatment : 'neutro',
+  };
+}
+
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 export type OnboardingStep = 'verify-email' | 'join-beta' | 'link' | 'done';
 
 /** Where an account stands on the way from sign-up to its institution. */
+// Accounts known to have finished: Home asks on every visit, and once an
+// account is linked the answer does not change.
+const finishedUids = new Set<string>();
+
+export function isOnboardingKnownDone(user: User | null) {
+  return !user || finishedUids.has(user.uid);
+}
+
 export async function getOnboardingStep(user: User | null): Promise<OnboardingStep> {
-  if (!user) return 'done';
+  if (!user || finishedUids.has(user.uid)) return 'done';
   if (!user.emailVerified) return 'verify-email';
 
   const [profile, account] = await Promise.all([
@@ -116,7 +169,10 @@ export async function getOnboardingStep(user: User | null): Promise<OnboardingSt
     getDoc(doc(db, 'accounts', user.uid)),
   ]);
   // A linked profile is the end of the road, however the account got there.
-  if (profile.exists()) return 'done';
+  if (profile.exists()) {
+    finishedUids.add(user.uid);
+    return 'done';
+  }
   return account.data()?.institutionId ? 'link' : 'join-beta';
 }
 

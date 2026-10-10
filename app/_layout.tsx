@@ -99,6 +99,15 @@ export default function RootLayout() {
                 sheetAllowedDetents: [0.5, 1.0]
               }} 
             />
+            <Stack.Screen
+              name="edit-profile"
+              options={{
+                presentation: 'formSheet',
+                headerShown: false,
+                sheetGrabberVisible: true,
+                sheetAllowedDetents: [0.75, 1.0]
+              }}
+            />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="light" />

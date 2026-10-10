@@ -44,6 +44,10 @@
           "region": "us-central1"
         }
       }
-    ]
+    ],
+    "cleanUrls": true
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }
