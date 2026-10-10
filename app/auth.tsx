@@ -1,292 +1,241 @@
-import { AppColors } from '@/constants/design-tokens';
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { CustomIcon } from '@/components/ui/custom-icon';
+import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { resetPassword, signInWithEmail, useSession } from '@/services/auth-service';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  useSession,
-  signInWithEmail, 
-  signUpWithEmail,
-  checkEnrollment,
-  resetPassword 
-} from '@/services/auth-service';
-import Svg, { Path, Rect, G, ClipPath, Defs } from 'react-native-svg';
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
-// Hanet logo (simplified from HanetCalendarvector.svg)
+type FieldName = 'email' | 'password';
+
 function HanetLogo() {
   return (
-    <Svg width={40} height={40} viewBox="0 0 24 36" fill="none">
+    <Svg accessibilityLabel="HaNet" width={40} height={40} viewBox="0 0 24 36" fill="none">
       <Path d="M0 0L8.537 8V16.333L12.806 16.833V11.167L23.97 12.167V23.833L12.806 24.833V19.167L8.537 19.667V28L0 36V0Z" fill={AppColors.accent} />
     </Svg>
   );
 }
 
-// Google "Continue with Google" SVG
-function GoogleIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-      <G clipPath="url(#c)">
-        <Path d="M19.6 10.227c0-.709-.064-1.39-.182-2.045H10v3.868h5.382c-.232 1.25-.926 2.31-1.964 3.018v2.509h3.232c1.891-1.741 2.95-4.305 2.95-7.35z" fill="#4285F4"/>
-        <Path d="M10 20c2.7 0 4.964-.895 6.618-2.423l-3.232-2.509c-.895.6-2.04.955-3.386.955-2.605 0-4.81-1.76-5.596-4.123H1.064v2.59A9.996 9.996 0 0 0 10 20z" fill="#34A853"/>
-        <Path d="M4.404 11.9c-.2-.6-.314-1.241-.314-1.9 0-.659.114-1.3.314-1.9V5.509H1.064A9.996 9.996 0 0 0 0 10c0 1.614.386 3.141 1.064 4.491l3.34-2.591z" fill="#FBBC04"/>
-        <Path d="M10 3.977c1.468 0 2.786.505 3.823 1.496l2.868-2.868C14.959.99 12.695 0 10 0 6.09 0 2.709 2.24 1.064 5.509L4.404 8.1C5.19 5.736 7.396 3.977 10 3.977z" fill="#E94235"/>
-      </G>
-      <Defs><ClipPath id="c"><Rect width={20} height={20} fill="white"/></ClipPath></Defs>
-    </Svg>
-  );
+function getAuthErrorMessage(error: unknown) {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String(error.code)
+    : '';
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return 'El correo o la contraseña no coinciden.';
+    case 'auth/user-disabled':
+      return 'Esta cuenta está desactivada. Contacta a tu institución.';
+    case 'auth/too-many-requests':
+      return 'Hubo demasiados intentos. Espera un momento e inténtalo nuevamente.';
+    case 'auth/network-request-failed':
+      return 'No pudimos conectarnos. Revisa tu conexión a internet.';
+    default:
+      return 'No pudimos iniciar sesión. Inténtalo nuevamente.';
+  }
 }
 
 export default function AuthScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const { user } = useSession();
+  const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rut, setRut] = useState('');
-  const [gender, setGender] = useState<'male' | 'female' | 'none'>('none');
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-
-  const { user } = useSession();
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [focusedField, setFocusedField] = useState<FieldName | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) router.replace('/(tabs)');
+  }, [router, user]);
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   const handleEmailAuth = async () => {
     setError(null);
-    if (!email || !password) {
-      setError('Por favor completa todos los campos.');
+    setNotice(null);
+
+    if (!email.trim() || !password) {
+      setError('Completa el correo y la contraseña.');
       return;
     }
 
     setLoading(true);
     try {
-      if (activeTab === 'login') {
-        await signInWithEmail(email, password);
-      } else {
-        if (!rut || !acceptedTerms) {
-          setError('Ingresa tu RUT y acepta los términos.');
-          setLoading(false);
-          return;
-        }
-
-        // 1. Verify RUT against Database
-        let enrollmentData;
-        try {
-          enrollmentData = await checkEnrollment(rut);
-        } catch (e: any) {
-          if (e.message === 'RUT_NOT_FOUND') {
-            setError('RUT no encontrado en la lista institucional.');
-          } else if (e.message === 'RUT_ALREADY_LINKED') {
-            setError('Este RUT ya tiene una cuenta HaNet creada.');
-          } else {
-            setError('Error validando RUT en el sistema.');
-          }
-          setLoading(false);
-          return;
-        }
-
-        // 2. Create the account with institutional data
-        const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-        await signUpWithEmail(email, password, cleanRut, enrollmentData.courseId, enrollmentData.fullName);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError('Error: Credenciales inválidas o cuenta ya existente.');
+      await signInWithEmail(email, password);
+    } catch (authError) {
+      setError(getAuthErrorMessage(authError));
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Ingresa tu correo para restablecer la contraseña.');
+    setError(null);
+    setNotice(null);
+
+    if (!email.trim()) {
+      setError('Escribe tu correo para enviarte el enlace de recuperación.');
       return;
     }
+
+    setLoading(true);
     try {
       await resetPassword(email);
-      alert('Correo de recuperación enviado.');
-    } catch {
-      setError('Error al enviar el correo.');
+      setNotice('Te enviamos un enlace para restablecer tu contraseña.');
+    } catch (resetError) {
+      setError(getAuthErrorMessage(resetError));
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Redirect if already logged in
-  React.useEffect(() => {
-    if (user) {
-      router.replace('/(tabs)');
-    }
-  }, [router, user]);
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-          {/* Segmented Picker */}
-          <View style={styles.segmentedPicker}>
-            <TouchableOpacity
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === 'login' }}
-              style={[styles.segmentBtn, activeTab === 'login' && styles.segmentBtnActive]}
-              onPress={() => setActiveTab('login')}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.topBar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+              hitSlop={8}
+              onPress={goBack}
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
             >
-              <ThemedText style={[styles.segmentText, activeTab === 'login' && styles.segmentTextActive]}>Cuenta existente</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeTab === 'signup' }}
-              style={[styles.segmentBtn, activeTab === 'signup' && styles.segmentBtnActive]}
-              onPress={() => setActiveTab('signup')}
-            >
-              <ThemedText style={[styles.segmentText, activeTab === 'signup' && styles.segmentTextActive]}>Cuenta nueva</ThemedText>
-            </TouchableOpacity>
+              <CustomIcon name="chevron-left" size={22} color={AppColors.controlOnActive} />
+            </Pressable>
+            <ThemedText style={styles.topBarTitle}>Iniciar sesión</ThemedText>
           </View>
 
-          {/* Welcome text */}
-          {activeTab === 'login' && (
-            <ThemedText style={styles.welcomeText}>¡Qué bien que vuelves!</ThemedText>
-          )}
+          <View style={styles.content}>
+            <ThemedText style={styles.eyebrow}>¡Qué bien que vuelves!</ThemedText>
 
-          {/* Headline + Logo */}
-          <View style={styles.headlineRow}>
-            <ThemedText style={styles.headline}>HaNet ID</ThemedText>
-            <HanetLogo />
-          </View>
+            <View style={styles.headlineRow}>
+              <ThemedText accessibilityRole="header" style={styles.headline}>HaNet ID</ThemedText>
+              <HanetLogo />
+            </View>
 
-          {/* Forms */}
-          <View style={styles.formSection}>
-            {activeTab === 'signup' && (
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.inputLabel}>RUT del alumno</ThemedText>
+            <ThemedText style={styles.intro}>
+              Accede con el correo asociado a tu identidad HaNet.
+            </ThemedText>
+
+            <View style={styles.formSection}>
+              <View style={[styles.inputContainer, focusedField === 'email' && styles.inputFocused]}>
+                <ThemedText style={styles.inputLabel}>Correo electrónico</ThemedText>
                 <TextInput
-                  accessibilityLabel="RUT del alumno"
+                  accessibilityLabel="Correo electrónico"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  onBlur={() => setFocusedField(null)}
+                  onChangeText={setEmail}
+                  onFocus={() => setFocusedField('email')}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  placeholder="nombre@correo.com"
+                  placeholderTextColor="rgba(249,249,250,0.38)"
+                  returnKeyType="next"
                   style={styles.inputField}
-                  value={rut}
-                  onChangeText={setRut}
-                  placeholder="Ej: 21.345.678-9"
-                  placeholderTextColor="rgba(250,250,249,0.3)"
+                  textContentType="emailAddress"
+                  value={email}
                 />
               </View>
-            )}
 
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>Email</ThemedText>
-              <TextInput
-                accessibilityLabel="Correo electrónico"
-                style={styles.inputField}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="ejemplo@correo.com"
-                placeholderTextColor="rgba(250,250,249,0.3)"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.inputLabel}>Contraseña</ThemedText>
-              <TextInput
-                accessibilityLabel="Contraseña"
-                style={styles.inputField}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="rgba(250,250,249,0.3)"
-                secureTextEntry
-              />
-            </View>
-
-            {activeTab === 'signup' && (
-              <>
-                {/* Gender picker */}
-                <View style={styles.genderPicker}>
-                  <TouchableOpacity
-                    accessibilityRole="radio"
-                    accessibilityLabel="Masculino"
-                    accessibilityState={{ selected: gender === 'male' }}
-                    style={[styles.genderBtn, gender === 'male' && styles.genderBtnActive]}
-                    onPress={() => setGender('male')}
+              <View style={[styles.inputContainer, focusedField === 'password' && styles.inputFocused]}>
+                <ThemedText style={styles.inputLabel}>Contraseña</ThemedText>
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    ref={passwordRef}
+                    accessibilityLabel="Contraseña"
+                    autoCapitalize="none"
+                    autoComplete="current-password"
+                    onBlur={() => setFocusedField(null)}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocusedField('password')}
+                    onSubmitEditing={() => void handleEmailAuth()}
+                    placeholder="••••••••"
+                    placeholderTextColor="rgba(249,249,250,0.38)"
+                    returnKeyType="go"
+                    secureTextEntry={!passwordVisible}
+                    style={[styles.inputField, styles.passwordInput]}
+                    textContentType="password"
+                    value={password}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    hitSlop={8}
+                    onPress={() => setPasswordVisible((value) => !value)}
+                    style={({ pressed }) => [styles.passwordToggle, pressed && styles.pressed]}
                   >
-                    <ThemedText style={styles.genderIcon}>♂</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="radio"
-                    accessibilityLabel="Femenino"
-                    accessibilityState={{ selected: gender === 'female' }}
-                    style={[styles.genderBtn, gender === 'female' && styles.genderBtnActive]}
-                    onPress={() => setGender('female')}
-                  >
-                    <ThemedText style={styles.genderIcon}>♀</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="radio"
-                    accessibilityLabel="Prefiero no decirlo"
-                    accessibilityState={{ selected: gender === 'none' }}
-                    style={[styles.genderBtn, gender === 'none' && styles.genderBtnActive]}
-                    onPress={() => setGender('none')}
-                  >
-                    <ThemedText style={styles.genderText}>No decirlo</ThemedText>
-                  </TouchableOpacity>
+                    <ThemedText style={styles.passwordToggleText}>{passwordVisible ? 'Ocultar' : 'Mostrar'}</ThemedText>
+                  </Pressable>
                 </View>
+              </View>
 
-                {/* T&C checkbox */}
-                <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }} style={styles.checkboxRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
-                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                    {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
-                  </View>
-                  <ThemedText style={styles.checkboxLabel}>Acepto los Términos y Condiciones.</ThemedText>
-                </TouchableOpacity>
-              </>
-            )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Recuperar contraseña"
+                accessibilityState={{ disabled: loading }}
+                disabled={loading}
+                onPress={() => void handleForgotPassword()}
+                style={({ pressed }) => [styles.forgotButton, pressed && !loading && styles.pressed]}
+              >
+                <ThemedText style={styles.forgotText}>¿Olvidaste tu contraseña?</ThemedText>
+              </Pressable>
 
-            {activeTab === 'login' && (
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Recuperar contraseña" style={styles.forgotButton} onPress={handleForgotPassword}>
-                <ThemedText style={styles.forgotText}>¿Olvidaste tus credenciales?</ThemedText>
-              </TouchableOpacity>
-            )}
-
-            {error && (
-              <ThemedText accessibilityLiveRegion="polite" style={{ color: AppColors.accent, textAlign: 'center', marginBottom: 15, fontSize: 13 }}>
-                {error}
-              </ThemedText>
-            )}
-
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ disabled: loading }}
-              style={[styles.ctaButton, loading && { opacity: 0.7 }]}
-              onPress={handleEmailAuth}
-              disabled={loading}
-            >
-              <ThemedText style={styles.ctaText}>
-                {loading ? 'Procesando…' : (activeTab === 'login' ? '¡Iniciemos!' : 'Crear cuenta HaNet ID')}
-              </ThemedText>
-              {!loading && <ThemedText style={styles.ctaArrow}>→</ThemedText>}
-            </TouchableOpacity>
-          </View>
-
-          {/* Social Login */}
-          <View style={styles.socialSection}>
-            <View style={styles.socialTextRow}>
-              <ThemedText style={styles.socialTitle}>Inicia rápidamente</ThemedText>
-              {activeTab === 'signup' && (
-                <ThemedText style={styles.socialSub}>Aceptas los Términos y Condiciones.</ThemedText>
+              {error && (
+                <View accessibilityLiveRegion="assertive" style={styles.feedbackRow}>
+                  <CustomIcon name="warning" size={18} color={AppColors.accent} />
+                  <ThemedText style={styles.errorText}>{error}</ThemedText>
+                </View>
               )}
-            </View>
-            <TouchableOpacity 
-              accessibilityRole="button"
-              accessibilityLabel="Inicio con Google desactivado"
-              accessibilityState={{ disabled: true }}
-              disabled
-              style={[styles.googleButton, { opacity: 0.5, backgroundColor: '#f5f5f5' }]} 
-              activeOpacity={1}
-            >
-              <GoogleIcon />
-              <ThemedText style={[styles.googleText, { color: '#999' }]}>
-                Inicio con Google desactivado
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
 
+              {notice && (
+                <View accessibilityLiveRegion="polite" style={styles.feedbackRow}>
+                  <CustomIcon name="check-circle" size={18} color={AppColors.controlActive} />
+                  <ThemedText style={styles.noticeText}>{notice}</ThemedText>
+                </View>
+              )}
+
+              <HanetButton
+                accessibilityHint="Acceder a HaNet con estas credenciales"
+                disabled={loading}
+                label={loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
+                onPress={() => void handleEmailAuth()}
+                style={styles.ctaButton}
+              />
+            </View>
+
+            <View style={styles.registrationNotice}>
+              <ThemedText style={styles.registrationTitle}>¿Aún no tienes HaNet ID?</ThemedText>
+              <ThemedText style={styles.registrationText}>
+                El registro institucional estará disponible cuando terminemos el enlace seguro de matrículas.
+              </ThemedText>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -294,159 +243,133 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppColors.textOnLight },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', width: '100%', maxWidth: 560, alignSelf: 'center', paddingBottom: 60, paddingVertical: 40 },
-
-  // Segmented Picker
-  segmentedPicker: {
+  flex: { flex: 1 },
+  container: { flex: 1, backgroundColor: AppColors.canvas },
+  scrollContent: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    paddingHorizontal: AppSpacing.xl,
+    paddingBottom: 48,
+  },
+  topBar: {
+    minHeight: 64,
     flexDirection: 'row',
-    backgroundColor: AppColors.surface,
-    borderRadius: 24,
-    marginHorizontal: 44,
-    padding: 8,
-    marginBottom: 24,
-  },
-  segmentBtn: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
     alignItems: 'center',
+    gap: AppSpacing.md,
   },
-  segmentBtnActive: { backgroundColor: AppColors.controlActive },
-  segmentText: {
-    fontSize: 13,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: AppRadii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.controlActive,
+  },
+  topBarTitle: {
+    color: AppColors.textPrimary,
     fontFamily: 'DMSans_500Medium',
-    color: AppColors.textPrimary,
-    opacity: 0.5,
+    fontSize: 17,
+    lineHeight: 24,
   },
-  segmentTextActive: { opacity: 1, color: AppColors.controlOnActive, fontFamily: 'DMSans_700Bold' },
-
-  // Welcome
-  welcomeText: {
-    color: AppColors.textPrimary,
+  content: { flex: 1, justifyContent: 'center', paddingVertical: AppSpacing.xl },
+  eyebrow: {
+    color: AppColors.textSecondary,
+    fontFamily: 'DMSans_500Medium',
     fontSize: 14,
-    fontFamily: 'DMSans_500Medium',
-    opacity: 0.7,
-    marginHorizontal: 44,
-    marginBottom: 8,
+    lineHeight: 20,
+    marginBottom: AppSpacing.xs,
   },
-
-  // Headline
   headlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 44,
-    marginBottom: 24,
+    marginBottom: AppSpacing.sm,
   },
   headline: {
-    fontSize: 32,
+    color: AppColors.textPrimary,
     fontFamily: 'DMSans_700Bold',
-    color: AppColors.textPrimary,
+    fontSize: 34,
+    lineHeight: 40,
     letterSpacing: -1.2,
-    lineHeight: 38,
-    paddingTop: 8,
   },
-
-  // Forms
-  formSection: { paddingHorizontal: 44, gap: 16 },
+  intro: {
+    color: AppColors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AppSpacing.xl,
+    maxWidth: 360,
+  },
+  formSection: { gap: AppSpacing.md },
   inputContainer: {
+    minHeight: 62,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     backgroundColor: AppColors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    height: 56,
     justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+    paddingVertical: AppSpacing.sm,
   },
+  inputFocused: { borderColor: AppColors.controlActive },
   inputLabel: {
-    fontSize: 11,
+    color: AppColors.textSecondary,
     fontFamily: 'DMSans_400Regular',
-    color: AppColors.textPrimary,
-    opacity: 0.5,
-    lineHeight: 14,
+    fontSize: 11,
+    lineHeight: 15,
   },
   inputField: {
-    fontSize: 15,
-    fontFamily: 'DMSans_500Medium',
+    minHeight: 26,
     color: AppColors.textPrimary,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 16,
+    lineHeight: 22,
     padding: 0,
-    height: 24,
+    outlineStyle: 'none' as any,
   },
-
-  // Gender
-  genderPicker: {
-    flexDirection: 'row',
-    backgroundColor: AppColors.surface,
-    borderRadius: 24,
-    padding: 8,
-    gap: 4,
-  },
-  genderBtn: {
-    flex: 1,
-    height: 50,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  genderBtnActive: { backgroundColor: AppColors.primary },
-  genderIcon: { fontSize: 22, color: AppColors.textPrimary },
-  genderText: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary },
-
-  // Checkbox
-  checkboxRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  checkbox: {
-    width: 18, height: 18, borderRadius: 4,
-    borderWidth: 1.5, borderColor: AppColors.textPrimary,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  checkboxChecked: { backgroundColor: AppColors.primary, borderColor: AppColors.primary },
-  checkmark: { fontSize: 12, color: AppColors.textPrimary, lineHeight: 14 },
-  checkboxLabel: { fontSize: 13, fontFamily: 'DMSans_500Medium', color: AppColors.textPrimary },
-
-  // Forgot
-  forgotText: {
-    fontSize: 13, fontFamily: 'DMSans_500Medium',
-    color: AppColors.textPrimary, textAlign: 'center', opacity: 0.8,
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: AppSpacing.sm },
+  passwordInput: { flex: 1 },
+  passwordToggle: { minWidth: 60, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  passwordToggleText: {
+    color: AppColors.textSecondary,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 18,
   },
   forgotButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-
-  // CTA
-  ctaButton: {
-    backgroundColor: AppColors.primary,
-    height: 56, borderRadius: 28,
+  forgotText: {
+    color: AppColors.textSecondary,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  feedbackRow: {
+    minHeight: 44,
     flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'center', gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.md,
   },
-  ctaText: { fontSize: 15, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
-  ctaArrow: { fontSize: 18, color: AppColors.textPrimary },
-
-  // Social
-  socialSection: {
-    backgroundColor: AppColors.accent,
-    borderRadius: 32,
-    marginHorizontal: 12,
-    marginTop: 24,
-    padding: 32,
-    gap: 16,
+  errorText: { flex: 1, color: AppColors.accent, fontSize: 13, lineHeight: 19 },
+  noticeText: { flex: 1, color: AppColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  ctaButton: { minHeight: 56, width: '100%' },
+  registrationNotice: {
+    marginTop: AppSpacing.xl,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+    padding: AppSpacing.lg,
+    gap: AppSpacing.xs,
   },
-  socialTextRow: { gap: 2 },
-  socialTitle: {
-    fontSize: 22, fontFamily: 'DMSans_700Bold',
-    color: AppColors.textOnLight, fontStyle: 'italic', letterSpacing: -0.6,
+  registrationTitle: {
+    color: AppColors.textPrimary,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
   },
-  socialSub: {
-    fontSize: 12, fontFamily: 'DMSans_500Medium',
-    color: AppColors.textOnLight, opacity: 0.7,
-  },
-  googleButton: {
-    backgroundColor: '#F2F2F2',
-    height: 40, borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  googleText: {
-    fontSize: 14, fontFamily: 'DMSans_500Medium',
-    color: '#1F1F1F',
-  },
+  registrationText: { color: AppColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  pressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
 });
