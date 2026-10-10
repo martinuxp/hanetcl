@@ -1,18 +1,37 @@
 import { AppColors } from '@/constants/design-tokens';
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, Platform, TextInput, Alert, Pressable } from 'react-native';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
+import React, { useRef, useState } from 'react';
+import { StyleSheet, View, ScrollView, Platform, TextInput, Pressable, KeyboardAvoidingView } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { TouchableRipple } from 'react-native-paper';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
-import { useSession } from '@/services/auth-service';
+import { ensureClaims, useSession } from '@/services/auth-service';
 import { db, calendarDb } from '@/services/firebase';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
+import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
+
+// New events start on the next 5-minute mark, matching the picker's step.
+function nextRoundedTime() {
+  const date = new Date();
+  date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
+  return date;
+}
+
+// Errors whose message is already written for the person using the form.
+class FormError extends Error {}
+
+function describeSaveError(error: unknown) {
+  if (error instanceof FormError) return error.message;
+  if ((error as { code?: string }).code === 'permission-denied') {
+    return 'Tu cuenta no tiene permiso para publicar en este curso.';
+  }
+  return 'No se pudo guardar el evento. Revisa tu conexión e inténtalo de nuevo.';
+}
 
 export default function CreateEventScreen() {
   const router = useRouter();
@@ -25,39 +44,51 @@ export default function CreateEventScreen() {
 
   const [title, setTitle] = useState((params.title as string) || '');
   const [description, setDescription] = useState((params.description as string) || '');
-  const [startDate, setStartDate] = useState(params.startDate ? new Date(params.startDate as string) : new Date());
+  const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : nextRoundedTime());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const [subject, setSubject] = useState((params.subject as string) || 'Lengua y Literatura');
-  const [eventType, setEventType] = useState((params.type as string) || 'Evaluación sumativa');
-  const [location, setLocation] = useState((params.location as string) || 'Sala 304-B (P3)');
+  const scrollRef = useRef<ScrollView>(null);
+  const [subject, setSubject] = useState((params.subject as string) || '');
+  const [eventType, setEventType] = useState((params.type as string) || '');
+  const [location, setLocation] = useState((params.location as string) || '');
   const [loading, setLoading] = useState(false);
   const [requestVerification, setRequestVerification] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleConfirmDate = (date: Date) => {
-    setStartDate(date);
-    setDatePickerVisibility(false);
+  const missingTitle = !title.trim();
+  const missingSubject = !subject;
+  const missingType = !eventType;
+
+  // The description sits at the end of the form; once the keyboard is up,
+  // bring it back into view.
+  const revealDescription = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
   };
 
   const subjectsList = ['Lengua y Literatura', 'Matemáticas', 'Inglés', 'Biología', 'Química', 'Física', 'Historia', 'Filosofía', 'Artes Visuales', 'Artes Musicales', 'Tecnología', 'Educación Física', 'Religión', 'Orientación'];
   const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Off Topic'];
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
-      Alert.alert('Error', 'Debes añadir al menos un título para el evento.');
+    setSaveError(null);
+    if (missingTitle || missingSubject || missingType) {
+      setShowErrors(true);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     if (!user) {
-      Alert.alert('Error', 'Debes iniciar sesión para crear eventos.');
+      setSaveError('Inicia sesión para publicar eventos.');
       return;
     }
 
     setLoading(true);
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) throw new Error('No se encontró el perfil de usuario.');
+      if (!userDoc.exists()) throw new FormError('No encontramos tu perfil de HaNet.');
 
       const courseId = userDoc.data().courseId;
-      if (!courseId) throw new Error('Tu usuario no tiene un curso vinculado.');
+      if (!courseId) throw new FormError('Tu HaNet ID todavía no está vinculado a un curso.');
+
+      await ensureClaims(user);
 
       const endDate = new Date(startDate.getTime() + 90 * 60 * 1000); // 1.5 horas por defecto
 
@@ -91,20 +122,25 @@ export default function CreateEventScreen() {
         });
       }
 
-      setLoading(false);
-      Alert.alert('Éxito', isEditing ? 'Evento actualizado correctamente.' : 'Evento publicado para tu curso. 📚');
+      // The calendar reloads on focus, so the new event is the confirmation.
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      Alert.alert('Error', err.message || 'No se pudo guardar el evento.');
+      setSaveError(describeSaveError(err));
       setLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'android' ? 'padding' : undefined}>
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1, width: '100%' }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustsScrollIndicatorInsets={false}
@@ -126,29 +162,31 @@ export default function CreateEventScreen() {
           value={title}
           onChangeText={setTitle}
         />
-        <View style={styles.separator} />
+        <View style={[styles.separator, showErrors && missingTitle && styles.separatorError]} />
+        {showErrors && missingTitle && <ThemedText accessibilityLiveRegion="polite" style={[styles.fieldError, styles.titleError]}>Escribe un título para el evento.</ThemedText>}
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Fecha y hora</ThemedText>
-          <TouchableRipple accessibilityRole="button" accessibilityLabel="Elegir fecha y hora" style={styles.datePickerBtn} onPress={() => setDatePickerVisibility(true)}>
+          <TouchableRipple
+            accessibilityRole="button"
+            accessibilityLabel="Elegir fecha y hora"
+            style={styles.datePickerBtn}
+            onPress={() => setDatePickerVisibility(true)}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <ThemedText style={styles.datePickerText}>
                 {startDate.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })},{' '}
-                {startDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                {startDate.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}
               </ThemedText>
               <CustomIcon name="clock" size={20} color={AppColors.textSecondary} />
             </View>
           </TouchableRipple>
 
-          <DateTimePickerModal
-            isVisible={isDatePickerVisible}
-            mode="datetime"
-            date={startDate}
-            onConfirm={handleConfirmDate}
+          <HanetDateTimePickerModal
+            visible={isDatePickerVisible}
+            value={startDate}
+            onConfirm={(date) => { setStartDate(date); setDatePickerVisibility(false); }}
             onCancel={() => setDatePickerVisibility(false)}
-            confirmTextIOS="Confirmar"
-            cancelTextIOS="Cancelar"
-            locale="es_CL"
           />
         </View>
 
@@ -160,7 +198,7 @@ export default function CreateEventScreen() {
               style={[styles.datePickerText, { flex: 1, outlineStyle: 'none' as any }]}
               value={location}
               onChangeText={setLocation}
-              placeholder="Ej: Sala 304-B"
+              placeholder="Sala o lugar (opcional)"
               placeholderTextColor="rgba(250,250,249,0.5)"
             />
             <CustomIcon name="map-pin" size={20} color={AppColors.textSecondary} />
@@ -169,6 +207,7 @@ export default function CreateEventScreen() {
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Asignatura relacionada</ThemedText>
+          {showErrors && missingSubject && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige una asignatura.</ThemedText>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
             {subjectsList.map((s) => {
               const isSelected = subject === s;
@@ -186,6 +225,7 @@ export default function CreateEventScreen() {
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Tipo de evento</ThemedText>
+          {showErrors && missingType && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige un tipo de evento.</ThemedText>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
             {eventTypesList.map((t) => {
               const isSelected = eventType === t;
@@ -224,6 +264,7 @@ export default function CreateEventScreen() {
             multiline
             value={description}
             onChangeText={setDescription}
+            onFocus={revealDescription}
             style={{ fontSize: 16, color: AppColors.textOnLight, minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: AppColors.textOnLight, fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
           />
           <ThemedText style={{ fontSize: 11, color: AppColors.surface, opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
@@ -247,6 +288,9 @@ export default function CreateEventScreen() {
         </Pressable>
 
         {/* Action Buttons inside scroll */}
+        {!!saveError && (
+          <ThemedText accessibilityLiveRegion="assertive" style={styles.saveError}>{saveError}</ThemedText>
+        )}
         <View style={styles.modalFooter}>
           <HanetButton label="Cancelar" variant="surface" onPress={() => router.back()} disabled={loading} style={styles.footerButton} />
           <HanetButton label={loading ? 'Guardando…' : (isEditing ? 'Guardar cambios' : 'Agregar')} onPress={handleSubmit} disabled={loading} style={styles.footerButton} />
@@ -254,6 +298,7 @@ export default function CreateEventScreen() {
         <View style={{ height: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 40 }} />
 
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -269,6 +314,10 @@ const styles = StyleSheet.create({
   modalHeader: { paddingTop: 0, paddingBottom: 16 },
   modalTitleInput: { fontSize: 32, fontFamily: 'DMSans_700Bold', letterSpacing: -2, color: AppColors.textOnLight, paddingBottom: 10, outlineStyle: 'none' as any },
   separator: { height: 2, backgroundColor: AppColors.textOnLight, marginBottom: 25 },
+  separatorError: { backgroundColor: AppColors.accent, marginBottom: 8 },
+  fieldError: { color: AppColors.accent, fontFamily: 'DMSans_700Bold', fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  titleError: { marginBottom: 17 },
+  saveError: { color: AppColors.accent, fontFamily: 'DMSans_700Bold', fontSize: 14, lineHeight: 20, marginBottom: 12 },
   modalSection: { marginBottom: 20 },
   modalLabel: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
   datePickerBtn: { backgroundColor: AppColors.surface, borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },

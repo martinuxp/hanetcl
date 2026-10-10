@@ -15,7 +15,7 @@ import {
   formatTime,
   CalendarEvent,
 } from '@/services/ical-service';
-import { useSession } from '@/services/auth-service';
+import { ensureClaims, useSession } from '@/services/auth-service';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -25,6 +25,8 @@ export default function CalendarScreen() {
   const todayIndex = (new Date().getDay() + 6) % 7;
   const [selectedPageIndex, setSelectedPageIndex] = useState(todayIndex);
   const pagerRef = useRef<PagerView>(null);
+  // Web has no PagerView; the day pages live in a horizontal ScrollView.
+  const webPagerRef = useRef<ScrollView>(null);
   const { user, initializing } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -58,6 +60,8 @@ export default function CalendarScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const hasEventsRef = useRef(false);
 
   const loadEvents = useCallback(async (silent = false) => {
     if (initializing) return;
@@ -73,15 +77,23 @@ export default function CalendarScreen() {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const courseId = userDoc.data()?.courseId;
       if (courseId) {
+        await ensureClaims(user);
         const events = await fetchCalendarEvents(courseId);
         setAllEvents(events);
+        setLastUpdated(new Date());
+        hasEventsRef.current = true;
       } else {
         setAllEvents([]);
         setLoadError('Tu HaNet ID todavía no está vinculado a un curso.');
       }
     } catch (e) {
       console.error(e);
-      setLoadError('No pudimos actualizar el calendario. Revisa tu conexión e inténtalo de nuevo.');
+      // A failed background refresh keeps what is already on screen.
+      if (!silent || !hasEventsRef.current) {
+        setLoadError((e as { code?: string }).code === 'permission-denied'
+          ? 'Tu cuenta no tiene permiso para ver el calendario de este curso.'
+          : 'No pudimos cargar el calendario. Revisa tu conexión e inténtalo de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
@@ -102,27 +114,34 @@ export default function CalendarScreen() {
   const handleDaySelect = (index: number) => {
     setSelectedPageIndex(index);
     pagerRef.current?.setPage(index);
+    webPagerRef.current?.scrollTo({ x: index * width, animated: true });
   };
 
   const handlePageSelected = (e: any) => {
     setSelectedPageIndex(e.nativeEvent.position);
   };
 
-  const goToPrevWeek = () => {
-    const prev = new Date(weekStart);
-    prev.setDate(prev.getDate() - 7);
-    setWeekStart(prev);
-    setSelectedPageIndex(0);
+  // Changing week keeps the weekday that was selected.
+  const shiftWeek = (delta: number) => {
+    const next = new Date(weekStart);
+    next.setDate(next.getDate() + delta * 7);
+    setWeekStart(next);
   };
 
-  const goToNextWeek = () => {
-    const next = new Date(weekStart);
-    next.setDate(next.getDate() + 7);
-    setWeekStart(next);
-    setSelectedPageIndex(0);
+  const goToPrevWeek = () => shiftWeek(-1);
+  const goToNextWeek = () => shiftWeek(1);
+
+  const goToToday = () => {
+    setWeekStart(getMonday(new Date()));
+    setSelectedPageIndex(todayIndex);
+    webPagerRef.current?.scrollTo({ x: todayIndex * width, animated: false });
   };
 
   const currentDayInfo = weekDays[selectedPageIndex];
+  const today = new Date();
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const isTodaySelected = isSameDay(currentDayInfo.dateObj, today);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -131,7 +150,14 @@ export default function CalendarScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
           <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
         </Pressable>
-        <ThemedText style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
+        <View style={styles.headerCenter}>
+          <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
+          {!isTodaySelected && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+            </Pressable>
+          )}
+        </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
           <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
         </Pressable>
@@ -143,13 +169,14 @@ export default function CalendarScreen() {
           const isSelected = selectedPageIndex === index;
           const dayEvents = getEventsForDate(allEvents, day.dateObj);
           const hasEvents = dayEvents.length > 0;
+          const isToday = isSameDay(day.dateObj, today);
           return (
             <Pressable
               key={index}
               accessibilityRole="button"
-              accessibilityLabel={`${day.dayName} ${day.date}${hasEvents ? ', con eventos' : ''}`}
+              accessibilityLabel={`${day.dayName} ${day.date}${isToday ? ', hoy' : ''}${hasEvents ? ', con eventos' : ''}`}
               accessibilityState={{ selected: isSelected }}
-              style={({ pressed }) => [styles.dayChip, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.dayChip, isToday && styles.dayChipToday, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
               onPress={() => handleDaySelect(index)}
             >
               <ThemedText style={[styles.dayName, isSelected && styles.dayNameSelected]}>{day.dayName}</ThemedText>
@@ -181,8 +208,10 @@ export default function CalendarScreen() {
         /* Pages Swipe View */
         Platform.OS === 'web' ? (
           <ScrollView
+            ref={webPagerRef}
             horizontal
             pagingEnabled
+            onLayout={() => webPagerRef.current?.scrollTo({ x: selectedPageIndex * width, animated: false })}
             showsHorizontalScrollIndicator={false}
             style={styles.pagerView}
             onMomentumScrollEnd={(e) => {
@@ -197,14 +226,16 @@ export default function CalendarScreen() {
                   events={getEventsForDate(allEvents, day.dateObj)}
                   refreshing={refreshing}
                   onRefresh={onRefresh}
+                  lastUpdated={lastUpdated}
                 />
               </View>
             ))}
           </ScrollView>
         ) : (
           <PagerView
+            key={weekStart.toISOString()}
             style={styles.pagerView}
-            initialPage={todayIndex}
+            initialPage={selectedPageIndex}
             ref={pagerRef}
             onPageSelected={handlePageSelected}
           >
@@ -215,6 +246,7 @@ export default function CalendarScreen() {
                   events={getEventsForDate(allEvents, day.dateObj)}
                   refreshing={refreshing}
                   onRefresh={onRefresh}
+                  lastUpdated={lastUpdated}
                 />
               </View>
             ))}
@@ -226,7 +258,7 @@ export default function CalendarScreen() {
   );
 }
 
-function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: boolean; events: CalendarEvent[], refreshing: boolean, onRefresh: () => void }) {
+function DailyTimeline({ isAdmin, events, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[], refreshing: boolean, onRefresh: () => void, lastUpdated: Date | null }) {
   if (events.length === 0) {
     return (
       <ScrollView
@@ -277,15 +309,8 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh }: { isAdmin: bo
         </View>
       ))}
 
-      <View style={styles.footerUpdateRow}>
-        <CustomIcon name="check-circle" size={16} color={AppColors.success} />
-        <View style={styles.footerUpdateTextContainer}>
-          <ThemedText style={styles.footerUpdateSub}>Sincronizado desde la fuente nativa</ThemedText>
-          <ThemedText style={styles.footerUpdateName}>HaNet Calendar v1.0.0</ThemedText>
-        </View>
-      </View>
       <ThemedText style={styles.footerDisclaimer}>
-        Los eventos se sincronizan automáticamente desde el calendario compartido del curso.
+        {lastUpdated ? `Actualizado a las ${formatTime(lastUpdated)}. ` : ''}Desliza hacia abajo para actualizar.
       </ThemedText>
 
       {/* Extra bottom padding for BottomBar */}
@@ -302,6 +327,13 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
   const formatType = (type?: string) => {
     if (!type) return null;
     return type.replace(/\./g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+  };
+
+  const openDetail = () => {
+    router.push({
+      pathname: '/event-info',
+      params: { id, canEdit: isAdmin ? '1' : '0' },
+    });
   };
 
   const handleEdit = () => {
@@ -321,7 +353,13 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
 
   return (
     <View style={[styles.classCard, { backgroundColor: cardColor, opacity: cancelled ? 0.7 : 1 }]}>
-      <View style={styles.classCardContent}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}, ${time}`}
+        accessibilityHint="Abre el detalle del evento"
+        onPress={openDetail}
+        style={({ pressed }) => [styles.classCardContent, pressed && { opacity: 0.75 }]}
+      >
         <View style={styles.classHeaderRow}>
           <ThemedText style={[styles.classTitle, cancelled && { textDecorationLine: 'line-through' }]} numberOfLines={2}>
             {cancelled ? `⊘ ${title}` : title}
@@ -367,7 +405,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
             </View>
           </View>
         )}
-      </View>
+      </Pressable>
       {isAdmin && (
         <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${title}`} style={({ pressed }) => [styles.bottomStrip, pressed && styles.pressed]} onPress={handleEdit}>
           <ThemedText style={styles.bottomStripText}>Editar información</ThemedText>
@@ -418,16 +456,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
+  headerCenter: {
     flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
     textAlign: 'center',
     fontSize: 18,
+    lineHeight: 24,
     fontFamily: 'DMSans_500Medium',
     color: AppColors.textSecondary,
+  },
+  todayLink: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.accent,
   },
   daySelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 6,
     paddingHorizontal: 16,
     marginBottom: 20,
     width: '100%',
@@ -435,14 +486,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   dayChip: {
-    minWidth: 44,
     flex: 1,
-    maxWidth: 54,
+    maxWidth: 72,
     height: 62,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dayChipToday: {
+    borderWidth: 1.5,
+    borderColor: AppColors.accent,
   },
   dayChipSelected: {
     backgroundColor: AppColors.controlActive,
