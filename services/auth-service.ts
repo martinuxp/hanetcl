@@ -13,7 +13,8 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
-import { auth, functions } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, functions } from './firebase';
 import { useEffect, useState } from 'react';
 
 // Required for AuthSession to work in browser/modal (native only)
@@ -69,6 +70,38 @@ export async function verifyEmailCode(code: string) {
   // Pick up emailVerified in both the user object and the ID token.
   await auth.currentUser?.reload();
   await auth.currentUser?.getIdToken(true);
+}
+
+export async function redeemInviteCode(words: string[]) {
+  const result = await httpsCallable<{ words: string[] }, { institutionId: string; name: string }>(functions, 'redeemInviteCode')({ words });
+  return result.data;
+}
+
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+export type OnboardingStep = 'verify-email' | 'join-beta' | 'link' | 'done';
+
+/** Where an account stands on the way from sign-up to its institution. */
+export async function getOnboardingStep(user: User | null): Promise<OnboardingStep> {
+  if (!user) return 'done';
+  if (!user.emailVerified) return 'verify-email';
+
+  const [profile, account] = await Promise.all([
+    getDoc(doc(db, 'users', user.uid)),
+    getDoc(doc(db, 'accounts', user.uid)),
+  ]);
+  // A linked profile is the end of the road, however the account got there.
+  if (profile.exists()) return 'done';
+  return account.data()?.institutionId ? 'link' : 'join-beta';
+}
+
+export function routeForStep(step: OnboardingStep) {
+  switch (step) {
+    case 'verify-email': return '/verify-email' as const;
+    case 'join-beta': return '/join-beta' as const;
+    // The institutional link screens are not built yet.
+    case 'link':
+    case 'done': return '/(tabs)' as const;
+  }
 }
 
 /** Message for an error thrown by one of our callables or by Firebase Auth. */

@@ -24,6 +24,9 @@ function getAdminApp() {
 // HaNet ID: sign-up profile and email verification by code.
 Object.assign(exports, require("./account").build(getAdminApp));
 
+// Institutions, their invitation phrases and rosters, plus the HNT panel.
+Object.assign(exports, require("./institutions").build(getAdminApp));
+
 // Creates a pending identity-link request. Approval is intentionally separate
 // so knowing a RUT is never enough to claim an academic identity.
 exports.requestIdentityLink = onCall(async (request) => {

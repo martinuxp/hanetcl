@@ -1,5 +1,5 @@
 import { AppColors } from '@/constants/design-tokens';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
@@ -12,6 +12,20 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 export default function HomeScreen() {
   const router = useRouter();
   const { user, signOut } = useSession();
+  // The uid whose token carries the HNT role; signing out or switching
+  // accounts makes it stop matching.
+  const [hntUid, setHntUid] = useState<string | null>(null);
+  const isHnt = !!user && hntUid === user.uid;
+
+  // Only decides whether to draw the entry; the panel and its backend check the role again.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    user.getIdTokenResult()
+      .then(({ claims }) => { if (active) setHntUid(claims.role === 'HNT' ? user.uid : null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
 
   return (
     <View style={styles.container}>
@@ -37,6 +51,15 @@ export default function HomeScreen() {
             label="Iniciar sesión"
             onPress={() => router.push('/auth')}
             style={styles.authButton}
+          />
+        )}
+
+        {isHnt && (
+          <HanetButton
+            label="Panel HNT"
+            variant="surface"
+            onPress={() => router.push('/hnt-admin')}
+            style={styles.uiCatalogButton}
           />
         )}
 

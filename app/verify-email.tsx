@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
-import { describeAuthError, sendEmailCode, useSession, verifyEmailCode } from '@/services/auth-service';
+import { describeAuthError, getOnboardingStep, routeForStep, sendEmailCode, useSession, verifyEmailCode } from '@/services/auth-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -64,7 +64,7 @@ export default function VerifyEmailScreen() {
     try {
       await verifyEmailCode(value);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
+      router.replace(routeForStep(await getOnboardingStep(user).catch(() => 'done' as const)));
     } catch (verifyError) {
       setError(describeAuthError(verifyError, 'No pudimos verificar el código. Inténtalo nuevamente.'));
       setCode('');

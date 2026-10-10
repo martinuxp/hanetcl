@@ -3,7 +3,9 @@ import { HanetField, HanetSegmented } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import {
   describeAuthError,
+  getOnboardingStep,
   resetPassword,
+  routeForStep,
   signInWithEmail,
   signUpWithEmail,
   useSession,
@@ -57,7 +59,11 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (!user || submitting.current) return;
-    router.replace(user.emailVerified ? '/(tabs)' : '/verify-email');
+    let active = true;
+    getOnboardingStep(user)
+      .then(step => { if (active) router.replace(routeForStep(step)); })
+      .catch(() => { if (active) router.replace('/(tabs)'); });
+    return () => { active = false; };
   }, [router, user]);
 
   const cleanUsername = username.trim().toLowerCase();
