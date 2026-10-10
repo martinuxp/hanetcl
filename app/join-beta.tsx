@@ -1,3 +1,4 @@
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError, getOnboardingStep, redeemInviteCode, routeForStep, useSession } from '@/services/auth-service';
@@ -104,15 +105,16 @@ export default function JoinBetaScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <View style={styles.lockPill}>
+            <View style={styles.lockPill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Image source={ICONS.lock} style={styles.icon} contentFit="contain" />
             </View>
-            <ThemedText style={styles.topBarTitle}>Unirse a HaNet</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Unirse a HaNet</ThemedText>
           </View>
+          <OnboardingProgress step={3} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
-              <ThemedText style={styles.headlineText}>Se verificó tu identidad</ThemedText>
+              <ThemedText style={styles.headlineText}>Se verificó tu correo</ThemedText>
               <Image source={ICONS.logo} style={styles.logo} contentFit="contain" />
             </View>
           </View>
@@ -331,7 +333,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   submit: {
     height: 56,

@@ -8,6 +8,9 @@ export const AppColors = {
   textSecondary: '#DDDDE2',
   textOnLight: '#282829',
   accent: '#EF2274',
+  // The accent is too dark for small text; these keep error messages legible.
+  errorText: '#FF8DB5',
+  errorTextOnLight: '#B0124F',
   primary: '#4C5A6F',
   primaryStrong: '#262D37',
   controlContainer: '#3C3B3E',

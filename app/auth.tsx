@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { HanetField, HanetSegmented } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import {
@@ -13,6 +14,7 @@ import {
 import type { Treatment } from '@/services/auth-service';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +28,8 @@ const ICONS = {
   male: require('@/assets/icons/auth/gender-male.svg'),
   female: require('@/assets/icons/auth/gender-female.svg'),
 };
+
+const TERMS_URL = 'https://hanet-edu.web.app/terminos';
 
 type Mode = 'login' | 'signup';
 
@@ -190,6 +194,7 @@ export default function AuthScreen() {
               />
             </View>
 
+            {isSignUp && <OnboardingProgress step={1} />}
             {!isSignUp && <ThemedText style={styles.welcome}>¡Qué bien que vuelves!</ThemedText>}
 
             <View style={styles.headline}>
@@ -226,6 +231,7 @@ export default function AuthScreen() {
                   invalid={showErrors && invalid.username}
                   editable={!loading}
                 />
+                <ThemedText style={styles.hint}>De 3 a 24 caracteres: letras, números, punto o guion bajo.</ThemedText>
               </>
             )}
 
@@ -263,6 +269,8 @@ export default function AuthScreen() {
               editable={!loading}
             />
 
+            {isSignUp && <ThemedText style={styles.hint}>Mínimo {MIN_PASSWORD} caracteres.</ThemedText>}
+
             {isSignUp ? (
               <>
                 <View>
@@ -273,26 +281,38 @@ export default function AuthScreen() {
                     value={treatment}
                     onChange={setTreatment}
                     options={[
-                      { value: 'el', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'neutro', label: 'No decirlo', accessibilityLabel: 'No decirlo' },
+                      { value: 'el', label: 'Él', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'ella', label: 'Ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'neutro', label: 'Neutro', accessibilityLabel: 'Neutro' },
                     ]}
                   />
                 </View>
 
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityLabel="Acepto los Términos y Condiciones"
-                  accessibilityState={{ checked: acceptedTerms }}
-                  onPress={() => setAcceptedTerms(accepted => !accepted)}
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.terms, pressed && styles.pressed]}
-                >
-                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                    {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
-                  </View>
-                  <ThemedText style={styles.termsText}>Acepto los Términos y Condiciones.</ThemedText>
-                </Pressable>
+                {/* The link sits outside the checkbox so reading the terms does not tick it. */}
+                <View style={styles.terms}>
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel="Acepto los Términos y Condiciones"
+                    accessibilityState={{ checked: acceptedTerms }}
+                    onPress={() => setAcceptedTerms(accepted => !accepted)}
+                    hitSlop={12}
+                    style={({ pressed }) => [styles.termsToggle, pressed && styles.pressed]}
+                  >
+                    <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                      {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
+                    </View>
+                    <ThemedText style={styles.termsText}>Acepto los</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="Leer los Términos y Condiciones"
+                    onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)}
+                    hitSlop={8}
+                    style={({ pressed }) => pressed && styles.pressed}
+                  >
+                    <ThemedText style={[styles.termsText, styles.termsLink]}>Términos y Condiciones</ThemedText>
+                  </Pressable>
+                </View>
               </>
             ) : (
               <Pressable
@@ -385,6 +405,15 @@ const styles = StyleSheet.create({
   iconMuted: {
     opacity: 0.55,
   },
+  hint: {
+    marginTop: -AppSpacing.lg,
+    paddingHorizontal: AppSpacing.sm,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textSecondary,
+    opacity: 0.8,
+  },
   sectionLabel: {
     marginBottom: AppSpacing.sm,
     fontFamily: 'DMSans_700Bold',
@@ -397,8 +426,19 @@ const styles = StyleSheet.create({
   terms: {
     minHeight: AppTouch.minimum,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 5,
+  },
+  termsToggle: {
+    minHeight: AppTouch.minimum,
+    flexDirection: 'row',
     alignItems: 'center',
     gap: AppSpacing.sm,
+  },
+  termsLink: {
+    flex: 0,
+    textDecorationLine: 'underline',
   },
   checkbox: {
     width: 22,
@@ -420,7 +460,6 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
   },
   termsText: {
-    flex: 1,
     fontFamily: 'DMSans_700Bold',
     fontSize: 16,
     lineHeight: 24,
@@ -443,7 +482,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   notice: {
     fontFamily: 'DMSans_500Medium',

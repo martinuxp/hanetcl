@@ -1,3 +1,4 @@
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -7,6 +8,7 @@ import {
   getInstitutionalLinkStatus,
   getOnboardingStep,
   routeForStep,
+  setPendingWelcome,
   startInstitutionalLink,
   useSession,
 } from '@/services/auth-service';
@@ -20,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ICONS = {
   back: require('@/assets/icons/event/arrow-left-long.svg'),
+  lock: require('@/assets/icons/auth/lock.svg'),
   logo: require('@/assets/icons/auth/logo-mark.svg'),
   mark: require('@/assets/icons/auth/hanet-icon.svg'),
   mail: require('@/assets/icons/auth/mail.svg'),
@@ -30,6 +33,8 @@ type Step = 'methods' | 'email' | 'waiting';
 
 const RESEND_SECONDS = 60;
 const POLL_MS = 3000;
+// How long to wait before admitting the link may never arrive.
+const STUCK_MS = 2 * 60 * 1000;
 
 export default function LinkInstitutionScreen() {
   const router = useRouter();
@@ -43,6 +48,8 @@ export default function LinkInstitutionScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [stuck, setStuck] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -100,6 +107,14 @@ export default function LinkInstitutionScreen() {
     return () => { active = false; clearInterval(timer); };
   }, [reviewOpen, step]);
 
+  // The app cannot know whether the email is on the roster, so after a while
+  // it offers help instead of waiting forever. Each new link restarts the clock.
+  useEffect(() => {
+    if (step !== 'waiting') return;
+    const timer = setTimeout(() => setStuck(true), STUCK_MS);
+    return () => { clearTimeout(timer); setStuck(false); };
+  }, [sentCount, step]);
+
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const timer = setTimeout(() => setSecondsLeft(seconds => seconds - 1), 1000);
@@ -120,6 +135,7 @@ export default function LinkInstitutionScreen() {
       const result = await startInstitutionalLink(email.trim());
       reviewDismissed.current = false;
       setSecondsLeft(result.resendInSeconds ?? RESEND_SECONDS);
+      setSentCount(count => count + 1);
       setStep('waiting');
     } catch (sendError) {
       setError(describeAuthError(sendError, 'No pudimos enviar el link. Inténtalo nuevamente.'));
@@ -135,6 +151,7 @@ export default function LinkInstitutionScreen() {
       await completeInstitutionalLink();
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setReviewOpen(false);
+      setPendingWelcome(status?.institutionName);
       router.replace('/(tabs)');
     } catch (completeError) {
       setFinishError(describeAuthError(completeError, 'No pudimos terminar el vínculo. Inténtalo nuevamente.'));
@@ -149,14 +166,15 @@ export default function LinkInstitutionScreen() {
     setFinishError(null);
   };
 
-  const goBack = async () => {
+  // The arrow only ever goes back one step; leaving the account is its own action.
+  const goBack = () => {
     setError(null);
-    if (step === 'waiting') setStep('email');
-    else if (step === 'email') setStep('methods');
-    else {
-      await signOut();
-      router.replace('/auth');
-    }
+    setStep(step === 'waiting' ? 'email' : 'methods');
+  };
+
+  const useAnotherAccount = async () => {
+    await signOut();
+    router.replace('/auth');
   };
 
   if (initializing || !user || checking) {
@@ -179,21 +197,28 @@ export default function LinkInstitutionScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={step === 'methods' ? 'Usar otra cuenta' : 'Volver'}
-              onPress={goBack}
-              hitSlop={4}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
-            </Pressable>
-            <ThemedText style={styles.topBarTitle} numberOfLines={1}>Unirse a {institutionName}</ThemedText>
+            {step === 'methods' ? (
+              <View style={styles.backButton} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                <Image source={ICONS.lock} style={styles.icon} contentFit="contain" />
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Volver al paso anterior"
+                onPress={goBack}
+                hitSlop={4}
+                style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+              >
+                <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
+              </Pressable>
+            )}
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle} numberOfLines={1}>Unirse a {institutionName}</ThemedText>
           </View>
+          <OnboardingProgress step={4} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
-              <ThemedText style={styles.headlineText}>Se verificó tu identidad</ThemedText>
+              <ThemedText style={styles.headlineText}>Se verificó tu correo</ThemedText>
               <Image source={ICONS.logo} style={styles.logo} contentFit="contain" />
             </View>
           </View>
@@ -202,7 +227,7 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <ThemedText style={styles.lead}>
-                La institución {institutionName} asociada al código ingresado tiene 2 métodos de verificación para acceder a su Red HaNet. Elige uno a continuación.
+                {institutionName}, la institución asociada al código que ingresaste, pide comprobar quién eres antes de entrar a su Red HaNet.
               </ThemedText>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.methodPrimary, pressed && styles.pressed]}>
@@ -275,7 +300,7 @@ export default function LinkInstitutionScreen() {
                 <ThemedText accessibilityRole="header" style={styles.title}>Conectar HaNet ID</ThemedText>
               </View>
 
-              <ThemedText style={styles.lead}>Se envió un link de verificación a{'\n'}{email}</ThemedText>
+              <ThemedText style={styles.lead}>Si {email} está en la lista de {institutionName}, ya va un link de verificación en camino.</ThemedText>
 
               <View accessibilityLiveRegion="polite" style={styles.waitingBox}>
                 <ActivityIndicator color={AppColors.textSecondary} />
@@ -285,8 +310,17 @@ export default function LinkInstitutionScreen() {
               </View>
 
               <ThemedText style={styles.note}>
-                Abre el correo y confirma. Si no llega en unos minutos, revisa que sea tu correo institucional y la carpeta de spam.
+                Abre ese correo y confirma. Esta pantalla avanza sola cuando lo hagas.
               </ThemedText>
+
+              {stuck && status?.status !== 'email-confirmed' && (
+                <View accessibilityLiveRegion="polite" style={styles.stuck}>
+                  <ThemedText style={styles.stuckTitle}>¿No te llega?</ThemedText>
+                  <ThemedText style={styles.stuckText}>
+                    Revisa que escribiste tu correo institucional tal como te lo entregó {institutionName} y mira la carpeta de spam. Si sigue sin llegar, puede que tu correo no esté en su lista: pide ayuda a los encargados de HaNet en tu institución.
+                  </ThemedText>
+                </View>
+              )}
 
               {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
 
@@ -313,6 +347,10 @@ export default function LinkInstitutionScreen() {
               </Pressable>
             </View>
           )}
+
+          <Pressable accessibilityRole="button" onPress={useAnotherAccount} style={({ pressed }) => [styles.switchAccount, pressed && styles.pressed]}>
+            <ThemedText style={styles.switchAccountText}>Usar otra cuenta</ThemedText>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -547,7 +585,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   submitLight: {
     height: 56,
@@ -593,6 +631,39 @@ const styles = StyleSheet.create({
     borderRadius: AppRadii.md,
     borderCurve: 'continuous',
     backgroundColor: AppColors.canvas,
+  },
+  stuck: {
+    gap: AppSpacing.xs,
+    padding: AppSpacing.lg,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  stuckTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
+  },
+  stuckText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  switchAccount: {
+    minHeight: AppTouch.minimum,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+  },
+  switchAccountText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: 'underline',
+    color: AppColors.textSecondary,
+    opacity: 0.8,
   },
   waitingText: {
     fontFamily: 'DMSans_500Medium',
@@ -659,7 +730,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 13,
     lineHeight: 18,
-    color: '#B0124F',
+    color: AppColors.errorTextOnLight,
   },
   reviewConfirm: {
     height: 48,

@@ -1,4 +1,5 @@
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { ThemedText } from '@/components/themed-text';
 import { AnimatedIcon } from '@/components/ui/AnimatedIcon';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -35,6 +36,7 @@ export default function UiShowcaseScreen() {
   const [selectedFilter, setSelectedFilter] = useState('Todos');
   const [previewMode, setPreviewMode] = useState<PreviewMode>('Inicio');
   const [disabled, setDisabled] = useState(false);
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
 
   const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
   const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
@@ -99,6 +101,10 @@ export default function UiShowcaseScreen() {
           </View>
         </Section>
 
+        <Section title="Bienvenida" description="La celebración que ve una cuenta al terminar de unirse a su institución.">
+          <HanetButton label="Ver bienvenida" onPress={() => setWelcomeVisible(true)} />
+        </Section>
+
         <Section title="Iconos en movimiento" description="Estados de atención: pulso, flotación y aviso. Se pueden observar sin alterar datos.">
           <View style={styles.iconRow}>
             <View style={styles.iconExample}><AnimatedIcon name="notification" size={26} color={AppColors.accent} animationType="wiggle" loop /><ThemedText style={styles.iconLabel}>Aviso</ThemedText></View>
@@ -116,6 +122,14 @@ export default function UiShowcaseScreen() {
           </View>
         </Section>
       </ScrollView>
+
+      <WelcomeCelebration
+        visible={welcomeVisible}
+        firstName="Martín"
+        treatment="el"
+        institutionName="LCH Temuco"
+        onDone={() => setWelcomeVisible(false)}
+      />
     </View>
   );
 }

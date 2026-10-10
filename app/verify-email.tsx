@@ -1,3 +1,4 @@
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError, getOnboardingStep, routeForStep, sendEmailCode, useSession, verifyEmailCode } from '@/services/auth-service';
@@ -11,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
   arrow: require('@/assets/icons/auth/arrow-right-long.svg'),
-  back: require('@/assets/icons/event/arrow-left-long.svg'),
 };
 
 const CODE_LENGTH = 4;
@@ -29,6 +29,8 @@ export default function VerifyEmailScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Only claim the code was sent once the backend says so.
+  const [codeSent, setCodeSent] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
 
   useEffect(() => {
@@ -42,10 +44,17 @@ export default function VerifyEmailScreen() {
     if (!user || user.emailVerified || requested.current) return;
     requested.current = true;
     sendEmailCode()
-      .then(result => { if (result.alreadyVerified) router.replace('/(tabs)'); })
+      .then(result => {
+        if (result.alreadyVerified) router.replace('/(tabs)');
+        else setCodeSent(true);
+      })
       .catch(sendError => {
         // A code sent moments ago is still valid; that is not worth an error.
-        if ((sendError as { code?: string }).code === 'functions/resource-exhausted') return;
+        if ((sendError as { code?: string }).code === 'functions/resource-exhausted') {
+          setCodeSent(true);
+          return;
+        }
+        setSecondsLeft(0);
         setError(describeAuthError(sendError, 'No pudimos enviar el código. Usa "Re-enviar" en un momento.'));
       });
   }, [router, user]);
@@ -87,6 +96,7 @@ export default function VerifyEmailScreen() {
     setNotice(null);
     try {
       await sendEmailCode();
+      setCodeSent(true);
       setNotice('Te enviamos un código nuevo.');
       setSecondsLeft(RESEND_SECONDS);
     } catch (sendError) {
@@ -114,17 +124,9 @@ export default function VerifyEmailScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Usar otra cuenta"
-              onPress={useAnotherAccount}
-              hitSlop={4}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
-            </Pressable>
-            <ThemedText style={styles.topBarTitle}>Verificar email</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Verificar email</ThemedText>
           </View>
+          <OnboardingProgress step={2} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
@@ -133,7 +135,7 @@ export default function VerifyEmailScreen() {
             </View>
 
             <ThemedText style={styles.sentTo}>
-              Se envió un código de verificación a{'\n'}{user.email}
+              {codeSent ? 'Se envió un código de verificación a' : 'Enviando un código de verificación a'}{'\n'}{user.email}
             </ThemedText>
 
             <Pressable
@@ -201,6 +203,10 @@ export default function VerifyEmailScreen() {
               </ThemedText>
             </View>
           </View>
+
+          <Pressable accessibilityRole="button" onPress={useAnotherAccount} style={({ pressed }) => [styles.switchAccount, pressed && styles.pressed]}>
+            <ThemedText style={styles.switchAccountText}>Usar otra cuenta</ThemedText>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -228,19 +234,25 @@ const styles = StyleSheet.create({
     gap: AppSpacing.md,
   },
   topBar: {
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: AppSpacing.lg,
+    paddingHorizontal: AppSpacing.sm,
     paddingVertical: AppSpacing.md,
   },
-  backButton: {
-    height: 40,
-    minWidth: AppTouch.minimum,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    alignItems: 'center',
+  switchAccount: {
+    minHeight: AppTouch.minimum,
+    alignSelf: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.surface,
+    paddingHorizontal: AppSpacing.lg,
+  },
+  switchAccountText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: 'underline',
+    color: AppColors.textSecondary,
+    opacity: 0.8,
   },
   topBarTitle: {
     flex: 1,
@@ -330,7 +342,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   notice: {
     textAlign: 'center',

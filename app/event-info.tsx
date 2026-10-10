@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_500Medium',
     fontSize: 14,
     lineHeight: 20,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   card: {
     padding: AppSpacing.xxl,
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 13,
     lineHeight: 18,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   deleteActions: {
     flexDirection: 'row',

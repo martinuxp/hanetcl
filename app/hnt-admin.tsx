@@ -264,6 +264,24 @@ export default function HntAdminScreen() {
                         : `${parsed.rows.length} ${parsed.rows.length === 1 ? 'fila detectada' : 'filas detectadas'}${parsed.headerRows ? ', sin contar el encabezado' : ''}.`}
                     </ThemedText>
 
+                    {parsed.rows.length > 0 && (
+                      <View style={styles.preview}>
+                        <ThemedText style={styles.previewTitle}>Así se leyó la primera fila. Revisa que cada dato esté en su lugar:</ThemedText>
+                        {([
+                          ['RUT', parsed.rows[0].rut],
+                          ['Nombres', parsed.rows[0].nombres],
+                          ['Apellidos', parsed.rows[0].apellidos],
+                          ['Curso', parsed.rows[0].curso],
+                          ['Correo', parsed.rows[0].email],
+                        ] as const).map(([label, value]) => (
+                          <View key={label} style={styles.previewRow}>
+                            <ThemedText style={styles.previewLabel}>{label}</ThemedText>
+                            <ThemedText style={[styles.previewValue, !value && styles.previewMissing]} numberOfLines={1}>{value || 'vacío'}</ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
                     {!!importError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{importError}</ThemedText>}
                     {!!importResult && (
                       <View accessibilityLiveRegion="polite" style={styles.result}>
@@ -306,7 +324,7 @@ export default function HntAdminScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={!!codeDialog} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !rotating && setCodeDialog(null)}>
+      <Modal visible={!!codeDialog} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}>
         <View style={styles.overlay}>
           {codeDialog?.kind === 'confirm' && (
             <View accessibilityViewIsModal style={styles.dialog}>
@@ -338,7 +356,7 @@ export default function HntAdminScreen() {
               </ThemedText>
               <View style={styles.actions}>
                 <HanetButton label={codeDialog.copied ? 'Copiado' : 'Copiar'} variant="surface" onPress={copyCode} style={styles.action} />
-                <HanetButton label="Listo" onPress={() => setCodeDialog(null)} style={styles.action} />
+                <HanetButton label="Ya lo anoté" onPress={() => setCodeDialog(null)} style={styles.action} />
               </View>
             </View>
           )}
@@ -450,7 +468,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 13,
     lineHeight: 18,
-    color: AppColors.accent,
+    color: AppColors.errorText,
   },
   roster: {
     gap: AppSpacing.md,
@@ -475,6 +493,41 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
     textAlignVertical: 'top',
     outlineStyle: 'none' as never,
+  },
+  preview: {
+    gap: AppSpacing.xs,
+    padding: AppSpacing.lg,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.canvas,
+  },
+  previewTitle: {
+    marginBottom: AppSpacing.xs,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textSecondary,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    gap: AppSpacing.md,
+  },
+  previewLabel: {
+    width: 76,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textSecondary,
+  },
+  previewValue: {
+    flex: 1,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  previewMissing: {
+    color: AppColors.errorText,
   },
   result: {
     gap: AppSpacing.xs,

@@ -5,6 +5,8 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 const { RESEND_API_KEY, sendEmail, verificationCodeEmail } = require("./email");
 
 const TREATMENTS = ["ella", "el", "neutro"];
+// Keep in step with the version line of docs/legal/terminos-y-condiciones.md.
+const TERMS_VERSION = "beta-0.1";
 const USERNAME_PATTERN = /^[a-z0-9._]{3,24}$/;
 
 const CODE_MINUTES = 15;
@@ -56,7 +58,10 @@ function build(getAdminApp) {
     await db.runTransaction(async (tx) => {
       const [account, taken] = await Promise.all([tx.get(accountRef), tx.get(usernameRef)]);
 
-      if (account.exists) {
+      // An account document can exist with only profile preferences in it
+      // (older accounts never signed up through here); a username marks one
+      // that already completed this step.
+      if (account.exists && account.data().username) {
         throw new HttpsError("already-exists", "Esta cuenta ya tiene un HaNet ID.");
       }
       if (taken.exists && taken.data().uid !== uid) {
@@ -69,8 +74,9 @@ function build(getAdminApp) {
         username,
         treatment,
         termsAcceptedAt: FieldValue.serverTimestamp(),
+        termsVersion: TERMS_VERSION,
         createdAt: FieldValue.serverTimestamp(),
-      });
+      }, { merge: true });
     });
 
     await getAuth(adminApp).updateUser(uid, { displayName: fullName });

@@ -107,7 +107,6 @@ export default function GridMenu() {
           title="Calendario"
           IconComponent={CalendarDaysIcon}
           height={74}
-          badgeText="3 días Prox."
           layout="side-badge"
           href="/calendar"
           iconSize={26}
@@ -116,7 +115,7 @@ export default function GridMenu() {
           title="Calificaciones y asistencias"
           IconComponent={Square2StackIcon}
           height={133}
-          badgeText="3 calificaciones nuevas"
+          badgeText="Pronto disponible!"
           iconSize={28}
         />
       </View>
