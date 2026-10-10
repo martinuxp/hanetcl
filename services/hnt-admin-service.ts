@@ -24,6 +24,37 @@ export type RosterImportResult = {
   rejectedCount: number;
 };
 
+export const MEMBER_ROLES = ['Estudiante', 'Directiva', 'CEE', 'Admin', 'HNT'] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
+export type Member = {
+  rut: string;
+  fullName: string;
+  curso: string;
+  email: string;
+  /** Null while the person has not linked their HaNet ID. */
+  uid: string | null;
+  role: MemberRole | null;
+};
+
+export async function listMembers(institutionId: string) {
+  const result = await httpsCallable<{ institutionId: string }, { members: Member[]; truncated: boolean }>(functions, 'adminListMembers')({ institutionId });
+  return result.data;
+}
+
+export async function setMemberRole(uid: string, role: MemberRole) {
+  await httpsCallable(functions, 'adminSetRole')({ uid, role });
+}
+
+export async function unlinkMember(uid: string) {
+  await httpsCallable(functions, 'adminUnlinkMember')({ uid });
+}
+
+/** Ties the caller's own, hand-made profile to an institution. */
+export async function joinInstitution(institutionId: string) {
+  await httpsCallable(functions, 'adminJoinInstitution')({ institutionId });
+}
+
 export async function listInstitutions() {
   const result = await httpsCallable<void, { institutions: AdminInstitution[] }>(functions, 'adminListInstitutions')();
   return result.data.institutions;

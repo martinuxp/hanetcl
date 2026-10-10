@@ -1,3 +1,4 @@
+import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -48,6 +49,7 @@ export default function HntAdminScreen() {
   const [codeError, setCodeError] = useState<string | null>(null);
 
   const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const [membersFor, setMembersFor] = useState<string | null>(null);
   const [rosterText, setRosterText] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -239,6 +241,15 @@ export default function HntAdminScreen() {
                   />
                 </View>
                 {!!codeError && !codeDialog && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{codeError}</ThemedText>}
+
+                <HanetButton
+                  label={membersFor === institution.id ? 'Ocultar personas' : 'Personas y roles'}
+                  variant="surface"
+                  onPress={() => setMembersFor(current => (current === institution.id ? null : institution.id))}
+                />
+                {membersFor === institution.id && !!user && (
+                  <InstitutionMembers institutionId={institution.id} institutionName={institution.name} currentUid={user.uid} />
+                )}
 
                 {rosterOpen && (
                   <View style={styles.roster}>
