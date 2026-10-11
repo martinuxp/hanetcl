@@ -46,7 +46,7 @@ export default function UiShowcaseScreen() {
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Volver a Perfil"
+            accessibilityLabel="Volver al Panel HNT"
             onPress={() => router.back()}
             style={styles.backButton}
           >

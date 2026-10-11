@@ -229,12 +229,6 @@ export default function ProfileScreen() {
 
         <View style={styles.accountActions}>
           <HanetButton
-            label="Sistema HaNet UI"
-            variant="surface"
-            icon={<Ionicons name="color-palette-outline" size={20} color={AppColors.textPrimary} />}
-            onPress={() => router.push('/ui-showcase')}
-          />
-          <HanetButton
             label="Cerrar sesión"
             variant="surface"
             accessibilityHint={user.email ? `Sesión iniciada como ${user.email}` : undefined}

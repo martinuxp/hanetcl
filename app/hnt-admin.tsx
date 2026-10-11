@@ -196,6 +196,8 @@ export default function HntAdminScreen() {
             <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Panel HNT</ThemedText>
           </View>
 
+          <HanetButton label="Sistema HaNet UI" variant="surface" onPress={() => router.push('/ui-showcase')} />
+
           <ThemedText style={styles.sectionTitle}>Instituciones</ThemedText>
 
           {loading && institutions.length === 0 && <ActivityIndicator color={AppColors.textSecondary} style={styles.spinner} />}
