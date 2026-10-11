@@ -5,23 +5,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
+import { SPRING_MOMENTUM, project, rubberband } from '@/constants/motion';
 
-// Sheet spring (damping ratio 0.8, response 0.3 s, as iOS sheets use).
-const SHEET_SPRING = { stiffness: 440, damping: 34, mass: 1 };
 const OPEN_MS = 280;
 const CLOSE_MS = 220;
-
-// Where a flick would come to rest, as scroll deceleration projects it.
-function project(velocity: number, decelerationRate = 0.998) {
-  'worklet';
-  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
-}
-
-// Past the top the sheet resists more the further it is pulled.
-function rubberband(overshoot: number, dimension: number, constant = 0.55) {
-  'worklet';
-  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
-}
 
 /**
  * Android stand-in for the native form sheet, which opens with no height
@@ -77,11 +64,11 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
       if (resting > windowHeight * 0.3) {
         closing.set(true);
         // The throw carries on at the finger's speed.
-        offset.set(withSpring(windowHeight, { ...SHEET_SPRING, velocity: event.velocityY, overshootClamping: true }, finished => {
+        offset.set(withSpring(windowHeight, { ...SPRING_MOMENTUM, velocity: event.velocityY, overshootClamping: true }, finished => {
           if (finished) scheduleOnRN(goBack);
         }));
       } else {
-        offset.set(withSpring(0, { ...SHEET_SPRING, velocity: event.velocityY }));
+        offset.set(withSpring(0, { ...SPRING_MOMENTUM, velocity: event.velocityY }));
       }
     });
 

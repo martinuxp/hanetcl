@@ -1,5 +1,5 @@
 import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
@@ -7,9 +7,13 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
-import Animated, { Easing, FadeInLeft, FadeInRight, Keyframe, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInLeft, FadeInRight, FadeOut, Keyframe, SlideInLeft, SlideInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
+import { SPRING_MOMENTUM, SPRING_SMOOTH, project } from '@/constants/motion';
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { MONTH_NAMES, MonthView, YearView } from '@/components/calendar/MonthYearViews';
+import type { ScreenPoint } from '@/components/calendar/MonthYearViews';
 import {
   fetchCalendarEvents,
   getEventsForDate,
@@ -23,23 +27,30 @@ import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
 
-// Critically damped, ~0.3 s response: the selection glides without bouncing.
-const INDICATOR_SPRING = { stiffness: 440, damping: 42, mass: 1 };
 
 type Frame = { x: number; width: number };
 
 type CalendarView = 'week' | 'month' | 'year';
 
-// Zooming out (week → month → year) the new level settles down from slightly
-// larger; zooming in it grows up from slightly smaller, like stepping closer.
-const ZOOM_OUT_ENTER = new Keyframe({
-  0: { opacity: 0, transform: [{ scale: 1.06 }] },
-  100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.out(Easing.cubic) },
-}).duration(200);
-const ZOOM_IN_ENTER = new Keyframe({
-  0: { opacity: 0, transform: [{ scale: 0.94 }] },
-  100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.out(Easing.cubic) },
-}).duration(200);
+// Moving between levels reads as a camera move anchored on what was tapped:
+// zooming out (week → month → year) everything shrinks a little, the old
+// level away and the new one into place; zooming in everything grows.
+function zoomFrames(enterFrom: number, exitTo: number) {
+  return {
+    enter: new Keyframe({
+      0: { opacity: 0, transform: [{ scale: enterFrom }] },
+      100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.out(Easing.cubic) },
+    }).duration(220),
+    exit: new Keyframe({
+      0: { opacity: 1, transform: [{ scale: 1 }] },
+      100: { opacity: 0, transform: [{ scale: exitTo }], easing: Easing.out(Easing.cubic) },
+    }).duration(160),
+  };
+}
+const ZOOM_OUT = zoomFrames(1.06, 0.94);
+const ZOOM_IN = zoomFrames(0.94, 1.06);
+// With reduced motion every change is a short cross-fade instead.
+const CROSSFADE = { enter: FadeIn.duration(150), exit: FadeOut.duration(150) };
 
 export default function CalendarScreen() {
   // Mon=0, Tue=1, ... Sat=5, Sun=6  (getDay: Sun=0,Mon=1,...Sat=6)
@@ -65,18 +76,29 @@ export default function CalendarScreen() {
   // Swiping into it already brought the day on screen, so the pages stay put;
   // nothing slides when the screen first opens or a zoom brings the week in.
   const [weekChange, setWeekChange] = useState<{ direction: 1 | -1; row: boolean; pages: boolean }>({ direction: 1, row: false, pages: false });
-  const weekSlide = reduceMotion ? undefined : (weekChange.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
+  const weekSlide = reduceMotion ? CROSSFADE.enter : (weekChange.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
   const weekEntering = weekChange.row ? weekSlide : undefined;
   const pagesEntering = weekChange.pages ? weekSlide : undefined;
 
   // Zoom levels: week (the day pages), month and year.
   const [view, setView] = useState<CalendarView>('week');
-  const [zoom, setZoom] = useState<'in' | 'out' | null>(null);
-  const zoomEntering = reduceMotion || !zoom ? undefined : zoom === 'out' ? ZOOM_OUT_ENTER : ZOOM_IN_ENTER;
+  // `origin` is the tapped point inside the body, where the zoom is anchored.
+  const [zoom, setZoom] = useState<{ direction: 'in' | 'out'; origin: [number, number] } | null>(null);
+  const zoomMotion = !zoom ? undefined : reduceMotion ? CROSSFADE : zoom.direction === 'out' ? ZOOM_OUT : ZOOM_IN;
+  const bodyRef = useRef<View>(null);
+  const bodyFrame = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  // 0 right after a zoom (no slide); ±1 when the arrows move a month or year.
-  const [monthSlide, setMonthSlide] = useState<0 | 1 | -1>(0);
-  const monthEntering = reduceMotion || monthSlide === 0 ? undefined : (monthSlide > 0 ? FadeInRight : FadeInLeft).duration(200);
+  // Null right after a zoom (nothing slides). The arrows nudge the new month in
+  // from their side; a swipe already carried the old one off screen, so the
+  // new one slides in the rest of the way.
+  const [monthSlide, setMonthSlide] = useState<{ direction: 1 | -1; bySwipe: boolean } | null>(null);
+  const monthEntering = !monthSlide
+    ? undefined
+    : reduceMotion
+      ? CROSSFADE.enter
+      : monthSlide.bySwipe
+        ? (monthSlide.direction > 0 ? SlideInRight : SlideInLeft).duration(240).easing(Easing.out(Easing.cubic))
+        : (monthSlide.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
   // The pager holds the week plus a neighbour day on each side (the previous
   // Sunday and the next Monday); landing on one of those moves to that week.
   const pageDates = [
@@ -103,8 +125,8 @@ export default function CalendarScreen() {
     const frame = chipFrames[index];
     if (!frame) return;
     if (animated && !reduceMotion) {
-      indicatorX.set(withSpring(frame.x, INDICATOR_SPRING));
-      indicatorWidth.set(withSpring(frame.width, INDICATOR_SPRING));
+      indicatorX.set(withSpring(frame.x, SPRING_SMOOTH));
+      indicatorWidth.set(withSpring(frame.width, SPRING_SMOOTH));
     } else {
       indicatorX.set(frame.x);
       indicatorWidth.set(frame.width);
@@ -246,45 +268,89 @@ export default function CalendarScreen() {
     webPagerRef.current?.scrollTo({ x: (todayIndex + 1) * width, animated: false });
   };
 
-  const zoomTo = (next: CalendarView, direction: 'in' | 'out') => {
-    setMonthSlide(0);
-    setZoom(direction);
-    setView(next);
+  const measureBody = () => {
+    bodyRef.current?.measureInWindow((x, y, w, h) => { bodyFrame.current = { x, y, width: w, height: h }; });
   };
 
-  const openMonth = () => {
+  // The old level first takes the new anchor, then leaves: one frame later the
+  // new level comes in from the same point.
+  const zoomTo = (next: CalendarView, direction: 'in' | 'out', from?: ScreenPoint) => {
+    const frame = bodyFrame.current;
+    const origin: [number, number] = from
+      ? [from.x - frame.x, from.y - frame.y]
+      : [frame.width / 2, frame.height / 2];
+    setMonthSlide(null);
+    setZoom({ direction, origin });
+    requestAnimationFrame(() => setView(next));
+  };
+
+  const pointOf = (event: { nativeEvent: { pageX: number; pageY: number } }): ScreenPoint => ({
+    x: event.nativeEvent.pageX,
+    y: event.nativeEvent.pageY,
+  });
+
+  const openMonth = (from: ScreenPoint) => {
     const day = weekDays[selectedPageIndex].dateObj;
     setVisibleMonth(new Date(day.getFullYear(), day.getMonth(), 1));
-    zoomTo('month', 'out');
+    zoomTo('month', 'out', from);
   };
 
-  const pickMonth = (month: Date) => {
+  const pickMonth = (month: Date, from: ScreenPoint) => {
     setVisibleMonth(month);
-    zoomTo('month', 'in');
+    zoomTo('month', 'in', from);
   };
 
   // A day picked in the month opens its week with that day selected.
-  const pickDay = (date: Date) => {
+  const pickDay = (date: Date, from: ScreenPoint) => {
     const monday = getMonday(date);
     setWeekChange({ direction: monday > weekStart ? 1 : -1, row: false, pages: false });
     setWeekStart(monday);
     setSelectedPageIndex((date.getDay() + 6) % 7);
-    zoomTo('week', 'in');
+    zoomTo('week', 'in', from);
   };
 
-  // In the month the arrows move a month; in the year, a whole year.
-  const shiftMonth = (delta: 1 | -1) => {
+  // In the month a step is a month; in the year, a whole year.
+  const shiftMonth = (delta: 1 | -1, bySwipe = false) => {
     const step = view === 'year' ? 12 : 1;
-    setMonthSlide(delta);
+    setMonthSlide({ direction: delta, bySwipe });
     setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() + delta * step, 1));
   };
 
   const goToThisMonth = () => {
     const now = new Date();
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    setMonthSlide(thisMonth > visibleMonth ? 1 : -1);
+    setMonthSlide({ direction: thisMonth > visibleMonth ? 1 : -1, bySwipe: false });
     setVisibleMonth(thisMonth);
   };
+
+  // Month and year follow the finger sideways like the week pages. A release
+  // that would carry past a third of the screen moves on at the finger's
+  // speed; anything shorter settles back.
+  const swipeX = useSharedValue(0);
+  const swipeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: swipeX.get() }] }));
+  const finishSwipe = (delta: 1 | -1) => shiftMonth(delta, true);
+  // The carrier returns to rest only once the new month is mounted, so the
+  // old one never flashes back for a frame.
+  useLayoutEffect(() => {
+    swipeX.set(0);
+  }, [swipeX, visibleMonth]);
+  const levelSwipe = Gesture.Pan()
+    .activeOffsetX([-12, 12])
+    .failOffsetY([-12, 12])
+    .onUpdate(event => {
+      swipeX.set(event.translationX);
+    })
+    .onEnd(event => {
+      const resting = event.translationX + project(event.velocityX);
+      if (Math.abs(resting) > width / 3) {
+        const delta: 1 | -1 = resting < 0 ? 1 : -1;
+        swipeX.set(withSpring(-delta * width, { ...SPRING_MOMENTUM, velocity: event.velocityX, overshootClamping: true }, finished => {
+          if (finished) scheduleOnRN(finishSwipe, delta);
+        }));
+      } else {
+        swipeX.set(withSpring(0, { ...SPRING_SMOOTH, velocity: event.velocityX }));
+      }
+    });
 
   const openEvent = (event: CalendarEvent) => {
     router.push({ pathname: '/event-info', params: { id: event.id, canEdit: canAddEvents ? '1' : '0' } });
@@ -309,7 +375,7 @@ export default function CalendarScreen() {
               accessibilityRole="button"
               accessibilityLabel={`${currentDayInfo.fullDate}. Ver el mes`}
               hitSlop={6}
-              onPress={openMonth}
+              onPress={event => openMonth(pointOf(event))}
               style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
             >
               <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
@@ -341,7 +407,7 @@ export default function CalendarScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${MONTH_NAMES[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}. Ver el año`}
                 hitSlop={6}
-                onPress={() => zoomTo('year', 'out')}
+                onPress={event => zoomTo('year', 'out', pointOf(event))}
                 style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
               >
                 <ThemedText accessibilityRole="header" style={styles.headerTitle}>
@@ -356,7 +422,7 @@ export default function CalendarScreen() {
               <Pressable
                 accessibilityRole="button"
                 hitSlop={10}
-                onPress={() => zoomTo(view === 'year' ? 'month' : 'week', 'in')}
+                onPress={event => zoomTo(view === 'year' ? 'month' : 'week', 'in', pointOf(event))}
                 style={({ pressed }) => pressed && styles.pressed}
               >
                 <ThemedText style={styles.todayLink}>{view === 'year' ? 'Ver mes' : 'Ver semana'}</ThemedText>
@@ -379,7 +445,13 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      <Animated.View key={view} entering={zoomEntering} style={styles.body}>
+      <View ref={bodyRef} onLayout={measureBody} style={styles.body}>
+      <Animated.View
+        key={view}
+        entering={zoomMotion?.enter}
+        exiting={zoomMotion?.exit}
+        style={[styles.body, zoom && { transformOrigin: [zoom.origin[0], zoom.origin[1], 0] }]}
+      >
       {/* Day Selector */}
       {view === 'week' && (
       <View style={styles.daySelectorWrap}>
@@ -428,6 +500,8 @@ export default function CalendarScreen() {
           />
         </View>
       ) : view === 'month' ? (
+        <GestureDetector gesture={levelSwipe}>
+        <Animated.View style={[styles.pagerView, swipeStyle]}>
         <Animated.View key={`month-${visibleMonth.toISOString()}`} entering={monthEntering} style={styles.pagerView}>
           <MonthView
             month={visibleMonth}
@@ -438,7 +512,11 @@ export default function CalendarScreen() {
             onOpenEvent={openEvent}
           />
         </Animated.View>
+        </Animated.View>
+        </GestureDetector>
       ) : view === 'year' ? (
+        <GestureDetector gesture={levelSwipe}>
+        <Animated.View style={[styles.pagerView, swipeStyle]}>
         <Animated.View key={`year-${visibleMonth.getFullYear()}`} entering={monthEntering} style={styles.pagerView}>
           <YearView
             year={visibleMonth.getFullYear()}
@@ -448,6 +526,8 @@ export default function CalendarScreen() {
             onPickMonth={pickMonth}
           />
         </Animated.View>
+        </Animated.View>
+        </GestureDetector>
       ) : (
         /* Pages Swipe View */
         <Animated.View key={weekKey} entering={pagesEntering} style={styles.pagerView}>
@@ -516,6 +596,7 @@ export default function CalendarScreen() {
         </Animated.View>
       )}
       </Animated.View>
+      </View>
 
     </SafeAreaView>
   );

@@ -2,15 +2,16 @@ import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { formatTime } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
-import * as Haptics from 'expo-haptics';
 import React, { useMemo } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 export const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MAX_DOTS = 3;
+
+export type ScreenPoint = { x: number; y: number };
 
 function dayKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -20,11 +21,8 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function tick() {
-  if (Platform.OS === 'ios') void Haptics.selectionAsync();
-}
-
-// Weeks start on Monday; blanks pad the first and last rows to 7 cells.
+// Weeks start on Monday. Always six rows, so the grid keeps its height from
+// month to month and the agenda below does not jump.
 function monthCells(month: Date): (Date | null)[] {
   const year = month.getFullYear();
   const index = month.getMonth();
@@ -32,7 +30,7 @@ function monthCells(month: Date): (Date | null)[] {
   const days = new Date(year, index + 1, 0).getDate();
   const cells: (Date | null)[] = Array.from({ length: firstWeekday }, () => null);
   for (let day = 1; day <= days; day++) cells.push(new Date(year, index, day));
-  while (cells.length % 7 !== 0) cells.push(null);
+  while (cells.length < 42) cells.push(null);
   return cells;
 }
 
@@ -41,7 +39,8 @@ type MonthViewProps = {
   events: CalendarEvent[];
   selectedDate: Date;
   bottomInset: number;
-  onPickDay: (date: Date) => void;
+  /** `from` is the tap point on screen, where the zoom grows from. */
+  onPickDay: (date: Date, from: ScreenPoint) => void;
   onOpenEvent: (event: CalendarEvent) => void;
 };
 
@@ -83,7 +82,7 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
                 accessibilityLabel={`${WEEKDAY_NAMES[index % 7]} ${day.getDate()} de ${MONTH_NAMES[day.getMonth()]}${isToday ? ', hoy' : ''}${count ? `, ${count === 1 ? '1 evento' : `${count} eventos`}` : ''}`}
                 accessibilityHint="Abre ese día en la semana"
                 accessibilityState={{ selected }}
-                onPress={() => { tick(); onPickDay(day); }}
+                onPress={event => onPickDay(day, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
                 style={({ pressed }) => [styles.day, isToday && styles.dayToday, selected && styles.daySelected, pressed && styles.pressed]}
               >
                 <ThemedText style={[styles.dayNumber, selected && styles.dayNumberSelected]}>{day.getDate()}</ThemedText>
@@ -136,7 +135,7 @@ type YearViewProps = {
   events: CalendarEvent[];
   selectedMonth: Date;
   bottomInset: number;
-  onPickMonth: (month: Date) => void;
+  onPickMonth: (month: Date, from: ScreenPoint) => void;
 };
 
 /** Twelve months with how many events each holds; the current month is ringed. */
@@ -163,7 +162,7 @@ export function YearView({ year, events, selectedMonth, bottomInset, onPickMonth
               accessibilityLabel={`${name} ${year}${isCurrent ? ', mes actual' : ''}, ${count === 0 ? 'sin eventos' : count === 1 ? '1 evento' : `${count} eventos`}`}
               accessibilityHint="Abre el mes"
               accessibilityState={{ selected }}
-              onPress={() => { tick(); onPickMonth(new Date(year, index, 1)); }}
+              onPress={event => onPickMonth(new Date(year, index, 1), { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
               style={({ pressed }) => [styles.monthTile, isCurrent && styles.monthTileCurrent, selected && styles.monthTileSelected, pressed && styles.pressed]}
             >
               <ThemedText style={[styles.monthName, selected && styles.onActive]}>{name}</ThemedText>
