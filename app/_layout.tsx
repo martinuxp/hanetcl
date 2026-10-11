@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, useRootNavigationState, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,8 +9,10 @@ import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@
 import * as SplashScreen from 'expo-splash-screen';
 
 import { GlobalTabBar } from '@/components/AppTabBar';
+import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
+import { hasSeenOnboarding } from '@/services/onboarding';
 
 
 export const unstable_settings = {
@@ -70,7 +72,12 @@ function sheetOptions(detents: number[]) {
 }
 
 export default function RootLayout() {
-  const { initializing } = useSession();
+  const { user, initializing } = useSession();
+  const router = useRouter();
+  const navigationReady = !!useRootNavigationState()?.key;
+  // Whether the screen under the launch splash is the right one yet: signed
+  // out on a device that never saw the welcome pages goes to them first.
+  const [routed, setRouted] = useState(false);
 
   const [loaded, error] = useFonts({
     DMSans_400Regular,
@@ -78,11 +85,21 @@ export default function RootLayout() {
     DMSans_700Bold,
   });
 
+  // The native splash only covers the font load; HaNet's own splash takes
+  // over while the session is restored.
   useEffect(() => {
-    if ((loaded || error) && !initializing) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error, initializing]);
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
+
+  useEffect(() => {
+    if (initializing || routed || !navigationReady) return;
+    let active = true;
+    (async () => {
+      if (!user && !(await hasSeenOnboarding()) && active) router.replace('/onboarding');
+      if (active) setRouted(true);
+    })();
+    return () => { active = false; };
+  }, [initializing, navigationReady, routed, router, user]);
 
   if (!loaded && !error) {
     return null;
@@ -94,6 +111,7 @@ export default function RootLayout() {
         <ThemeProvider value={navigationTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="verify-email" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="join-beta" options={{ headerShown: false, gestureEnabled: false }} />
@@ -111,6 +129,7 @@ export default function RootLayout() {
           </Stack>
           <GlobalTabBar />
           <StatusBar style="light" />
+          <LaunchSplash ready={routed} />
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>
