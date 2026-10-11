@@ -1,5 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
+import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
@@ -169,6 +170,26 @@ export default function HntAdminScreen() {
       setImporting(false);
     }
   };
+
+  // Leaving with a new institution or a pasted list not yet saved asks first.
+  // Saving from the dialog keeps the panel open to show the result.
+  const pendingInstitution = !!(name.trim() || fullName.trim());
+  const pendingRoster = !!rosterFor && !!rosterText.trim();
+  const { dialog: discardDialog } = useUnsavedChangesGuard({
+    dirty: (pendingInstitution || pendingRoster) && !creating && !importing,
+    onSave: () => {
+      if (pendingInstitution) void handleCreate();
+      else if (rosterFor) void handleImport(rosterFor);
+    },
+    saveLabel: pendingInstitution ? 'Crear institución' : 'Cargar lista',
+    canSave: pendingInstitution !== pendingRoster && (pendingInstitution ? name.trim().length >= 2 : parsed.rows.length > 0),
+    title: '¿Salir sin guardar?',
+    message: pendingInstitution && pendingRoster
+      ? 'Hay una institución nueva y una lista pegada que todavía no se han guardado.'
+      : pendingInstitution
+        ? 'La institución nueva todavía no se ha creado.'
+        : 'La lista que pegaste todavía no se ha cargado.',
+  });
 
   if (initializing || access === 'checking') {
     return (
@@ -370,6 +391,7 @@ export default function HntAdminScreen() {
           </>
         )}
       </HanetDialog>
+      {discardDialog}
     </SafeAreaView>
   );
 }
