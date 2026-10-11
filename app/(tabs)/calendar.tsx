@@ -1,4 +1,4 @@
-import { AppColors, AppType } from '@/constants/design-tokens';
+import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +7,9 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
-import Animated, { FadeInLeft, FadeInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { Easing, FadeInLeft, FadeInRight, Keyframe, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { MONTH_NAMES, MonthView, YearView } from '@/components/calendar/MonthYearViews';
 import {
   fetchCalendarEvents,
   getEventsForDate,
@@ -25,6 +27,19 @@ import { HanetButton } from '@/components/ui/hanet-button';
 const INDICATOR_SPRING = { stiffness: 440, damping: 42, mass: 1 };
 
 type Frame = { x: number; width: number };
+
+type CalendarView = 'week' | 'month' | 'year';
+
+// Zooming out (week → month → year) the new level settles down from slightly
+// larger; zooming in it grows up from slightly smaller, like stepping closer.
+const ZOOM_OUT_ENTER = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 1.06 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.out(Easing.cubic) },
+}).duration(200);
+const ZOOM_IN_ENTER = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.94 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.out(Easing.cubic) },
+}).duration(200);
 
 export default function CalendarScreen() {
   // Mon=0, Tue=1, ... Sat=5, Sun=6  (getDay: Sun=0,Mon=1,...Sat=6)
@@ -47,10 +62,21 @@ export default function CalendarScreen() {
   const weekDays = getWeekDays(weekStart);
   const weekKey = weekStart.toISOString();
   // A new week arrives from the side it lies on, so the change has a direction.
-  // Swiping into it already brought the day on screen, so the pages stay put.
-  const [weekChange, setWeekChange] = useState<{ direction: 1 | -1; bySwipe: boolean }>({ direction: 1, bySwipe: false });
-  const weekEntering = reduceMotion ? undefined : (weekChange.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
-  const pagesEntering = weekChange.bySwipe ? undefined : weekEntering;
+  // Swiping into it already brought the day on screen, so the pages stay put;
+  // nothing slides when the screen first opens or a zoom brings the week in.
+  const [weekChange, setWeekChange] = useState<{ direction: 1 | -1; row: boolean; pages: boolean }>({ direction: 1, row: false, pages: false });
+  const weekSlide = reduceMotion ? undefined : (weekChange.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
+  const weekEntering = weekChange.row ? weekSlide : undefined;
+  const pagesEntering = weekChange.pages ? weekSlide : undefined;
+
+  // Zoom levels: week (the day pages), month and year.
+  const [view, setView] = useState<CalendarView>('week');
+  const [zoom, setZoom] = useState<'in' | 'out' | null>(null);
+  const zoomEntering = reduceMotion || !zoom ? undefined : zoom === 'out' ? ZOOM_OUT_ENTER : ZOOM_IN_ENTER;
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  // 0 right after a zoom (no slide); ±1 when the arrows move a month or year.
+  const [monthSlide, setMonthSlide] = useState<0 | 1 | -1>(0);
+  const monthEntering = reduceMotion || monthSlide === 0 ? undefined : (monthSlide > 0 ? FadeInRight : FadeInLeft).duration(200);
   // The pager holds the week plus a neighbour day on each side (the previous
   // Sunday and the next Monday); landing on one of those moves to that week.
   const pageDates = [
@@ -189,7 +215,7 @@ export default function CalendarScreen() {
   const shiftWeek = (delta: number, bySwipe = false) => {
     const next = new Date(weekStart);
     next.setDate(next.getDate() + delta * 7);
-    setWeekChange({ direction: delta > 0 ? 1 : -1, bySwipe });
+    setWeekChange({ direction: delta > 0 ? 1 : -1, row: true, pages: !bySwipe });
     setWeekStart(next);
   };
 
@@ -212,12 +238,56 @@ export default function CalendarScreen() {
 
   const goToToday = () => {
     const thisWeek = getMonday(new Date());
-    setWeekChange({ direction: thisWeek > weekStart ? 1 : -1, bySwipe: false });
+    setWeekChange({ direction: thisWeek > weekStart ? 1 : -1, row: true, pages: true });
     setWeekStart(thisWeek);
     setSelectedPageIndex(todayIndex);
     // Within the same week the pager is not remounted, so move it by hand.
     pagerRef.current?.setPage(todayIndex + 1);
     webPagerRef.current?.scrollTo({ x: (todayIndex + 1) * width, animated: false });
+  };
+
+  const zoomTo = (next: CalendarView, direction: 'in' | 'out') => {
+    setMonthSlide(0);
+    setZoom(direction);
+    setView(next);
+  };
+
+  const openMonth = () => {
+    const day = weekDays[selectedPageIndex].dateObj;
+    setVisibleMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+    zoomTo('month', 'out');
+  };
+
+  const pickMonth = (month: Date) => {
+    setVisibleMonth(month);
+    zoomTo('month', 'in');
+  };
+
+  // A day picked in the month opens its week with that day selected.
+  const pickDay = (date: Date) => {
+    const monday = getMonday(date);
+    setWeekChange({ direction: monday > weekStart ? 1 : -1, row: false, pages: false });
+    setWeekStart(monday);
+    setSelectedPageIndex((date.getDay() + 6) % 7);
+    zoomTo('week', 'in');
+  };
+
+  // In the month the arrows move a month; in the year, a whole year.
+  const shiftMonth = (delta: 1 | -1) => {
+    const step = view === 'year' ? 12 : 1;
+    setMonthSlide(delta);
+    setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() + delta * step, 1));
+  };
+
+  const goToThisMonth = () => {
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    setMonthSlide(thisMonth > visibleMonth ? 1 : -1);
+    setVisibleMonth(thisMonth);
+  };
+
+  const openEvent = (event: CalendarEvent) => {
+    router.push({ pathname: '/event-info', params: { id: event.id, canEdit: canAddEvents ? '1' : '0' } });
   };
 
   const currentDayInfo = weekDays[selectedPageIndex];
@@ -229,24 +299,89 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
-          <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
-          {!isTodaySelected && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+      {view === 'week' ? (
+        <View style={styles.header}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
+            <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${currentDayInfo.fullDate}. Ver el mes`}
+              hitSlop={6}
+              onPress={openMonth}
+              style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
+            >
+              <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
+              <CustomIcon name="calendar" size={16} color={AppColors.textSecondary} />
             </Pressable>
-          )}
+            {!isTodaySelected && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+              </Pressable>
+            )}
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
+            <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
+          </Pressable>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
-          <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
-        </Pressable>
-      </View>
+      ) : (
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={view === 'year' ? 'Año anterior' : 'Mes anterior'}
+            style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]}
+            onPress={() => shiftMonth(-1)}
+          >
+            <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            {view === 'month' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${MONTH_NAMES[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}. Ver el año`}
+                hitSlop={6}
+                onPress={() => zoomTo('year', 'out')}
+                style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
+              >
+                <ThemedText accessibilityRole="header" style={styles.headerTitle}>
+                  {MONTH_NAMES[visibleMonth.getMonth()]} {visibleMonth.getFullYear()}
+                </ThemedText>
+                <CustomIcon name="calendar" size={16} color={AppColors.textSecondary} />
+              </Pressable>
+            ) : (
+              <ThemedText accessibilityRole="header" style={styles.headerTitle}>{visibleMonth.getFullYear()}</ThemedText>
+            )}
+            <View style={styles.headerLinks}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => zoomTo(view === 'year' ? 'month' : 'week', 'in')}
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <ThemedText style={styles.todayLink}>{view === 'year' ? 'Ver mes' : 'Ver semana'}</ThemedText>
+              </Pressable>
+              {(visibleMonth.getFullYear() !== today.getFullYear() || (view === 'month' && visibleMonth.getMonth() !== today.getMonth())) && (
+                <Pressable accessibilityRole="button" hitSlop={10} onPress={goToThisMonth} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>{view === 'year' ? 'Este año' : 'Este mes'}</ThemedText>
+                </Pressable>
+              )}
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={view === 'year' ? 'Año siguiente' : 'Mes siguiente'}
+            style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]}
+            onPress={() => shiftMonth(1)}
+          >
+            <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
+          </Pressable>
+        </View>
+      )}
 
+      <Animated.View key={view} entering={zoomEntering} style={styles.body}>
       {/* Day Selector */}
+      {view === 'week' && (
       <View style={styles.daySelectorWrap}>
       <Animated.View pointerEvents="none" style={[styles.dayIndicator, indicatorStyle]} />
       <Animated.View key={weekKey} entering={weekEntering} style={styles.daySelector}>
@@ -273,6 +408,7 @@ export default function CalendarScreen() {
         })}
       </Animated.View>
       </View>
+      )}
 
       {/* Loading */}
       {loading || initializing ? (
@@ -291,6 +427,27 @@ export default function CalendarScreen() {
             style={styles.statusButton}
           />
         </View>
+      ) : view === 'month' ? (
+        <Animated.View key={`month-${visibleMonth.toISOString()}`} entering={monthEntering} style={styles.pagerView}>
+          <MonthView
+            month={visibleMonth}
+            events={allEvents}
+            selectedDate={currentDayInfo.dateObj}
+            bottomInset={TAB_BAR_CLEARANCE}
+            onPickDay={pickDay}
+            onOpenEvent={openEvent}
+          />
+        </Animated.View>
+      ) : view === 'year' ? (
+        <Animated.View key={`year-${visibleMonth.getFullYear()}`} entering={monthEntering} style={styles.pagerView}>
+          <YearView
+            year={visibleMonth.getFullYear()}
+            events={allEvents}
+            selectedMonth={visibleMonth}
+            bottomInset={TAB_BAR_CLEARANCE}
+            onPickMonth={pickMonth}
+          />
+        </Animated.View>
       ) : (
         /* Pages Swipe View */
         <Animated.View key={weekKey} entering={pagesEntering} style={styles.pagerView}>
@@ -358,6 +515,7 @@ export default function CalendarScreen() {
           )}
         </Animated.View>
       )}
+      </Animated.View>
 
     </SafeAreaView>
   );
@@ -566,6 +724,19 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  body: {
+    flex: 1,
+  },
+  headerTitleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 32,
+  },
+  headerLinks: {
+    flexDirection: 'row',
+    gap: AppSpacing.lg,
   },
   headerTitle: {
     textAlign: 'center',
