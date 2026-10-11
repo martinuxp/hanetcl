@@ -1,5 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
-import { AlertModal } from '@/components/ui/alert-modal';
+import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
@@ -334,44 +334,42 @@ export default function HntAdminScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <AlertModal visible={!!codeDialog} onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}>
-        <View style={styles.overlay}>
-          {codeDialog?.kind === 'confirm' && (
-            <View accessibilityViewIsModal style={styles.dialog}>
-              <ThemedText style={styles.dialogTitle}>¿Cambiar el código de {codeDialog.institution.name}?</ThemedText>
-              <ThemedText style={styles.dialogBody}>
-                El código actual dejará de funcionar de inmediato. Quienes ya se unieron no se ven afectados.
-              </ThemedText>
-              {!!codeError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{codeError}</ThemedText>}
-              <View style={styles.actions}>
-                <HanetButton label="Cancelar" variant="surface" onPress={() => setCodeDialog(null)} disabled={rotating} style={styles.action} />
-                <HanetButton label={rotating ? 'Generando…' : 'Cambiar'} variant="accent" onPress={() => generateCode(codeDialog.institution)} disabled={rotating} style={styles.action} />
-              </View>
-            </View>
-          )}
+      <HanetDialog
+        visible={!!codeDialog}
+        onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}
+        title={codeDialog?.kind === 'confirm' ? `¿Cambiar el código de ${codeDialog.institution.name}?` : codeDialog ? `Código de ${codeDialog.institution.name}` : undefined}
+        body={codeDialog?.kind === 'confirm' ? 'El código actual dejará de funcionar de inmediato. Quienes ya se unieron no se ven afectados.' : undefined}
+      >
+        {codeDialog?.kind === 'confirm' && (
+          <>
+            {!!codeError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{codeError}</ThemedText>}
+            <HanetDialogActions>
+              <HanetButton label="Cancelar" variant="surface" onPress={() => setCodeDialog(null)} disabled={rotating} style={dialogStyles.action} />
+              <HanetButton label={rotating ? 'Generando…' : 'Cambiar'} variant="accent" onPress={() => generateCode(codeDialog.institution)} disabled={rotating} style={dialogStyles.action} />
+            </HanetDialogActions>
+          </>
+        )}
 
-          {codeDialog?.kind === 'shown' && (
-            <View accessibilityViewIsModal style={styles.dialog}>
-              <ThemedText style={styles.dialogTitle}>Código de {codeDialog.institution.name}</ThemedText>
-              <View style={styles.words}>
-                {codeDialog.words.map((word, index) => (
-                  <View key={word} style={styles.word}>
-                    <ThemedText style={styles.wordIndex}>{index + 1}</ThemedText>
-                    <ThemedText selectable style={styles.wordText}>{word}</ThemedText>
-                  </View>
-                ))}
-              </View>
-              <ThemedText style={styles.dialogBody}>
-                Anótalo ahora: por seguridad solo guardamos una huella del código y no podremos mostrarlo otra vez. Si se pierde, genera uno nuevo.
-              </ThemedText>
-              <View style={styles.actions}>
-                <HanetButton label={codeDialog.copied ? 'Copiado' : 'Copiar'} variant="surface" onPress={copyCode} style={styles.action} />
-                <HanetButton label="Ya lo anoté" onPress={() => setCodeDialog(null)} style={styles.action} />
-              </View>
+        {codeDialog?.kind === 'shown' && (
+          <>
+            <View style={styles.words}>
+              {codeDialog.words.map((word, index) => (
+                <View key={word} style={styles.word}>
+                  <ThemedText style={styles.wordIndex}>{index + 1}</ThemedText>
+                  <ThemedText selectable style={styles.wordText}>{word}</ThemedText>
+                </View>
+              ))}
             </View>
-          )}
-        </View>
-      </AlertModal>
+            <ThemedText style={styles.dialogBody}>
+              Anótalo ahora: por seguridad solo guardamos una huella del código y no podremos mostrarlo otra vez. Si se pierde, genera uno nuevo.
+            </ThemedText>
+            <HanetDialogActions>
+              <HanetButton label={codeDialog.copied ? 'Copiado' : 'Copiar'} variant="surface" onPress={copyCode} style={dialogStyles.action} />
+              <HanetButton label="Ya lo anoté" onPress={() => setCodeDialog(null)} style={dialogStyles.action} />
+            </HanetDialogActions>
+          </>
+        )}
+      </HanetDialog>
     </SafeAreaView>
   );
 }
@@ -543,28 +541,6 @@ const styles = StyleSheet.create({
   },
   deniedButton: {
     marginTop: AppSpacing.md,
-  },
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: AppSpacing.xl,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 380,
-    padding: AppSpacing.xl,
-    gap: AppSpacing.md,
-    borderRadius: AppRadii.xl,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.surface,
-  },
-  dialogTitle: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 20,
-    lineHeight: 26,
-    letterSpacing: -0.4,
-    color: AppColors.textPrimary,
   },
   dialogBody: {
     fontFamily: 'DMSans_400Regular',

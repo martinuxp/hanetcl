@@ -155,7 +155,7 @@ function CreateEventScreen() {
   };
 
   // Swiping the sheet away, tapping outside or "Cancelar" asks first.
-  const { allowLeave } = useUnsavedChangesGuard({
+  const { allowLeave, dialog: discardDialog } = useUnsavedChangesGuard({
     dirty: dirty && !loading,
     onSave: handleSubmit,
     message: isEditing
@@ -330,6 +330,7 @@ function CreateEventScreen() {
 
       </ScrollView>
       </KeyboardAvoidingView>
+      {discardDialog}
     </SafeAreaView>
   );
 }
