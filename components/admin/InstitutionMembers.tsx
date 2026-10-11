@@ -1,11 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
+import { AlertModal } from '@/components/ui/alert-modal';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { joinInstitution, listMembers, MEMBER_ROLES, setMemberRole, unlinkMember } from '@/services/hnt-admin-service';
 import type { Member, MemberRole } from '@/services/hnt-admin-service';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const ROLE_NOTES: Record<MemberRole, string> = {
   Estudiante: 'Ve el calendario de su curso.',
@@ -206,7 +207,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
         {!!joinNote && <ThemedText accessibilityLiveRegion="polite" style={styles.note}>{joinNote}</ThemedText>}
       </View>
 
-      <Modal visible={!!selected} transparent animationType="fade" statusBarTranslucent onRequestClose={closeDialog}>
+      <AlertModal visible={!!selected} onRequestClose={closeDialog}>
         <View style={styles.overlay}>
           <Pressable accessibilityLabel="Cerrar" style={StyleSheet.absoluteFill} onPress={closeDialog} />
           {!!selected && (
@@ -267,7 +268,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
             </View>
           )}
         </View>
-      </Modal>
+      </AlertModal>
     </View>
   );
 }
@@ -370,7 +371,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: AppSpacing.xl,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   dialog: {
     width: '100%',

@@ -48,8 +48,7 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
           </View>
           {badgeText && (
             <View style={styles.sideBadge}>
-              <ThemedText style={styles.sideBadgeTextMain}>3 días</ThemedText>
-              <ThemedText style={styles.sideBadgeTextSub}>Prox.</ThemedText>
+              <ThemedText style={styles.sideBadgeTextMain}>{badgeText}</ThemedText>
             </View>
           )}
         </View>
@@ -101,7 +100,7 @@ export default function GridMenu() {
           title="Feed y comunidad"
           IconComponent={MessageCircleIcon}
           height={125}
-          badgeText="Pronto disponible!"
+          badgeText="¡Pronto disponible!"
           iconSize={25}
         />
         <GridItem
@@ -116,7 +115,7 @@ export default function GridMenu() {
           title="Calificaciones y asistencias"
           IconComponent={Square2StackIcon}
           height={133}
-          badgeText="Pronto disponible!"
+          badgeText="¡Pronto disponible!"
           iconSize={28}
         />
       </View>
@@ -167,9 +166,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topBadgeText: {
-    fontSize: 11,
-    lineHeight: 13.53,
-    letterSpacing: -0.275,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
     fontFamily: 'DMSans_700Bold',
     color: AppColors.textSecondary,
   },
@@ -220,13 +219,5 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     color: AppColors.textPrimary,
     marginBottom: 2,
-  },
-  sideBadgeTextSub: {
-    fontSize: 10,
-    lineHeight: 9.9,
-    letterSpacing: -0.25,
-    fontFamily: 'DMSans_500Medium',
-    color: AppColors.textSecondary,
-    opacity: 0.7,
   },
 });

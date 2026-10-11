@@ -12,10 +12,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const ICONS = {
-  back: require('@/assets/icons/event/arrow-left-long.svg'),
-};
-
 function HallCard({ hall }: { hall: Hall }) {
   const [copied, setCopied] = useState(false);
 
@@ -101,15 +97,6 @@ export default function ClassHallScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Volver"
-            hitSlop={8}
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-            style={({ pressed }) => [styles.backPill, pressed && styles.pressed]}
-          >
-            <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
-          </Pressable>
           <ThemedText style={styles.brand}>HaNet <ThemedText style={styles.brandSmall}>ClassHall</ThemedText></ThemedText>
         </View>
 
@@ -188,18 +175,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AppSpacing.md,
     paddingVertical: AppSpacing.sm,
-  },
-  backPill: {
-    height: 40,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.surface,
-  },
-  icon: {
-    width: 24,
-    height: 24,
   },
   brand: {
     fontFamily: 'DMSans_700Bold',
@@ -339,8 +314,8 @@ const styles = StyleSheet.create({
   cardTeacher: {
     marginTop: AppSpacing.md,
     fontFamily: 'DMSans_500Medium',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     color: AppColors.textPrimary,
   },
   cardStrip: {

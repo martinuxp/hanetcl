@@ -1,18 +1,17 @@
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
+import { AlertModal } from '@/components/ui/alert-modal';
 import { HanetButton } from '@/components/ui/hanet-button';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MINUTE_STEP = 5;
-const OPEN_DURATION_MS = 120;
 const WHEEL_ITEM_HEIGHT = 36;
 const WHEEL_SETTLE_MS = 120;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -34,40 +33,27 @@ type ModalProps = {
 // Dialog version: edits a draft and only reports it on "Listo".
 export function HanetDateTimePickerModal({ visible, value, onConfirm, onCancel }: ModalProps) {
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onCancel}>
+    <AlertModal visible={visible} onRequestClose={onCancel}>
       {visible && <PickerDialog value={value} onConfirm={onConfirm} onCancel={onCancel} />}
-    </Modal>
+    </AlertModal>
   );
 }
 
 function PickerDialog({ value, onConfirm, onCancel }: Omit<ModalProps, 'visible'>) {
   const [draft, setDraft] = useState(value);
-  const reduceMotion = useReducedMotion();
-  const progress = useSharedValue(reduceMotion ? 1 : 0);
-
-  // The native Modal fade is too slow for a dialog; drive a short one here.
-  useEffect(() => {
-    progress.value = withTiming(1, { duration: OPEN_DURATION_MS, easing: Easing.out(Easing.cubic) });
-  }, [progress]);
-
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
-  const dialogStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scale: 0.96 + 0.04 * progress.value }],
-  }));
 
   return (
-    <Animated.View style={[styles.backdrop, backdropStyle]}>
+    <View style={styles.backdrop}>
       <Pressable accessibilityLabel="Cerrar sin cambiar la fecha" style={StyleSheet.absoluteFill} onPress={onCancel} />
-      <Animated.View style={[styles.dialog, dialogStyle]} accessibilityViewIsModal accessibilityRole="alert">
+      <View style={styles.dialog} accessibilityViewIsModal accessibilityRole="alert">
         <ThemedText style={styles.dialogTitle}>Fecha y hora</ThemedText>
         <HanetDateTimePicker value={draft} onChange={setDraft} style={styles.dialogPicker} />
         <View style={styles.dialogActions}>
           <HanetButton label="Cancelar" variant="surface" onPress={onCancel} style={styles.dialogButton} />
           <HanetButton label="Listo" onPress={() => onConfirm(draft)} style={styles.dialogButton} />
         </View>
-      </Animated.View>
-    </Animated.View>
+      </View>
+    </View>
   );
 }
 
@@ -283,7 +269,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: AppSpacing.lg,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   dialog: {
     width: '100%',

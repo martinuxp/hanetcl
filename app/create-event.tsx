@@ -251,7 +251,7 @@ function CreateEventScreen() {
             disabled
             variant="surface"
           />
-          <ThemedText style={{ fontSize: 11, color: AppColors.surface, opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
+          <ThemedText style={{ fontSize: 12, color: AppColors.surface, opacity: 0.8, marginTop: 10, lineHeight: 16 }}>
             Formatos permitidos: PDF, Word, PowerPoint, Excel, imágenes (JPG, PNG, WEBP), video (MP4) y audio (MP3). Máx. 10 MB por archivo.
           </ThemedText>
         </View>
@@ -268,7 +268,7 @@ function CreateEventScreen() {
             onFocus={revealDescription}
             style={{ fontSize: 16, color: AppColors.textOnLight, minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: AppColors.textOnLight, fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
           />
-          <ThemedText style={{ fontSize: 11, color: AppColors.surface, opacity: 0.6, marginTop: 10, lineHeight: 14 }}>
+          <ThemedText style={{ fontSize: 12, color: AppColors.surface, opacity: 0.8, marginTop: 10, lineHeight: 16 }}>
             La información que publiques podrá ser verificada por tu profesor de asignatura si es correcta, eliminada si es completamente incorrecta, o editada y verificada si requiere cambios.
           </ThemedText>
         </View>

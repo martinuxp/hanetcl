@@ -1,6 +1,7 @@
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AlertModal } from '@/components/ui/alert-modal';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View, ScrollView, Platform, Linking, Alert, Modal, Pressable } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, ScrollView, Platform, Linking, Alert, Pressable } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -26,7 +27,6 @@ import type { CalendarEvent } from '@/services/ical-service';
 import { doc, getDoc } from 'firebase/firestore';
 
 const ICONS = {
-  back: require('@/assets/icons/event/arrow-left-long.svg'),
   date: require('@/assets/icons/event/calendar.svg'),
   duration: require('@/assets/icons/event/timer.svg'),
   location: require('@/assets/icons/event/map-pin.svg'),
@@ -290,15 +290,6 @@ export default function EventInfoScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 132 }]}
       >
         <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Volver al calendario"
-            onPress={goBack}
-            hitSlop={4}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-          >
-            <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
-          </Pressable>
           <ThemedText style={styles.topBarDate} numberOfLines={1}>{formatLongDate(event.startDate)}</ThemedText>
         </View>
 
@@ -385,7 +376,7 @@ export default function EventInfoScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={manageStep !== 'closed'} transparent animationType="fade" statusBarTranslucent onRequestClose={closeManage}>
+      <AlertModal visible={manageStep !== 'closed'} onRequestClose={closeManage}>
         <View style={styles.modalOverlay}>
           <Pressable accessibilityLabel="Cerrar sin cambios" style={StyleSheet.absoluteFill} onPress={closeManage} />
           <View accessibilityViewIsModal style={styles.deleteCard}>
@@ -423,9 +414,9 @@ export default function EventInfoScreen() {
             )}
           </View>
         </View>
-      </Modal>
+      </AlertModal>
 
-      <Modal visible={deleteVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={closeDelete}>
+      <AlertModal visible={deleteVisible} onRequestClose={closeDelete}>
         <View style={styles.modalOverlay}>
           <Pressable accessibilityLabel="Cerrar sin eliminar" style={StyleSheet.absoluteFill} onPress={closeDelete} />
           <View accessibilityViewIsModal style={styles.deleteCard}>
@@ -442,15 +433,9 @@ export default function EventInfoScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+      </AlertModal>
 
-      <Modal
-        visible={icalModalVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setIcalModalVisible(false)}
-      >
+      <AlertModal visible={icalModalVisible} onRequestClose={() => setIcalModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View accessibilityViewIsModal style={styles.modalCard}>
             <CustomIcon name="calendar" size={24} color={AppColors.textOnLight} />
@@ -464,7 +449,7 @@ export default function EventInfoScreen() {
             <HanetButton label="Volver atrás" variant="surface" onPress={() => setIcalModalVisible(false)} />
           </View>
         </View>
-      </Modal>
+      </AlertModal>
     </SafeAreaView>
   );
 }
@@ -518,15 +503,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AppSpacing.sm,
     padding: AppSpacing.md,
-  },
-  backButton: {
-    height: 40,
-    minWidth: AppTouch.minimum,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.surface,
   },
   topBarDate: {
     flex: 1,
@@ -622,17 +598,17 @@ const styles = StyleSheet.create({
   },
   actionSoon: {
     fontFamily: 'DMSans_500Medium',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     color: AppColors.controlOnActive,
   },
   finePrint: {
     alignSelf: 'center',
     maxWidth: 309,
     fontFamily: 'DMSans_400Regular',
-    fontSize: 11,
-    lineHeight: 13,
-    letterSpacing: -0.44,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
     textAlign: 'center',
     color: AppColors.textPrimary,
     opacity: 0.7,
@@ -767,7 +743,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: AppSpacing.xl,

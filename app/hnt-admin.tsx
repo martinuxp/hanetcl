@@ -1,9 +1,10 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { AlertModal } from '@/components/ui/alert-modal';
 import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, ensureClaims, useSession } from '@/services/auth-service';
 import {
   createInstitution,
@@ -14,13 +15,11 @@ import {
 } from '@/services/hnt-admin-service';
 import type { AdminInstitution, RosterImportResult } from '@/services/hnt-admin-service';
 import * as Clipboard from 'expo-clipboard';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const BACK_ICON = require('@/assets/icons/event/arrow-left-long.svg');
 
 type Access = 'checking' | 'granted' | 'denied';
 type CodeDialog =
@@ -194,9 +193,6 @@ export default function HntAdminScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={goBack} hitSlop={4} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-              <Image source={BACK_ICON} style={styles.icon} contentFit="contain" />
-            </Pressable>
             <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Panel HNT</ThemedText>
           </View>
 
@@ -336,7 +332,7 @@ export default function HntAdminScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={!!codeDialog} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}>
+      <AlertModal visible={!!codeDialog} onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}>
         <View style={styles.overlay}>
           {codeDialog?.kind === 'confirm' && (
             <View accessibilityViewIsModal style={styles.dialog}>
@@ -373,7 +369,7 @@ export default function HntAdminScreen() {
             </View>
           )}
         </View>
-      </Modal>
+      </AlertModal>
     </SafeAreaView>
   );
 }
@@ -405,19 +401,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: AppSpacing.lg,
     paddingVertical: AppSpacing.md,
-  },
-  backButton: {
-    height: 40,
-    minWidth: AppTouch.minimum,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppColors.surface,
-  },
-  icon: {
-    width: 24,
-    height: 24,
   },
   topBarTitle: {
     flex: 1,
@@ -564,7 +547,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: AppSpacing.xl,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   dialog: {
     width: '100%',

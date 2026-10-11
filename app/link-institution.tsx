@@ -1,4 +1,5 @@
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { AlertModal } from '@/components/ui/alert-modal';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -17,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ICONS = {
@@ -354,7 +355,7 @@ export default function LinkInstitutionScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={reviewOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={closeReview}>
+      <AlertModal visible={reviewOpen} onRequestClose={closeReview}>
         <View style={styles.overlay}>
           <View accessibilityViewIsModal style={styles.review}>
             <ThemedText style={styles.reviewTitle}>Verifica los datos.</ThemedText>
@@ -388,7 +389,7 @@ export default function LinkInstitutionScreen() {
             </ThemedText>
           </View>
         </View>
-      </Modal>
+      </AlertModal>
     </SafeAreaView>
   );
 }
@@ -549,8 +550,8 @@ const styles = StyleSheet.create({
   },
   methodSoon: {
     fontFamily: 'DMSans_500Medium',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     color: AppColors.textPrimary,
   },
   help: {
@@ -691,7 +692,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: AppSpacing.xl,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   review: {
     width: '100%',

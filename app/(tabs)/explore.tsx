@@ -172,8 +172,6 @@ export default function ProfileScreen() {
             </Animated.View>
           )}
 
-          <View style={styles.dragHandle} />
-
           <View style={styles.identityInfo}>
             <ThemedText
               style={[
@@ -273,7 +271,6 @@ const styles = StyleSheet.create({
   initials: { color: AppColors.textPrimary, fontFamily: 'DMSans_700Bold', fontSize: 112, lineHeight: 124, letterSpacing: -5 },
   qrWrap: { height: 356, alignItems: 'center', justifyContent: 'center', gap: AppSpacing.md },
   qrHandle: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, lineHeight: 20 },
-  dragHandle: { alignSelf: 'center', marginTop: 9, width: 45, height: 4, borderRadius: AppRadii.pill, backgroundColor: AppColors.textOnLight },
   identityInfo: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 24 },
   name: { color: AppColors.textOnLight, fontSize: 34, lineHeight: 41, letterSpacing: -1.7, fontFamily: 'DMSans_500Medium' },
   nameWaiting: { opacity: 0 },

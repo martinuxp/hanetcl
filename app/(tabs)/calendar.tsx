@@ -7,6 +7,7 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
+import Animated, { FadeInLeft, FadeInRight, useReducedMotion } from 'react-native-reanimated';
 import {
   fetchCalendarEvents,
   getEventsForDate,
@@ -30,6 +31,7 @@ export default function CalendarScreen() {
   const { user, initializing } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
 
   const allowedRoles = ['HNT', 'Admin', 'CEE', 'Directiva'];
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -54,6 +56,10 @@ export default function CalendarScreen() {
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const weekDays = getWeekDays(weekStart);
+  const weekKey = weekStart.toISOString();
+  // A new week arrives from the side it lies on, so the change has a direction.
+  const [weekDirection, setWeekDirection] = useState<1 | -1>(1);
+  const weekEntering = reduceMotion ? undefined : (weekDirection > 0 ? FadeInRight : FadeInLeft).duration(200);
 
   // iCal events
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
@@ -125,6 +131,7 @@ export default function CalendarScreen() {
   const shiftWeek = (delta: number) => {
     const next = new Date(weekStart);
     next.setDate(next.getDate() + delta * 7);
+    setWeekDirection(delta > 0 ? 1 : -1);
     setWeekStart(next);
   };
 
@@ -132,8 +139,12 @@ export default function CalendarScreen() {
   const goToNextWeek = () => shiftWeek(1);
 
   const goToToday = () => {
-    setWeekStart(getMonday(new Date()));
+    const thisWeek = getMonday(new Date());
+    setWeekDirection(thisWeek > weekStart ? 1 : -1);
+    setWeekStart(thisWeek);
     setSelectedPageIndex(todayIndex);
+    // Within the same week the pager is not remounted, so move it by hand.
+    pagerRef.current?.setPage(todayIndex);
     webPagerRef.current?.scrollTo({ x: todayIndex * width, animated: false });
   };
 
@@ -164,7 +175,7 @@ export default function CalendarScreen() {
       </View>
 
       {/* Day Selector */}
-      <View style={styles.daySelector}>
+      <Animated.View key={weekKey} entering={weekEntering} style={styles.daySelector}>
         {weekDays.map((day, index) => {
           const isSelected = selectedPageIndex === index;
           const dayEvents = getEventsForDate(allEvents, day.dateObj);
@@ -185,7 +196,7 @@ export default function CalendarScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </Animated.View>
 
       {/* Loading */}
       {loading || initializing ? (
@@ -206,52 +217,54 @@ export default function CalendarScreen() {
         </View>
       ) : (
         /* Pages Swipe View */
-        Platform.OS === 'web' ? (
-          <ScrollView
-            ref={webPagerRef}
-            horizontal
-            pagingEnabled
-            onLayout={() => webPagerRef.current?.scrollTo({ x: selectedPageIndex * width, animated: false })}
-            showsHorizontalScrollIndicator={false}
-            style={styles.pagerView}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width);
-              setSelectedPageIndex(index);
-            }}
-          >
-            {weekDays.map((day, index) => (
-              <View key={`${weekStart.toISOString()}-${index}`} style={[styles.page, { width }]}>
-                <DailyTimeline
+        <Animated.View key={weekKey} entering={weekEntering} style={styles.pagerView}>
+          {Platform.OS === 'web' ? (
+            <ScrollView
+              ref={webPagerRef}
+              horizontal
+              pagingEnabled
+              onLayout={() => webPagerRef.current?.scrollTo({ x: selectedPageIndex * width, animated: false })}
+              showsHorizontalScrollIndicator={false}
+              style={styles.pagerView}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                setSelectedPageIndex(index);
+              }}
+            >
+              {weekDays.map((day, index) => (
+                <View key={`${weekStart.toISOString()}-${index}`} style={[styles.page, { width }]}>
+                  <DailyTimeline
+                    isAdmin={canAddEvents}
+                    events={getEventsForDate(allEvents, day.dateObj)}
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    lastUpdated={lastUpdated}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <PagerView
+              key={weekStart.toISOString()}
+              style={styles.pagerView}
+              initialPage={selectedPageIndex}
+              ref={pagerRef}
+              onPageSelected={handlePageSelected}
+            >
+              {weekDays.map((day, index) => (
+                <View key={`${weekStart.toISOString()}-${index}`} style={styles.page}>
+                  <DailyTimeline
                   isAdmin={canAddEvents}
-                  events={getEventsForDate(allEvents, day.dateObj)}
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  lastUpdated={lastUpdated}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <PagerView
-            key={weekStart.toISOString()}
-            style={styles.pagerView}
-            initialPage={selectedPageIndex}
-            ref={pagerRef}
-            onPageSelected={handlePageSelected}
-          >
-            {weekDays.map((day, index) => (
-              <View key={`${weekStart.toISOString()}-${index}`} style={styles.page}>
-                <DailyTimeline
-                isAdmin={canAddEvents}
-                  events={getEventsForDate(allEvents, day.dateObj)}
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  lastUpdated={lastUpdated}
-                />
-              </View>
-            ))}
-          </PagerView>
-        )
+                    events={getEventsForDate(allEvents, day.dateObj)}
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    lastUpdated={lastUpdated}
+                  />
+                </View>
+              ))}
+            </PagerView>
+          )}
+        </Animated.View>
       )}
 
     </SafeAreaView>
@@ -346,7 +359,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
         startDate: fullEvent.startDate,
         subject: subject,
         type: eventType,
-        location: fullEvent.location || 'Sala 304-B (P3)',
+        location: fullEvent.location,
       }
     });
   };
@@ -685,7 +698,7 @@ const styles = StyleSheet.create({
   },
   metaChipText: {
     color: AppColors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'DMSans_500Medium',
     opacity: 0.9,
   },
@@ -708,8 +721,8 @@ const styles = StyleSheet.create({
   },
   verifyLabel: {
     color: AppColors.textSecondary,
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 16,
     opacity: 0.8,
     fontFamily: 'DMSans_400Regular',
   },
@@ -757,10 +770,10 @@ const styles = StyleSheet.create({
   footerDisclaimer: {
     textAlign: 'center',
     color: AppColors.textSecondary,
-    opacity: 0.6,
-    fontSize: 10,
+    opacity: 0.72,
+    fontSize: 12,
     fontFamily: 'DMSans_400Regular',
     paddingHorizontal: 16,
-    lineHeight: 14,
+    lineHeight: 16,
   }
 });

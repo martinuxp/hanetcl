@@ -40,7 +40,7 @@ export default function RegionalEventDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}><Pressable onPress={() => router.back()} style={styles.backButton}><CustomIcon name="chevron-left" size={24} color={AppColors.textPrimary} /></Pressable><Image source={require('@/headline HNE.svg')} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet Eventos" /><View style={styles.backButton} /></View>
+        <View style={styles.topBar}><Image source={require('@/headline HNE.svg')} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet Eventos" /></View>
         {image ? <Image source={image.url} style={styles.hero} contentFit="cover" accessibilityLabel={image.alt || event.title} /> : <View style={styles.heroFallback}><CustomIcon name="calendar" size={48} color={AppColors.textSecondary} /></View>}
         <ThemedText style={styles.title}>{event.title}</ThemedText>
         <ThemedText style={styles.meta}>{formatRegionalEventDate(event.startsAt)} · {event.location.venueName}</ThemedText>
@@ -65,9 +65,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppColors.canvas },
   content: { padding: AppSpacing.lg, paddingBottom: 140 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.canvas, gap: 12 },
-  topBar: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topBar: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   logo: { width: 127, height: 15 },
-  backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { width: '100%', height: 220, borderRadius: AppRadii.lg, backgroundColor: AppColors.primary },
   heroFallback: { width: '100%', height: 220, borderRadius: AppRadii.lg, backgroundColor: AppColors.primary, alignItems: 'center', justifyContent: 'center' },
   title: { color: AppColors.textPrimary, fontSize: 28, lineHeight: 34, fontFamily: 'DMSans_500Medium', marginTop: AppSpacing.xl },

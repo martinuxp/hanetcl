@@ -45,7 +45,7 @@ function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: Mo
     const destination = active ? 1 : 0;
     progress.value = reduceMotion
       ? withTiming(destination, { duration: 100 })
-      : withSpring(destination, { damping: 24, stiffness: 260, mass: 0.9 });
+      : withSpring(destination, { damping: 31, stiffness: 260, mass: 0.9 });
   }, [active, progress, reduceMotion]);
 
   const pillStyle = useAnimatedStyle(() => ({
