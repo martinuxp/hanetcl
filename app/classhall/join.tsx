@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -57,6 +58,7 @@ function JoinHallScreen() {
   const join = async () => {
     if (status.kind !== 'found' || joining) return;
     if (status.hall.alreadyMember) {
+      allowLeave();
       router.back();
       return;
     }
@@ -64,6 +66,7 @@ function JoinHallScreen() {
     try {
       await joinHall(code);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      allowLeave();
       router.back();
     } catch (error) {
       setStatus({ kind: 'failed', message: describeAuthError(error, 'No pudimos unirte al Hall. Inténtalo nuevamente.') });
@@ -79,6 +82,17 @@ function JoinHallScreen() {
   else if (status.kind === 'invalid') buttonLabel = 'Código inválido';
   else if (status.kind === 'rejected') buttonLabel = 'No puedes entrar a este Hall';
   else if (found) buttonLabel = status.hall.alreadyMember ? `Ya estás en “${status.hall.subject}”` : `Unirse a “${status.hall.subject} - ${status.hall.courseId}”`;
+
+  // Closing with a code typed asks first; a found Hall can be joined from there.
+  const canJoin = status.kind === 'found' && !status.hall.alreadyMember;
+  const { allowLeave, dialog } = useUnsavedChangesGuard({
+    dirty: code.length > 0 && !joining,
+    onSave: join,
+    saveLabel: 'Unirse',
+    canSave: canJoin,
+    title: '¿Salir sin unirte?',
+    message: canJoin ? 'El código es válido, pero todavía no te unes al Hall.' : 'El código que escribiste se perderá.',
+  });
 
   return (
     <ScrollView
@@ -160,6 +174,7 @@ function JoinHallScreen() {
       >
         <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
       </Pressable>
+      {dialog}
     </ScrollView>
   );
 }

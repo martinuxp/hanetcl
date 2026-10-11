@@ -16,6 +16,10 @@ type Options = {
   dirty: boolean;
   /** Saves from the confirmation. It should call `allowLeave()` before going back. */
   onSave: () => void;
+  /** Label of the save button ("Guardar", "Crear Hall"…). */
+  saveLabel?: string;
+  /** Whether the form can be saved as it is; when not, only discard or keep editing. */
+  canSave?: boolean;
   title?: string;
   message?: string;
 };
@@ -26,7 +30,7 @@ type Options = {
  * editing, in HaNet's own dialog. Render the returned `dialog` in the screen
  * and call `allowLeave()` right before leaving on purpose.
  */
-export function useUnsavedChangesGuard({ dirty, onSave, title = '¿Descartar los cambios?', message = 'Lo que escribiste todavía no se ha guardado.' }: Options) {
+export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', canSave = true, title = '¿Descartar los cambios?', message = 'Lo que escribiste todavía no se ha guardado.' }: Options) {
   const navigation = useNavigation();
   const sheet = useSheetGuard();
   const leaving = useRef(false);
@@ -65,13 +69,15 @@ export function useUnsavedChangesGuard({ dirty, onSave, title = '¿Descartar los
 
   const dialog = (
     <HanetDialog visible={!!pendingDiscard} onRequestClose={keepEditing} dismissOnBackdrop title={title} body={message}>
-      <HanetButton
-        label="Guardar"
-        onPress={() => {
-          setPendingDiscard(null);
-          onSave();
-        }}
-      />
+      {canSave && (
+        <HanetButton
+          label={saveLabel}
+          onPress={() => {
+            setPendingDiscard(null);
+            onSave();
+          }}
+        />
+      )}
       <HanetButton
         label="Descartar"
         variant="accent"

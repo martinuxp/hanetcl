@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,12 +44,23 @@ function CreateHallScreen() {
     try {
       await createHall(subject, course, theme);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      allowLeave();
       router.back();
     } catch (createError) {
       setError(describeAuthError(createError, 'No pudimos crear el Hall. Inténtalo nuevamente.'));
       setSubmitting(false);
     }
   };
+
+  // Closing with a subject, course or theme chosen asks first.
+  const { allowLeave, dialog } = useUnsavedChangesGuard({
+    dirty: (!!subject.trim() || !!course || theme !== 'backToSchool') && !submitting,
+    onSave: submit,
+    saveLabel: 'Crear Hall',
+    canSave: ready,
+    title: '¿Descartar este Hall?',
+    message: ready ? 'Todavía no lo has creado.' : 'Todavía no lo has creado, y le faltan datos para hacerlo.',
+  });
 
   return (
     <ScrollView
@@ -141,6 +153,7 @@ function CreateHallScreen() {
       >
         <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
       </Pressable>
+      {dialog}
     </ScrollView>
   );
 }
