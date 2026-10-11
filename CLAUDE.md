@@ -52,6 +52,7 @@ Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, región `us-central1`
 
 ## Desde una sesión en la nube
 
-- No hay credenciales de Firebase ni de Expo: se puede escribir y revisar código, pero no publicar. Dejar los cambios listos y avisar qué hay que publicar desde el equipo del usuario.
+- No hay credenciales de Firebase. De Expo solo `EXPO_TOKEN`, para la rama `expo-go` de EAS Update (ver abajo). Fuera de eso no se publica: Dejar los cambios listos y avisar qué hay que publicar desde el equipo del usuario.
 - Comprobar antes de entregar: `npx tsc --noEmit` y `npx eslint app components services`.
-- El servidor de desarrollo se define en `.claude/launch.json` (`expo`, puerto 8081).
+- El servidor de desarrollo se define en `.claude/launch.json` (`expo`, puerto 8081), pero el túnel de Expo (ngrok) no funciona tras el proxy de la nube.
+- Para probar en el iPhone desde la nube: después de cada cambio que pase `tsc` y `eslint`, publicar sin preguntar con `EXPO_GO_UPDATE=1 npx eas-cli update --branch expo-go --message "<resumen>" --non-interactive` (necesita `EXPO_TOKEN` en el entorno). Se abre en Expo Go con la cuenta `muxp`. Esta autorización cubre solo la rama `expo-go`; el resto de EAS y Firebase sigue necesitando OK.
