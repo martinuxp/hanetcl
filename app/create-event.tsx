@@ -15,6 +15,7 @@ import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'fir
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
+import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 
 // New events start on the next 5-minute mark, matching the picker's step.
 function nextRoundedTime() {
@@ -55,6 +56,25 @@ function CreateEventScreen() {
   const [requestVerification, setRequestVerification] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // What the form opened with; anything different is unsaved work.
+  const [initial] = useState(() => ({
+    title,
+    description,
+    start: startDate.getTime(),
+    subject,
+    eventType,
+    location,
+    requestVerification,
+  }));
+  const dirty =
+    title !== initial.title ||
+    description !== initial.description ||
+    startDate.getTime() !== initial.start ||
+    subject !== initial.subject ||
+    eventType !== initial.eventType ||
+    location !== initial.location ||
+    requestVerification !== initial.requestVerification;
 
   const missingTitle = !title.trim();
   const missingSubject = !subject;
@@ -125,6 +145,7 @@ function CreateEventScreen() {
 
       // The calendar reloads on focus, so the new event is the confirmation.
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      allowLeave();
       router.back();
     } catch (err) {
       console.error(err);
@@ -132,6 +153,15 @@ function CreateEventScreen() {
       setLoading(false);
     }
   };
+
+  // Swiping the sheet away, tapping outside or "Cancelar" asks first.
+  const { allowLeave } = useUnsavedChangesGuard({
+    dirty: dirty && !loading,
+    onSave: handleSubmit,
+    message: isEditing
+      ? 'Los cambios a este evento todavía no se han guardado.'
+      : 'El evento que estás creando todavía no se ha guardado.',
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

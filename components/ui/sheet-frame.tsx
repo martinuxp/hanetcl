@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -9,6 +9,26 @@ import { SPRING_MOMENTUM, project, rubberband } from '@/constants/motion';
 
 const OPEN_MS = 280;
 const CLOSE_MS = 220;
+
+/**
+ * Lets the screen inside an Android sheet hold the sheet open (unsaved
+ * changes). While `blocked` is on, dragging, the backdrop and the back button
+ * settle the sheet back and bump `blockedAttempts` instead of closing; `close`
+ * then leaves for real once the screen allows it.
+ */
+type SheetGuard = {
+  setBlocked: (blocked: boolean) => void;
+  /** Counts the closes that were held back, so the screen can ask each time. */
+  blockedAttempts: number;
+  close: () => void;
+};
+
+const SheetGuardContext = createContext<SheetGuard | null>(null);
+
+/** The surrounding Android sheet, or null on iOS and web (the native sheet is used there). */
+export function useSheetGuard() {
+  return useContext(SheetGuardContext);
+}
 
 /**
  * Android stand-in for the native form sheet, which opens with no height
@@ -23,6 +43,8 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
   const reduceMotion = useReducedMotion();
   const offset = useSharedValue(reduceMotion ? 0 : windowHeight);
   const closing = useSharedValue(false);
+  const blocked = useSharedValue(false);
+  const [blockedAttempts, setBlockedAttempts] = useState(0);
 
   const goBack = useCallback(() => router.back(), [router]);
 
@@ -30,7 +52,9 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
     if (!reduceMotion) offset.set(withTiming(0, { duration: OPEN_MS, easing: Easing.bezier(0.32, 0.72, 0, 1) }));
   }, [offset, reduceMotion]);
 
-  const close = useCallback(() => {
+  const notifyBlocked = useCallback(() => setBlockedAttempts(count => count + 1), []);
+
+  const leave = useCallback(() => {
     if (closing.get()) return;
     closing.set(true);
     if (reduceMotion) {
@@ -41,6 +65,22 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
       if (finished) scheduleOnRN(goBack);
     }));
   }, [closing, goBack, offset, reduceMotion, windowHeight]);
+
+  // Closing on request: held open while the screen has something unsaved.
+  const close = useCallback(() => {
+    if (blocked.get()) {
+      offset.set(withSpring(0, SPRING_MOMENTUM));
+      notifyBlocked();
+      return;
+    }
+    leave();
+  }, [blocked, leave, notifyBlocked, offset]);
+
+  const guard = useMemo<SheetGuard>(() => ({
+    setBlocked: value => blocked.set(value),
+    blockedAttempts,
+    close: leave,
+  }), [blocked, blockedAttempts, leave]);
 
   // The system back button leaves the way the sheet came in.
   useEffect(() => {
@@ -61,7 +101,11 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
     .onEnd(event => {
       if (closing.get()) return;
       const resting = offset.get() + project(event.velocityY);
-      if (resting > windowHeight * 0.3) {
+      if (resting > windowHeight * 0.3 && blocked.get()) {
+        // Unsaved changes: the sheet settles back and the screen asks.
+        offset.set(withSpring(0, { ...SPRING_MOMENTUM, velocity: event.velocityY }));
+        scheduleOnRN(notifyBlocked);
+      } else if (resting > windowHeight * 0.3) {
         closing.set(true);
         // The throw carries on at the finger's speed.
         offset.set(withSpring(windowHeight, { ...SPRING_MOMENTUM, velocity: event.velocityY, overshootClamping: true }, finished => {
@@ -83,7 +127,7 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={close} style={StyleSheet.absoluteFill} />
       </Animated.View>
       <Animated.View style={[styles.panel, { backgroundColor, marginTop: insets.top + 28 }, panelStyle]}>
-        {children}
+        <SheetGuardContext.Provider value={guard}>{children}</SheetGuardContext.Provider>
         <GestureDetector gesture={drag}>
           <View accessible accessibilityRole="button" accessibilityLabel="Cerrar hoja" onAccessibilityTap={close} style={styles.grabberZone}>
             <View style={styles.grabber} />
