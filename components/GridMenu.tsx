@@ -1,4 +1,4 @@
-import { AppColors } from '@/constants/design-tokens';
+import { AppColors, AppType } from '@/constants/design-tokens';
 import React from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
@@ -33,7 +33,7 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
       accessibilityHint={href ? `Abrir ${title}` : 'Próximamente disponible'}
       accessibilityState={{ disabled: !href }}
       disabled={!href}
-      style={({ pressed }) => [styles.gridItem, { height }, pressed && styles.gridItemPressed, !href && styles.gridItemUnavailable]}
+      style={({ pressed }) => [styles.gridItem, { minHeight: height }, pressed && styles.gridItemPressed, !href && styles.gridItemUnavailable]}
       onPress={() => {
         if (href) router.push(href);
       }}
@@ -177,10 +177,7 @@ const styles = StyleSheet.create({
   },
   itemTitleDefault: {
     color: AppColors.textOnLight,
-    fontSize: 16,
-    lineHeight: 19.68,
-    letterSpacing: -0.4,
-    fontFamily: 'DMSans_700Bold',
+    ...AppType.headline,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -200,10 +197,7 @@ const styles = StyleSheet.create({
   },
   itemTitleSide: {
     color: AppColors.textOnLight,
-    fontSize: 16,
-    lineHeight: 19.68,
-    letterSpacing: -0.4,
-    fontFamily: 'DMSans_700Bold',
+    ...AppType.headline,
     textAlign: 'left',
   },
   sideBadge: {

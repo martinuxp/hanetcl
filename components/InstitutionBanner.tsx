@@ -1,4 +1,4 @@
-import { AppColors } from '@/constants/design-tokens';
+import { AppColors, AppType } from '@/constants/design-tokens';
 import React from 'react';
 import { View, StyleSheet, ImageBackground, Image, Platform } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
@@ -72,10 +72,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: AppColors.textSecondary,
-    fontSize: 24,
-    lineHeight: 28.8,
-    letterSpacing: -1.08,
-    fontFamily: 'DMSans_700Bold',
+    ...AppType.title2,
     marginBottom: 0,
     ...(Platform.OS === 'web'
       ? ({ textShadow: '0 4px 5px rgba(0,0,0,0.7)' } as any)

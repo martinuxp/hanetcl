@@ -46,14 +46,14 @@ export default function UiShowcaseScreen() {
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Volver a Inicio"
+            accessibilityLabel="Volver a Perfil"
             onPress={() => router.back()}
             style={styles.backButton}
           >
             <CustomIcon name="chevron-left" size={20} color={AppColors.controlOnActive} />
           </Pressable>
           <View style={styles.headerCopy}>
-            <ThemedText style={styles.title}>Sistema UI</ThemedText>
+            <ThemedText style={styles.title}>Sistema HaNet UI</ThemedText>
             <ThemedText style={styles.subtitle}>Componentes y estados reales de HaNet</ThemedText>
           </View>
         </View>

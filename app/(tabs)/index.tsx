@@ -5,19 +5,16 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
-import { consumePendingWelcome, getGreetingProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useSession } from '@/services/auth-service';
+import { consumePendingWelcome, getGreetingProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
 import type { Treatment } from '@/services/auth-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { CustomIcon } from '@/components/ui/custom-icon';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, initializing, signOut } = useSession();
-  // The uid whose token carries the HNT role; signing out or switching
-  // accounts makes it stop matching.
-  const [hntUid, setHntUid] = useState<string | null>(null);
-  const isHnt = !!user && hntUid === user.uid;
+  const { user, initializing } = useSession();
+  // Only decides whether to draw the entry; the panel and its backend check the role again.
+  const isHnt = useRole() === 'HNT';
 
   const [welcome, setWelcome] = useState<{ firstName: string; treatment: Treatment; institutionName?: string } | null>(null);
 
@@ -57,16 +54,6 @@ export default function HomeScreen() {
     return () => { active = false; };
   }, [router, user]);
 
-  // Only decides whether to draw the entry; the panel and its backend check the role again.
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-    user.getIdTokenResult()
-      .then(({ claims }) => { if (active) setHntUid(claims.role === 'HNT' ? user.uid : null); })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, [user]);
-
   if (!gateOpen) {
     return (
       <View style={[styles.container, styles.loading]}>
@@ -85,16 +72,7 @@ export default function HomeScreen() {
         <InstitutionBanner />
         <GridMenu />
 
-        {/* Auth / Signout Button */}
-        {user ? (
-          <HanetButton
-            label="Cerrar sesión"
-            accessibilityHint={user.email ? `Sesión iniciada como ${user.email}` : undefined}
-            variant="accent"
-            onPress={() => void signOut()}
-            style={styles.authButton}
-          />
-        ) : (
+        {!user && (
           <HanetButton
             label="Iniciar sesión"
             onPress={() => router.push('/auth')}
@@ -110,14 +88,6 @@ export default function HomeScreen() {
             style={styles.uiCatalogButton}
           />
         )}
-
-        <HanetButton
-          label="Explorar sistema UI"
-          variant="surface"
-          icon={<CustomIcon name="notes" size={20} color={AppColors.textPrimary} />}
-          onPress={() => router.push('/ui-showcase')}
-          style={styles.uiCatalogButton}
-        />
       </ScrollView>
 
       <WelcomeCelebration

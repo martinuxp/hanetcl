@@ -40,7 +40,7 @@ function initialsOf(name: string) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, initializing } = useSession();
+  const { user, initializing, signOut } = useSession();
 
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
@@ -106,6 +106,7 @@ export default function ProfileScreen() {
           <>
             <ThemedText style={styles.emptyTitle}>Perfil no disponible</ThemedText>
             <ThemedText accessibilityLiveRegion="polite" style={styles.emptyText}>{error}</ThemedText>
+            <HanetButton label="Cerrar sesión" variant="surface" onPress={() => void signOut()} style={styles.emptyButton} />
           </>
         ) : (
           <ActivityIndicator size="large" color={AppColors.textSecondary} />
@@ -225,6 +226,21 @@ export default function ProfileScreen() {
         )}
 
         {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.staleNote}>No pudimos actualizar tu perfil; puede que veas datos de hace un momento.</ThemedText>}
+
+        <View style={styles.accountActions}>
+          <HanetButton
+            label="Sistema HaNet UI"
+            variant="surface"
+            icon={<Ionicons name="color-palette-outline" size={20} color={AppColors.textPrimary} />}
+            onPress={() => router.push('/ui-showcase')}
+          />
+          <HanetButton
+            label="Cerrar sesión"
+            variant="surface"
+            accessibilityHint={user.email ? `Sesión iniciada como ${user.email}` : undefined}
+            onPress={() => void signOut()}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -292,6 +308,7 @@ const styles = StyleSheet.create({
   linkEyebrow: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16 },
   linkTitle: { color: AppColors.textPrimary, fontSize: 15, lineHeight: 20, fontFamily: 'DMSans_700Bold' },
 
+  accountActions: { gap: AppSpacing.md, marginTop: AppSpacing.lg },
   staleNote: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, textAlign: 'center', opacity: 0.8 },
   pressed: { opacity: 0.72 },
 });

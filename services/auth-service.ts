@@ -266,3 +266,28 @@ export function useSession() {
     signOut: () => firebaseSignOut(auth),
   };
 }
+
+/**
+ * The role carried in the token's claims, which is what the Firestore rules
+ * check. Null while unknown or signed out. Syncs the claims first so a role
+ * changed in the HNT panel shows up without signing in again.
+ */
+export function useRole() {
+  const { user } = useSession();
+  const [known, setKnown] = useState<{ uid: string; role: string } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    ensureClaims(user)
+      .catch(() => undefined)
+      .then(() => user.getIdTokenResult())
+      .then(({ claims }) => { if (active) setKnown({ uid: user.uid, role: String(claims.role ?? 'Estudiante') }); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
+
+  return user && known?.uid === user.uid ? known.role : null;
+}
+
+export const EVENT_EDITOR_ROLES = ['HNT', 'Admin', 'CEE', 'Directiva'];

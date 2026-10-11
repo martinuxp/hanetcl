@@ -5,7 +5,7 @@ import type { NearbyEventsQuery, RegionalEvent, RegionalEventCategory } from '@/
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetChip } from '@/components/ui/hanet-chip';
@@ -68,15 +68,15 @@ export default function EventsScreen() {
     <View>
       <View style={styles.topBar}>
         <Image source={require('@/headline HNE.svg')} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet Eventos" />
-        <HanetChip label="Temuco" icon={<CustomIcon name="map-pin" size={20} color={AppColors.textPrimary} />} onPress={() => Alert.alert('Ubicación', 'Pronto podrás elegir otra ciudad para tu cartelera.')} />
       </View>
 
       <View style={styles.segmented}>
         <View accessible accessibilityRole="tab" accessibilityState={{ selected: true }} style={[styles.segment, styles.segmentActive]}>
           <ThemedText style={styles.segmentActiveText}>Cerca de mí</ThemedText>
         </View>
-        <View accessible accessibilityRole="tab" accessibilityState={{ selected: false, disabled: true }} style={styles.segment}>
+        <View accessible accessibilityRole="tab" accessibilityLabel="En mi institución, próximamente" accessibilityState={{ selected: false, disabled: true }} style={styles.segment}>
           <ThemedText style={styles.segmentText}>En mi institución</ThemedText>
+          <ThemedText style={styles.segmentSoon}>Próximamente</ThemedText>
         </View>
       </View>
 
@@ -85,9 +85,11 @@ export default function EventsScreen() {
           <ThemedText style={styles.locationTitle}>En {defaultQuery.city}, Chile</ThemedText>
           <ThemedText style={styles.locationSubtitle}>{defaultQuery.region}</ThemedText>
         </View>
-        <Pressable accessibilityLabel="Cambiar ubicación" onPress={() => Alert.alert('Ubicación', 'Pronto podrás cambiar la ciudad de tu cartelera.')} accessibilityRole="button" style={({ pressed }) => [styles.locationAction, pressed && styles.pressed]}>
+        {/* Picking another city does not exist yet. */}
+        <View accessible accessibilityLabel="Cambiar ubicación, próximamente" style={styles.locationAction}>
           <ThemedText style={styles.changeLocation}>Cambiar ubicación</ThemedText>
-        </Pressable>
+          <ThemedText style={styles.locationSoon}>Próximamente</ThemedText>
+        </View>
       </View>
 
       {mode === 'search' && <View style={styles.searchField}>
@@ -187,15 +189,17 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 800, alignSelf: 'center', paddingHorizontal: AppSpacing.lg, paddingBottom: 140 },
   topBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   logo: { width: 127, height: 15 },
-  segmented: { height: 48, borderRadius: AppRadii.xl, padding: AppSpacing.sm, gap: AppSpacing.xs, backgroundColor: AppColors.controlContainer, flexDirection: 'row', marginBottom: AppSpacing.lg },
+  segmented: { minHeight: 56, borderRadius: AppRadii.xl, padding: AppSpacing.sm, gap: AppSpacing.xs, backgroundColor: AppColors.controlContainer, flexDirection: 'row', marginBottom: AppSpacing.lg },
   segment: { flex: 1, borderRadius: AppRadii.sm, alignItems: 'center', justifyContent: 'center' },
   segmentActive: { backgroundColor: AppColors.controlActive, borderRadius: AppRadii.pill },
-  segmentText: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 21, fontFamily: 'DMSans_700Bold' },
+  segmentText: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 20, fontFamily: 'DMSans_700Bold', opacity: 0.6 },
+  segmentSoon: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, fontFamily: 'DMSans_500Medium', opacity: 0.6 },
   segmentActiveText: { color: AppColors.controlOnActive, fontSize: 14, lineHeight: 21, fontFamily: 'DMSans_700Bold' },
   locationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: AppSpacing.lg },
   locationTitle: { color: AppColors.textPrimary, fontSize: 19, lineHeight: 25, fontFamily: 'DMSans_500Medium' },
   locationSubtitle: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 20 },
-  changeLocation: { color: AppColors.accent, fontSize: 13, fontFamily: 'DMSans_700Bold' },
+  changeLocation: { color: AppColors.textSecondary, fontSize: 13, lineHeight: 18, fontFamily: 'DMSans_700Bold', opacity: 0.6, textAlign: 'right' },
+  locationSoon: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, fontFamily: 'DMSans_500Medium', opacity: 0.6, textAlign: 'right' },
   locationAction: { minHeight: 44, justifyContent: 'center' },
   pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
   filters: { gap: AppSpacing.sm, paddingBottom: AppSpacing.xl },

@@ -1,4 +1,4 @@
-import { AppColors } from '@/constants/design-tokens';
+import { AppColors, AppType } from '@/constants/design-tokens';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,10 +37,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   titleText: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontFamily: 'DMSans_700Bold',
-    letterSpacing: -0.8,
+    ...AppType.title3,
     color: AppColors.textSecondary,
   },
   superscript: {

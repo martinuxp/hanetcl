@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePicker } from '@/components/ui/hanet-date-time-picker';
-import { ensureClaims, useSession } from '@/services/auth-service';
+import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
 import { db } from '@/services/firebase';
 import {
   deleteCalendarEvent,
@@ -37,7 +37,6 @@ const ICONS = {
 };
 
 const ICAL_HOST = 'us-central1-hanet-edu.cloudfunctions.net/icalFeed';
-const EDITOR_ROLES = ['HNT', 'Admin', 'CEE', 'Directiva'];
 
 type EventParams = {
   id?: string;
@@ -58,7 +57,8 @@ export default function EventInfoScreen() {
 
   // The calendar passes a hint so the buttons do not pop in; the token is
   // what actually decides, and the rules enforce it either way.
-  const [canEdit, setCanEdit] = useState(params.canEdit === '1');
+  const role = useRole();
+  const canEdit = role ? EVENT_EDITOR_ROLES.includes(role) : params.canEdit === '1';
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -68,15 +68,6 @@ export default function EventInfoScreen() {
   const [draftDate, setDraftDate] = useState(() => new Date());
   const [managing, setManaging] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    let active = true;
-    user.getIdTokenResult()
-      .then(({ claims }) => { if (active) setCanEdit(EDITOR_ROLES.includes(String(claims.role))); })
-      .catch(() => undefined);
-    return () => { active = false; };
-  }, [user]);
 
   // Coming back from the edit form: show what was just saved.
   const eventId = event?.id;

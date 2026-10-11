@@ -1,12 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors } from '@/constants/design-tokens';
-import { useSession } from '@/services/auth-service';
-import { db } from '@/services/firebase';
+import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
-import { doc, getDoc } from 'firebase/firestore';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -30,6 +28,10 @@ type MotionTabIcon = React.ComponentProps<typeof CustomIcon>['name'];
 
 /** Space a scrolling screen leaves at its end so the floating bar covers nothing. */
 export const TAB_BAR_CLEARANCE = 112;
+
+// The bar has a fixed height, so its labels grow with the system text size
+// only up to a point (as the iOS tab bar does).
+const TAB_TEXT_MAX_SCALE = 1.3;
 
 /**
  * Adaptación local del patrón de expo-motion-tabs para el navegador existente.
@@ -74,14 +76,14 @@ function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: Mo
       onBlur={() => setFocused(false)}
       style={({ pressed }) => [styles.motionPress, focused && styles.motionPressFocused, pressed && styles.motionPressPressed]}
     >
-      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} style={styles.motionMeasure}>{label}</ThemedText>
+      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
       <Animated.View style={[styles.motionTab, pillStyle]}>
         <View style={styles.motionIconBox}>
           <Animated.View style={[styles.motionIconLayer, inactiveIconStyle]}><CustomIcon name={icon} size={22} color={AppColors.textSecondary} /></Animated.View>
           <Animated.View style={[styles.motionIconLayer, activeIconStyle]}><CustomIcon name={icon} size={22} color={AppColors.controlOnActive} /></Animated.View>
         </View>
         <Animated.View style={[styles.motionLabelWrap, labelStyle]}>
-          <ThemedText numberOfLines={1} style={styles.motionLabel}>{label}</ThemedText>
+          <ThemedText numberOfLines={1} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionLabel}>{label}</ThemedText>
         </Animated.View>
       </Animated.View>
     </Pressable>
@@ -166,8 +168,6 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   );
 }
 
-const EVENT_EDITOR_ROLES = ['HNT', 'Admin', 'CEE', 'Directiva'];
-
 /** Routes that show the bar; everything else (sign-in, onboarding, sheets) has none. */
 const TAB_ROOTS = ['/', '/explore'];
 const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/event-info', '/event-detail', '/classhall', '/hnt-admin'];
@@ -180,16 +180,7 @@ export function GlobalTabBar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useSession();
-  const [role, setRole] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!user) return;
-    let active = true;
-    getDoc(doc(db, 'users', user.uid))
-      .then(snapshot => { if (active) setRole(snapshot.data()?.role || 'Estudiante'); })
-      .catch(error => console.error('Error fetching role:', error));
-    return () => { active = false; };
-  }, [user]);
+  const role = useRole();
 
   if (!BAR_ROUTES.includes(pathname)) return null;
 
@@ -214,7 +205,7 @@ export function GlobalTabBar() {
         onPress={() => router.push({ pathname: '/events', params: { mode: 'search' } })}
       >
         <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-        <ThemedText style={styles.searchText}>Buscar…</ThemedText>
+        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
       </Pressable>
     );
   } else if (pathname === '/calendar' && canAddEvents) {
@@ -226,7 +217,7 @@ export function GlobalTabBar() {
         onPress={() => router.navigate('/create-event')}
       >
         <CustomIcon name="calendar" size={18} color={AppColors.textOnLight} />
-        <ThemedText style={styles.createText}>Crear</ThemedText>
+        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>Crear</ThemedText>
       </Pressable>
     );
   }

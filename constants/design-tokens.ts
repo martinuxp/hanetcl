@@ -52,3 +52,20 @@ export const AppTouch = {
   minimum: 44,
   comfortable: 48,
 } as const;
+
+/**
+ * Type scale (DM Sans). Tracking depends on size, as in the Figma file:
+ * large text is pulled in (about -4 to -5 %), small text sits near 0, and
+ * leading tightens as size grows. Use these instead of one-off values.
+ */
+export const AppType = {
+  largeTitle: { fontFamily: 'DMSans_500Medium', fontSize: 34, lineHeight: 41, letterSpacing: -1.7 },
+  title1: { fontFamily: 'DMSans_700Bold', fontSize: 28, lineHeight: 34, letterSpacing: -1.1 },
+  title2: { fontFamily: 'DMSans_700Bold', fontSize: 24, lineHeight: 29, letterSpacing: -1.08 },
+  title3: { fontFamily: 'DMSans_700Bold', fontSize: 20, lineHeight: 26, letterSpacing: -0.8 },
+  headline: { fontFamily: 'DMSans_700Bold', fontSize: 16, lineHeight: 20, letterSpacing: -0.4 },
+  body: { fontFamily: 'DMSans_400Regular', fontSize: 16, lineHeight: 24, letterSpacing: 0 },
+  callout: { fontFamily: 'DMSans_500Medium', fontSize: 14, lineHeight: 20, letterSpacing: 0 },
+  footnote: { fontFamily: 'DMSans_400Regular', fontSize: 13, lineHeight: 18, letterSpacing: 0 },
+  caption: { fontFamily: 'DMSans_500Medium', fontSize: 12, lineHeight: 16, letterSpacing: 0 },
+} as const;

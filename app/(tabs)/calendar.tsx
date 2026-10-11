@@ -1,4 +1,4 @@
-import { AppColors } from '@/constants/design-tokens';
+import { AppColors, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
-import Animated, { FadeInLeft, FadeInRight, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeInLeft, FadeInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import {
   fetchCalendarEvents,
   getEventsForDate,
@@ -16,10 +16,15 @@ import {
   formatTime,
   CalendarEvent,
 } from '@/services/ical-service';
-import { ensureClaims, useSession } from '@/services/auth-service';
+import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
+
+// Critically damped, ~0.3 s response: the selection glides without bouncing.
+const INDICATOR_SPRING = { stiffness: 440, damping: 42, mass: 1 };
+
+type Frame = { x: number; width: number };
 
 export default function CalendarScreen() {
   // Mon=0, Tue=1, ... Sat=5, Sun=6  (getDay: Sun=0,Mon=1,...Sat=6)
@@ -33,33 +38,90 @@ export default function CalendarScreen() {
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
 
-  const allowedRoles = ['HNT', 'Admin', 'CEE', 'Directiva'];
-  const [userRole, setUserRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchRole = async () => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          const role = userDoc.data()?.role || 'Estudiante';
-          setUserRole(role);
-        } catch (e) {
-          console.error("Error fetching role:", e);
-        }
-      }
-    };
-    fetchRole();
-  }, [user]);
-
-  const canAddEvents = userRole ? allowedRoles.includes(userRole) : false;
+  // The token's role is what the rules check, so it decides what is shown.
+  const userRole = useRole();
+  const canAddEvents = !!userRole && EVENT_EDITOR_ROLES.includes(userRole);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const weekDays = getWeekDays(weekStart);
   const weekKey = weekStart.toISOString();
   // A new week arrives from the side it lies on, so the change has a direction.
-  const [weekDirection, setWeekDirection] = useState<1 | -1>(1);
-  const weekEntering = reduceMotion ? undefined : (weekDirection > 0 ? FadeInRight : FadeInLeft).duration(200);
+  // Swiping into it already brought the day on screen, so the pages stay put.
+  const [weekChange, setWeekChange] = useState<{ direction: 1 | -1; bySwipe: boolean }>({ direction: 1, bySwipe: false });
+  const weekEntering = reduceMotion ? undefined : (weekChange.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
+  const pagesEntering = weekChange.bySwipe ? undefined : weekEntering;
+  // The pager holds the week plus a neighbour day on each side (the previous
+  // Sunday and the next Monday); landing on one of those moves to that week.
+  const pageDates = [
+    new Date(weekDays[0].dateObj.getFullYear(), weekDays[0].dateObj.getMonth(), weekDays[0].dateObj.getDate() - 1),
+    ...weekDays.map(day => day.dateObj),
+    new Date(weekDays[6].dateObj.getFullYear(), weekDays[6].dateObj.getMonth(), weekDays[6].dateObj.getDate() + 1),
+  ];
+
+  // Selection pill behind the day chips: it follows the finger while the
+  // pages are dragged and glides to the chosen day otherwise.
+  const [chipFrames, setChipFrames] = useState<Frame[]>([]);
+  const indicatorX = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
+  const indicatorPlaced = useRef(false);
+  const draggingRef = useRef(false);
+  const selectedRef = useRef(selectedPageIndex);
+  const indicatorStyle = useAnimatedStyle(() => ({
+    width: indicatorWidth.get(),
+    opacity: indicatorWidth.get() > 0 ? 1 : 0,
+    transform: [{ translateX: indicatorX.get() }],
+  }));
+
+  const placeIndicator = useCallback((index: number, animated: boolean) => {
+    const frame = chipFrames[index];
+    if (!frame) return;
+    if (animated && !reduceMotion) {
+      indicatorX.set(withSpring(frame.x, INDICATOR_SPRING));
+      indicatorWidth.set(withSpring(frame.width, INDICATOR_SPRING));
+    } else {
+      indicatorX.set(frame.x);
+      indicatorWidth.set(frame.width);
+    }
+  }, [chipFrames, indicatorWidth, indicatorX, reduceMotion]);
+
+  useEffect(() => {
+    selectedRef.current = selectedPageIndex;
+    if (draggingRef.current || !chipFrames[selectedPageIndex]) return;
+    placeIndicator(selectedPageIndex, indicatorPlaced.current);
+    indicatorPlaced.current = true;
+  }, [chipFrames, placeIndicator, selectedPageIndex]);
+
+  const recordChipFrame = (index: number, frame: Frame) => {
+    setChipFrames(current => {
+      const known = current[index];
+      if (known && known.x === frame.x && known.width === frame.width) return current;
+      const next = [...current];
+      next[index] = frame;
+      return next;
+    });
+  };
+
+  // `page` counts the neighbour Sunday as 0; the pill stays within the week.
+  const trackPages = (page: number, offset: number) => {
+    const day = Math.max(0, Math.min(6, page - 1 + offset));
+    const from = chipFrames[Math.floor(day)];
+    const to = chipFrames[Math.ceil(day)];
+    if (!from || !to) return;
+    const t = day - Math.floor(day);
+    indicatorX.set(from.x + (to.x - from.x) * t);
+    indicatorWidth.set(from.width + (to.width - from.width) * t);
+  };
+
+  const startDragging = () => {
+    draggingRef.current = true;
+  };
+
+  const stopDragging = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    placeIndicator(selectedRef.current, true);
+  };
 
   // iCal events
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
@@ -119,20 +181,30 @@ export default function CalendarScreen() {
 
   const handleDaySelect = (index: number) => {
     setSelectedPageIndex(index);
-    pagerRef.current?.setPage(index);
-    webPagerRef.current?.scrollTo({ x: index * width, animated: true });
-  };
-
-  const handlePageSelected = (e: any) => {
-    setSelectedPageIndex(e.nativeEvent.position);
+    pagerRef.current?.setPage(index + 1);
+    webPagerRef.current?.scrollTo({ x: (index + 1) * width, animated: true });
   };
 
   // Changing week keeps the weekday that was selected.
-  const shiftWeek = (delta: number) => {
+  const shiftWeek = (delta: number, bySwipe = false) => {
     const next = new Date(weekStart);
     next.setDate(next.getDate() + delta * 7);
-    setWeekDirection(delta > 0 ? 1 : -1);
+    setWeekChange({ direction: delta > 0 ? 1 : -1, bySwipe });
     setWeekStart(next);
+  };
+
+  const handlePageSelected = (page: number) => {
+    if (page <= 0) {
+      draggingRef.current = false;
+      setSelectedPageIndex(6);
+      shiftWeek(-1, true);
+    } else if (page >= 8) {
+      draggingRef.current = false;
+      setSelectedPageIndex(0);
+      shiftWeek(1, true);
+    } else {
+      setSelectedPageIndex(page - 1);
+    }
   };
 
   const goToPrevWeek = () => shiftWeek(-1);
@@ -140,12 +212,12 @@ export default function CalendarScreen() {
 
   const goToToday = () => {
     const thisWeek = getMonday(new Date());
-    setWeekDirection(thisWeek > weekStart ? 1 : -1);
+    setWeekChange({ direction: thisWeek > weekStart ? 1 : -1, bySwipe: false });
     setWeekStart(thisWeek);
     setSelectedPageIndex(todayIndex);
     // Within the same week the pager is not remounted, so move it by hand.
-    pagerRef.current?.setPage(todayIndex);
-    webPagerRef.current?.scrollTo({ x: todayIndex * width, animated: false });
+    pagerRef.current?.setPage(todayIndex + 1);
+    webPagerRef.current?.scrollTo({ x: (todayIndex + 1) * width, animated: false });
   };
 
   const currentDayInfo = weekDays[selectedPageIndex];
@@ -175,6 +247,8 @@ export default function CalendarScreen() {
       </View>
 
       {/* Day Selector */}
+      <View style={styles.daySelectorWrap}>
+      <Animated.View pointerEvents="none" style={[styles.dayIndicator, indicatorStyle]} />
       <Animated.View key={weekKey} entering={weekEntering} style={styles.daySelector}>
         {weekDays.map((day, index) => {
           const isSelected = selectedPageIndex === index;
@@ -188,6 +262,7 @@ export default function CalendarScreen() {
               accessibilityLabel={`${day.dayName} ${day.date}${isToday ? ', hoy' : ''}${hasEvents ? ', con eventos' : ''}`}
               accessibilityState={{ selected: isSelected }}
               style={({ pressed }) => [styles.dayChip, isToday && styles.dayChipToday, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
+              onLayout={event => recordChipFrame(index, { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}
               onPress={() => handleDaySelect(index)}
             >
               <ThemedText style={[styles.dayName, isSelected && styles.dayNameSelected]}>{day.dayName}</ThemedText>
@@ -197,6 +272,7 @@ export default function CalendarScreen() {
           );
         })}
       </Animated.View>
+      </View>
 
       {/* Loading */}
       {loading || initializing ? (
@@ -217,25 +293,32 @@ export default function CalendarScreen() {
         </View>
       ) : (
         /* Pages Swipe View */
-        <Animated.View key={weekKey} entering={weekEntering} style={styles.pagerView}>
+        <Animated.View key={weekKey} entering={pagesEntering} style={styles.pagerView}>
           {Platform.OS === 'web' ? (
             <ScrollView
               ref={webPagerRef}
               horizontal
               pagingEnabled
-              onLayout={() => webPagerRef.current?.scrollTo({ x: selectedPageIndex * width, animated: false })}
+              onLayout={() => webPagerRef.current?.scrollTo({ x: (selectedPageIndex + 1) * width, animated: false })}
               showsHorizontalScrollIndicator={false}
               style={styles.pagerView}
+              scrollEventThrottle={16}
+              onScrollBeginDrag={startDragging}
+              onScroll={(e) => {
+                if (!draggingRef.current) return;
+                const page = e.nativeEvent.contentOffset.x / width;
+                trackPages(Math.floor(page), page - Math.floor(page));
+              }}
               onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setSelectedPageIndex(index);
+                handlePageSelected(Math.round(e.nativeEvent.contentOffset.x / width));
+                stopDragging();
               }}
             >
-              {weekDays.map((day, index) => (
-                <View key={`${weekStart.toISOString()}-${index}`} style={[styles.page, { width }]}>
+              {pageDates.map((date, page) => (
+                <View key={`${weekKey}-${page}`} style={[styles.page, { width }]}>
                   <DailyTimeline
                     isAdmin={canAddEvents}
-                    events={getEventsForDate(allEvents, day.dateObj)}
+                    events={getEventsForDate(allEvents, date)}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     lastUpdated={lastUpdated}
@@ -245,17 +328,26 @@ export default function CalendarScreen() {
             </ScrollView>
           ) : (
             <PagerView
-              key={weekStart.toISOString()}
+              key={weekKey}
               style={styles.pagerView}
-              initialPage={selectedPageIndex}
+              initialPage={selectedPageIndex + 1}
               ref={pagerRef}
-              onPageSelected={handlePageSelected}
+              onPageSelected={(e: { nativeEvent: { position: number } }) => handlePageSelected(e.nativeEvent.position)}
+              onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {
+                if (draggingRef.current) trackPages(e.nativeEvent.position, e.nativeEvent.offset);
+              }}
+              onPageScrollStateChanged={(e: { nativeEvent: { pageScrollState: string } }) => {
+                // While settling the pill keeps following the pages; it hands
+                // over to the spring only once they rest.
+                if (e.nativeEvent.pageScrollState === 'dragging') startDragging();
+                else if (e.nativeEvent.pageScrollState === 'idle') stopDragging();
+              }}
             >
-              {weekDays.map((day, index) => (
-                <View key={`${weekStart.toISOString()}-${index}`} style={styles.page}>
+              {pageDates.map((date, page) => (
+                <View key={`${weekKey}-${page}`} style={styles.page}>
                   <DailyTimeline
-                  isAdmin={canAddEvents}
-                    events={getEventsForDate(allEvents, day.dateObj)}
+                    isAdmin={canAddEvents}
+                    events={getEventsForDate(allEvents, date)}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     lastUpdated={lastUpdated}
@@ -488,20 +580,32 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     color: AppColors.accent,
   },
+  daySelectorWrap: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
   daySelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 6,
     paddingHorizontal: 16,
-    marginBottom: 20,
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
+  },
+  dayIndicator: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.controlActive,
   },
   dayChip: {
     flex: 1,
     maxWidth: 72,
-    height: 62,
+    minHeight: 62,
+    paddingVertical: 6,
     borderRadius: 16,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
@@ -512,8 +616,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: AppColors.accent,
   },
+  // The sliding indicator draws the selected fill.
   dayChipSelected: {
-    backgroundColor: AppColors.controlActive,
+    backgroundColor: 'transparent',
   },
   dayName: {
     fontSize: 12,
@@ -590,8 +695,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: AppColors.textSecondary,
-    fontSize: 20,
-    fontFamily: 'DMSans_700Bold',
+    ...AppType.title3,
     marginTop: 12,
   },
   emptySubtitle: {
