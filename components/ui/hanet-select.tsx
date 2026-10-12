@@ -122,10 +122,34 @@ export const MAX_CHIP_OPTIONS = 5;
 
 /**
  * Chips while the options are few (five or fewer), a select field beyond
- * that, so long lists do not spill over the form.
+ * that, so long lists do not spill over the form. With `scroll`, always chips
+ * in one horizontal row, for forms where the chips are part of the look.
  */
-export function HanetChoice(props: Props) {
-  const { options, value, onChange, disabled, label } = props;
+export function HanetChoice(props: Props & { scroll?: boolean }) {
+  const { options, value, onChange, disabled, label, scroll } = props;
+  // A single scrolling row keeps every option as a chip without taking height.
+  if (scroll) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityRole="radiogroup"
+        accessibilityLabel={label}
+        contentContainerStyle={styles.chipRow}
+      >
+        {options.map(option => (
+          <HanetChip
+            key={option.value}
+            label={option.label}
+            selected={option.value === value}
+            accessibilityRole="radio"
+            disabled={disabled}
+            onPress={() => onChange(option.value)}
+          />
+        ))}
+      </ScrollView>
+    );
+  }
   if (options.length > MAX_CHIP_OPTIONS) return <HanetSelect {...props} />;
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.chips}>
@@ -148,6 +172,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: AppSpacing.sm,
+  },
+  chipRow: {
+    gap: 10,
+    paddingRight: 20,
   },
   field: {
     minHeight: 56,

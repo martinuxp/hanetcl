@@ -247,8 +247,7 @@ function CreateEventScreen() {
             options={subjectsList.map(name => ({ value: name, label: name }))}
             value={subject || null}
             onChange={setSubject}
-            placeholder="Elegir asignatura"
-            style={styles.selectField}
+            scroll
           />
         </View>
 
@@ -260,8 +259,7 @@ function CreateEventScreen() {
             options={eventTypesList.map(name => ({ value: name, label: name }))}
             value={eventType || null}
             onChange={setEventType}
-            placeholder="Elegir tipo"
-            style={styles.selectField}
+            scroll
           />
         </View>
 
@@ -347,7 +345,6 @@ const styles = StyleSheet.create({
   modalLabel: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
   datePickerBtn: { backgroundColor: AppColors.surface, borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   datePickerText: { fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontSize: 13 },
-  selectField: { backgroundColor: AppColors.surface },
   modalFooter: { flexDirection: 'row', gap: 10, width: '100%' },
   footerButton: { flex: 1 },
 });
