@@ -277,8 +277,20 @@ function EvaluationFormScreen() {
     : filledObjectives ? `${filledObjectives} ${filledObjectives === 1 ? 'objetivo' : 'objetivos'}` : 'Opcional';
   const moreSummary = [exigency !== null ? `Exigencia ${exigency} %` : 'Sin exigencia', form.prep.trim() ? 'Cómo prepararse' : null].filter(Boolean).join(' · ');
 
+  // The native iOS sheet needs the ScrollView as the screen's root; a view
+  // around it leaves the sheet blank. While reading a T.E. the same
+  // ScrollView shows the progress instead of the form.
+  if (scanning) {
+    return (
+      <ScrollView style={styles.sheet} contentContainerStyle={local.scanningLayer} scrollEnabled={false}>
+        <ActivityIndicator size="large" color={AppColors.textPrimary} />
+        <ThemedText accessibilityLiveRegion="polite" style={local.scanningText}>Leyendo la tabla…</ThemedText>
+        <ThemedText style={local.scanningHint}>Buscamos los contenidos, los puntajes y los objetivos.</ThemedText>
+      </ScrollView>
+    );
+  }
+
   return (
-    <View style={styles.sheet}>
     <ScrollView
       style={styles.sheet}
       contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
@@ -553,16 +565,6 @@ function EvaluationFormScreen() {
       />
       {dialog}
     </ScrollView>
-
-      {scanning && (
-        <Animated.View entering={FadeIn.duration(120)} style={local.scanningLayer} accessibilityLiveRegion="polite">
-          <ActivityIndicator size="large" color={AppColors.textPrimary} />
-          <ThemedText style={local.scanningText}>Leyendo la tabla…</ThemedText>
-          <ThemedText style={local.scanningHint}>Buscamos los contenidos, los puntajes y los objetivos.</ThemedText>
-        </Animated.View>
-      )}
-
-    </View>
   );
 }
 
@@ -614,7 +616,7 @@ const local = StyleSheet.create({
     color: AppColors.textPrimary,
   },
   scanningLayer: {
-    ...StyleSheet.absoluteFill,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: AppSpacing.md,
