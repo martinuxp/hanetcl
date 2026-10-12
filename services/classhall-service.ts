@@ -60,6 +60,10 @@ export type HallCourseEvent = {
   startDate: number;
   cancelled: boolean;
   authorName: string;
+  verified?: boolean;
+  verifier?: string | null;
+  /** The directiva asked a teacher to confirm it. */
+  verificationRequested?: boolean;
 };
 
 export type HallDetail = {
@@ -171,6 +175,11 @@ export async function saveHallEvaluation(input: HallEvaluationInput) {
 
 export async function deleteHallEvaluation(hallId: string, evaluationId: string) {
   await httpsCallable(functions, 'deleteHallEvaluation')({ hallId, evaluationId });
+}
+
+export async function verifyCalendarEvent(hallId: string, eventId: string) {
+  const result = await httpsCallable<{ hallId: string; eventId: string }, { verified: boolean; verifier: string }>(functions, 'verifyCalendarEvent')({ hallId, eventId });
+  return result.data;
 }
 
 export function evaluationTotal(evaluation: Pick<HallEvaluation, 'contents'>) {

@@ -418,6 +418,9 @@ function build(getAdminApp) {
           startDate: millis(event.startDate),
           cancelled: event.cancelled === true,
           authorName: event.authorName || "",
+          verified: event.verified === true,
+          verifier: event.verifier || null,
+          verificationRequested: event.verificationRequested === true,
         };
       })
       .sort((a, b) => a.startDate - b.startDate)
@@ -617,6 +620,34 @@ function build(getAdminApp) {
     return { evaluationId: ref.id };
   });
 
+  // The teacher of the subject confirms an event the course's directiva wrote
+  // on its Calendar; it then shows as verified by them.
+  const verifyCalendarEvent = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const eventId = childId(request.data?.eventId);
+    if (!eventId) throw new HttpsError("invalid-argument", "Falta el evento.");
+
+    const eventRef = calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`).doc(eventId);
+    const event = (await eventRef.get()).data();
+    if (!event || event.source) {
+      throw new HttpsError("not-found", "Ese evento ya no está en el Calendar del curso.");
+    }
+    if (subjectKey(event.subject) !== (data.subjectId || subjectKey(data.subject))) {
+      throw new HttpsError("failed-precondition", "Ese evento es de otra asignatura.");
+    }
+
+    await eventRef.update({
+      verified: true,
+      verifier: data.teacherName,
+      verifiedBy: data.teacherUid,
+      verifiedHallId: hallRef.id,
+      verifiedAt: FieldValue.serverTimestamp(),
+      verificationRequested: false,
+    });
+    return { verified: true, verifier: data.teacherName };
+  });
+
   const deleteHallEvaluation = onCall({ invoker: "public" }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
@@ -632,7 +663,7 @@ function build(getAdminApp) {
 
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
-    getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation,
+    getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation, verifyCalendarEvent,
   };
 }
 

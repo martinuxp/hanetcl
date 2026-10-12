@@ -13,6 +13,8 @@ export interface CalendarEvent {
   writer?: string;
   verified: boolean;
   verifier?: string;
+  /** The directiva asked a teacher to confirm it. */
+  verificationRequested?: boolean;
   subject?: string;
   eventType?: string;
   outstanding: boolean;
@@ -49,6 +51,7 @@ function toCalendarEvent(id: string, data: DocumentData): CalendarEvent {
     writer: data.authorName,
     verified: data.verified || false,
     verifier: data.verifier,
+    verificationRequested: data.verificationRequested === true,
     subject: data.subject,
     eventType: data.type,
     outstanding: data.outstanding || false,

@@ -100,12 +100,18 @@ service cloud.firestore {
       // Solo se pueden tocar los campos editables. Autoría, fecha de
       // creación y los campos de verificación quedan fuera del alcance
       // del cliente.
+      // Al editar un evento confirmado por un docente, la confirmación se
+      // pierde: el cliente solo puede apagar `verified` y borrar `verifier`,
+      // nunca confirmar por su cuenta.
       allow update: if canEditCourse(courseCollection)
         && !isFromBackend()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title', 'description', 'startDate', 'endDate', 'location',
-          'subject', 'type', 'verificationRequested', 'updatedAt', 'cancelled'
+          'subject', 'type', 'verificationRequested', 'updatedAt', 'cancelled',
+          'verified', 'verifier'
         ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified', 'verifier'])
+          || (request.resource.data.get('verified', false) == false && !('verifier' in request.resource.data)))
         && isValidEvent(request.resource.data)
         && request.resource.data.updatedAt == request.time;
 

@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePicker } from '@/components/ui/hanet-date-time-picker';
-import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
+import { EVENT_EDITOR_ROLES, describeAuthError, ensureClaims, useRole, useSession } from '@/services/auth-service';
 import { db } from '@/services/firebase';
 import {
   deleteCalendarEvent,
@@ -24,7 +24,7 @@ import {
   setCalendarEventCancelled,
 } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
-import { listMyHalls } from '@/services/classhall-service';
+import { listMyHalls, verifyCalendarEvent } from '@/services/classhall-service';
 import type { Hall } from '@/services/classhall-service';
 import { sameSubject, subjectName } from '@/constants/subjects';
 import { doc, getDoc } from 'firebase/firestore';
@@ -131,9 +131,25 @@ export default function EventInfoScreen() {
       .catch(() => {});
     return () => { active = false; };
   }, [user, eventSubject]);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const subjectHall = event && halls
     ? halls.find(hall => hall.id === event.hallId) ?? halls.find(hall => sameSubject(hall.subject, event.subject))
     : undefined;
+  const confirmInfo = async () => {
+    if (!event || !subjectHall || verifying) return;
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const result = await verifyCalendarEvent(subjectHall.id, event.id);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEvent({ ...event, verified: true, verifier: result.verifier, verificationRequested: false });
+    } catch (confirmError) {
+      setVerifyError(describeAuthError(confirmError, 'No pudimos confirmar la información. Inténtalo nuevamente.'));
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -355,6 +371,10 @@ export default function EventInfoScreen() {
           </View>
         )}
 
+        {!event.verified && event.verificationRequested && (
+          <ThemedText style={styles.pendingNote}>Pendiente de confirmación por un docente.</ThemedText>
+        )}
+
         {event.verified && !!event.verifier && (
           <View style={styles.attribution}>
             <Image source={ICONS.verified} style={styles.badge} contentFit="contain" />
@@ -370,6 +390,10 @@ export default function EventInfoScreen() {
         </ThemedText>
 
         <View style={styles.secondaryActions}>
+          {!!subjectHall?.isTeacher && !event.hallId && !event.verified && !event.cancelled && (
+            <HanetButton label={verifying ? 'Confirmando…' : 'Confirmar información'} onPress={confirmInfo} disabled={verifying} />
+          )}
+          {!!verifyError && <ThemedText accessibilityLiveRegion="assertive" style={styles.pendingNote}>{verifyError}</ThemedText>}
           {!!subjectHall?.isTeacher && !event.hallId && isEvaluation && !event.cancelled && (
             <HanetButton
               label="Completar en ClassHall"
@@ -523,6 +547,12 @@ function ComingSoonButton({ label, tall, dark }: { label: string; tall?: boolean
 }
 
 const styles = StyleSheet.create({
+  pendingNote: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.errorText,
+  },
   container: {
     flex: 1,
     backgroundColor: AppColors.canvas,

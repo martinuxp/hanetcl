@@ -6,7 +6,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { deleteHallAnnouncement, getHall, getLoadedHall } from '@/services/classhall-service';
+import { deleteHallAnnouncement, getHall, getLoadedHall, verifyCalendarEvent } from '@/services/classhall-service';
 import type { HallAnnouncement, HallCourseEvent, HallDetail, HallEvaluation } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -115,6 +115,11 @@ function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: ()
       <View style={styles.evaluationText}>
         <ThemedText numberOfLines={2} style={[styles.evaluationTitle, item.cancelled && styles.cancelled]}>{item.title}</ThemedText>
         <ThemedText numberOfLines={1} style={styles.evaluationMeta}>{[item.type, hallLongDate(item.startDate)].filter(Boolean).join(' · ')}</ThemedText>
+        {item.verified ? (
+          <ThemedText numberOfLines={1} style={styles.verifiedNote}>Confirmada por {item.verifier ?? 'un docente'}</ThemedText>
+        ) : item.verificationRequested ? (
+          <ThemedText numberOfLines={1} style={styles.pendingNote}>Por confirmar por un docente</ThemedText>
+        ) : null}
       </View>
       <ThemedText style={styles.evaluationWhen}>{when}</ThemedText>
     </Pressable>
@@ -133,6 +138,10 @@ export default function HallScreen() {
   const [pendingDelete, setPendingDelete] = useState<HallAnnouncement | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // A course Calendar event the teacher opened: confirm it or complete it here.
+  const [courseEvent, setCourseEvent] = useState<HallCourseEvent | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -199,10 +208,30 @@ export default function HallScreen() {
   });
   const courseEventPress = (event: HallCourseEvent) => {
     if (!isTeacher) return () => openCourseEvent(event);
-    return isEvaluationType(event.type) && !event.cancelled ? () => adoptCourseEvent(event) : undefined;
+    return event.cancelled ? undefined : () => { setVerifyError(null); setCourseEvent(event); };
+  };
+
+  const confirmCourseEvent = async () => {
+    if (!courseEvent || !id || verifying) return;
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const result = await verifyCalendarEvent(id, courseEvent.id);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const confirmed = { ...courseEvent, verified: true, verifier: result.verifier, verificationRequested: false };
+      setDetail(current => current && {
+        ...current,
+        courseEvents: current.courseEvents?.map(item => (item.id === confirmed.id ? confirmed : item)),
+      });
+      setCourseEvent(null);
+    } catch (confirmError) {
+      setVerifyError(describeAuthError(confirmError, 'No pudimos confirmar la información. Inténtalo nuevamente.'));
+    } finally {
+      setVerifying(false);
+    }
   };
   const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : nextFromCourse ? `Evaluación ${hallDay(nextFromCourse.startDate)}` : 'Sin evaluaciones';
-  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? (isTeacher ? 'Completar aquí' : 'Ver en Calendar') : isTeacher ? 'Agendar una' : 'por ahora';
+  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? (isTeacher ? 'Revisar' : 'Ver en Calendar') : isTeacher ? 'Agendar una' : 'por ahora';
   const nextPress = next
     ? () => openEvaluation(next)
     : nextFromCourse
@@ -303,7 +332,7 @@ export default function HallScreen() {
                   <>
                     <ThemedText style={styles.sectionLabel}>Del Calendar del curso</ThemedText>
                     {isTeacher && (
-                      <ThemedText style={styles.sectionHint}>Toca una evaluación para pasarla a tu Hall y completar su tabla de especificaciones.</ThemedText>
+                      <ThemedText style={styles.sectionHint}>Toca un evento para confirmar su información o, si es una evaluación, completarla en tu Hall.</ThemedText>
                     )}
                     <View style={styles.list}>
                       {courseEvents.map(item => (
@@ -343,6 +372,38 @@ export default function HallScreen() {
           </>
         )}
       </ScrollView>
+
+      <HanetDialog
+        visible={!!courseEvent}
+        onRequestClose={() => !verifying && setCourseEvent(null)}
+        dismissOnBackdrop={!verifying}
+        title={courseEvent?.title}
+        body={courseEvent ? [
+          [courseEvent.type, hallLongDate(courseEvent.startDate)].filter(Boolean).join(' · '),
+          courseEvent.authorName ? `Lo publicó ${courseEvent.authorName} en el Calendar del curso.` : 'Está en el Calendar del curso.',
+          courseEvent.verified
+            ? `Ya la confirmó ${courseEvent.verifier ?? 'un docente'}.`
+            : courseEvent.verificationRequested
+              ? 'La directiva pidió que un docente confirme esta información.'
+              : 'Si la información es correcta, puedes confirmarla para que el curso sepa que la revisaste.',
+        ].join('\n\n') : undefined}
+      >
+        {!!verifyError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{verifyError}</ThemedText>}
+        <View style={styles.dialogButtons}>
+          {!!courseEvent && !courseEvent.verified && (
+            <HanetButton label={verifying ? 'Confirmando…' : 'Confirmar información'} disabled={verifying} onPress={confirmCourseEvent} />
+          )}
+          {!!courseEvent && isEvaluationType(courseEvent.type) && (
+            <HanetButton
+              label="Completar en mi Hall"
+              variant="surface"
+              disabled={verifying}
+              onPress={() => { const event = courseEvent; setCourseEvent(null); adoptCourseEvent(event); }}
+            />
+          )}
+          <HanetButton label="Cerrar" variant="surface" disabled={verifying} onPress={() => setCourseEvent(null)} />
+        </View>
+      </HanetDialog>
 
       <HanetDialog
         visible={!!pendingDelete}
@@ -538,6 +599,21 @@ const styles = StyleSheet.create({
   teacherRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  verifiedNote: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textSecondary,
+  },
+  pendingNote: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.errorText,
+  },
+  dialogButtons: {
+    gap: AppSpacing.sm,
   },
   sectionHint: {
     marginTop: -AppSpacing.sm,

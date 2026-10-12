@@ -13,7 +13,7 @@ import { ensureClaims, useClaimCourse, useSession } from '@/services/auth-servic
 import { db, calendarDb } from '@/services/firebase';
 import { SUBJECTS, isUpperLevel, subjectName } from '@/constants/subjects';
 import { HanetChoice } from '@/components/ui/hanet-select';
-import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, deleteField, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
@@ -132,6 +132,9 @@ function CreateEventScreen() {
           subject: subject,
           type: eventType,
           verificationRequested: requestVerification,
+          // Changed information has to be confirmed again by a teacher.
+          verified: false,
+          verifier: deleteField(),
           updatedAt: serverTimestamp(),
         });
       } else {
