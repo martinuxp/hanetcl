@@ -192,12 +192,21 @@ export default function HallScreen() {
   // Course events open in the Calendar, which reads them with the student's
   // course; a teacher sees them listed but opens them from their own Calendar.
   const openCourseEvent = (event: HallCourseEvent) => router.push({ pathname: '/event-info', params: { id: event.id } });
+  // The teacher takes a course evaluation into the Hall to complete its table.
+  const adoptCourseEvent = (event: HallCourseEvent) => router.push({
+    pathname: '/classhall/evaluation-form',
+    params: { hallId: id, fromEvent: event.id, title: event.title, date: String(event.startDate) },
+  });
+  const courseEventPress = (event: HallCourseEvent) => {
+    if (!isTeacher) return () => openCourseEvent(event);
+    return isEvaluationType(event.type) && !event.cancelled ? () => adoptCourseEvent(event) : undefined;
+  };
   const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : nextFromCourse ? `Evaluación ${hallDay(nextFromCourse.startDate)}` : 'Sin evaluaciones';
-  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? 'Ver en Calendar' : isTeacher ? 'Agendar una' : 'por ahora';
+  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? (isTeacher ? 'Completar aquí' : 'Ver en Calendar') : isTeacher ? 'Agendar una' : 'por ahora';
   const nextPress = next
     ? () => openEvaluation(next)
     : nextFromCourse
-      ? (isTeacher ? undefined : () => openCourseEvent(nextFromCourse))
+      ? courseEventPress(nextFromCourse)
       : isTeacher ? newEvaluation : undefined;
 
   return (
@@ -293,9 +302,12 @@ export default function HallScreen() {
                 {courseEvents.length > 0 && (
                   <>
                     <ThemedText style={styles.sectionLabel}>Del Calendar del curso</ThemedText>
+                    {isTeacher && (
+                      <ThemedText style={styles.sectionHint}>Toca una evaluación para pasarla a tu Hall y completar su tabla de especificaciones.</ThemedText>
+                    )}
                     <View style={styles.list}>
                       {courseEvents.map(item => (
-                        <CourseEventRow key={item.id} item={item} onPress={isTeacher ? undefined : () => openCourseEvent(item)} />
+                        <CourseEventRow key={item.id} item={item} onPress={courseEventPress(item)} />
                       ))}
                     </View>
                   </>
@@ -526,6 +538,14 @@ const styles = StyleSheet.create({
   teacherRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  sectionHint: {
+    marginTop: -AppSpacing.sm,
+    paddingHorizontal: AppSpacing.xs,
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textSecondary,
   },
   sectionLabel: {
     marginTop: AppSpacing.sm,

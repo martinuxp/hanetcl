@@ -72,6 +72,8 @@ export type HallDetail = {
 export type HallEvaluationInput = {
   hallId: string;
   evaluationId?: string;
+  /** A course Calendar event this evaluation takes over (it replaces it there). */
+  calendarEventId?: string;
   title: string;
   date: number;
   oa: string;

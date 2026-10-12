@@ -546,6 +546,21 @@ function build(getAdminApp) {
     if (existingId && !(await ref.get()).exists) {
       throw new HttpsError("not-found", "Esa evaluación ya no existe.");
     }
+    // An evaluation the course put on its Calendar can be taken into the Hall,
+    // so the teacher completes its table here; the Calendar keeps one event,
+    // now the Hall's.
+    const adoptedId = existingId ? null : childId(request.data?.calendarEventId);
+    const adoptedRef = adoptedId ? calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`).doc(adoptedId) : null;
+    if (adoptedRef) {
+      const adopted = (await adoptedRef.get()).data();
+      if (!adopted || adopted.source) {
+        throw new HttpsError("not-found", "Ese evento ya no está en el Calendar del curso.");
+      }
+      if (subjectKey(adopted.subject) !== (data.subjectId || subjectKey(data.subject))) {
+        throw new HttpsError("failed-precondition", "Ese evento es de otra asignatura.");
+      }
+    }
+
     if (!existingId) {
       const count = await hallRef.collection("evaluations").count().get();
       if (count.data().count >= MAX_EVALUATIONS) {
@@ -592,6 +607,7 @@ function build(getAdminApp) {
     };
     const batch = calendarDb(getAdminApp).batch();
     for (const courseId of courses) batch.set(calendarRef(getAdminApp, courseId, hallRef.id, ref.id), event);
+    if (adoptedRef) batch.delete(adoptedRef);
     // A course none of its students is in any more stops showing it.
     for (const courseId of previous.filter(courseId => !courses.includes(courseId))) {
       batch.delete(calendarRef(getAdminApp, courseId, hallRef.id, ref.id));

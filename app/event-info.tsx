@@ -370,6 +370,16 @@ export default function EventInfoScreen() {
         </ThemedText>
 
         <View style={styles.secondaryActions}>
+          {!!subjectHall?.isTeacher && !event.hallId && isEvaluation && !event.cancelled && (
+            <HanetButton
+              label="Completar en ClassHall"
+              accessibilityHint="Pasa esta evaluación a tu Hall para agregar su tabla de especificaciones"
+              onPress={() => router.push({
+                pathname: '/classhall/evaluation-form',
+                params: { hallId: subjectHall.id, fromEvent: event.id, title: event.title, date: String(event.startDate.getTime()) },
+              })}
+            />
+          )}
           {!!subjectHall && (
             <HanetButton
               label={`Ir al Hall de ${subjectHall.subject}`}

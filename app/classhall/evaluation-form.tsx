@@ -65,7 +65,9 @@ function PointInput({ label, value, onChange, disabled }: { label: string; value
 function EvaluationFormScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { hallId, id } = useLocalSearchParams<{ hallId: string; id?: string }>();
+  // `fromEvent` brings an evaluation the course already put on its Calendar,
+  // with its title and date, so the teacher completes it in the Hall.
+  const { hallId, id, fromEvent, title: eventTitle, date: eventDate } = useLocalSearchParams<{ hallId: string; id?: string; fromEvent?: string; title?: string; date?: string }>();
 
   const [initial] = useState<Form>(() => {
     const existing = id ? getLoadedHall(hallId)?.evaluations.find(item => item.id === id) : undefined;
@@ -78,7 +80,14 @@ function EvaluationFormScreen() {
         rows: existing.contents.length ? existing.contents.map(toRow) : [EMPTY_ROW],
       };
     }
-    return { title: '', date: defaultDate().getTime(), oa: '', exigency: '60', rows: [EMPTY_ROW] };
+    const fromDate = Number(eventDate);
+    return {
+      title: fromEvent && eventTitle ? eventTitle.slice(0, 80) : '',
+      date: fromEvent && Number.isFinite(fromDate) && fromDate > 0 ? fromDate : defaultDate().getTime(),
+      oa: '',
+      exigency: '60',
+      rows: [EMPTY_ROW],
+    };
   });
   const [form, setForm] = useState<Form>(initial);
   const [picking, setPicking] = useState(false);
@@ -95,7 +104,8 @@ function EvaluationFormScreen() {
   const exigency = form.exigency ? toNumber(form.exigency) : null;
   const exigencyValid = exigency === null || (exigency >= 1 && exigency <= 100);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
-  const ready = form.title.trim().length >= 2 && exigencyValid && dirty;
+  // Taking a Calendar event in can be saved as it came.
+  const ready = form.title.trim().length >= 2 && exigencyValid && (dirty || !!fromEvent);
   const total = form.rows.reduce((sum, row) => sum + toNumber(row.con) + toNumber(row.apl) + toNumber(row.com), 0);
 
   const submit = async () => {
@@ -106,6 +116,7 @@ function EvaluationFormScreen() {
       await saveHallEvaluation({
         hallId,
         evaluationId: id,
+        calendarEventId: fromEvent,
         title: form.title,
         date: form.date,
         oa: form.oa,
@@ -123,7 +134,7 @@ function EvaluationFormScreen() {
     }
   };
 
-  const label = id ? 'Guardar cambios' : 'Agendar evaluación';
+  const label = id ? 'Guardar cambios' : fromEvent ? 'Guardar en mi Hall' : 'Agendar evaluación';
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: dirty && !submitting,
     onSave: submit,
@@ -139,9 +150,11 @@ function EvaluationFormScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar evaluación' : 'Agendar evaluación'}</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar evaluación' : fromEvent ? 'Completar evaluación' : 'Agendar evaluación'}</ThemedText>
       <ThemedText style={styles.lead}>
-        Tus estudiantes verán la fecha y la tabla de especificaciones. También aparece en el Calendar del curso.
+        {fromEvent
+          ? 'La agendó el curso en el Calendar. Al guardarla pasa a tu Hall: podrás editarla y agregar su tabla de especificaciones, y en el Calendar quedará como verificada por ti.'
+          : 'Tus estudiantes verán la fecha y la tabla de especificaciones. También aparece en el Calendar del curso.'}
       </ThemedText>
 
       <View style={styles.field}>
