@@ -10,12 +10,10 @@ import { DEFAULT_SKILLS, DocumentError, attachStagedDocument, getLoadedHall, pic
 import type { HallEvaluationContent, HallObjective, SpecTableDraft, StagedDocument } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetDialog } from '@/components/ui/hanet-dialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_CONTENTS = 12;
@@ -85,7 +83,7 @@ function EvaluationFormScreen() {
   const insets = useSafeAreaInsets();
   // `fromEvent` brings an evaluation the course already put on its Calendar,
   // with its title and date, so the teacher completes it in the Hall.
-  const { hallId, id, fromEvent, title: eventTitle, date: eventDate } = useLocalSearchParams<{ hallId: string; id?: string; fromEvent?: string; title?: string; date?: string }>();
+  const { hallId, id, fromEvent, title: eventTitle, date: eventDate, scan: startScan } = useLocalSearchParams<{ hallId: string; id?: string; fromEvent?: string; title?: string; date?: string; scan?: string }>();
 
   const [initial] = useState<Form>(() => {
     const existing = id ? getLoadedHall(hallId)?.evaluations.find(item => item.id === id) : undefined;
@@ -151,9 +149,6 @@ function EvaluationFormScreen() {
     });
   };
 
-  // A new evaluation starts by choosing: scan the T.E. or fill it in by hand.
-  const [choosing, setChoosing] = useState(!id);
-
   /** Scans a T.E.; false when the teacher closed the file picker without choosing. */
   const scan = async () => {
     if (scanning || submitting) return true;
@@ -182,14 +177,17 @@ function EvaluationFormScreen() {
     return true;
   };
 
-  const chooseScan = async () => {
-    setChoosing(false);
-    // iOS cannot open the file picker while the dialog is still closing.
-    await new Promise(resolve => setTimeout(resolve, 250));
-    const picked = await scan();
-    // Closing the file picker brings the choice back.
-    if (!picked) setChoosing(true);
-  };
+  // Coming from "Escanear T.E." in the first sheet, the file picker opens
+  // once the sheet has settled (iOS cannot present it mid-transition).
+  const scanStarted = useRef(false);
+  useEffect(() => {
+    if (startScan !== '1' || scanStarted.current) return;
+    scanStarted.current = true;
+    const timer = setTimeout(() => { void scan(); }, 450);
+    return () => clearTimeout(timer);
+    // Runs once, on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (changes: Partial<Form>) => {
     setForm(current => ({ ...current, ...changes }));
@@ -564,22 +562,6 @@ function EvaluationFormScreen() {
         </Animated.View>
       )}
 
-      <HanetDialog
-        visible={choosing}
-        onRequestClose={() => router.back()}
-        title={fromEvent ? 'Completar evaluación' : 'Nueva evaluación'}
-        body="¿Cómo quieres agregar la tabla de especificaciones?"
-      >
-        <Pressable accessibilityRole="button" onPress={() => void chooseScan()} style={({ pressed }) => [local.option, local.optionAccent, pressed && styles.pressed]}>
-          <ThemedText style={[local.optionTitle, local.onAccent]}>Escanear T.E.</ThemedText>
-          <ThemedText style={[local.optionText, local.onAccent]}>Sube la tabla en PDF o una foto y llenamos todo por ti. Después la revisas.</ThemedText>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => setChoosing(false)} style={({ pressed }) => [local.option, pressed && styles.pressed]}>
-          <ThemedText style={local.optionTitle}>Agregar a mano</ThemedText>
-          <ThemedText style={local.optionText}>Escribe el nombre, el día y, si quieres, la tabla.</ThemedText>
-        </Pressable>
-        <HanetButton label="Cancelar" variant="surface" onPress={() => router.back()} />
-      </HanetDialog>
     </View>
   );
 }
@@ -651,31 +633,6 @@ const local = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: AppColors.textSecondary,
-  },
-  option: {
-    gap: 4,
-    padding: AppSpacing.lg,
-    borderRadius: AppRadii.lg,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  optionAccent: {
-    backgroundColor: AppColors.accent,
-  },
-  optionTitle: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 16,
-    lineHeight: 22,
-    color: AppColors.textPrimary,
-  },
-  optionText: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
-    lineHeight: 18,
-    color: AppColors.textSecondary,
-  },
-  onAccent: {
-    color: AppColors.textOnLight,
   },
   content: {
     gap: AppSpacing.lg,

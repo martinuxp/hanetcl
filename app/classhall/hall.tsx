@@ -189,7 +189,7 @@ export default function HallScreen() {
 
   const openEvaluation = (evaluation: HallEvaluation) =>
     router.push({ pathname: '/classhall/evaluation', params: { hallId: id, id: evaluation.id } });
-  const newEvaluation = () => router.push({ pathname: '/classhall/evaluation-form', params: { hallId: id } });
+  const newEvaluation = () => router.push({ pathname: '/classhall/evaluation-new', params: { hallId: id } });
   const announce = (announcementId?: string) =>
     router.push({ pathname: '/classhall/announce', params: announcementId ? { hallId: id, id: announcementId } : { hallId: id } });
 
@@ -214,7 +214,7 @@ export default function HallScreen() {
   const openCourseEvent = (event: HallCourseEvent) => router.push({ pathname: '/event-info', params: { id: event.id } });
   // The teacher takes a course evaluation into the Hall to complete its table.
   const adoptCourseEvent = (event: HallCourseEvent) => router.push({
-    pathname: '/classhall/evaluation-form',
+    pathname: '/classhall/evaluation-new',
     params: { hallId: id, fromEvent: event.id, title: event.title, date: String(event.startDate) },
   });
   const courseEventPress = (event: HallCourseEvent) => {

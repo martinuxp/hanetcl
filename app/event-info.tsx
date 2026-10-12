@@ -399,7 +399,7 @@ export default function EventInfoScreen() {
               label="Completar en ClassHall"
               accessibilityHint="Pasa esta evaluación a tu Hall para agregar su tabla de especificaciones"
               onPress={() => router.push({
-                pathname: '/classhall/evaluation-form',
+                pathname: '/classhall/evaluation-new',
                 params: { hallId: subjectHall.id, fromEvent: event.id, title: event.title, date: String(event.startDate.getTime()) },
               })}
             />
