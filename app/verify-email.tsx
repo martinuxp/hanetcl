@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
   arrow: require('@/assets/icons/auth/arrow-right-long.svg'),
+  back: require('@/assets/icons/auth/arrow-left-long.svg'),
 };
 
 const CODE_LENGTH = 4;
@@ -124,6 +125,16 @@ export default function VerifyEmailScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
+            {/* The account already exists: going back signs out to start over with another one. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+              accessibilityHint="Cierra la sesión para usar otra cuenta"
+              onPress={useAnotherAccount}
+              style={({ pressed }) => [styles.backPill, pressed && styles.pressed]}
+            >
+              <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
+            </Pressable>
             <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Verificar email</ThemedText>
           </View>
           <OnboardingProgress step={2} />
@@ -204,9 +215,6 @@ export default function VerifyEmailScreen() {
             </View>
           </View>
 
-          <Pressable accessibilityRole="button" onPress={useAnotherAccount} style={({ pressed }) => [styles.switchAccount, pressed && styles.pressed]}>
-            <ThemedText style={styles.switchAccountText}>Usar otra cuenta</ThemedText>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -237,26 +245,21 @@ const styles = StyleSheet.create({
     minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: AppSpacing.sm,
+    gap: AppSpacing.lg,
     paddingVertical: AppSpacing.md,
   },
-  switchAccount: {
-    minHeight: AppTouch.minimum,
-    alignSelf: 'center',
-    justifyContent: 'center',
+  backPill: {
+    height: 40,
+    minWidth: AppTouch.minimum,
     paddingHorizontal: AppSpacing.lg,
-  },
-  switchAccountText: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    textDecorationLine: 'underline',
-    color: AppColors.textSecondary,
-    opacity: 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
   },
   topBarTitle: {
     flex: 1,
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: 'DMSans_700Bold',
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.8,
@@ -381,7 +384,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitText: {
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.4,

@@ -27,6 +27,7 @@ const ICONS = {
   arrow: require('@/assets/icons/auth/arrow-right-long.svg'),
   male: require('@/assets/icons/auth/gender-male.svg'),
   female: require('@/assets/icons/auth/gender-female.svg'),
+  google: require('@/assets/icons/auth/google-circle.svg'),
 };
 
 const TERMS_URL = 'https://hanet-edu.web.app/terminos';
@@ -281,9 +282,9 @@ export default function AuthScreen() {
                     value={treatment}
                     onChange={setTreatment}
                     options={[
-                      { value: 'el', label: 'Él', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'ella', label: 'Ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'neutro', label: 'Neutro', accessibilityLabel: 'Neutro' },
+                      { value: 'el', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'neutro', label: 'No decirlo', accessibilityLabel: 'No decirlo, trato neutro' },
                     ]}
                   />
                 </View>
@@ -342,6 +343,24 @@ export default function AuthScreen() {
               {!loading && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
             </Pressable>
           </View>
+
+          {/* Signing in with Google is paused in auth-service, so it says so. */}
+          <View style={styles.quick}>
+            <View>
+              <ThemedText style={styles.quickTitle}>Inicia rápidamente</ThemedText>
+              {isSignUp && <ThemedText style={styles.quickNote}>Aceptas los Términos y Condiciones.</ThemedText>}
+            </View>
+            <View
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Continuar con Google, próximamente"
+              accessibilityState={{ disabled: true }}
+              style={styles.quickButton}
+            >
+              <Image source={ICONS.google} style={styles.icon} contentFit="contain" />
+              <ThemedText style={styles.quickSoon}>Próximamente</ThemedText>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -362,6 +381,46 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     alignSelf: 'center',
     padding: AppSpacing.md,
+    gap: AppSpacing.md,
+  },
+  quick: {
+    gap: AppSpacing.xl,
+    paddingHorizontal: AppSpacing.xxl,
+    paddingVertical: 40,
+    borderRadius: AppRadii.xl,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.accent,
+  },
+  quickTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 24,
+    lineHeight: 34,
+    letterSpacing: -0.96,
+    color: AppColors.textOnLight,
+  },
+  quickNote: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
+    color: AppColors.textOnLight,
+  },
+  quickButton: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AppSpacing.md,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  quickSoon: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 21,
+    letterSpacing: -0.35,
+    color: AppColors.textSecondary,
+    opacity: 0.7,
   },
   card: {
     padding: AppSpacing.xxl,
@@ -375,11 +434,12 @@ const styles = StyleSheet.create({
   },
   welcome: {
     marginBottom: -AppSpacing.md,
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: 'DMSans_700Bold',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     letterSpacing: -0.35,
     color: AppColors.textSecondary,
+    opacity: 0.75,
   },
   headline: {
     flexDirection: 'row',
@@ -392,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 43,
     letterSpacing: -1.62,
-    color: AppColors.textPrimary,
+    color: AppColors.textSecondary,
   },
   logo: {
     width: 47,
@@ -438,13 +498,14 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     flex: 0,
+    fontFamily: 'DMSans_600SemiBold',
     textDecorationLine: 'underline',
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
     borderColor: AppColors.textSecondary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -455,8 +516,8 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     fontFamily: 'DMSans_700Bold',
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     color: AppColors.textPrimary,
   },
   termsText: {
@@ -504,7 +565,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.4,

@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   segmentLabel: {
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 14,
     lineHeight: 21,
     letterSpacing: -0.35,
