@@ -293,7 +293,9 @@ function build(getAdminApp) {
 
   // Sets or clears the shield ("logo") or banner. The app uploads the image to
   // Storage first (HNT only, by the storage rules) and hands over its URL.
-  const adminSetInstitutionBranding = onCall(async (request) => {
+  // Explicitly public at the network level, like every callable: who may act
+  // is decided inside (requireHnt). Stated here so a deploy always sets it.
+  const adminSetInstitutionBranding = onCall({ invoker: "public" }, async (request) => {
     requireHnt(request);
     const institutionId = text(request.data?.institutionId, 60);
     const kind = request.data?.kind;
