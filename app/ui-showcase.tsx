@@ -1,5 +1,6 @@
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
+import { InstitutionSync } from '@/components/InstitutionSync';
 import { ThemedText } from '@/components/themed-text';
 import { AnimatedIcon } from '@/components/ui/AnimatedIcon';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -37,6 +38,7 @@ export default function UiShowcaseScreen() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>('Inicio');
   const [disabled, setDisabled] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const [syncVisible, setSyncVisible] = useState(false);
 
   const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
   const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
@@ -105,6 +107,16 @@ export default function UiShowcaseScreen() {
           <HanetButton label="Ver bienvenida" onPress={() => setWelcomeVisible(true)} />
         </Section>
 
+        <Section title="Vínculo con la institución" description="Lo que se ve mientras se completa el vínculo, después de confirmar los datos. Se cierra solo.">
+          <HanetButton
+            label="Ver vínculo"
+            onPress={() => {
+              setSyncVisible(true);
+              setTimeout(() => setSyncVisible(false), 3200);
+            }}
+          />
+        </Section>
+
         <Section title="Iconos en movimiento" description="Estados de atención: pulso, flotación y aviso. Se pueden observar sin alterar datos.">
           <View style={styles.iconRow}>
             <View style={styles.iconExample}><AnimatedIcon name="notification" size={26} color={AppColors.accent} animationType="wiggle" loop /><ThemedText style={styles.iconLabel}>Aviso</ThemedText></View>
@@ -130,6 +142,7 @@ export default function UiShowcaseScreen() {
         institutionName="LCH Temuco"
         onDone={() => setWelcomeVisible(false)}
       />
+      {syncVisible && <InstitutionSync />}
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { AlertModal } from '@/components/ui/alert-modal';
 import InstitutionBanner from '@/components/InstitutionBanner';
+import { InstitutionSync } from '@/components/InstitutionSync';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -37,6 +38,9 @@ const POLL_MS = 3000;
 // How long to wait before admitting the link may never arrive.
 const STUCK_MS = 2 * 60 * 1000;
 
+// Enough to read both steps of the sync screen.
+const SYNC_MIN_MS = 1600;
+
 export default function LinkInstitutionScreen() {
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
@@ -54,6 +58,7 @@ export default function LinkInstitutionScreen() {
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   // Closing the review must not reopen it on the next poll.
   const reviewDismissed = useRef(false);
@@ -93,7 +98,8 @@ export default function LinkInstitutionScreen() {
 
   // While waiting, ask the backend whether the emailed link was confirmed.
   useEffect(() => {
-    if (step !== 'waiting' || reviewOpen) return;
+    // Paused while the link completes, so the review does not come back over it.
+    if (step !== 'waiting' || reviewOpen || syncing) return;
     let active = true;
     const timer = setInterval(async () => {
       try {
@@ -106,7 +112,7 @@ export default function LinkInstitutionScreen() {
       }
     }, POLL_MS);
     return () => { active = false; clearInterval(timer); };
-  }, [reviewOpen, step]);
+  }, [reviewOpen, step, syncing]);
 
   // The app cannot know whether the email is on the roster, so after a while
   // it offers help instead of waiting forever. Each new link restarts the clock.
@@ -145,18 +151,26 @@ export default function LinkInstitutionScreen() {
     }
   };
 
+  // While the link completes, the review gives way to the sync screen (Figma):
+  // a secure connection, then the data coming over. It stays long enough to
+  // read, never more; a failure brings the review back with the reason.
   const finish = async () => {
     setFinishing(true);
     setFinishError(null);
+    setReviewOpen(false);
+    setSyncing(true);
+    const startedAt = Date.now();
     try {
       await completeInstitutionalLink();
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, SYNC_MIN_MS - (Date.now() - startedAt))));
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setReviewOpen(false);
       setPendingWelcome(status?.institutionName);
       router.replace('/(tabs)');
     } catch (completeError) {
+      setSyncing(false);
       setFinishError(describeAuthError(completeError, 'No pudimos terminar el vínculo. Inténtalo nuevamente.'));
       setFinishing(false);
+      setReviewOpen(true);
     }
   };
 
@@ -388,6 +402,7 @@ export default function LinkInstitutionScreen() {
           </View>
         </View>
       </AlertModal>
+      {syncing && <InstitutionSync logoUrl={status?.logoUrl} />}
     </SafeAreaView>
   );
 }
