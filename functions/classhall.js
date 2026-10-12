@@ -47,6 +47,15 @@ const MAX_DOCUMENTS = 100;
 // Scans of specification tables per teacher and day, to stay within the free
 // Cloud Vision quota (1,000 photos a month).
 const MAX_SCANS_PER_DAY = 20;
+// Tasks: the teacher publishes one with a due date and students hand it in
+// with files, photos or links. Teachers mark a submission as reviewed and
+// can leave a comment; there are no grades (the school keeps them elsewhere).
+const MAX_TASKS = 80;
+const MAX_TASK_SUMMARIES = 40;
+const MAX_SUBMISSION_ITEMS = 6;
+const MAX_SUBMISSIONS_LISTED = 300;
+// Photos from phones also come as HEIC or WebP.
+const SUBMISSION_IMAGE_TYPES = { "image/heic": "image", "image/heif": "image", "image/webp": "image" };
 const DOCUMENT_TYPES = {
   "application/pdf": "pdf",
   "application/msword": "word",
@@ -217,6 +226,7 @@ function documentOut(doc) {
     authorName: data.authorName,
     announcementId: data.announcementId || null,
     evaluationId: data.evaluationId || null,
+    taskId: data.taskId || null,
     createdAt: millis(data.createdAt),
   };
 }
@@ -320,6 +330,87 @@ function hallOut(doc, profile, extra = {}) {
     memberCount: isTeacher ? (data.memberUids || []).length : null,
     ...extra,
   };
+}
+
+// Profiles made by hand have no name; the sign-up one is the fallback.
+async function displayName(getAdminApp, profile, fallback) {
+  const name = text(profile.name, 80);
+  if (name) return name;
+  const account = await identityDb(getAdminApp).collection("accounts").doc(profile.uid).get();
+  return text(account.data()?.fullName, 80) || fallback;
+}
+
+// Students the Hall counts on: its course on the roster, or those who joined.
+async function hallSize(getAdminApp, data) {
+  return hallPlan(data) === "comun" ? courseSize(getAdminApp, data) : (data.memberUids || []).length;
+}
+
+// Only http and https links, so a submission never carries a script or an app link.
+function cleanLink(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw || raw.length > 600) return null;
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (!url.hostname.includes(".")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function taskOut(doc) {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    title: data.title,
+    instructions: data.instructions || "",
+    dueAt: millis(data.dueAt),
+    acceptLate: data.acceptLate === true,
+    authorName: data.authorName,
+    createdAt: millis(data.createdAt),
+    updatedAt: millis(data.updatedAt),
+  };
+}
+
+function submissionItemOut(item) {
+  if (item.kind === "link") return { id: item.id, kind: "link", name: item.name, url: item.url };
+  return {
+    id: item.id,
+    kind: "file",
+    name: item.name,
+    fileKind: DOCUMENT_TYPES[item.contentType] || SUBMISSION_IMAGE_TYPES[item.contentType] || "file",
+    size: item.size || 0,
+    url: documentUrl(item),
+  };
+}
+
+function submissionOut(doc) {
+  const data = doc.data();
+  return {
+    uid: doc.id,
+    studentName: data.studentName,
+    courseId: data.courseId || "",
+    items: (data.items || []).map(submissionItemOut),
+    note: data.note || "",
+    submittedAt: millis(data.submittedAt),
+    late: data.late === true,
+    reviewed: data.reviewed === true,
+    feedback: data.feedback || "",
+    reviewedAt: millis(data.reviewedAt),
+  };
+}
+
+// The course Calendar shows each task on its due date, like an evaluation.
+function taskCalendarRef(getAdminApp, courseId, hallId, taskId) {
+  return calendarRef(getAdminApp, courseId, hallId, `task-${taskId}`);
+}
+
+// Removes a submission's files from Storage.
+async function removeSubmissionFiles(getAdminApp, items) {
+  const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+  await Promise.all(items.filter(item => item.kind === "file" && item.path)
+    .map(item => bucket.file(item.path).delete({ ignoreNotFound: true })));
 }
 
 function build(getAdminApp) {
@@ -473,13 +564,33 @@ function build(getAdminApp) {
   // The inside of a Hall: its announcements and evaluations.
   const getHall = onCall({ invoker: "public" }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
-    const [announcements, evaluations, calendar, documents] = await Promise.all([
+    const [announcements, evaluations, calendar, documents, tasks] = await Promise.all([
       hallRef.collection("announcements").orderBy("createdAt", "desc").limit(MAX_ANNOUNCEMENTS).get(),
       hallRef.collection("evaluations").orderBy("date", "asc").limit(MAX_EVALUATIONS).get(),
       calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`)
         .where("startDate", ">=", Timestamp.fromMillis(Date.now() - COURSE_EVENTS_BACK_MS)).get(),
       hallRef.collection("documents").orderBy("createdAt", "desc").limit(MAX_DOCUMENTS).get(),
+      hallRef.collection("tasks").orderBy("dueAt", "desc").limit(MAX_TASK_SUMMARIES).get(),
     ]);
+
+    // Each task says how it stands: for a student, their own submission;
+    // for the teacher, how many handed it in.
+    const taskSummaries = tasks.docs.map(taskOut);
+    if (isTeacher) {
+      await Promise.all(taskSummaries.map(async (task) => {
+        const count = await hallRef.collection("tasks").doc(task.id).collection("submissions").count().get();
+        task.submittedCount = count.data().count;
+      }));
+    } else if (taskSummaries.length) {
+      const mine = await classhallDb(getAdminApp).getAll(...taskSummaries
+        .map(task => hallRef.collection("tasks").doc(task.id).collection("submissions").doc(profile.uid)));
+      mine.forEach((doc, index) => {
+        const submission = doc.data();
+        taskSummaries[index].mySubmission = submission
+          ? { submittedAt: millis(submission.submittedAt), late: submission.late === true, reviewed: submission.reviewed === true }
+          : null;
+      });
+    }
 
     // What the course Calendar has for this subject, written by the course
     // (the Hall's own evaluations are already listed above).
@@ -510,6 +621,8 @@ function build(getAdminApp) {
       evaluations: evaluations.docs.map(evaluationOut),
       courseEvents,
       documents: documents.docs.map(documentOut),
+      tasks: taskSummaries,
+      expectedSubmissions: isTeacher ? hall.memberCount ?? await hallSize(getAdminApp, data) : null,
       viewerUid: profile.uid,
     };
   });
@@ -541,9 +654,13 @@ function build(getAdminApp) {
     // The Hall's evaluations on the course Calendar carry the subject in
     // their title; they follow the new name.
     if (subject !== data.subject) {
-      const evaluations = await hallRef.collection("evaluations").get();
-      const targets = evaluations.docs.flatMap(doc => (doc.data().calendarCourses || [data.courseId])
-        .map(courseId => ({ ref: calendarRef(getAdminApp, courseId, hallRef.id, doc.id), title: doc.data().title })));
+      const [evaluations, tasks] = await Promise.all([hallRef.collection("evaluations").get(), hallRef.collection("tasks").get()]);
+      const targets = [
+        ...evaluations.docs.flatMap(doc => (doc.data().calendarCourses || [data.courseId])
+          .map(courseId => ({ ref: calendarRef(getAdminApp, courseId, hallRef.id, doc.id), title: doc.data().title }))),
+        ...tasks.docs.flatMap(doc => (doc.data().calendarCourses || [data.courseId])
+          .map(courseId => ({ ref: taskCalendarRef(getAdminApp, courseId, hallRef.id, doc.id), title: doc.data().title }))),
+      ];
       const events = targets.length ? await calendarDb(getAdminApp).getAll(...targets.map(target => target.ref)) : [];
       const batch = calendarDb(getAdminApp).batch();
       events.forEach((event, index) => {
@@ -725,6 +842,10 @@ function build(getAdminApp) {
     }
     const announcementId = childId(request.data?.announcementId);
     const evaluationId = childId(request.data?.evaluationId);
+    const taskId = childId(request.data?.taskId);
+    if (taskId && !(await hallRef.collection("tasks").doc(taskId).get()).exists) {
+      throw new HttpsError("not-found", "Esa tarea ya no existe.");
+    }
     if (announcementId && !(await hallRef.collection("announcements").doc(announcementId).get()).exists) {
       throw new HttpsError("not-found", "Ese anuncio ya no existe.");
     }
@@ -758,10 +879,11 @@ function build(getAdminApp) {
       metadata: { firebaseStorageDownloadTokens: token },
     });
 
-    // One attachment per announcement and one T.E. per evaluation.
+    // One attachment per announcement and task, and one T.E. per evaluation.
     const previous = announcementId
       ? await hallRef.collection("documents").where("announcementId", "==", announcementId).get()
-      : evaluationId ? await hallRef.collection("documents").where("evaluationId", "==", evaluationId).get() : null;
+      : evaluationId ? await hallRef.collection("documents").where("evaluationId", "==", evaluationId).get()
+        : taskId ? await hallRef.collection("documents").where("taskId", "==", taskId).get() : null;
     if (previous) await removeDocuments(getAdminApp, previous.docs);
 
     await docRef.set({
@@ -773,6 +895,7 @@ function build(getAdminApp) {
       authorName: data.teacherName,
       announcementId: announcementId || null,
       evaluationId: evaluationId || null,
+      taskId: taskId || null,
       createdAt: FieldValue.serverTimestamp(),
     });
     return documentOut(await docRef.get());
@@ -899,10 +1022,264 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
+  const saveHallTask = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const title = text(request.data?.title, 80);
+    const instructions = paragraph(request.data?.instructions, 3000);
+    const due = Number(request.data?.dueAt);
+    const acceptLate = request.data?.acceptLate === true;
+    if (title.length < 2) {
+      throw new HttpsError("invalid-argument", "Escribe el nombre de la tarea.");
+    }
+    if (!Number.isFinite(due) || due <= 0) {
+      throw new HttpsError("invalid-argument", "Elige hasta cuándo se puede entregar.");
+    }
+
+    const existingId = childId(request.data?.taskId);
+    const ref = existingId ? hallRef.collection("tasks").doc(existingId) : hallRef.collection("tasks").doc();
+    const existing = existingId ? (await ref.get()).data() : null;
+    if (existingId && !existing) {
+      throw new HttpsError("not-found", "Esa tarea ya no existe.");
+    }
+    if (!existingId) {
+      const count = await hallRef.collection("tasks").count().get();
+      if (count.data().count >= MAX_TASKS) {
+        throw new HttpsError("resource-exhausted", "Este Hall llegó al máximo de tareas.");
+      }
+    }
+
+    const dueAt = Timestamp.fromMillis(due);
+    const courses = await calendarCourses(getAdminApp, data);
+    const previous = existing?.calendarCourses || [];
+    const fields = { title, instructions, dueAt, acceptLate, authorName: data.teacherName, calendarCourses: courses };
+    if (existingId) await ref.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
+    else await ref.set({ ...fields, createdAt: FieldValue.serverTimestamp() });
+
+    const event = {
+      title: `${title} · ${data.subject}`.slice(0, 120),
+      description: (instructions || `Tarea del Hall de ${data.subject}.`).slice(0, 1000),
+      startDate: dueAt,
+      endDate: dueAt,
+      location: "ClassHall",
+      subject: data.subject.slice(0, 60),
+      type: "Tarea",
+      verificationRequested: false,
+      verified: true,
+      verifier: data.teacherName,
+      authorUid: data.teacherUid,
+      authorName: data.teacherName,
+      source: "classhall",
+      hallId: hallRef.id,
+      taskId: ref.id,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+    const batch = calendarDb(getAdminApp).batch();
+    for (const courseId of courses) batch.set(taskCalendarRef(getAdminApp, courseId, hallRef.id, ref.id), event);
+    for (const courseId of previous.filter(courseId => !courses.includes(courseId))) {
+      batch.delete(taskCalendarRef(getAdminApp, courseId, hallRef.id, ref.id));
+    }
+    await batch.commit();
+
+    return { taskId: ref.id };
+  });
+
+  // Deleting a task takes its submissions and their files with it.
+  const deleteHallTask = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const id = childId(request.data?.taskId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta la tarea.");
+    const taskRef = hallRef.collection("tasks").doc(id);
+    const task = (await taskRef.get()).data();
+    if (!task) return { ok: true };
+
+    const [submissions, attached] = await Promise.all([
+      taskRef.collection("submissions").get(),
+      hallRef.collection("documents").where("taskId", "==", id).get(),
+    ]);
+    await Promise.all(submissions.docs.map(async (doc) => {
+      await removeSubmissionFiles(getAdminApp, doc.data().items || []);
+      await doc.ref.delete();
+    }));
+    await removeDocuments(getAdminApp, attached.docs);
+    const batch = calendarDb(getAdminApp).batch();
+    for (const courseId of task.calendarCourses || [data.courseId]) batch.delete(taskCalendarRef(getAdminApp, courseId, hallRef.id, id));
+    await Promise.all([taskRef.delete(), batch.commit()]);
+    return { ok: true };
+  });
+
+  // A task with what the caller may see of its submissions: their own, or,
+  // for the teacher, all of them.
+  const getHallTask = onCall({ invoker: "public" }, async (request) => {
+    const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    const id = childId(request.data?.taskId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta la tarea.");
+    const taskRef = hallRef.collection("tasks").doc(id);
+    const [task, attached] = await Promise.all([
+      taskRef.get(),
+      hallRef.collection("documents").where("taskId", "==", id).limit(1).get(),
+    ]);
+    if (!task.exists) throw new HttpsError("not-found", "Esa tarea ya no existe.");
+
+    const result = {
+      task: taskOut(task),
+      attachment: attached.docs[0] ? documentOut(attached.docs[0]) : null,
+      subject: data.subject,
+      isTeacher,
+    };
+    if (isTeacher) {
+      const submissions = await taskRef.collection("submissions").orderBy("submittedAt", "desc").limit(MAX_SUBMISSIONS_LISTED).get();
+      result.submissions = submissions.docs.map(submissionOut);
+      result.expectedSubmissions = await hallSize(getAdminApp, data);
+    } else {
+      const mine = await taskRef.collection("submissions").doc(profile.uid).get();
+      result.mySubmission = mine.exists ? submissionOut(mine) : null;
+    }
+    return result;
+  });
+
+  // A student hands in a task, or changes what they handed in: the items
+  // they keep, new files from their upload folder and links.
+  const submitHallTask = onCall({ invoker: "public", memory: "512MiB" }, async (request) => {
+    const { profile, hallRef, isTeacher } = await openHall(getAdminApp, request);
+    if (isTeacher) throw new HttpsError("permission-denied", "Las entregas son de los estudiantes del Hall.");
+    const id = childId(request.data?.taskId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta la tarea.");
+    const taskRef = hallRef.collection("tasks").doc(id);
+    const task = (await taskRef.get()).data();
+    if (!task) throw new HttpsError("not-found", "Esa tarea ya no existe.");
+
+    const now = Date.now();
+    const late = now > (millis(task.dueAt) ?? 0);
+    if (late && task.acceptLate !== true) {
+      throw new HttpsError("failed-precondition", "El plazo de esta tarea terminó y no recibe entregas atrasadas.");
+    }
+
+    const submissionRef = taskRef.collection("submissions").doc(profile.uid);
+    const previous = (await submissionRef.get()).data();
+    const keepIds = new Set((Array.isArray(request.data?.keep) ? request.data.keep : []).filter(value => typeof value === "string"));
+    const kept = (previous?.items || []).filter(item => keepIds.has(item.id));
+    const dropped = (previous?.items || []).filter(item => !keepIds.has(item.id));
+
+    const uploads = (Array.isArray(request.data?.uploads) ? request.data.uploads : []).slice(0, MAX_SUBMISSION_ITEMS);
+    const links = (Array.isArray(request.data?.links) ? request.data.links : []).slice(0, MAX_SUBMISSION_ITEMS);
+    const note = paragraph(request.data?.note, 1000);
+
+    const cleanLinks = links.map((link) => {
+      const url = cleanLink(link?.url);
+      if (!url) throw new HttpsError("invalid-argument", "Uno de los vínculos no es una dirección web válida.");
+      return { id: randomUUID(), kind: "link", url, name: text(link?.name, 120) || new URL(url).hostname };
+    });
+    if (kept.length + uploads.length + cleanLinks.length > MAX_SUBMISSION_ITEMS) {
+      throw new HttpsError("invalid-argument", `Una entrega lleva hasta ${MAX_SUBMISSION_ITEMS} archivos o vínculos.`);
+    }
+    if (kept.length + uploads.length + cleanLinks.length === 0 && !note) {
+      throw new HttpsError("invalid-argument", "Agrega un archivo, una foto o un vínculo.");
+    }
+
+    // Files move from the student's upload folder into the task, with a token
+    // URL only the student and the teacher get.
+    const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+    const moved = [];
+    try {
+      for (const upload of uploads) {
+        const uploadPath = typeof upload?.uploadPath === "string" ? upload.uploadPath : "";
+        if (!uploadPath.startsWith(`classhall-submissions/${profile.uid}/`) || uploadPath.includes("..")) {
+          throw new HttpsError("invalid-argument", "No encontramos uno de los archivos subidos.");
+        }
+        const file = bucket.file(uploadPath);
+        const [exists] = await file.exists();
+        if (!exists) throw new HttpsError("not-found", "No encontramos uno de los archivos subidos.");
+        const [metadata] = await file.getMetadata();
+        const size = Number(metadata.size) || 0;
+        const type = metadata.contentType;
+        if (!(DOCUMENT_TYPES[type] || SUBMISSION_IMAGE_TYPES[type]) || size <= 0 || size > MAX_DOCUMENT_BYTES) {
+          await file.delete({ ignoreNotFound: true });
+          throw new HttpsError("invalid-argument", "Cada archivo puede ser PDF, Word, PowerPoint, Excel o imagen, de hasta 10 MB.");
+        }
+        const itemId = randomUUID();
+        const name = safeFileName(upload?.name);
+        const path = `classhall/${hallRef.id}/tasks/${id}/${profile.uid}/${itemId}-${name}`;
+        const token = randomUUID();
+        await file.move(path);
+        await bucket.file(path).setMetadata({
+          contentType: type,
+          contentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(name)}`,
+          metadata: { firebaseStorageDownloadTokens: token },
+        });
+        moved.push({ id: itemId, kind: "file", name, contentType: type, size, path, token });
+      }
+    } catch (error) {
+      await removeSubmissionFiles(getAdminApp, moved);
+      throw error;
+    }
+
+    const studentName = previous?.studentName || await displayName(getAdminApp, profile, "Estudiante");
+    // Handing in again sends it back to the teacher, as not reviewed.
+    await submissionRef.set({
+      uid: profile.uid,
+      studentName,
+      courseId: profile.courseId || "",
+      items: [...kept, ...moved, ...cleanLinks],
+      note,
+      late,
+      submittedAt: FieldValue.serverTimestamp(),
+      reviewed: false,
+      feedback: previous?.feedback || "",
+      reviewedAt: null,
+    });
+    await removeSubmissionFiles(getAdminApp, dropped);
+    return submissionOut(await submissionRef.get());
+  });
+
+  // A student takes back a submission the teacher has not reviewed.
+  const withdrawHallSubmission = onCall({ invoker: "public" }, async (request) => {
+    const { profile, hallRef } = await openHall(getAdminApp, request);
+    const id = childId(request.data?.taskId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta la tarea.");
+    const taskRef = hallRef.collection("tasks").doc(id);
+    const submissionRef = taskRef.collection("submissions").doc(profile.uid);
+    const [task, submission] = await Promise.all([taskRef.get().then(doc => doc.data()), submissionRef.get().then(doc => doc.data())]);
+    if (!submission) return { ok: true };
+    if (submission.reviewed === true) {
+      throw new HttpsError("failed-precondition", "Tu docente ya revisó esta entrega, así que no se puede retirar.");
+    }
+    // Once closed, taking it back would leave the task without a way to hand it in again.
+    if (task && Date.now() > (millis(task.dueAt) ?? 0) && task.acceptLate !== true) {
+      throw new HttpsError("failed-precondition", "El plazo terminó, así que la entrega ya no se puede retirar.");
+    }
+    await removeSubmissionFiles(getAdminApp, submission.items || []);
+    await submissionRef.delete();
+    return { ok: true };
+  });
+
+  // The teacher marks a submission as reviewed and can leave a comment for the student.
+  const reviewHallSubmission = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const id = childId(request.data?.taskId);
+    const studentUid = childId(request.data?.studentUid);
+    if (!id || !studentUid) throw new HttpsError("invalid-argument", "Falta la entrega.");
+    const submissionRef = hallRef.collection("tasks").doc(id).collection("submissions").doc(studentUid);
+    if (!(await submissionRef.get()).exists) {
+      throw new HttpsError("not-found", "Esa entrega ya no existe.");
+    }
+    const reviewed = request.data?.reviewed !== false;
+    await submissionRef.update({
+      reviewed,
+      feedback: paragraph(request.data?.feedback, 1000),
+      reviewedAt: reviewed ? FieldValue.serverTimestamp() : null,
+    });
+    return submissionOut(await submissionRef.get());
+  });
+
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
     getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation, verifyCalendarEvent,
     attachHallDocument, deleteHallDocument, scanSpecTable,
+    saveHallTask, deleteHallTask, getHallTask, submitHallTask, withdrawHallSubmission, reviewHallSubmission,
   };
 }
 

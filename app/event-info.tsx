@@ -327,11 +327,16 @@ export default function EventInfoScreen() {
 
         <View style={styles.card}>
           <InfoRow icon={ICONS.date} label="Fecha" value={formatLongDate(event.startDate)} />
-          <InfoRow
-            icon={ICONS.duration}
-            label="Duración"
-            value={`${formatTime(event.startDate)} - ${formatTime(event.endDate)} (${formatDuration(event.startDate, event.endDate)})`}
-          />
+          {/* A task has no duration: it is handed in until that time. */}
+          {event.taskId ? (
+            <InfoRow icon={ICONS.duration} label="Se entrega hasta" value={formatTime(event.startDate)} />
+          ) : (
+            <InfoRow
+              icon={ICONS.duration}
+              label="Duración"
+              value={`${formatTime(event.startDate)} - ${formatTime(event.endDate)} (${formatDuration(event.startDate, event.endDate)})`}
+            />
+          )}
           {!!event.location && <InfoRow icon={ICONS.location} label="Ubicación" value={event.location} />}
           {!!event.eventType && (
             <InfoRow icon={ICONS.type} label={isEvaluation ? 'Tipo de evaluación' : 'Tipo de evento'} value={event.eventType} />
@@ -340,7 +345,17 @@ export default function EventInfoScreen() {
           {!!event.description && <InfoRow icon={ICONS.description} label="Descripción" value={event.description} />}
 
           <View style={styles.cardActions}>
-            {event.hallId && event.evaluationId ? (
+            {event.hallId && event.taskId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityHint="Abre la tarea en su Hall"
+                onPress={() => router.push({ pathname: '/classhall/task', params: { hallId: event.hallId, id: event.taskId } })}
+                style={({ pressed }) => [styles.actionButton, styles.actionButtonTall, pressed && styles.pressed]}
+              >
+                <ThemedText style={styles.actionLabel}>Tarea</ThemedText>
+                <ThemedText style={styles.actionSoon}>Abrir y entregar en ClassHall</ThemedText>
+              </Pressable>
+            ) : event.hallId && event.evaluationId ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityHint="Abre la evaluación en su Hall"

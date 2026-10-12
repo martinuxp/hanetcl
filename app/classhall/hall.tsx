@@ -153,6 +153,8 @@ export default function HallScreen() {
   const [courseEvent, setCourseEvent] = useState<HallCourseEvent | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  // The moment the screen opened, to tell open tasks from closed ones.
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -184,6 +186,13 @@ export default function HallScreen() {
   // whichever comes first, the Hall's or the Calendar's.
   const nextCourse = courseEvents.find(item => !item.cancelled && item.startDate >= startOfToday() && isEvaluationType(item.type));
   const hallNext = upcoming[0];
+  // The tasks tile: what the student still has to hand in, or the teacher's open tasks.
+  const tasks = detail?.tasks ?? [];
+  const openTasks = tasks.filter(task => task.dueAt >= now);
+  const toHandIn = tasks.filter(task => !task.mySubmission && (task.dueAt >= now || task.acceptLate));
+  const tasksSubtitle = isTeacher
+    ? (openTasks.length ? `${openTasks.length} ${openTasks.length === 1 ? 'abierta' : 'abiertas'}` : 'Publicar')
+    : (toHandIn.length ? `${toHandIn.length} por entregar` : tasks.length ? 'Al día' : 'Sin tareas');
   const next = hallNext && (!nextCourse || hallNext.date <= nextCourse.startDate) ? hallNext : undefined;
   const nextFromCourse = !next ? nextCourse : undefined;
 
@@ -311,7 +320,9 @@ export default function HallScreen() {
                 icon={HALL_ICONS.tasks}
                 tone="primary"
                 title="Tareas"
-                subtitle="Próximamente"
+                subtitle={tasksSubtitle}
+                accessibilityLabel={`Tareas, ${tasksSubtitle}. Abrir`}
+                onPress={() => router.push({ pathname: '/classhall/tasks', params: { hallId: id } })}
                 compact
                 style={styles.summaryTasks}
               />
@@ -414,7 +425,7 @@ export default function HallScreen() {
                     <Byline name={item.authorName} date={item.createdAt ? hallDay(item.createdAt) : 'Ahora'} />
                     <DocumentTile
                       document={item}
-                      label={item.evaluationId ? 'Tabla de especificaciones' : undefined}
+                      label={item.evaluationId ? 'Tabla de especificaciones' : item.taskId ? 'Material de tarea' : undefined}
                     />
                     {isTeacher && (
                       <View style={styles.cardActions}>
@@ -537,7 +548,6 @@ const styles = StyleSheet.create({
   },
   summaryTasks: {
     flex: 106,
-    opacity: 0.7,
   },
   summaryNext: {
     flex: 221,

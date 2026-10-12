@@ -23,7 +23,10 @@ type IconProps = SvgProps & {
     | 'clock'
     | 'map-pin'
     | 'tag'
-    | 'file-text';
+    | 'file-text'
+    | 'link'
+    | 'image'
+    | 'camera';
   size?: number;
   color?: string;
 }
@@ -59,6 +62,28 @@ export function CustomIcon({ name, size = 24, color = AppColors.textPrimary, ...
           <Line x1="16" y1="13" x2="8" y2="13" stroke={color} strokeWidth={1.5} />
           <Line x1="16" y1="17" x2="8" y2="17" stroke={color} strokeWidth={1.5} />
           <Line x1="10" y1="9" x2="8" y2="9" stroke={color} strokeWidth={1.5} />
+        </Svg>
+      );
+    case 'link':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M10 14a4.5 4.5 0 0 0 6.36 0l3.18-3.18a4.5 4.5 0 0 0-6.36-6.36l-1.06 1.06" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+          <Path d="M14 10a4.5 4.5 0 0 0-6.36 0l-3.18 3.18a4.5 4.5 0 0 0 6.36 6.36l1.06-1.06" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'image':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth={1.5} />
+          <Circle cx="8.5" cy="8.5" r="1.5" stroke={color} strokeWidth={1.5} />
+          <Path d="M21 15l-5-5L5 21" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'camera':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.6l1.4-2h7l1.4 2h1.6A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+          <Circle cx="12" cy="13" r="3.5" stroke={color} strokeWidth={1.5} />
         </Svg>
       );
     case 'home':

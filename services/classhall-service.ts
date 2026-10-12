@@ -1,4 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
@@ -90,7 +92,60 @@ export type HallDocument = {
   announcementId: string | null;
   /** The specification table (T.E.) of this evaluation. */
   evaluationId: string | null;
+  /** Material of this task. */
+  taskId?: string | null;
   createdAt: number | null;
+};
+
+export type HallTask = {
+  id: string;
+  title: string;
+  instructions: string;
+  /** Milliseconds since epoch: until when it can be handed in. */
+  dueAt: number;
+  /** Still takes submissions after the due date, marked as late. */
+  acceptLate: boolean;
+  authorName: string;
+  createdAt: number | null;
+  updatedAt: number | null;
+};
+
+/** A task as the Hall lists it, with how it stands for whoever looks. */
+export type HallTaskSummary = HallTask & {
+  /** For the teacher: how many handed it in. */
+  submittedCount?: number;
+  /** For a student: their submission, or null if they have not handed it in. */
+  mySubmission?: { submittedAt: number | null; late: boolean; reviewed: boolean } | null;
+};
+
+export type SubmissionItem =
+  | { id: string; kind: 'link'; name: string; url: string }
+  | { id: string; kind: 'file'; name: string; fileKind: HallDocumentKind; size: number; url: string };
+
+export type HallSubmission = {
+  uid: string;
+  studentName: string;
+  courseId: string;
+  items: SubmissionItem[];
+  note: string;
+  submittedAt: number | null;
+  late: boolean;
+  reviewed: boolean;
+  /** The teacher's comment. */
+  feedback: string;
+  reviewedAt: number | null;
+};
+
+export type HallTaskDetail = {
+  task: HallTask;
+  attachment: HallDocument | null;
+  subject: string;
+  isTeacher: boolean;
+  /** For a student. */
+  mySubmission?: HallSubmission | null;
+  /** For the teacher. */
+  submissions?: HallSubmission[];
+  expectedSubmissions?: number;
 };
 
 export type HallDetail = {
@@ -99,6 +154,9 @@ export type HallDetail = {
   evaluations: HallEvaluation[];
   courseEvents?: HallCourseEvent[];
   documents?: HallDocument[];
+  tasks?: HallTaskSummary[];
+  /** For the teacher: students the Hall counts on. */
+  expectedSubmissions?: number | null;
 };
 
 export type HallEvaluationInput = {
@@ -236,7 +294,7 @@ export async function pickHallDocument(purpose: 'document' | 'scan' = 'document'
   return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
 }
 
-type Attach = { announcementId?: string; evaluationId?: string };
+type Attach = { announcementId?: string; evaluationId?: string; taskId?: string };
 
 /** A file in the teacher's upload folder, not yet in any Hall. */
 export type StagedDocument = { uploadPath: string; name: string };
@@ -302,8 +360,136 @@ export async function deleteHallDocument(hallId: string, documentId: string) {
 }
 
 /** Opens a document in the in-app browser (a new tab on the web). */
-export async function openHallDocument(document: HallDocument) {
+export async function openHallDocument(document: Pick<HallDocument, 'url'>) {
   await WebBrowser.openBrowserAsync(document.url);
+}
+
+// ---------------------------------------------------------------- tasks
+
+export type HallTaskInput = {
+  hallId: string;
+  taskId?: string;
+  title: string;
+  instructions: string;
+  dueAt: number;
+  acceptLate: boolean;
+};
+
+export async function saveHallTask(input: HallTaskInput) {
+  const result = await httpsCallable<HallTaskInput, { taskId: string }>(functions, 'saveHallTask')(input);
+  return result.data.taskId;
+}
+
+export async function deleteHallTask(hallId: string, taskId: string) {
+  await httpsCallable(functions, 'deleteHallTask')({ hallId, taskId });
+}
+
+// The last task opened, so the forms over it open without another read.
+let lastTask: (HallTaskDetail & { hallId: string }) | null = null;
+
+export function getLoadedTask(hallId: string, taskId: string) {
+  return lastTask?.hallId === hallId && lastTask.task.id === taskId ? lastTask : null;
+}
+
+export async function getHallTask(hallId: string, taskId: string) {
+  const result = await httpsCallable<{ hallId: string; taskId: string }, HallTaskDetail>(functions, 'getHallTask')({ hallId, taskId });
+  lastTask = { ...result.data, hallId };
+  return result.data;
+}
+
+/** A file or photo the student is about to hand in, not uploaded yet. */
+export type PendingFile = PickedDocument & { photo?: boolean };
+
+/** Takes a photo with the camera or picks one from the library, as a JPEG ready to upload. */
+export async function pickSubmissionPhoto(source: 'camera' | 'library'): Promise<PendingFile | null> {
+  if (source === 'camera') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new DocumentError('HaNet no tiene permiso para usar la cámara. Actívalo en los ajustes del teléfono.');
+  }
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
+  const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+  const asset = result.canceled ? null : result.assets[0];
+  if (!asset) return null;
+  // Phone photos weigh several megabytes; a page stays legible at this size.
+  const resized = await manipulateAsync(
+    asset.uri,
+    asset.width > 2000 || asset.height > 2000 ? [{ resize: asset.width >= asset.height ? { width: 2000 } : { height: 2000 } }] : [],
+    { compress: 0.82, format: SaveFormat.JPEG },
+  );
+  const blob = await (await fetch(resized.uri)).blob();
+  if (blob.size > MAX_DOCUMENT_BYTES) throw new DocumentError('La foto pesa más de 10 MB.');
+  const stamp = new Date();
+  const two = (value: number) => String(value).padStart(2, '0');
+  const name = `Foto ${stamp.getFullYear()}-${two(stamp.getMonth() + 1)}-${two(stamp.getDate())} ${two(stamp.getHours())}.${two(stamp.getMinutes())}.${two(stamp.getSeconds())}.jpg`;
+  return { uri: resized.uri, name, mimeType: 'image/jpeg', size: blob.size, photo: true };
+}
+
+/** Normalizes a link the student typed; null if it is not a web address. */
+export function cleanSubmissionLink(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !url.hostname.includes('.')) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function stageSubmissionFile(file: PendingFile) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new DocumentError('Inicia sesión para entregar.');
+  const blob = file.file ?? await (await fetch(file.uri)).blob();
+  const uploadPath = `classhall-submissions/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await uploadBytes(ref(storage, uploadPath), blob, { contentType: file.mimeType });
+  return { uploadPath, name: file.name };
+}
+
+export type SubmitInput = {
+  hallId: string;
+  taskId: string;
+  /** Items of the current submission that stay. */
+  keep: string[];
+  files: PendingFile[];
+  links: { url: string; name?: string }[];
+  note: string;
+  /** Called before each upload, with how many are done. */
+  onProgress?: (done: number, total: number) => void;
+};
+
+/** Uploads the new files and hands the task in (or replaces what was handed in). */
+export async function submitHallTask({ hallId, taskId, keep, files, links, note, onProgress }: SubmitInput) {
+  const uploads = [];
+  for (const [index, file] of files.entries()) {
+    onProgress?.(index, files.length);
+    uploads.push(await stageSubmissionFile(file));
+  }
+  onProgress?.(files.length, files.length);
+  const result = await httpsCallable<object, HallSubmission>(functions, 'submitHallTask')({ hallId, taskId, keep, uploads, links, note });
+  if (lastTask?.hallId === hallId && lastTask.task.id === taskId) lastTask = { ...lastTask, mySubmission: result.data };
+  return result.data;
+}
+
+export async function withdrawHallSubmission(hallId: string, taskId: string) {
+  await httpsCallable(functions, 'withdrawHallSubmission')({ hallId, taskId });
+  if (lastTask?.hallId === hallId && lastTask.task.id === taskId) lastTask = { ...lastTask, mySubmission: null };
+}
+
+export async function reviewHallSubmission(hallId: string, taskId: string, studentUid: string, reviewed: boolean, feedback: string) {
+  const result = await httpsCallable<object, HallSubmission>(functions, 'reviewHallSubmission')({ hallId, taskId, studentUid, reviewed, feedback });
+  if (lastTask?.hallId === hallId && lastTask.task.id === taskId) {
+    lastTask = { ...lastTask, submissions: lastTask.submissions?.map(item => (item.uid === studentUid ? result.data : item)) };
+  }
+  return result.data;
+}
+
+/** "Entregada", "Atrasada"… for a student's task. */
+export function taskStatus(task: Pick<HallTask, 'dueAt' | 'acceptLate'>, submission: { late: boolean; reviewed: boolean } | null | undefined, now: number) {
+  if (submission?.reviewed) return { label: 'Revisada', tone: 'done' as const };
+  if (submission) return { label: submission.late ? 'Entregada con atraso' : 'Entregada', tone: 'done' as const };
+  if (now <= task.dueAt) return { label: 'Pendiente', tone: 'pending' as const };
+  return task.acceptLate ? { label: 'Atrasada', tone: 'late' as const } : { label: 'No entregada', tone: 'closed' as const };
 }
 
 export const DOCUMENT_LABELS: Record<HallDocumentKind, string> = {

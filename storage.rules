@@ -5,8 +5,11 @@ rules_version = '2';
 //   institutions/{id}/logo.png|banner.jpg  the institution's shield and banner
 //   classhall-uploads/{uid}/{file}         a teacher's upload, before the
 //                                          backend moves it into the Hall
-//   classhall/{hallId}/...                 Hall documents: no direct access;
-//                                          members get a token URL from getHall
+//   classhall-submissions/{uid}/{file}     a student's file for a task, before
+//                                          submitHallTask moves it into the Hall
+//   classhall/{hallId}/...                 Hall documents and submissions: no
+//                                          direct access; getHall and
+//                                          getHallTask hand out token URLs
 //
 // Photos are private to their owner: the app does not show anyone's photo to
 // other people yet. Widen `read` only together with the feature that needs it.
@@ -46,6 +49,17 @@ service firebase.storage {
         && request.resource != null
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf|application/msword|application/vnd[.]openxmlformats-officedocument[.](wordprocessingml[.]document|presentationml[.]presentation|spreadsheetml[.]sheet)|application/vnd[.]ms-(powerpoint|excel)|image/(jpeg|png)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Any account uploads its own task files here; submitHallTask checks the
+    // Hall and the task and moves them. Nobody reads this folder.
+    match /classhall-submissions/{uid}/{file} {
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|application/msword|application/vnd[.]openxmlformats-officedocument[.](wordprocessingml[.]document|presentationml[.]presentation|spreadsheetml[.]sheet)|application/vnd[.]ms-(powerpoint|excel)|image/(jpeg|png|heic|heif|webp)');
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 

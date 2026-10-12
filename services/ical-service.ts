@@ -22,6 +22,8 @@ export interface CalendarEvent {
   /** Set when a teacher published it from ClassHall; nobody edits it from the calendar. */
   hallId?: string;
   evaluationId?: string;
+  /** A task of that Hall. */
+  taskId?: string;
 }
 
 function toDate(value: unknown, fallback: Date) {
@@ -59,6 +61,7 @@ function toCalendarEvent(id: string, data: DocumentData): CalendarEvent {
     cancelled: data.cancelled === true || data.title?.toUpperCase().includes('CANCELADA') || false,
     hallId: data.source === 'classhall' && typeof data.hallId === 'string' ? data.hallId : undefined,
     evaluationId: typeof data.evaluationId === 'string' ? data.evaluationId : undefined,
+    taskId: typeof data.taskId === 'string' ? data.taskId : undefined,
   };
 }
 

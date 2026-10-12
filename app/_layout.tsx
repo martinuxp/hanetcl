@@ -155,6 +155,11 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/announce" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="classhall/evaluation-new" options={sheetOptions([0.5])} />
             <Stack.Screen name="classhall/evaluation-form" options={sheetOptions([1.0])} />
+            <Stack.Screen name="classhall/tasks" options={{ headerShown: false }} />
+            <Stack.Screen name="classhall/task" options={{ headerShown: false }} />
+            <Stack.Screen name="classhall/task-form" options={sheetOptions([1.0])} />
+            <Stack.Screen name="classhall/submit" options={sheetOptions([0.85, 1.0])} />
+            <Stack.Screen name="classhall/submission" options={sheetOptions([0.75, 1.0])} />
           </Stack>
           <GlobalTabBar />
           </FatalBoundary>
