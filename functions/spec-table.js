@@ -1,4 +1,5 @@
 const { Buffer } = require("node:buffer");
+const { inflateRawSync } = require("node:zlib");
 
 // Reads a specification table (tabla de especificaciones, T.E.) into a draft
 // the teacher reviews before saving: name, date, exigency, objectives, the
@@ -104,6 +105,213 @@ async function photoWords(buffer, accessToken) {
   return words;
 }
 
+/** One file out of a zip (a .docx is one), or null when it is not there. */
+function unzipEntry(buffer, wanted) {
+  const data = Buffer.from(buffer);
+  let end = -1;
+  for (let at = data.length - 22; at >= Math.max(0, data.length - 65557); at -= 1) {
+    if (data.readUInt32LE(at) === 0x06054b50) { end = at; break; }
+  }
+  if (end < 0) return null;
+  const entries = data.readUInt16LE(end + 10);
+  let at = data.readUInt32LE(end + 16);
+  for (let index = 0; index < entries && at + 46 <= data.length; index += 1) {
+    if (data.readUInt32LE(at) !== 0x02014b50) return null;
+    const method = data.readUInt16LE(at + 10);
+    const size = data.readUInt32LE(at + 20);
+    const nameLength = data.readUInt16LE(at + 28);
+    const extraLength = data.readUInt16LE(at + 30);
+    const commentLength = data.readUInt16LE(at + 32);
+    const local = data.readUInt32LE(at + 42);
+    const name = data.toString("utf8", at + 46, at + 46 + nameLength);
+    if (name === wanted) {
+      const start = local + 30 + data.readUInt16LE(local + 26) + data.readUInt16LE(local + 28);
+      const raw = data.subarray(start, start + size);
+      if (method === 0) return raw;
+      if (method === 8) return inflateRawSync(raw, { maxOutputLength: 50 * 1024 * 1024 });
+      return null;
+    }
+    at += 46 + nameLength + extraLength + commentLength;
+  }
+  return null;
+}
+
+const XML_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'" };
+function xmlText(value) {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (match, code) => {
+    if (code[0] === "#") return String.fromCodePoint(code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10));
+    return XML_ENTITIES[code] ?? match;
+  });
+}
+
+function xmlAttribute(attributes, name) {
+  const match = attributes.match(new RegExp(`w:${name}="([^"]*)"`));
+  return match ? match[1] : null;
+}
+
+// Word lays the document out itself, so a .docx carries no positions. The
+// reader draws one in twips, like Word would on a page: paragraphs one under
+// the other and tables on their grid, each cell's text wrapped in its width,
+// so the same reader as for PDFs finds the header row and the columns.
+const DOCX_FONT = 220;
+const DOCX_CHAR = 100;
+const DOCX_LINE = 280;
+const DOCX_PAGE = 9600;
+// Wider than Word's own cell margin, so words of neighbouring cells never read as one.
+const DOCX_PADDING = 120;
+
+/** Words of a Word document (.docx) with a position drawn from its tables. */
+function docxWords(buffer) {
+  const xml = unzipEntry(buffer, "word/document.xml");
+  if (!xml) return [];
+  const body = xml.toString("utf8");
+
+  // A tree of what matters: tables, rows, cells and paragraphs with their text.
+  const root = { type: "body", children: [] };
+  const stack = [root];
+  const top = () => stack[stack.length - 1];
+  const paragraph = () => [...stack].reverse().find(node => node.type === "p");
+  let inText = false;
+  // Paragraphs in a text box sit inside another paragraph; their text joins it.
+  let nested = 0;
+  const tags = /<(\/?)(w:tbl|w:tr|w:tc|w:p|w:t|w:tab|w:br|w:cr|w:gridCol|w:gridSpan|w:vMerge|w:jc|w:vAlign|w:numPr)\b([^>]*?)(\/?)>|([^<]+)|<[^>]*>/g;
+  for (const match of body.matchAll(tags)) {
+    const [, closing, tag, attributes = "", selfClosing, text] = match;
+    if (text !== undefined) {
+      if (inText && paragraph()) paragraph().text += xmlText(text);
+      continue;
+    }
+    if (!tag) continue;
+    const node = top();
+    if (tag === "w:t") { inText = !closing && !selfClosing; continue; }
+    if (closing) {
+      if (tag === "w:p" && nested) { nested -= 1; continue; }
+      const type = tag.slice(2);
+      const index = stack.map(item => item.type).lastIndexOf(type);
+      if (index > 0) stack.length = index;
+      continue;
+    }
+    if (tag === "w:tab" || tag === "w:br" || tag === "w:cr") {
+      if (paragraph()) paragraph().text += tag === "w:tab" ? " " : "\n";
+    } else if (tag === "w:gridCol") {
+      const table = [...stack].reverse().find(item => item.type === "tbl");
+      if (table) table.grid.push(Number(xmlAttribute(attributes, "w")) || 600);
+    } else if (tag === "w:gridSpan") {
+      if (node.type === "tc") node.span = Math.max(1, Number(xmlAttribute(attributes, "val")) || 1);
+    } else if (tag === "w:vMerge") {
+      if (node.type === "tc") node.continued = xmlAttribute(attributes, "val") !== "restart";
+    } else if (tag === "w:vAlign") {
+      if (node.type === "tc") node.middle = xmlAttribute(attributes, "val") === "center";
+    } else if (tag === "w:numPr") {
+      // List items: Word draws the bullet, the text does not carry it.
+      if (node.type === "p" && !node.text.startsWith("• ")) node.text = `• ${node.text}`;
+    } else if (tag === "w:jc") {
+      if (node.type === "p") node.align = xmlAttribute(attributes, "val");
+    } else if (tag === "w:p" && paragraph()) {
+      if (!selfClosing) nested += 1;
+      else paragraph().text += " ";
+    } else if (!selfClosing || tag === "w:p") {
+      const type = tag.slice(2);
+      // Tables and paragraphs never open inside a paragraph's text.
+      if (node.type === "p") continue;
+      const child = type === "tbl" ? { type, grid: [], children: [] }
+        : type === "tc" ? { type, span: 1, children: [] }
+          : type === "p" ? { type, text: "", align: null }
+            : { type, children: [] };
+      node.children.push(child);
+      if (!selfClosing) stack.push(child);
+    }
+  }
+
+  const words = [];
+  // Lines of a paragraph wrapped in a width, each a list of words with their offset.
+  const wrap = (text, width) => {
+    const lines = [];
+    for (const part of text.split("\n")) {
+      let line = [];
+      let cursor = 0;
+      for (const word of clean(part).split(" ").filter(Boolean)) {
+        // A word longer than the cell is squeezed into it, as it would not cross into the next one.
+        const size = Math.min(word.length * DOCX_CHAR, width);
+        if (line.length && cursor + size > width) { lines.push({ words: line, width: cursor - DOCX_CHAR }); line = []; cursor = 0; }
+        line.push({ text: word, x: cursor, size });
+        cursor += size + DOCX_CHAR;
+      }
+      if (line.length) lines.push({ words: line, width: cursor - DOCX_CHAR });
+    }
+    return lines;
+  };
+  const place = (lines, align, left, width, top) => {
+    lines.forEach((line, index) => {
+      const shift = align === "center" ? Math.max(0, (width - line.width) / 2)
+        : align === "right" || align === "end" ? Math.max(0, width - line.width) : 0;
+      for (const word of line.words) {
+        words.push({ text: word.text, x0: left + shift + word.x, x1: left + shift + word.x + word.size, top: top + index * DOCX_LINE, height: DOCX_FONT });
+      }
+    });
+  };
+  // Lays out a list of blocks in a box; returns the height used.
+  const layout = (blocks, left, width, top) => {
+    let y = top;
+    for (const block of blocks) {
+      if (block.type === "p") {
+        const lines = wrap(block.text, width);
+        place(lines, block.align, left, width, y);
+        y += Math.max(1, lines.length) * DOCX_LINE;
+      } else if (block.type === "tbl") {
+        // A blank line around a table keeps it apart from the text, as on paper.
+        y += table(block, left, width, y + DOCX_LINE) + DOCX_LINE * 2;
+      } else if (block.children) {
+        y += layout(block.children, left, width, y);
+      }
+    }
+    return y - top;
+  };
+  const table = (block, left, width, top) => {
+    const rows = block.children.filter(child => child.type === "tr");
+    const columns = Math.max(block.grid.length, ...rows.map(row => row.children.filter(cell => cell.type === "tc").reduce((sum, cell) => sum + cell.span, 0)));
+    const grid = Array.from({ length: columns }, (_, index) => block.grid[index] || 600);
+    const scale = Math.min(1, width / grid.reduce((sum, size) => sum + size, 0));
+    const edges = [left];
+    for (const size of grid) edges.push(edges[edges.length - 1] + size * scale);
+    let y = top;
+    for (const row of rows) {
+      let column = 0;
+      let height = DOCX_LINE;
+      const cells = [];
+      for (const cell of row.children.filter(child => child.type === "tc")) {
+        const from = Math.min(column, columns - 1);
+        const to = Math.min(column + cell.span, columns);
+        column += cell.span;
+        if (cell.continued) continue;
+        const cellLeft = edges[from] + DOCX_PADDING;
+        const cellWidth = Math.max(DOCX_CHAR, edges[to] - edges[from] - DOCX_PADDING * 2);
+        // Measure first, then place, to center cells set to the middle.
+        const before = words.length;
+        // A short name over several columns (SM over A B C D) is a group
+        // header; it is read as centered, since the reader matches by the middle.
+        if (cell.span > 1) {
+          for (const child of cell.children) {
+            if (child.type === "p" && clean(child.text).length <= 4) child.align = "center";
+          }
+        }
+        const used = layout(cell.children, cellLeft, cellWidth, y);
+        cells.push({ cell, from: before, to: words.length, used });
+        height = Math.max(height, used);
+      }
+      for (const { cell, from, to, used } of cells) {
+        if (!cell.middle || used >= height) continue;
+        const shift = (height - used) / 2;
+        for (let index = from; index < to; index += 1) words[index].top += shift;
+      }
+      y += height + DOCX_PADDING;
+    }
+    return y - top;
+  };
+  layout(root.children, 0, DOCX_PAGE, 0);
+  return words;
+}
+
 // ---------------------------------------------------------------- lines
 
 /** Groups words into lines, top to bottom, each sorted left to right. */
@@ -188,12 +396,16 @@ function findExigency(text) {
 }
 
 /** "OA 03. Analizar…" lines, and the bulleted objectives some teachers write without a code. */
-function findObjectives(lines, tableTop) {
+function findObjectives(lines, tableTop, median) {
   const objectives = [];
   let current = null;
   let underHeading = false;
+  let previous = null;
   for (const line of lines) {
     if (line.center >= tableTop) break;
+    // A blank line ends an objective: what follows is something else.
+    if (previous !== null && line.center - previous > median * 2.2) current = null;
+    previous = line.center;
     const text = line.text;
     const coded = text.match(/^(OA\s*\d+)\s*[:.\-–]?\s*(.*)$/i);
     if (/^objetivos?\b/i.test(text)) {
@@ -492,7 +704,7 @@ function parseSpecTable(words) {
     title: findTitle(lines).slice(0, 80),
     date: parseDate(fullText),
     exigency: findExigency(fullText),
-    objectives: findObjectives(lines, table ? table.top : Infinity),
+    objectives: findObjectives(lines, table ? table.top : Infinity, median),
     skills: table ? table.skills : [],
     contents: table ? table.contents.map(({ name, detail, points }) => ({ name, detail, points })) : [],
     prep: findPrep(lines, table ? table.bottom : 0),
@@ -516,4 +728,4 @@ function parseSpecTable(words) {
   return draft;
 }
 
-module.exports = { pdfWords, photoWords, parseSpecTable };
+module.exports = { pdfWords, photoWords, docxWords, parseSpecTable };

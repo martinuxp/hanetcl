@@ -216,14 +216,22 @@ export type PickedDocument = { uri: string; name: string; mimeType: string; size
 
 export class DocumentError extends Error {}
 
-/** Lets the teacher choose a file; null when they cancel. Throws DocumentError for a file the Hall does not take. */
-export async function pickHallDocument(): Promise<PickedDocument | null> {
-  const result = await DocumentPicker.getDocumentAsync({ type: ACCEPTED_TYPES, copyToCacheDirectory: true, multiple: false });
+// What the T.E. scanner reads: PDF with text, Word (.docx) and photos.
+const SCAN_TYPES = [MIME_BY_EXTENSION.pdf, MIME_BY_EXTENSION.docx, MIME_BY_EXTENSION.jpg, MIME_BY_EXTENSION.png];
+
+/** Lets the teacher choose a file; null when they cancel. Throws DocumentError for a file the Hall (or the scanner) does not take. */
+export async function pickHallDocument(purpose: 'document' | 'scan' = 'document'): Promise<PickedDocument | null> {
+  const accepted = purpose === 'scan' ? SCAN_TYPES : ACCEPTED_TYPES;
+  const result = await DocumentPicker.getDocumentAsync({ type: accepted, copyToCacheDirectory: true, multiple: false });
   const asset = result.canceled ? null : result.assets[0];
   if (!asset) return null;
   const extension = asset.name.split('.').pop()?.toLowerCase() ?? '';
-  const mimeType = ACCEPTED_TYPES.includes(asset.mimeType ?? '') ? asset.mimeType as string : MIME_BY_EXTENSION[extension];
-  if (!mimeType) throw new DocumentError('Ese tipo de archivo no se puede subir. Usa PDF, Word, PowerPoint, Excel o una imagen.');
+  const mimeType = accepted.includes(asset.mimeType ?? '') ? asset.mimeType as string : MIME_BY_EXTENSION[extension];
+  if (!mimeType || !accepted.includes(mimeType)) {
+    throw new DocumentError(purpose === 'scan'
+      ? 'Para escanear, elige la tabla en PDF, Word (.docx) o una foto.'
+      : 'Ese tipo de archivo no se puede subir. Usa PDF, Word, PowerPoint, Excel o una imagen.');
+  }
   if ((asset.size ?? 0) > MAX_DOCUMENT_BYTES) throw new DocumentError('El archivo pesa más de 10 MB.');
   return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
 }
@@ -272,6 +280,21 @@ export async function scanSpecTable(hallId: string, picked: PickedDocument) {
   const staged = await stageDocument(picked);
   const result = await httpsCallable<{ hallId: string; uploadPath: string }, SpecTableDraft>(functions, 'scanSpecTable')({ hallId, uploadPath: staged.uploadPath });
   return { draft: result.data, staged };
+}
+
+// A scan read in the first sheet waits here for the form that opens next.
+let pendingScan: { hallId: string; draft: SpecTableDraft; staged: StagedDocument } | null = null;
+
+export function setPendingScan(hallId: string, draft: SpecTableDraft, staged: StagedDocument) {
+  pendingScan = { hallId, draft, staged };
+}
+
+export function peekPendingScan(hallId: string) {
+  return pendingScan?.hallId === hallId ? pendingScan : null;
+}
+
+export function clearPendingScan() {
+  pendingScan = null;
 }
 
 export async function deleteHallDocument(hallId: string, documentId: string) {

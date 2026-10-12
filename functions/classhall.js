@@ -3,7 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const { applicationDefault } = require("firebase-admin/app");
-const { pdfWords, photoWords, parseSpecTable } = require("./spec-table");
+const { pdfWords, photoWords, docxWords, parseSpecTable } = require("./spec-table");
 const { PLANS, findSubject, subjectKey } = require("./subjects");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
@@ -778,7 +778,7 @@ function build(getAdminApp) {
     return documentOut(await docRef.get());
   });
 
-  // Reads a specification table the teacher uploaded (PDF or photo) into a
+  // Reads a specification table the teacher uploaded (PDF, Word or photo) into a
   // draft for the evaluation form. The file stays in their upload folder, so
   // after saving it can become the evaluation's T.E.
   const scanSpecTable = onCall({ invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
@@ -818,6 +818,16 @@ function build(getAdminApp) {
       if (words.length < 10) {
         throw new HttpsError("failed-precondition", "Este PDF es una imagen escaneada y no trae texto. Sube una foto de la tabla o complétala a mano.");
       }
+    } else if (contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      try {
+        words = docxWords(buffer);
+      } catch (error) {
+        console.error("scanSpecTable docx", error.message);
+        words = [];
+      }
+      if (words.length < 10) {
+        throw new HttpsError("failed-precondition", "No encontramos texto en este Word. Guárdalo como PDF o completa la tabla a mano.");
+      }
     } else if (contentType === "image/jpeg" || contentType === "image/png") {
       try {
         const { access_token: token } = await applicationDefault().getAccessToken();
@@ -830,7 +840,7 @@ function build(getAdminApp) {
         throw new HttpsError("unavailable", "No pudimos leer la foto. Inténtalo nuevamente.");
       }
     } else {
-      throw new HttpsError("invalid-argument", "Escanea una tabla en PDF o una foto (JPG o PNG).");
+      throw new HttpsError("invalid-argument", "Escanea una tabla en PDF, Word (.docx) o una foto (JPG o PNG).");
     }
 
     return parseSpecTable(words);

@@ -6,11 +6,11 @@ import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError } from '@/services/auth-service';
-import { DEFAULT_SKILLS, DocumentError, attachStagedDocument, getLoadedHall, pickHallDocument, saveHallEvaluation, scanSpecTable, skillAbbreviation } from '@/services/classhall-service';
+import { DEFAULT_SKILLS, DocumentError, attachStagedDocument, clearPendingScan, getLoadedHall, peekPendingScan, pickHallDocument, saveHallEvaluation, scanSpecTable, skillAbbreviation } from '@/services/classhall-service';
 import type { HallEvaluationContent, HallObjective, SpecTableDraft, StagedDocument } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -61,6 +61,35 @@ function digits(value: string, max = 3) {
   return value.replace(/[^0-9]/g, '').slice(0, max);
 }
 
+/** The form with what a scanned T.E. brought; the day keeps the form's time. */
+function mergeDraft(current: Form, draft: SpecTableDraft): Form {
+  const skills = draft.skills.length ? draft.skills : current.skills;
+  let date = current.date;
+  if (draft.date) {
+    const [year, month, day] = draft.date.split('-').map(Number);
+    const kept = new Date(current.date);
+    date = new Date(year, month - 1, day, kept.getHours(), kept.getMinutes()).getTime();
+  }
+  return {
+    title: draft.title || current.title,
+    date,
+    exigency: draft.exigency !== null ? String(draft.exigency) : current.exigency,
+    skills,
+    rows: draft.contents.length ? draft.contents.map(content => toRow(content, skills.length)) : current.rows.map(row => ({ ...row, points: skills.map((_, index) => row.points[index] ?? '') })),
+    objectives: draft.objectives.length ? draft.objectives : current.objectives,
+    prep: draft.prep || current.prep,
+  };
+}
+
+/** The sections a scan filled, opened for the teacher to review. */
+function scannedSections(draft: SpecTableDraft) {
+  return [
+    ...(draft.contents.length ? ['table'] : []),
+    ...(draft.objectives.length ? ['objectives'] : []),
+    ...(draft.exigency !== null || draft.prep ? ['more'] : []),
+  ];
+}
+
 /** A small round "×" to take an item out of a list. */
 function RemoveButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled: boolean }) {
   return (
@@ -83,7 +112,10 @@ function EvaluationFormScreen() {
   const insets = useSafeAreaInsets();
   // `fromEvent` brings an evaluation the course already put on its Calendar,
   // with its title and date, so the teacher completes it in the Hall.
-  const { hallId, id, fromEvent, title: eventTitle, date: eventDate, scan: startScan } = useLocalSearchParams<{ hallId: string; id?: string; fromEvent?: string; title?: string; date?: string; scan?: string }>();
+  const { hallId, id, fromEvent, title: eventTitle, date: eventDate } = useLocalSearchParams<{ hallId: string; id?: string; fromEvent?: string; title?: string; date?: string }>();
+  // A T.E. read in the first sheet arrives already scanned.
+  const [pending] = useState(() => (id ? null : peekPendingScan(hallId)));
+  useEffect(() => { clearPendingScan(); }, []);
 
   const [initial] = useState<Form>(() => {
     const existing = id ? getLoadedHall(hallId)?.evaluations.find(item => item.id === id) : undefined;
@@ -110,63 +142,37 @@ function EvaluationFormScreen() {
       prep: '',
     };
   });
-  const [form, setForm] = useState<Form>(initial);
+  const [form, setForm] = useState<Form>(() => (pending ? mergeDraft(initial, pending.draft) : initial));
   const [picking, setPicking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The scanned T.E.: its file waits uploaded to become the evaluation's T.E. on saving.
   const [scanning, setScanning] = useState(false);
-  const [scanNotes, setScanNotes] = useState<string[] | null>(null);
+  const [scanNotes, setScanNotes] = useState<string[] | null>(pending?.draft.warnings ?? null);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [staged, setStaged] = useState<StagedDocument | null>(null);
+  const [staged, setStaged] = useState<StagedDocument | null>(pending?.staged ?? null);
   // Sections start closed, except the ones that already hold something.
   const [openSections, setOpenSections] = useState<string[]>(() => [
     ...(initial.rows.some(row => row.name.trim()) ? ['table'] : []),
-  ]);
+    ...(pending ? scannedSections(pending.draft) : []),
+  ].filter((section, index, list) => list.indexOf(section) === index));
   const toggleSection = (section: string) =>
     setOpenSections(list => (list.includes(section) ? list.filter(item => item !== section) : [...list, section]));
   const [editingSkills, setEditingSkills] = useState(false);
   const [detailRows, setDetailRows] = useState<number[]>([]);
-
-  const applyDraft = (draft: SpecTableDraft) => {
-    setForm(current => {
-      const skills = draft.skills.length ? draft.skills : current.skills;
-      let date = current.date;
-      if (draft.date) {
-        const [year, month, day] = draft.date.split('-').map(Number);
-        const kept = new Date(current.date);
-        date = new Date(year, month - 1, day, kept.getHours(), kept.getMinutes()).getTime();
-      }
-      return {
-        title: draft.title || current.title,
-        date,
-        exigency: draft.exigency !== null ? String(draft.exigency) : current.exigency,
-        skills,
-        rows: draft.contents.length ? draft.contents.map(content => toRow(content, skills.length)) : current.rows.map(row => ({ ...row, points: skills.map((_, index) => row.points[index] ?? '') })),
-        objectives: draft.objectives.length ? draft.objectives : current.objectives,
-        prep: draft.prep || current.prep,
-      };
-    });
-  };
 
   /** Scans a T.E.; false when the teacher closed the file picker without choosing. */
   const scan = async () => {
     if (scanning || submitting) return true;
     setScanError(null);
     try {
-      const picked = await pickHallDocument();
+      const picked = await pickHallDocument('scan');
       if (!picked) return false;
       setScanning(true);
       const { draft, staged: file } = await scanSpecTable(hallId, picked);
-      applyDraft(draft);
+      setForm(current => mergeDraft(current, draft));
       setStaged(file);
-      // What the scan filled opens, for the teacher to review.
-      setOpenSections(list => [...new Set([
-        ...list,
-        ...(draft.contents.length ? ['table'] : []),
-        ...(draft.objectives.length ? ['objectives'] : []),
-        ...(draft.exigency !== null || draft.prep ? ['more'] : []),
-      ])]);
+      setOpenSections(list => [...new Set([...list, ...scannedSections(draft)])]);
       setScanNotes(draft.warnings);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (readError) {
@@ -176,18 +182,6 @@ function EvaluationFormScreen() {
     }
     return true;
   };
-
-  // Coming from "Escanear T.E." in the first sheet, the file picker opens
-  // once the sheet has settled (iOS cannot present it mid-transition).
-  const scanStarted = useRef(false);
-  useEffect(() => {
-    if (startScan !== '1' || scanStarted.current) return;
-    scanStarted.current = true;
-    const timer = setTimeout(() => { void scan(); }, 450);
-    return () => clearTimeout(timer);
-    // Runs once, on opening.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const update = (changes: Partial<Form>) => {
     setForm(current => ({ ...current, ...changes }));
@@ -330,7 +324,7 @@ function EvaluationFormScreen() {
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityHint="Sube la T.E. en PDF o foto y llena el formulario"
+          accessibilityHint="Sube la T.E. en PDF, Word o foto y llena el formulario"
           disabled={scanning || submitting}
           onPress={() => void scan()}
           style={({ pressed }) => [local.scanLink, pressed && styles.pressed]}
