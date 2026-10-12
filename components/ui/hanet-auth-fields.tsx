@@ -1,6 +1,8 @@
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { ThemedText } from '@/components/themed-text';
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useEffect, useRef, useState } from 'react';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import { SPRING_SMOOTH } from '@/constants/motion';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import type { TextInputProps } from 'react-native';
 
@@ -59,9 +61,47 @@ type SegmentedProps<T extends string> = {
   tall?: boolean;
 };
 
+type Frame = { x: number; width: number };
+
 export function HanetSegmented<T extends string>({ options, value, onChange, accessibilityLabel, tall }: SegmentedProps<T>) {
+  const reduceMotion = useReducedMotion();
+  const [frames, setFrames] = useState<Record<string, Frame>>({});
+  const x = useSharedValue(0);
+  const width = useSharedValue(0);
+  const placed = useRef(false);
+
+  // The pill glides to the chosen segment (critically damped, no bounce);
+  // the first placement is instant.
+  useEffect(() => {
+    const frame = frames[value];
+    if (!frame) return;
+    if (placed.current && !reduceMotion) {
+      x.set(withSpring(frame.x, SPRING_SMOOTH));
+      width.set(withSpring(frame.width, SPRING_SMOOTH));
+    } else {
+      x.set(frame.x);
+      width.set(frame.width);
+    }
+    placed.current = true;
+  }, [frames, reduceMotion, value, width, x]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    width: width.get(),
+    opacity: width.get() > 0 ? 1 : 0,
+    transform: [{ translateX: x.get() }],
+  }));
+
+  const record = (key: string, frame: Frame) => {
+    setFrames(current => {
+      const known = current[key];
+      if (known && known.x === frame.x && known.width === frame.width) return current;
+      return { ...current, [key]: frame };
+    });
+  };
+
   return (
     <View accessibilityRole="tablist" accessibilityLabel={accessibilityLabel} style={styles.segmented}>
+      <Animated.View pointerEvents="none" style={[styles.pill, tall && styles.pillTall, pillStyle]} />
       {options.map(option => {
         const active = option.value === value;
         return (
@@ -71,7 +111,8 @@ export function HanetSegmented<T extends string>({ options, value, onChange, acc
             accessibilityLabel={option.accessibilityLabel}
             accessibilityState={{ selected: active }}
             onPress={() => onChange(option.value)}
-            style={({ pressed }) => [styles.segment, tall && styles.segmentTall, active && styles.segmentActive, pressed && !active && styles.segmentPressed]}
+            onLayout={event => record(option.value, { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}
+            style={({ pressed }) => [styles.segment, tall && styles.segmentTall, pressed && !active && styles.segmentPressed]}
           >
             {option.icon?.(active)}
             {!!option.label && (
@@ -144,8 +185,17 @@ const styles = StyleSheet.create({
   segmentTall: {
     height: 50,
   },
-  segmentActive: {
+  // Drawn under the segments and moved to the active one.
+  pill: {
+    position: 'absolute',
+    top: AppSpacing.sm,
+    left: 0,
+    height: 32,
+    borderRadius: AppRadii.pill,
     backgroundColor: AppColors.controlActive,
+  },
+  pillTall: {
+    height: 50,
   },
   segmentPressed: {
     opacity: 0.6,

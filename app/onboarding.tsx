@@ -1,9 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { markOnboardingSeen } from '@/services/onboarding';
 import PagerView from '@/components/PagerView';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import React, { useRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +16,22 @@ const PAGES = [
   'Calendario, anuncios, actividades, evaluaciones y mucho más en solo una App.',
 ];
 const SUBTITLE = 'La herramienta más moderna para estar conectad@ con tu institución.';
+
+// Headline growth with the system text size is capped so it still reads as a
+// headline; past that the card scrolls instead of clipping.
+const HEADLINE_MAX_SCALE = 1.25;
+
+/** One dot per page; the current one stretches, following the pages as they move. */
+function PageDot({ index, position }: { index: number; position: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => {
+    const nearness = Math.max(0, 1 - Math.abs(position.get() - index));
+    return {
+      width: interpolate(nearness, [0, 1], [8, 24]),
+      opacity: interpolate(nearness, [0, 1], [0.4, 1]),
+    };
+  });
+  return <Animated.View style={[styles.dot, style]} />;
+}
 
 // Figma [Walkthrough] 1 and 2 (10584:10855, 10584:10927).
 const ARROWS = {
@@ -28,6 +46,8 @@ export default function OnboardingScreen() {
   const { width, height } = useWindowDimensions();
   const pagerRef = useRef<PagerView>(null);
   const webPagerRef = useRef<ScrollView>(null);
+  // Page position as a continuous value (0 → 1 while swiping to the second).
+  const position = useSharedValue(0);
   // Shorter phones get a smaller headline so six lines still fit the card.
   const headlineSize = height < 760 ? 40 : 48;
 
@@ -47,16 +67,17 @@ export default function OnboardingScreen() {
     return (
       <View key={index} style={[styles.page, Platform.OS === 'web' && { width }]}>
         <View style={styles.card}>
-          <View style={styles.text}>
+          <ScrollView style={styles.textScroll} contentContainerStyle={styles.text} showsVerticalScrollIndicator={false} bounces={false}>
             <ThemedText
               accessibilityRole="header"
+              maxFontSizeMultiplier={HEADLINE_MAX_SCALE}
               style={[styles.headline, { fontSize: headlineSize, lineHeight: headlineSize * 1.2, letterSpacing: -headlineSize * 0.05 }]}
             >
               {headline}
             </ThemedText>
             <View style={styles.divider} />
             <ThemedText style={styles.subtitle}>{SUBTITLE}</ThemedText>
-          </View>
+          </ScrollView>
 
           {isFirst ? (
             <View style={styles.button}>
@@ -96,6 +117,8 @@ export default function OnboardingScreen() {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           style={styles.pager}
+          scrollEventThrottle={16}
+          onScroll={event => position.set(event.nativeEvent.contentOffset.x / width)}
         >
           {pages}
         </ScrollView>
@@ -104,10 +127,16 @@ export default function OnboardingScreen() {
           ref={pagerRef}
           style={styles.pager}
           initialPage={0}
+          onPageScroll={(event: { nativeEvent: { position: number; offset: number } }) => position.set(event.nativeEvent.position + event.nativeEvent.offset)}
         >
           {pages}
         </PagerView>
       )}
+
+      {/* Visual only: each page already reads as its own screen. */}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.pageControl}>
+        {PAGES.map((_, index) => <PageDot key={index} index={index} position={position} />)}
+      </View>
 
       <View style={styles.footer}>
         <ThemedText style={styles.footerText}>HaNet para estudiantes y comunidades.</ThemedText>
@@ -134,14 +163,27 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    justifyContent: 'space-between',
+    gap: AppSpacing.xl,
     padding: 32,
     borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
   },
+  textScroll: {
+    flex: 1,
+  },
   text: {
     gap: 32,
+  },
+  pageControl: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dot: {
+    height: 8,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.textSecondary,
   },
   headline: {
     fontFamily: 'DMSans_700Bold',
@@ -224,8 +266,5 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
     color: AppColors.textSecondary,
   },
-  pressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.97 }],
-  },
+  pressed: AppPressed,
 });

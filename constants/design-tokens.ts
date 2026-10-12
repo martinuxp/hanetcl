@@ -69,3 +69,6 @@ export const AppType = {
   footnote: { fontFamily: 'DMSans_400Regular', fontSize: 13, lineHeight: 18, letterSpacing: 0 },
   caption: { fontFamily: 'DMSans_500Medium', fontSize: 12, lineHeight: 16, letterSpacing: 0 },
 } as const;
+
+/** Press feedback shared by every tappable surface: a light dip and press-in. */
+export const AppPressed = { opacity: 0.84, transform: [{ scale: 0.97 }] } as const;

@@ -4,13 +4,15 @@ import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
-// Long enough to read as a beat of the brand, short enough not to hold anyone up.
-const MIN_VISIBLE_MS = 900;
-const FADE_MS = 240;
+// The first launch holds a beat for the brand; later ones only long enough
+// not to flash. Nobody waits on it once the app is ready.
+const FIRST_LAUNCH_MS = 900;
+const RETURNING_MS = 300;
+const EXIT_MS = 280;
 
 const VERSION = `V${Constants.expoConfig?.version ?? '1.0.0'}`;
 
@@ -25,30 +27,33 @@ const WORD_WIDTH = 147 + 24 + 125;
 const CARD_PADDING = 32;
 
 /**
- * HaNet's launch screen, drawn over the app while the session loads. It stays
- * at least a moment, then fades away once `ready` (the app has decided where
- * to go underneath).
+ * HaNet's launch screen, drawn over the app while the session loads. Once
+ * `ready` (the app has decided where to go underneath) it opens up and fades,
+ * so the first screen reads as coming out of it rather than cut in.
  */
-export function LaunchSplash({ ready }: { ready: boolean }) {
+export function LaunchSplash({ ready, quick = false }: { ready: boolean; quick?: boolean }) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const [gone, setGone] = useState(false);
-  const [minElapsed, setMinElapsed] = useState(false);
   const [cardWidth, setCardWidth] = useState(0);
-  const opacity = useSharedValue(1);
+  const [shownAt] = useState(() => Date.now());
+  const exit = useSharedValue(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => setMinElapsed(true), MIN_VISIBLE_MS);
+    if (!ready) return;
+    const hold = Math.max(0, (quick ? RETURNING_MS : FIRST_LAUNCH_MS) - (Date.now() - shownAt));
+    const timer = setTimeout(() => {
+      exit.set(withTiming(1, { duration: EXIT_MS, easing: Easing.out(Easing.cubic) }, finished => {
+        if (finished) scheduleOnRN(setGone, true);
+      }));
+    }, hold);
     return () => clearTimeout(timer);
-  }, []);
+  }, [exit, quick, ready, shownAt]);
 
-  useEffect(() => {
-    if (!ready || !minElapsed) return;
-    opacity.set(withTiming(0, { duration: FADE_MS, easing: Easing.out(Easing.cubic) }, finished => {
-      if (finished) scheduleOnRN(setGone, true);
-    }));
-  }, [minElapsed, opacity, ready]);
-
-  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  const style = useAnimatedStyle(() => ({
+    opacity: 1 - exit.get(),
+    transform: reduceMotion ? [] : [{ scale: 1 + 0.06 * exit.get() }],
+  }));
 
   if (gone) return null;
 

@@ -1,6 +1,8 @@
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { describeAuthError, getOnboardingStep, routeForStep, sendEmailCode, useSession, verifyEmailCode } from '@/services/auth-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -33,6 +35,7 @@ export default function VerifyEmailScreen() {
   // Only claim the code was sent once the backend says so.
   const [codeSent, setCodeSent] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   useEffect(() => {
     if (initializing) return;
@@ -107,7 +110,7 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  const useAnotherAccount = async () => {
+  const switchAccount = async () => {
     await signOut();
     router.replace('/auth');
   };
@@ -129,8 +132,8 @@ export default function VerifyEmailScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Volver"
-              accessibilityHint="Cierra la sesión para usar otra cuenta"
-              onPress={useAnotherAccount}
+              accessibilityHint="Pregunta antes de cerrar la sesión para usar otra cuenta"
+              onPress={() => setConfirmLeave(true)}
               style={({ pressed }) => [styles.backPill, pressed && styles.pressed]}
             >
               <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
@@ -217,6 +220,27 @@ export default function VerifyEmailScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* Going back means leaving this account: say so before doing it. */}
+      <HanetDialog
+        visible={confirmLeave}
+        onRequestClose={() => setConfirmLeave(false)}
+        dismissOnBackdrop
+        title="¿Usar otra cuenta?"
+        body="Tu HaNet ID ya está creado. Podrás verificarlo cuando vuelvas a iniciar sesión con él."
+      >
+        <HanetDialogActions>
+          <HanetButton label="Seguir aquí" variant="surface" onPress={() => setConfirmLeave(false)} style={dialogStyles.action} />
+          <HanetButton
+            label="Usar otra"
+            variant="accent"
+            onPress={() => {
+              setConfirmLeave(false);
+              void switchAccount();
+            }}
+            style={dialogStyles.action}
+          />
+        </HanetDialogActions>
+      </HanetDialog>
     </SafeAreaView>
   );
 }
@@ -409,7 +433,5 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     opacity: 0.8,
   },
-  pressed: {
-    opacity: 0.6,
-  },
+  pressed: AppPressed,
 });

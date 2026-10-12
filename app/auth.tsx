@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { HanetField, HanetSegmented } from '@/components/ui/hanet-auth-fields';
-import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import {
   describeAuthError,
   getOnboardingStep,
@@ -18,6 +18,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -54,6 +55,17 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
+  // Fields left once are checked right away, not only on submit.
+  const [touched, setTouched] = useState<Partial<Record<'fullName' | 'username' | 'email' | 'password', boolean>>>({});
+  const leave = (field: 'fullName' | 'username' | 'email' | 'password') => setTouched(current => ({ ...current, [field]: true }));
+  const flag = (field: 'fullName' | 'username' | 'email' | 'password') => (showErrors || !!touched[field]) && invalid[field];
+
+  // Switching between the two forms: what goes away fades out, what comes in
+  // fades in, and everything else slides to its new place instead of jumping.
+  const reduceMotion = useReducedMotion();
+  const moveLayout = reduceMotion ? undefined : LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
+  const appear = reduceMotion ? undefined : FadeIn.duration(180);
+  const vanish = reduceMotion ? undefined : FadeOut.duration(120);
   // Sign-up creates the session before the profile is saved; the redirect
   // below must wait until the whole step is done.
   const submitting = useRef(false);
@@ -84,6 +96,7 @@ export default function AuthScreen() {
     setError(null);
     setNotice(null);
     setShowErrors(false);
+    setTouched({});
   };
 
   const handleLogin = async () => {
@@ -183,7 +196,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.card}>
-            <View style={styles.tabs}>
+            <Animated.View layout={moveLayout} style={styles.tabs}>
               <HanetSegmented
                 accessibilityLabel="Tipo de cuenta"
                 value={mode}
@@ -193,18 +206,26 @@ export default function AuthScreen() {
                   { value: 'signup', label: 'Cuenta nueva', accessibilityLabel: 'Cuenta nueva' },
                 ]}
               />
-            </View>
-
-            {isSignUp && <OnboardingProgress step={1} />}
-            {!isSignUp && <ThemedText style={styles.welcome}>¡Qué bien que vuelves!</ThemedText>}
-
-            <View style={styles.headline}>
-              <ThemedText accessibilityRole="header" style={styles.headlineText}>HaNet ID</ThemedText>
-              <Image source={ICONS.logo} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet" />
-            </View>
+            </Animated.View>
 
             {isSignUp && (
-              <>
+              <Animated.View key="progress" entering={appear} exiting={vanish} layout={moveLayout}>
+                <OnboardingProgress step={1} />
+              </Animated.View>
+            )}
+            {!isSignUp && (
+              <Animated.View key="welcome" entering={appear} exiting={vanish} layout={moveLayout}>
+                <ThemedText style={styles.welcome}>¡Qué bien que vuelves!</ThemedText>
+              </Animated.View>
+            )}
+
+            <Animated.View layout={moveLayout} style={styles.headline}>
+              <ThemedText accessibilityRole="header" style={styles.headlineText}>HaNet ID</ThemedText>
+              <Image source={ICONS.logo} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet" />
+            </Animated.View>
+
+            {isSignUp && (
+              <Animated.View key="identity" entering={appear} exiting={vanish} layout={moveLayout} style={styles.group}>
                 <HanetField
                   label="Nombres y Apellidos"
                   value={fullName}
@@ -214,7 +235,8 @@ export default function AuthScreen() {
                   textContentType="name"
                   returnKeyType="next"
                   onSubmitEditing={() => usernameRef.current?.focus()}
-                  invalid={showErrors && invalid.fullName}
+                  onBlur={() => leave('fullName')}
+                  invalid={flag('fullName')}
                   editable={!loading}
                 />
                 <HanetField
@@ -229,13 +251,15 @@ export default function AuthScreen() {
                   returnKeyType="next"
                   onSubmitEditing={() => emailRef.current?.focus()}
                   leading={<Image source={ICONS.at} style={styles.icon} contentFit="contain" />}
-                  invalid={showErrors && invalid.username}
+                  onBlur={() => leave('username')}
+                  invalid={flag('username')}
                   editable={!loading}
                 />
-                <ThemedText style={styles.hint}>De 3 a 24 caracteres: letras, números, punto o guion bajo.</ThemedText>
-              </>
+                <ThemedText style={[styles.hint, styles.hintWrap]}>De 3 a 24 caracteres: letras, números, punto o guion bajo.</ThemedText>
+              </Animated.View>
             )}
 
+            <Animated.View layout={moveLayout}>
             <HanetField
               ref={emailRef}
               label="Email"
@@ -249,10 +273,13 @@ export default function AuthScreen() {
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
               trailing={<Image source={ICONS.mail} style={styles.icon} contentFit="contain" />}
-              invalid={isSignUp && showErrors && invalid.email}
+              onBlur={() => leave('email')}
+              invalid={isSignUp && flag('email')}
               editable={!loading}
             />
+            </Animated.View>
 
+            <Animated.View layout={moveLayout}>
             <HanetField
               ref={passwordRef}
               label="Contraseña"
@@ -266,14 +293,20 @@ export default function AuthScreen() {
               returnKeyType={isSignUp ? 'done' : 'go'}
               onSubmitEditing={isSignUp ? undefined : handleLogin}
               trailing={passwordToggle}
-              invalid={isSignUp && showErrors && invalid.password}
+              onBlur={() => leave('password')}
+              invalid={isSignUp && flag('password')}
               editable={!loading}
             />
+            </Animated.View>
 
-            {isSignUp && <ThemedText style={styles.hint}>Mínimo {MIN_PASSWORD} caracteres.</ThemedText>}
+            {isSignUp && (
+              <Animated.View key="password-hint" entering={appear} exiting={vanish} layout={moveLayout} style={styles.hintWrap}>
+                <ThemedText style={styles.hint}>Mínimo {MIN_PASSWORD} caracteres.</ThemedText>
+              </Animated.View>
+            )}
 
             {isSignUp ? (
-              <>
+              <Animated.View key="signup-extra" entering={appear} exiting={vanish} layout={moveLayout} style={styles.group}>
                 <View>
                   <ThemedText style={styles.sectionLabel}>¿Cómo prefieres que te tratemos?</ThemedText>
                   <HanetSegmented
@@ -314,22 +347,33 @@ export default function AuthScreen() {
                     <ThemedText style={[styles.termsText, styles.termsLink]}>Términos y Condiciones</ThemedText>
                   </Pressable>
                 </View>
-              </>
+              </Animated.View>
             ) : (
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleForgotPassword}
-                disabled={loading}
-                hitSlop={8}
-                style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}
-              >
-                <ThemedText style={styles.forgotText}>Olvidé mis credenciales</ThemedText>
-              </Pressable>
+              <Animated.View key="forgot" entering={appear} exiting={vanish} layout={moveLayout}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleForgotPassword}
+                  disabled={loading}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}
+                >
+                  <ThemedText style={styles.forgotText}>Olvidé mis credenciales</ThemedText>
+                </Pressable>
+              </Animated.View>
             )}
 
-            {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
-            {!!notice && <ThemedText accessibilityLiveRegion="polite" style={styles.notice}>{notice}</ThemedText>}
+            {!!error && (
+              <Animated.View entering={appear} layout={moveLayout}>
+                <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>
+              </Animated.View>
+            )}
+            {!!notice && (
+              <Animated.View entering={appear} layout={moveLayout}>
+                <ThemedText accessibilityLiveRegion="polite" style={styles.notice}>{notice}</ThemedText>
+              </Animated.View>
+            )}
 
+            <Animated.View layout={moveLayout}>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: loading, busy: loading }}
@@ -342,10 +386,11 @@ export default function AuthScreen() {
               </ThemedText>
               {!loading && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
             </Pressable>
+            </Animated.View>
           </View>
 
           {/* Signing in with Google is paused in auth-service, so it says so. */}
-          <View style={styles.quick}>
+          <Animated.View layout={moveLayout} style={styles.quick}>
             <View>
               <ThemedText style={styles.quickTitle}>Inicia rápidamente</ThemedText>
               {isSignUp && <ThemedText style={styles.quickNote}>Aceptas los Términos y Condiciones.</ThemedText>}
@@ -360,7 +405,7 @@ export default function AuthScreen() {
               <Image source={ICONS.google} style={styles.icon} contentFit="contain" />
               <ThemedText style={styles.quickSoon}>Próximamente</ThemedText>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -465,8 +510,13 @@ const styles = StyleSheet.create({
   iconMuted: {
     opacity: 0.55,
   },
-  hint: {
+  group: {
+    gap: AppSpacing.xl,
+  },
+  hintWrap: {
     marginTop: -AppSpacing.lg,
+  },
+  hint: {
     paddingHorizontal: AppSpacing.sm,
     fontFamily: 'DMSans_500Medium',
     fontSize: 12,
@@ -571,7 +621,5 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     color: AppColors.textPrimary,
   },
-  pressed: {
-    opacity: 0.6,
-  },
+  pressed: AppPressed,
 });

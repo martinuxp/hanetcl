@@ -12,7 +12,7 @@ import { GlobalTabBar } from '@/components/AppTabBar';
 import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
-import { hasSeenOnboarding } from '@/services/onboarding';
+import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
 
 
 export const unstable_settings = {
@@ -78,6 +78,8 @@ export default function RootLayout() {
   // Whether the screen under the launch splash is the right one yet: signed
   // out on a device that never saw the welcome pages goes to them first.
   const [routed, setRouted] = useState(false);
+  // A device that has opened HaNet before only gets a short splash.
+  const [returning, setReturning] = useState(false);
 
   const [loaded, error] = useFonts({
     DMSans_400Regular,
@@ -96,8 +98,13 @@ export default function RootLayout() {
     if (initializing || routed || !navigationReady) return;
     let active = true;
     (async () => {
-      if (!user && !(await hasSeenOnboarding()) && active) router.replace('/onboarding');
-      if (active) setRouted(true);
+      const seen = await hasSeenOnboarding();
+      if (!active) return;
+      if (!user && !seen) router.replace('/onboarding');
+      // Signed in already means past the welcome pages.
+      if (user && !seen) void markOnboardingSeen();
+      setReturning(seen);
+      setRouted(true);
     })();
     return () => { active = false; };
   }, [initializing, navigationReady, routed, router, user]);
@@ -130,7 +137,7 @@ export default function RootLayout() {
           </Stack>
           <GlobalTabBar />
           <StatusBar style="light" />
-          <LaunchSplash ready={routed} />
+          <LaunchSplash ready={routed} quick={returning} />
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>
