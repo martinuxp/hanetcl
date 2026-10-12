@@ -117,7 +117,7 @@ ${nameLine}
 }
 
 // Figma "✉️ email verify Template": the institution's banner with HaNet's
-// mark × its shield, then the invitation and a full-width button. Without a
+// mark × its shield (both 112 px tall), then the invitation and a full-width button. Without a
 // banner the band is dark; without a shield only HaNet's mark shows.
 function institutionHero(bannerUrl, logoUrl) {
   const background = bannerUrl
@@ -131,7 +131,7 @@ function institutionHero(bannerUrl, logoUrl) {
 <tr><td height="300" bgcolor="#282829"${background}>
 <table role="presentation" width="100%" height="300" cellpadding="0" cellspacing="0" style="background-color:rgba(0,0,0,0.2);"><tr><td align="center" valign="middle" height="300">
 <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td><img src="${LOGO_BASE}/hanet-icon.png" width="95" height="142" alt="HaNet" style="display:block;border:0;"></td>${shield}
+<td><img src="${LOGO_BASE}/hanet-icon.png" width="75" height="112" alt="HaNet" style="display:block;border:0;width:75px;height:112px;"></td>${shield}
 </tr></table>
 </td></tr></table>
 </td></tr>`;
