@@ -2,6 +2,8 @@ const { randomInt, randomUUID } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
+const { applicationDefault } = require("firebase-admin/app");
+const { pdfWords, photoWords, parseSpecTable } = require("./spec-table");
 const { PLANS, findSubject, subjectKey } = require("./subjects");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
@@ -25,6 +27,10 @@ const MAX_ANNOUNCEMENTS = 50;
 const MAX_EVALUATIONS = 60;
 const MAX_CONTENTS = 12;
 const MAX_POINTS = 999;
+// A specification table names its own skill columns; these are the usual ones.
+const DEFAULT_SKILLS = ["Conocimiento", "Aplicación", "Comprensión"];
+const MAX_SKILLS = 8;
+const MAX_OBJECTIVES = 6;
 // An evaluation takes one class block on the course calendar.
 const EVALUATION_MINUTES = 90;
 // Course calendar events shown inside a Hall: from a month back.
@@ -38,6 +44,9 @@ const MAX_COURSE_EVENTS = 30;
 const BUCKET = "hanet-edu.firebasestorage.app";
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const MAX_DOCUMENTS = 100;
+// Scans of specification tables per teacher and day, to stay within the free
+// Cloud Vision quota (1,000 photos a month).
+const MAX_SCANS_PER_DAY = 20;
 const DOCUMENT_TYPES = {
   "application/pdf": "pdf",
   "application/msword": "word",
@@ -238,15 +247,28 @@ function announcementOut(doc) {
   };
 }
 
+// Evaluations saved before the table had its own columns kept three fixed
+// ones (con, apl, com) and a single objective code.
+function evaluationTable(data) {
+  const skills = Array.isArray(data.skills) && data.skills.length ? data.skills : DEFAULT_SKILLS;
+  const contents = (data.contents || []).map(row => ({
+    name: row.name || "",
+    detail: row.detail || "",
+    points: Array.isArray(row.points) ? row.points : [row.con || 0, row.apl || 0, row.com || 0],
+  }));
+  const objectives = Array.isArray(data.objectives) ? data.objectives : data.oa ? [{ code: data.oa, text: "" }] : [];
+  return { skills, contents, objectives };
+}
+
 function evaluationOut(doc) {
   const data = doc.data();
   return {
     id: doc.id,
     title: data.title,
     date: millis(data.date),
-    oa: data.oa || "",
     exigency: data.exigency ?? null,
-    contents: data.contents || [],
+    ...evaluationTable(data),
+    prep: data.prep || "",
     authorName: data.authorName,
     updatedAt: millis(data.updatedAt) ?? millis(data.createdAt),
   };
@@ -576,8 +598,14 @@ function build(getAdminApp) {
     requireHallTeacher(isTeacher);
 
     const title = text(request.data?.title, 80);
-    const oa = text(request.data?.oa, 40);
     const date = Number(request.data?.date);
+    const prep = paragraph(request.data?.prep, 1500);
+    const skills = (Array.isArray(request.data?.skills) ? request.data.skills : [])
+      .map(skill => text(skill, 40)).filter(Boolean).slice(0, MAX_SKILLS);
+    const objectives = (Array.isArray(request.data?.objectives) ? request.data.objectives : [])
+      .map(objective => ({ code: text(objective?.code, 40), text: paragraph(objective?.text, 600) }))
+      .filter(objective => objective.code || objective.text)
+      .slice(0, MAX_OBJECTIVES);
     const rawExigency = request.data?.exigency;
     const exigency = rawExigency === null || rawExigency === undefined || rawExigency === "" ? null : Math.round(Number(rawExigency));
     const contents = (Array.isArray(request.data?.contents) ? request.data.contents : [])
@@ -585,14 +613,16 @@ function build(getAdminApp) {
       .map(row => ({
         name: text(row?.name, 80),
         detail: text(row?.detail, 160),
-        con: points(row?.con),
-        apl: points(row?.apl),
-        com: points(row?.com),
+        // One value per skill column, in the same order.
+        points: skills.map((_, index) => points(Array.isArray(row?.points) ? row.points[index] : 0)),
       }))
       .filter(row => row.name);
 
     if (title.length < 2) {
       throw new HttpsError("invalid-argument", "Escribe el nombre de la evaluación.");
+    }
+    if (contents.length > 0 && skills.length === 0) {
+      throw new HttpsError("invalid-argument", "Agrega al menos una habilidad a la tabla.");
     }
     if (!Number.isFinite(date) || date <= 0) {
       throw new HttpsError("invalid-argument", "Elige el día de la evaluación.");
@@ -632,16 +662,21 @@ function build(getAdminApp) {
     // Electivos and dominios reach the Calendar of every course their students come from.
     const courses = await calendarCourses(getAdminApp, data);
     const previous = existingId ? (await ref.get()).data()?.calendarCourses || [data.courseId] : [];
-    const fields = { title, date: start, oa, exigency, contents, authorName: data.teacherName, calendarCourses: courses };
+    const fields = {
+      title, date: start, exigency, skills, contents, objectives, prep,
+      authorName: data.teacherName,
+      calendarCourses: courses,
+    };
     if (existingId) {
-      await ref.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
+      // The old single objective code stops applying.
+      await ref.update({ ...fields, oa: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     } else {
       await ref.set({ ...fields, createdAt: FieldValue.serverTimestamp() });
     }
 
-    const total = contents.reduce((sum, row) => sum + row.con + row.apl + row.com, 0);
+    const total = contents.reduce((sum, row) => sum + row.points.reduce((rowSum, value) => rowSum + value, 0), 0);
     const summary = [
-      oa && `Objetivo: ${oa}.`,
+      objectives.length > 0 && `Objetivos: ${objectives.map(objective => objective.code || objective.text.slice(0, 40)).join(", ")}.`,
       total > 0 && `Total ${total} puntos.`,
       exigency !== null && `Exigencia ${exigency} %.`,
       contents.length > 0 && `Contenidos: ${contents.map(row => row.name).join(", ")}.`,
@@ -743,6 +778,64 @@ function build(getAdminApp) {
     return documentOut(await docRef.get());
   });
 
+  // Reads a specification table the teacher uploaded (PDF or photo) into a
+  // draft for the evaluation form. The file stays in their upload folder, so
+  // after saving it can become the evaluation's T.E.
+  const scanSpecTable = onCall({ invoker: "public", memory: "512MiB", timeoutSeconds: 60 }, async (request) => {
+    const { profile, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const uploadPath = typeof request.data?.uploadPath === "string" ? request.data.uploadPath : "";
+    if (!uploadPath.startsWith(`classhall-uploads/${profile.uid}/`) || uploadPath.includes("..")) {
+      throw new HttpsError("invalid-argument", "No encontramos el archivo subido.");
+    }
+
+    const db = classhallDb(getAdminApp);
+    const today = new Date().toISOString().slice(0, 10);
+    const counterRef = db.collection("scanCounts").doc(profile.uid);
+    await db.runTransaction(async (tx) => {
+      const counter = (await tx.get(counterRef)).data();
+      const count = counter?.day === today ? counter.count || 0 : 0;
+      if (count >= MAX_SCANS_PER_DAY) {
+        throw new HttpsError("resource-exhausted", "Llegaste al máximo de escaneos de hoy. Completa la tabla a mano o vuelve mañana.");
+      }
+      tx.set(counterRef, { day: today, count: count + 1 });
+    });
+
+    const file = getStorage(getAdminApp()).bucket(BUCKET).file(uploadPath);
+    const [exists] = await file.exists();
+    if (!exists) throw new HttpsError("not-found", "No encontramos el archivo subido.");
+    const [metadata] = await file.getMetadata();
+    const contentType = metadata.contentType;
+    if (Number(metadata.size) > MAX_DOCUMENT_BYTES) {
+      throw new HttpsError("invalid-argument", "El archivo pesa más de 10 MB.");
+    }
+    const [buffer] = await file.download();
+
+    let words;
+    if (contentType === "application/pdf") {
+      words = await pdfWords(buffer);
+      if (words.length < 10) {
+        throw new HttpsError("failed-precondition", "Este PDF es una imagen escaneada y no trae texto. Sube una foto de la tabla o complétala a mano.");
+      }
+    } else if (contentType === "image/jpeg" || contentType === "image/png") {
+      try {
+        const { access_token: token } = await applicationDefault().getAccessToken();
+        words = await photoWords(buffer, token);
+      } catch (error) {
+        console.error("scanSpecTable vision", error.message);
+        if (error.status === 403) {
+          throw new HttpsError("failed-precondition", "Escanear fotos todavía no está activado. Sube la tabla en PDF o complétala a mano.");
+        }
+        throw new HttpsError("unavailable", "No pudimos leer la foto. Inténtalo nuevamente.");
+      }
+    } else {
+      throw new HttpsError("invalid-argument", "Escanea una tabla en PDF o una foto (JPG o PNG).");
+    }
+
+    return parseSpecTable(words);
+  });
+
   const deleteHallDocument = onCall({ invoker: "public" }, async (request) => {
     const { hallRef, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
@@ -799,7 +892,7 @@ function build(getAdminApp) {
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
     getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation, verifyCalendarEvent,
-    attachHallDocument, deleteHallDocument,
+    attachHallDocument, deleteHallDocument, scanSpecTable,
   };
 }
 

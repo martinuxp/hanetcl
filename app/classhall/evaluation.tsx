@@ -5,7 +5,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { DocumentError, deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall, openHallDocument, pickHallDocument, uploadHallDocument } from '@/services/classhall-service';
+import { DocumentError, deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall, openHallDocument, pickHallDocument, skillAbbreviation, uploadHallDocument } from '@/services/classhall-service';
 import type { HallDetail } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -14,7 +14,21 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-/** Four numbers split by thin rules: knowledge, application, comprehension, total. */
+/** For tables with many skills: each value under its column name, scrolling sideways. */
+function PointCells({ labels, values }: { labels: string[]; values: number[] }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cells}>
+      {values.map((value, index) => (
+        <View key={index} style={[styles.cell, index === values.length - 1 && styles.cellTotal]}>
+          <ThemedText numberOfLines={1} style={styles.cellLabel}>{labels[index]}</ThemedText>
+          <ThemedText style={[styles.cellValue, index === values.length - 1 && styles.pointTotal]}>{value}</ThemedText>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+/** Numbers split by thin rules: one per skill, then the total. */
 function Points({ values, header }: { values: (string | number)[]; header?: boolean }) {
   return (
     <View style={styles.points}>
@@ -97,10 +111,15 @@ export default function HallEvaluationScreen() {
     }
   };
 
-  const sums = evaluation
-    ? evaluation.contents.reduce((total, row) => [total[0] + row.con, total[1] + row.apl, total[2] + row.com], [0, 0, 0])
-    : [0, 0, 0];
+  // Up to three skills fit beside each content, as in Figma; more go below it.
+  const skills = evaluation?.skills ?? [];
+  const inline = skills.length <= 3;
+  const labels = [...skills.map(skillAbbreviation), 'TOTAL.'];
+  const sums = skills.map((_, column) => (evaluation?.contents ?? []).reduce((sum, row) => sum + (row.points[column] ?? 0), 0));
   const total = evaluation ? evaluationTotal(evaluation) : 0;
+  const rowTotal = (points: number[]) => points.reduce((sum, value) => sum + value, 0);
+  const describe = (points: number[]) => skills.map((skill, column) => `${skill} ${points[column] ?? 0}`).join(', ');
+  const legend = skills.filter(skill => skillAbbreviation(skill) !== skill.toLocaleUpperCase('es'));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -133,26 +152,40 @@ export default function HallEvaluationScreen() {
                   <ThemedText style={styles.empty}>Tu docente todavía no detalla los contenidos de esta evaluación.</ThemedText>
                 ) : (
                   <>
-                    <View style={styles.headerRow} accessibilityLabel="Columnas: conocimiento, aplicación, comprensión y total">
-                      <Points header values={['CON.', 'APL.', 'COM.', 'TOTAL.']} />
-                    </View>
+                    {inline && (
+                      <View style={styles.headerRow} accessibilityLabel={`Columnas: ${skills.join(', ')} y total`}>
+                        <Points header values={labels} />
+                      </View>
+                    )}
                     {evaluation.contents.map((row, index) => (
                       <View
                         key={index}
-                        style={styles.row}
+                        style={[styles.row, !inline && styles.rowStacked]}
                         accessible
-                        accessibilityLabel={`${row.name}. ${row.detail ? `${row.detail}. ` : ''}Conocimiento ${row.con}, aplicación ${row.apl}, comprensión ${row.com}. Total ${row.con + row.apl + row.com} puntos.`}
+                        accessibilityLabel={`${row.name}. ${row.detail ? `${row.detail}. ` : ''}${describe(row.points)}. Total ${rowTotal(row.points)} puntos.`}
                       >
                         <View style={styles.rowText}>
                           <ThemedText style={styles.rowName}>{row.name}</ThemedText>
                           {!!row.detail && <ThemedText numberOfLines={2} style={styles.rowDetail}>{row.detail}</ThemedText>}
                         </View>
-                        <Points values={[row.con, row.apl, row.com, row.con + row.apl + row.com]} />
+                        {inline
+                          ? <Points values={[...skills.map((_, column) => row.points[column] ?? 0), rowTotal(row.points)]} />
+                          : <PointCells labels={labels} values={[...skills.map((_, column) => row.points[column] ?? 0), rowTotal(row.points)]} />}
                       </View>
                     ))}
-                    <View style={styles.totalRow} accessible accessibilityLabel={`Totales: ${sums[0]}, ${sums[1]}, ${sums[2]}. ${total} puntos.`}>
-                      <Points values={[...sums, total]} />
+                    <View style={[styles.totalRow, !inline && styles.totalStacked]} accessible accessibilityLabel={`Totales: ${describe(sums)}. ${total} puntos.`}>
+                      {inline ? <Points values={[...sums, total]} /> : (
+                        <>
+                          <ThemedText style={styles.rowName}>Totales</ThemedText>
+                          <PointCells labels={labels} values={[...sums, total]} />
+                        </>
+                      )}
                     </View>
+                    {legend.length > 0 && (
+                      <ThemedText style={styles.legend}>
+                        {legend.map(skill => `${skillAbbreviation(skill)} ${skill}`).join(' · ')}
+                      </ThemedText>
+                    )}
                   </>
                 )}
               </View>
@@ -169,9 +202,11 @@ export default function HallEvaluationScreen() {
                   style={styles.openTile}
                 />
                 <View style={styles.facts}>
-                  {!!evaluation.oa && (
+                  {evaluation.objectives.some(objective => objective.code) && (
                     <View style={styles.oa}>
-                      <ThemedText numberOfLines={1} style={styles.oaText}>{evaluation.oa}</ThemedText>
+                      <ThemedText numberOfLines={1} style={styles.oaText}>
+                        {evaluation.objectives.filter(objective => objective.code).map(objective => objective.code).join(' · ')}
+                      </ThemedText>
                     </View>
                   )}
                   {evaluation.exigency !== null && (
@@ -189,6 +224,25 @@ export default function HallEvaluationScreen() {
             </View>
 
             <ThemedText style={styles.when}>{hallLongDate(evaluation.date)}</ThemedText>
+
+            {evaluation.objectives.some(objective => objective.text) && (
+              <View style={styles.infoCard}>
+                <ThemedText style={styles.infoTitle}>Objetivos de aprendizaje</ThemedText>
+                {evaluation.objectives.map((objective, index) => (
+                  <ThemedText key={index} selectable style={styles.infoText}>
+                    {!!objective.code && <ThemedText style={styles.infoCode}>{objective.code}{objective.text ? ' ' : ''}</ThemedText>}
+                    {objective.text}
+                  </ThemedText>
+                ))}
+              </View>
+            )}
+
+            {!!evaluation.prep && (
+              <View style={styles.infoCard}>
+                <ThemedText style={styles.infoTitle}>Cómo prepararse</ThemedText>
+                <ThemedText selectable style={styles.infoText}>{evaluation.prep}</ThemedText>
+              </View>
+            )}
 
             <View style={styles.attribution}>
               <Image source={HALL_ICONS.badge} style={styles.badge} contentFit="contain" />
@@ -360,6 +414,76 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: -0.3,
     color: AppColors.textSecondary,
+  },
+  rowStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: AppSpacing.md,
+  },
+  totalStacked: {
+    alignItems: 'stretch',
+    gap: AppSpacing.sm,
+    opacity: 1,
+  },
+  cells: {
+    gap: AppSpacing.sm,
+  },
+  cell: {
+    minWidth: 56,
+    alignItems: 'center',
+    paddingVertical: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.md,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.canvas,
+  },
+  cellTotal: {
+    borderWidth: 1,
+    borderColor: AppColors.errorText,
+  },
+  cellLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    lineHeight: 14,
+    color: AppColors.textSecondary,
+  },
+  cellValue: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: AppColors.textPrimary,
+  },
+  legend: {
+    marginTop: AppSpacing.md,
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: AppColors.textSecondary,
+  },
+  infoCard: {
+    gap: AppSpacing.md,
+    padding: AppSpacing.xl,
+    borderRadius: AppRadii.xl,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+  },
+  infoTitle: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.63,
+    color: AppColors.textPrimary,
+  },
+  infoText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: AppColors.textSecondary,
+  },
+  infoCode: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    color: AppColors.textPrimary,
   },
   totalRow: {
     alignItems: 'flex-end',

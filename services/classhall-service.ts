@@ -32,25 +32,32 @@ export type HallAnnouncement = {
   updatedAt: number | null;
 };
 
-/** One row of the specification table: points for knowledge, application and comprehension. */
+/** One row of the specification table: points per skill column, in the table's order. */
 export type HallEvaluationContent = {
   name: string;
   detail: string;
-  con: number;
-  apl: number;
-  com: number;
+  points: number[];
 };
+
+/** A learning objective: its code ("OA 3") and, if the teacher wrote it, its text. */
+export type HallObjective = { code: string; text: string };
+
+/** The usual skill columns; each table can name its own. */
+export const DEFAULT_SKILLS = ['Conocimiento', 'Aplicación', 'Comprensión'];
 
 export type HallEvaluation = {
   id: string;
   title: string;
   /** Milliseconds since epoch. */
   date: number;
-  /** Learning objective code, such as "LE2M OA 08". */
-  oa: string;
   /** Percentage required to pass, 1 to 100. */
   exigency: number | null;
+  /** Names of the skill columns. */
+  skills: string[];
   contents: HallEvaluationContent[];
+  objectives: HallObjective[];
+  /** "Cómo prepararse": notes, materials and pages to study. */
+  prep: string;
   authorName: string;
   updatedAt: number | null;
 };
@@ -101,9 +108,11 @@ export type HallEvaluationInput = {
   calendarEventId?: string;
   title: string;
   date: number;
-  oa: string;
   exigency: number | null;
+  skills: string[];
   contents: HallEvaluationContent[];
+  objectives: HallObjective[];
+  prep: string;
 };
 
 export type HallPreview = {
@@ -219,15 +228,50 @@ export async function pickHallDocument(): Promise<PickedDocument | null> {
   return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
 }
 
-/** Uploads a picked file and shares it in the Hall, optionally attached to an announcement or as an evaluation's T.E. */
-export async function uploadHallDocument(hallId: string, picked: PickedDocument, attach: { announcementId?: string; evaluationId?: string } = {}) {
+type Attach = { announcementId?: string; evaluationId?: string };
+
+/** A file in the teacher's upload folder, not yet in any Hall. */
+export type StagedDocument = { uploadPath: string; name: string };
+
+async function stageDocument(picked: PickedDocument): Promise<StagedDocument> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new DocumentError('Inicia sesión para subir documentos.');
   const blob = picked.file ?? await (await fetch(picked.uri)).blob();
   const uploadPath = `classhall-uploads/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await uploadBytes(ref(storage, uploadPath), blob, { contentType: picked.mimeType });
-  const result = await httpsCallable<object, HallDocument>(functions, 'attachHallDocument')({ hallId, uploadPath, name: picked.name, ...attach });
+  return { uploadPath, name: picked.name };
+}
+
+/** Moves an uploaded file into the Hall, optionally attached to an announcement or as an evaluation's T.E. */
+export async function attachStagedDocument(hallId: string, staged: StagedDocument, attach: Attach = {}) {
+  const result = await httpsCallable<object, HallDocument>(functions, 'attachHallDocument')({ hallId, uploadPath: staged.uploadPath, name: staged.name, ...attach });
   return result.data;
+}
+
+/** Uploads a picked file and shares it in the Hall. */
+export async function uploadHallDocument(hallId: string, picked: PickedDocument, attach: Attach = {}) {
+  return attachStagedDocument(hallId, await stageDocument(picked), attach);
+}
+
+/** What the scanner read from a specification table; the teacher reviews it before saving. */
+export type SpecTableDraft = {
+  title: string;
+  /** The day as "YYYY-MM-DD", or null when the table has no date. */
+  date: string | null;
+  exigency: number | null;
+  objectives: HallObjective[];
+  skills: string[];
+  contents: HallEvaluationContent[];
+  prep: string;
+  /** What to check: rows whose points do not add up, missing date… */
+  warnings: string[];
+};
+
+/** Lets the teacher choose a T.E. (PDF or photo) and reads it. The file stays uploaded to become the T.E. once saved. */
+export async function scanSpecTable(hallId: string, picked: PickedDocument) {
+  const staged = await stageDocument(picked);
+  const result = await httpsCallable<{ hallId: string; uploadPath: string }, SpecTableDraft>(functions, 'scanSpecTable')({ hallId, uploadPath: staged.uploadPath });
+  return { draft: result.data, staged };
 }
 
 export async function deleteHallDocument(hallId: string, documentId: string) {
@@ -253,7 +297,8 @@ export async function deleteHallAnnouncement(hallId: string, announcementId: str
 }
 
 export async function saveHallEvaluation(input: HallEvaluationInput) {
-  await httpsCallable(functions, 'saveHallEvaluation')(input);
+  const result = await httpsCallable<HallEvaluationInput, { evaluationId: string }>(functions, 'saveHallEvaluation')(input);
+  return result.data.evaluationId;
 }
 
 export async function deleteHallEvaluation(hallId: string, evaluationId: string) {
@@ -266,7 +311,14 @@ export async function verifyCalendarEvent(hallId: string, eventId: string) {
 }
 
 export function evaluationTotal(evaluation: Pick<HallEvaluation, 'contents'>) {
-  return evaluation.contents.reduce((sum, row) => sum + row.con + row.apl + row.com, 0);
+  return evaluation.contents.reduce((sum, row) => sum + row.points.reduce((rowSum, value) => rowSum + value, 0), 0);
+}
+
+/** Short column header for a skill: "Conocimiento" → "CON.", "ASE" → "ASE". */
+export function skillAbbreviation(skill: string) {
+  const clean = skill.trim();
+  if (clean.length <= 5) return clean.toLocaleUpperCase('es');
+  return `${clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, 3).toLocaleUpperCase('es')}.`;
 }
 
 /** The callable's error code without its "functions/" prefix. */
