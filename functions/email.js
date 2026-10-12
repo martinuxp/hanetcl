@@ -7,6 +7,8 @@ const FROM = "HaNet <no-responder@hanet.muxp.art>";
 // Email clients only load images from a public URL (served by Firebase Hosting).
 const LOGO_BASE = "https://hanet-edu.web.app/email";
 const TAGLINE = "La herramienta más moderna para estar conectad@ con tu institución.";
+const TERMS_URL = "https://hanet-edu.web.app/terminos";
+const CONTACT = "muxp@muxp.art";
 
 function escapeHtml(value) {
   return String(value)
@@ -54,10 +56,20 @@ function layout(bodyRows) {
 </td></tr>
 ${bodyRows}
 <tr><td style="padding:24px 0;"><div style="height:2px;background:#000000;font-size:0;line-height:0;">&nbsp;</div></td></tr>
-<tr><td style="padding:16px 32px 32px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;line-height:18px;color:#241c15;">
+<tr><td style="padding:16px 32px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td valign="bottom" style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;line-height:18px;color:#241c15;">
 <img src="${LOGO_BASE}/hanet-logo-negro.png" width="147" height="40" alt="HaNet" style="display:block;border:0;font-size:24px;font-weight:700;color:#282829;">
 <br>&copy;${year} HaNet Chile<br><br>${escapeHtml(TAGLINE)}
-<br><br><span style="font-size:11px;">¿No reconoces este correo? Puedes ignorarlo: nadie podrá usar tu correo sin este mensaje.</span>
+</td>
+<td valign="bottom" align="right" style="font-family:Inter,Arial,sans-serif;font-size:13px;line-height:20px;color:#241c15;">
+<a href="${TERMS_URL}" style="color:#241c15;text-decoration:underline;white-space:nowrap;">Términos y Condiciones</a><br>
+<a href="mailto:${CONTACT}" style="color:#241c15;text-decoration:underline;">Contacto</a>
+</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding:8px 32px 32px;font-family:Inter,Arial,sans-serif;font-size:11px;line-height:15px;color:#241c15;">
+¿No reconoces este correo?<br>Puedes ignorarlo: nadie podrá usar tu correo sin este mensaje. Si te preocupa, escríbenos a <b>${CONTACT}</b>.
 </td></tr>
 </table>
 </td></tr>
@@ -104,48 +116,64 @@ ${nameLine}
   return { subject: `${code} es tu código de HaNet`, html, text };
 }
 
-// The institution's own shield and name, so the email reads as coming from
-// the school the student is joining. Without a shield, just the name.
-function institutionRow(institutionName, logoUrl) {
-  const logo = logoUrl
-    ? `<td width="56" style="width:56px;padding-right:16px;"><img src="${escapeHtml(logoUrl)}" width="56" height="56" alt="" style="display:block;border:0;width:56px;height:56px;object-fit:contain;"></td>`
+// Figma "✉️ email verify Template": the institution's banner with HaNet's
+// mark × its shield, then the invitation and a full-width button. Without a
+// banner the band is dark; without a shield only HaNet's mark shows.
+function institutionHero(bannerUrl, logoUrl) {
+  const background = bannerUrl
+    ? ` background="${escapeHtml(bannerUrl)}" style="background-color:#282829;background-image:url('${escapeHtml(bannerUrl)}');background-size:cover;background-position:center;"`
+    : ` style="background-color:#282829;"`;
+  const shield = logoUrl
+    ? `<td style="padding:0 20px;font-family:'DM Sans',Arial,sans-serif;font-size:24px;line-height:29px;font-weight:900;color:#f9f9fa;text-shadow:0 0 4px rgba(0,0,0,0.7);">X</td>
+<td><img src="${escapeHtml(logoUrl)}" height="112" alt="" style="display:block;border:0;height:112px;width:auto;max-width:140px;"></td>`
     : "";
   return `
-<tr><td style="padding:32px 32px 0;">
-<table role="presentation" cellpadding="0" cellspacing="0"><tr>${logo}
-<td style="font-family:'DM Sans',Arial,sans-serif;font-size:18px;line-height:24px;font-weight:700;color:#000000;">${escapeHtml(institutionName)}</td>
+<tr><td height="300" bgcolor="#282829"${background}>
+<table role="presentation" width="100%" height="300" cellpadding="0" cellspacing="0" style="background-color:rgba(0,0,0,0.2);"><tr><td align="center" valign="middle" height="300">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td><img src="${LOGO_BASE}/hanet-icon.png" width="95" height="142" alt="HaNet" style="display:block;border:0;"></td>${shield}
 </tr></table>
+</td></tr></table>
 </td></tr>`;
 }
 
-function magicLinkEmail({ fullName, institutionName, institutionLogoUrl, url, minutes }) {
+function magicLinkEmail({ fullName, username, institutionName, institutionLogoUrl, institutionBannerUrl, institutionalEmail, url, minutes }) {
   const firstName = String(fullName || "").trim().split(/\s+/)[0] || "";
-  const greeting = firstName ? `Hola ${escapeHtml(firstName)}, estás` : "Estás";
+  const name = escapeHtml(institutionName);
+  const hello = firstName
+    ? `Hola, ${escapeHtml(firstName)}${username ? ` (@${escapeHtml(username)})` : ""}.`
+    : "Hola.";
+  const body = "font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;";
+  const small = "font-family:Inter,Arial,sans-serif;font-size:13px;line-height:20px;color:#241c15;";
 
-  const html = layout(`${institutionRow(institutionName, institutionLogoUrl)}
-<tr><td style="padding:32px 32px 24px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
-<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Conecta tu HaNet ID</p>
-<p style="margin:22px 0 0;">${greeting} a un paso de unirte a ${escapeHtml(institutionName)} en HaNet. Confirma que este correo institucional es tuyo:</p>
-</td></tr>
-<tr><td align="center" style="padding:0 32px;">
-<a href="${escapeHtml(url)}" style="display:inline-block;padding:16px 32px;border-radius:360px;background:#282829;font-family:'DM Sans',Arial,sans-serif;font-size:16px;font-weight:700;color:#f9f9fa;text-decoration:none;">Confirmar mi correo</a>
-</td></tr>
-<tr><td style="padding:24px 32px 44px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
-<p style="margin:0;">El link funciona durante ${minutes} minutos. Después de confirmar, vuelve a la app para revisar tus datos.</p>
-<p style="margin:16px 0 0;font-size:13px;line-height:18px;">Si el botón no abre, copia esta dirección en tu navegador:<br>${escapeHtml(url)}</p>
+  const html = layout(`${institutionHero(institutionBannerUrl, institutionLogoUrl)}
+<tr><td style="padding:44px 32px;background:#efeeea;">
+<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">¡Conectemos tu HaNet ID!</p>
+<p style="margin:8px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:20px;line-height:24px;font-style:italic;color:#000000;">Es hora de enlazar tus credenciales y unirte a ${name}</p>
+<p style="margin:22px 0 0;${body}">${hello}</p>
+<p style="margin:24px 0 0;${body}">Para entrar a tu institución “${name}”, necesitas enlazar tu correo institucional con tu HaNet ID.</p>
+<p style="margin:24px 0 0;${body}">Al hacerlo, tomaremos tus datos de la lista de tu institución y los completaremos en tu HaNet ID, para que puedas entrar a tu institución en la aplicación.</p>
+<p style="margin:20px 0 0;${small}font-weight:300;">El enlace funciona durante ${minutes} minutos. Si el botón no funciona, copia y pega la siguiente dirección en el navegador del teléfono que estás usando para enlazar tu cuenta:</p>
+<p style="margin:0;${small}font-weight:600;word-break:break-all;">${escapeHtml(url)}</p>
+<p style="margin:20px 0 0;${small}font-weight:300;">Al enlazar, aceptas los <a href="${TERMS_URL}" style="color:#241c15;">Términos y Condiciones</a>.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px;"><tr>
+<td align="center" bgcolor="#ef2274" style="border-radius:60px;">
+<a href="${escapeHtml(url)}" style="display:block;padding:29px 22px;border-radius:60px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#282829;text-decoration:none;text-align:center;">Conectar HaNet ID${institutionalEmail ? ` a ${escapeHtml(institutionalEmail)}` : ""}</a>
+</td>
+</tr></table>
 </td></tr>`);
 
   const text = [
-    "Conecta tu HaNet ID",
+    "¡Conectemos tu HaNet ID!",
     "",
-    `Confirma que este correo institucional es tuyo para unirte a ${institutionName}:`,
+    `Para entrar a ${institutionName}, enlaza tu correo institucional con tu HaNet ID:`,
     url,
     "",
-    `El link funciona durante ${minutes} minutos.`,
+    `El enlace funciona durante ${minutes} minutos.`,
     "¿No reconoces este correo? Puedes ignorarlo.",
   ].join("\n");
 
-  return { subject: `Confirma tu correo para unirte a ${institutionName}`, html, text };
+  return { subject: `Conecta tu HaNet ID a ${institutionName}`, html, text };
 }
 
 module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, escapeHtml };

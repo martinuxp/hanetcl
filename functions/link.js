@@ -125,8 +125,11 @@ function build(getAdminApp) {
     if (available) {
       const message = magicLinkEmail({
         fullName: account.fullName,
+        username: account.username || null,
         institutionName: institution.data().name,
         institutionLogoUrl: institution.data().branding?.logoUrl || null,
+        institutionBannerUrl: institution.data().branding?.bannerUrl || null,
+        institutionalEmail: email,
         url: `${CONFIRM_URL}?u=${encodeURIComponent(auth.uid)}&t=${token}`,
         minutes: LINK_MINUTES,
       });
