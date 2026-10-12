@@ -114,6 +114,12 @@ export default function LinkInstitutionScreen() {
     return () => { active = false; clearInterval(timer); };
   }, [reviewOpen, step, syncing]);
 
+  // The shield is fetched ahead, so the sync screen shows it from its first frame.
+  const logoUrl = status?.logoUrl;
+  useEffect(() => {
+    if (logoUrl) void Image.prefetch(logoUrl);
+  }, [logoUrl]);
+
   // The app cannot know whether the email is on the roster, so after a while
   // it offers help instead of waiting forever. Each new link restarts the clock.
   useEffect(() => {

@@ -7,7 +7,9 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { getMyProfile } from '@/services/auth-service';
+import { Image } from 'expo-image';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeInRight, FadeOutLeft, useReducedMotion } from 'react-native-reanimated';
 
@@ -39,6 +41,20 @@ export default function UiShowcaseScreen() {
   const [disabled, setDisabled] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [syncVisible, setSyncVisible] = useState(false);
+  // The preview shows the shield of the viewer's own institution, as the real link does.
+  const [syncLogoUrl, setSyncLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getMyProfile()
+      .then(profile => {
+        if (!active || !profile.institutionLogoUrl) return;
+        void Image.prefetch(profile.institutionLogoUrl);
+        setSyncLogoUrl(profile.institutionLogoUrl);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
   const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
@@ -142,7 +158,7 @@ export default function UiShowcaseScreen() {
         institutionName="LCH Temuco"
         onDone={() => setWelcomeVisible(false)}
       />
-      {syncVisible && <InstitutionSync />}
+      {syncVisible && <InstitutionSync logoUrl={syncLogoUrl} />}
     </View>
   );
 }

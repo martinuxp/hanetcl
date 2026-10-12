@@ -78,7 +78,7 @@ export function InstitutionSync({ logoUrl }: Props) {
             </Animated.View>
           )}
         </View>
-        {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.shield} contentFit="contain" /> : <View style={styles.shield} />}
+        {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.shield} contentFit="contain" transition={150} /> : <View style={styles.shield} />}
       </View>
 
       <View style={[styles.card, styles.messageCard]}>
