@@ -135,7 +135,7 @@ export default function HallScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!initializing && !user) router.replace('/auth');
+    if (!initializing && !user) router.replace('/onboarding');
   }, [initializing, router, user]);
 
   // Reloads on coming back from the forms, so what was published shows up.

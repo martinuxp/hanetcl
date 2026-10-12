@@ -39,7 +39,7 @@ export default function VerifyEmailScreen() {
 
   useEffect(() => {
     if (initializing) return;
-    if (!user) router.replace('/auth');
+    if (!user) router.replace('/onboarding');
     else if (user.emailVerified) router.replace('/(tabs)');
   }, [initializing, router, user]);
 
@@ -112,7 +112,7 @@ export default function VerifyEmailScreen() {
 
   const switchAccount = async () => {
     await signOut();
-    router.replace('/auth');
+    router.replace('/onboarding');
   };
 
   if (initializing || !user) {

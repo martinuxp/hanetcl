@@ -68,7 +68,7 @@ export default function LinkInstitutionScreen() {
   useEffect(() => {
     if (initializing) return;
     if (!user) {
-      router.replace('/auth');
+      router.replace('/onboarding');
       return;
     }
     let active = true;
@@ -195,7 +195,7 @@ export default function LinkInstitutionScreen() {
 
   const useAnotherAccount = async () => {
     await signOut();
-    router.replace('/auth');
+    router.replace('/onboarding');
   };
 
   if (initializing || !user || checking) {

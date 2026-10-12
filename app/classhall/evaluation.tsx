@@ -40,7 +40,7 @@ export default function HallEvaluationScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!initializing && !user) router.replace('/auth');
+    if (!initializing && !user) router.replace('/onboarding');
   }, [initializing, router, user]);
 
   useFocusEffect(useCallback(() => {

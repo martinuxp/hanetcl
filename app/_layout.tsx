@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { DarkTheme, Stack, ThemeProvider, useRootNavigationState, useRouter } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, usePathname, useRootNavigationState, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,6 +13,10 @@ import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
+
+// The only screens reachable without an account. Everyone starts at the
+// onboarding, and signing out goes back to it.
+const PUBLIC_ROUTES = ['/onboarding', '/auth'];
 
 
 export const unstable_settings = {
@@ -101,7 +105,7 @@ export default function RootLayout() {
     (async () => {
       const seen = await hasSeenOnboarding();
       if (!active) return;
-      if (!user && !seen) router.replace('/onboarding');
+      if (!user) router.replace('/onboarding');
       // Signed in already means past the welcome pages.
       if (user && !seen) void markOnboardingSeen();
       setReturning(seen);
@@ -109,6 +113,15 @@ export default function RootLayout() {
     })();
     return () => { active = false; };
   }, [initializing, navigationReady, routed, router, user]);
+
+  // Without an account nothing but the onboarding and sign-in is open: losing
+  // the session anywhere (signing out, an expired account) lands on the
+  // onboarding.
+  const pathname = usePathname();
+  useEffect(() => {
+    if (initializing || !routed || !navigationReady || user) return;
+    if (!PUBLIC_ROUTES.includes(pathname)) router.replace('/onboarding');
+  }, [initializing, navigationReady, pathname, routed, router, user]);
 
   if (!loaded && !error) {
     return null;

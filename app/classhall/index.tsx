@@ -97,7 +97,7 @@ export default function ClassHallScreen() {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!initializing && !user) router.replace('/auth');
+    if (!initializing && !user) router.replace('/onboarding');
   }, [initializing, router, user]);
 
   // Reloads when coming back from the sheets that join or create a Hall.

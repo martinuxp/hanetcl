@@ -49,7 +49,7 @@ function EditProfileScreen() {
   useEffect(() => {
     if (initializing) return;
     if (!user) {
-      router.replace('/auth');
+      router.replace('/onboarding');
       return;
     }
     let active = true;

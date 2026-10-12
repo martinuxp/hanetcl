@@ -39,7 +39,7 @@ export default function JoinBetaScreen() {
   useEffect(() => {
     if (initializing) return;
     if (!user) {
-      router.replace('/auth');
+      router.replace('/onboarding');
       return;
     }
     let active = true;
@@ -89,7 +89,7 @@ export default function JoinBetaScreen() {
 
   const useAnotherAccount = async () => {
     await signOut();
-    router.replace('/auth');
+    router.replace('/onboarding');
   };
 
   if (initializing || !user || checking) {
