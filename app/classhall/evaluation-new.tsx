@@ -4,7 +4,7 @@ import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
@@ -23,10 +23,8 @@ function NewEvaluationScreen() {
   });
 
   return (
-    <ScrollView
-      style={styles.sheet}
-      contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
-    >
+    // A fixed view: the two choices fit the half sheet without scrolling.
+    <View style={[styles.sheet, styles.content, local.content, { paddingTop: AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.lg }]}>
       <ThemedText accessibilityRole="header" style={styles.title}>{params.fromEvent ? 'Completar evaluación' : 'Nueva evaluación'}</ThemedText>
       <ThemedText style={styles.lead}>¿Cómo quieres agregar la tabla de especificaciones?</ThemedText>
 
@@ -39,10 +37,13 @@ function NewEvaluationScreen() {
         <ThemedText style={local.optionText}>Escribe el nombre, el día y, si quieres, la tabla.</ThemedText>
       </Pressable>
 
-      <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
-      </Pressable>
-    </ScrollView>
+      {/* On iOS the sheet is closed by swiping it down, so there is no Cancel button to push the choices out of view. */}
+      {Platform.OS !== 'ios' && (
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
+          <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
