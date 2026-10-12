@@ -1,0 +1,79 @@
+name: Deploy Firebase
+
+# Publishes functions, rules and hosting to the hanet-edu project without a
+# computer: push a tag named firebase-deploy-<what>-<anything>, or run it by
+# hand. Every deploy still needs the owner's OK (CLAUDE.md); the tag is that OK.
+#   firebase-deploy-functions-storage-1   → --only functions,storage
+#   firebase-deploy-all-1                 → everything in firebase.json
+on:
+  push:
+    tags:
+      - "firebase-deploy-*"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Qué publicar (functions, storage, firestore, hosting; separados por coma). Vacío = todo."
+        required: false
+        default: "functions,storage"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to hanet-edu
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install function dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Decide what to deploy
+        id: target
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_ONLY: ${{ github.event.inputs.only }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            only="${INPUT_ONLY}"
+          else
+            # firebase-deploy-functions-storage-3 → functions,storage ; firebase-deploy-all-1 → everything
+            parts="${REF_NAME#firebase-deploy-}"
+            only=""
+            for part in ${parts//-/ }; do
+              case "$part" in
+                functions|storage|firestore|hosting) only="${only:+$only,}$part" ;;
+                all) only="" ; break ;;
+              esac
+            done
+          fi
+          echo "only=${only}" >> "$GITHUB_OUTPUT"
+          echo "Publicando: ${only:-todo}"
+
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy
+        env:
+          ONLY: ${{ steps.target.outputs.only }}
+        run: |
+          args="--project hanet-edu --non-interactive --force"
+          if [ -n "$ONLY" ]; then args="$args --only $ONLY"; fi
+          npx --yes firebase-tools@15 deploy $args
