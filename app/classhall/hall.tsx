@@ -318,6 +318,11 @@ export default function HallScreen() {
                 Código del Hall: <ThemedText style={styles.code}>{hall.code}</ThemedText> · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`}
               </ThemedText>
             )}
+            {isTeacher && (
+              <View style={styles.teacherRow}>
+                <HallPill label="Editar Hall" tone="light" onPress={() => router.push({ pathname: '/classhall/create', params: { id: hall.id } })} />
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -512,6 +517,10 @@ const styles = StyleSheet.create({
   },
   cancelled: {
     textDecorationLine: 'line-through',
+  },
+  teacherRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   sectionLabel: {
     marginTop: AppSpacing.sm,

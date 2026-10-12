@@ -2,14 +2,14 @@ import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
-import { HALL_THEMES, HALL_THEME_IDS, createHall, listHallCourses } from '@/services/classhall-service';
+import { HALL_THEMES, HALL_THEME_IDS, createHall, getLoadedHall, listHallCourses, updateHall } from '@/services/classhall-service';
 import type { HallTheme } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
-import { SUBJECTS } from '@/constants/subjects';
+import { SUBJECTS, findSubject } from '@/constants/subjects';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,19 +17,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 function CreateHallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // With an id the same form edits that Hall: subject and cover, not its course.
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const [editing] = useState(() => (id ? getLoadedHall(id)?.hall ?? null : null));
 
   // A subject of the shared catalog (the same the Calendar uses), or "other"
   // for an elective typed by hand.
-  const [catalogId, setCatalogId] = useState<string | null>(null);
-  const [otherSubject, setOtherSubject] = useState('');
-  const [themeTouched, setThemeTouched] = useState(false);
-  const [courses, setCourses] = useState<string[] | null>(null);
-  const [course, setCourse] = useState<string | null>(null);
-  const [theme, setTheme] = useState<HallTheme>('backToSchool');
+  const [initial] = useState(() => {
+    const known = editing ? findSubject(editing.subject) : null;
+    return {
+      catalogId: editing ? known?.id ?? 'other' : null,
+      otherSubject: editing && !known ? editing.subject : '',
+      theme: (editing?.theme && editing.theme in HALL_THEMES ? editing.theme : 'backToSchool') as HallTheme,
+    };
+  });
+  const [catalogId, setCatalogId] = useState<string | null>(initial.catalogId);
+  const [otherSubject, setOtherSubject] = useState(initial.otherSubject);
+  const [themeTouched, setThemeTouched] = useState(!!editing);
+  const [courses, setCourses] = useState<string[] | null>(editing ? [editing.courseId] : null);
+  const [course, setCourse] = useState<string | null>(editing?.courseId ?? null);
+  const [theme, setTheme] = useState<HallTheme>(initial.theme);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (editing) return;
     let active = true;
     listHallCourses()
       .then(list => { if (active) setCourses(list); })
@@ -39,10 +51,14 @@ function CreateHallScreen() {
         setError(describeAuthError(loadError, 'No pudimos cargar los cursos. Cierra y vuelve a intentarlo.'));
       });
     return () => { active = false; };
-  }, []);
+  }, [editing]);
 
   const subject = catalogId === 'other' ? otherSubject : SUBJECTS.find(item => item.id === catalogId)?.name ?? '';
-  const ready = subject.trim().length >= 2 && !!course;
+  const changed = !editing
+    || catalogId !== initial.catalogId
+    || (catalogId === 'other' && otherSubject.trim() !== initial.otherSubject.trim())
+    || theme !== initial.theme;
+  const ready = subject.trim().length >= 2 && !!course && changed;
 
   const pickSubject = (id: string) => {
     setCatalogId(id);
@@ -57,24 +73,25 @@ function CreateHallScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await createHall(subject, course, theme);
+      if (editing) await updateHall(editing.id, subject, theme);
+      else await createHall(subject, course, theme);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
       router.back();
     } catch (createError) {
-      setError(describeAuthError(createError, 'No pudimos crear el Hall. Inténtalo nuevamente.'));
+      setError(describeAuthError(createError, editing ? 'No pudimos guardar los cambios. Inténtalo nuevamente.' : 'No pudimos crear el Hall. Inténtalo nuevamente.'));
       setSubmitting(false);
     }
   };
 
   // Closing with a subject, course or theme chosen asks first.
   const { allowLeave, dialog } = useUnsavedChangesGuard({
-    dirty: (!!catalogId || !!course || themeTouched) && !submitting,
+    dirty: (editing ? changed : !!catalogId || !!course || themeTouched) && !submitting,
     onSave: submit,
-    saveLabel: 'Crear Hall',
+    saveLabel: editing ? 'Guardar cambios' : 'Crear Hall',
     canSave: ready,
-    title: '¿Descartar este Hall?',
-    message: ready ? 'Todavía no lo has creado.' : 'Todavía no lo has creado, y le faltan datos para hacerlo.',
+    title: editing ? '¿Descartar los cambios?' : '¿Descartar este Hall?',
+    message: editing ? 'El Hall quedará como estaba.' : ready ? 'Todavía no lo has creado.' : 'Todavía no lo has creado, y le faltan datos para hacerlo.',
   });
 
   return (
@@ -83,9 +100,11 @@ function CreateHallScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>Crear un Hall</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{editing ? 'Editar Hall' : 'Crear un Hall'}</ThemedText>
       <ThemedText style={styles.lead}>
-        Un Hall es tu asignatura en un curso. Al crearlo recibes un código para que tus estudiantes se unan.
+        {editing
+          ? 'Cambia la asignatura o la portada. Tus estudiantes, anuncios y evaluaciones se mantienen.'
+          : 'Un Hall es tu asignatura en un curso. Al crearlo recibes un código para que tus estudiantes se unan.'}
       </ThemedText>
 
       <View style={styles.field}>
@@ -121,7 +140,10 @@ function CreateHallScreen() {
         {courses?.length === 0 && !error && (
           <ThemedText style={styles.hint}>Tu institución todavía no tiene cursos en su nómina.</ThemedText>
         )}
-        {!!courses?.length && (
+        {editing && (
+          <ThemedText style={styles.hint}>{editing.courseId}. El curso no se puede cambiar.</ThemedText>
+        )}
+        {!editing && !!courses?.length && (
           <HanetChoice
             label="Curso"
             options={courses.map(option => ({ value: option, label: option }))}
@@ -164,7 +186,7 @@ function CreateHallScreen() {
         onPress={submit}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? 'Creando…' : 'Crear Hall'}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? (editing ? 'Guardando…' : 'Creando…') : editing ? 'Guardar cambios' : 'Crear Hall'}</ThemedText>
       </Pressable>
       <Pressable
         accessibilityRole="button"

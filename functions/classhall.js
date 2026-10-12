@@ -381,6 +381,49 @@ function build(getAdminApp) {
     };
   });
 
+  // The teacher renames the Hall's subject or changes its cover. The course
+  // stays: moving it would move its students and its Calendar.
+  const updateHall = onCall({ invoker: "public" }, async (request) => {
+    const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const typed = text(request.data?.subject, 60);
+    const subject = findSubject(typed)?.name || typed;
+    const theme = THEMES.includes(request.data?.theme) ? request.data.theme : data.theme;
+    if (subject.length < 2) {
+      throw new HttpsError("invalid-argument", "Escribe el nombre de la asignatura.");
+    }
+
+    const key = subjectKey(subject);
+    if (key !== (data.subjectId || subjectKey(data.subject))) {
+      const mine = await classhallDb(getAdminApp).collection("halls").where("teacherUid", "==", profile.uid).get();
+      if (mine.docs.some(doc => doc.id !== hallRef.id && doc.data().courseId === data.courseId && subjectKey(doc.data().subject) === key)) {
+        throw new HttpsError("already-exists", "Ya tienes un Hall de esa asignatura para ese curso.");
+      }
+    }
+
+    await hallRef.update({ subject, subjectId: key, theme, updatedAt: FieldValue.serverTimestamp() });
+
+    // The Hall's evaluations on the course Calendar carry the subject in
+    // their title; they follow the new name.
+    if (subject !== data.subject) {
+      const evaluations = await hallRef.collection("evaluations").get();
+      const refs = evaluations.docs.map(doc => calendarRef(getAdminApp, data, hallRef.id, doc.id));
+      const events = refs.length ? await calendarDb(getAdminApp).getAll(...refs) : [];
+      const batch = calendarDb(getAdminApp).batch();
+      events.forEach((event, index) => {
+        if (!event.exists) return;
+        batch.update(event.ref, {
+          title: `${evaluations.docs[index].data().title} · ${subject}`.slice(0, 120),
+          subject: subject.slice(0, 60),
+        });
+      });
+      if (events.some(event => event.exists)) await batch.commit();
+    }
+
+    return { hallId: hallRef.id, subject, theme };
+  });
+
   const saveHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
@@ -509,7 +552,7 @@ function build(getAdminApp) {
 
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
-    getHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation,
+    getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation,
   };
 }
 

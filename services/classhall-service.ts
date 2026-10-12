@@ -128,6 +128,11 @@ export async function createHall(subject: string, courseId: string, theme: HallT
   return result.data;
 }
 
+export async function updateHall(hallId: string, subject: string, theme: HallTheme) {
+  const result = await httpsCallable<{ hallId: string; subject: string; theme: string }, { hallId: string; subject: string; theme: string }>(functions, 'updateHall')({ hallId, subject, theme });
+  return result.data;
+}
+
 export async function listHallCourses() {
   const result = await httpsCallable<void, { courses: string[] }>(functions, 'listHallCourses')();
   return result.data.courses;
