@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
-import { consumePendingWelcome, getGreetingProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
+import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
 import type { Treatment } from '@/services/auth-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -15,6 +15,26 @@ export default function HomeScreen() {
   const { user, initializing } = useSession();
   // Only decides whether to draw the entry; the panel and its backend check the role again.
   const isHnt = useRole() === 'HNT';
+
+  // The account's institution and its identity (shield and banner), set in
+  // the HNT panel. Reloaded on every visit; the last one stays while it loads.
+  const [institution, setInstitution] = useState<{ uid: string; name: string; logoUrl: string | null; bannerUrl: string | null } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      let active = true;
+      getMyProfile()
+        .then(profile => {
+          if (!active) return;
+          setInstitution(profile.institutionName
+            ? { uid: user.uid, name: profile.institutionName, logoUrl: profile.institutionLogoUrl ?? null, bannerUrl: profile.institutionBannerUrl ?? null }
+            : null);
+        })
+        .catch(() => undefined);
+      return () => { active = false; };
+    }, [user])
+  );
+  const shownInstitution = user && institution?.uid === user.uid ? institution : null;
 
   const [welcome, setWelcome] = useState<{ firstName: string; treatment: Treatment; institutionName?: string } | null>(null);
 
@@ -69,7 +89,11 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TopHeader />
-        <InstitutionBanner />
+        {!!shownInstitution && (
+          <View style={styles.banner}>
+            <InstitutionBanner title={shownInstitution.name} logoUrl={shownInstitution.logoUrl} bannerUrl={shownInstitution.bannerUrl} />
+          </View>
+        )}
         <GridMenu />
 
         {!user && (
@@ -115,6 +139,11 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     paddingBottom: 150,
+  },
+  banner: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 24,
   },
   uiCatalogButton: {
     marginHorizontal: 16,

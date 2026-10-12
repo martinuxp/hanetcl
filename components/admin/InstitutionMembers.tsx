@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { AlertModal } from '@/components/ui/alert-modal';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { joinInstitution, listMembers, MEMBER_ROLES, setMemberRole, unlinkMember } from '@/services/hnt-admin-service';
 import type { Member, MemberRole } from '@/services/hnt-admin-service';
@@ -17,8 +17,9 @@ const ROLE_NOTES: Record<MemberRole, string> = {
   HNT: 'Equipo HaNet. Además, entra a este panel.',
 };
 
-// More rows than this would make the card endless; searching narrows it down.
-const VISIBLE_ROWS = 40;
+// The list grows a page at a time instead of drawing everyone at once;
+// searching narrows it down.
+const PAGE_ROWS = 40;
 
 type Props = {
   institutionId: string;
@@ -33,6 +34,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [visibleRows, setVisibleRows] = useState(PAGE_ROWS);
 
   const [selected, setSelected] = useState<Member | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
@@ -160,7 +162,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
         <TextInput
           accessibilityLabel="Buscar persona"
           value={search}
-          onChangeText={setSearch}
+          onChangeText={text => { setSearch(text); setVisibleRows(PAGE_ROWS); }}
           placeholder="Buscar por nombre, curso o rol"
           placeholderTextColor="rgba(221,221,226,0.4)"
           autoCapitalize="none"
@@ -169,7 +171,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
         />
       )}
 
-      {filtered.slice(0, VISIBLE_ROWS).map(member => {
+      {filtered.slice(0, visibleRows).map(member => {
         const linked = !!member.uid;
         return (
           <Pressable
@@ -194,8 +196,15 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
         );
       })}
 
-      {filtered.length > VISIBLE_ROWS && (
-        <ThemedText style={styles.note}>Se muestran {VISIBLE_ROWS} de {filtered.length}. Usa el buscador para encontrar a alguien.</ThemedText>
+      {filtered.length > visibleRows && (
+        <View style={styles.more}>
+          <ThemedText style={styles.note}>Se muestran {visibleRows} de {filtered.length}. Usa el buscador para encontrar a alguien.</ThemedText>
+          <HanetButton
+            label={`Mostrar ${Math.min(PAGE_ROWS, filtered.length - visibleRows)} más`}
+            variant="surface"
+            onPress={() => setVisibleRows(count => count + PAGE_ROWS)}
+          />
+        </View>
       )}
       {members.length > 0 && filtered.length === 0 && <ThemedText style={styles.note}>Nadie coincide con esa búsqueda.</ThemedText>}
 
@@ -433,7 +442,8 @@ const styles = StyleSheet.create({
   dialogAction: {
     flex: 1,
   },
-  pressed: {
-    opacity: 0.6,
+  more: {
+    gap: AppSpacing.sm,
   },
+  pressed: AppPressed,
 });

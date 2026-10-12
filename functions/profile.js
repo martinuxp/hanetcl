@@ -58,6 +58,8 @@ function build(getAdminApp) {
       courseId: linked?.courseId || null,
       institutionName: institution?.name || null,
       institutionFullName: institution?.fullName || institution?.name || null,
+      institutionLogoUrl: institution?.branding?.logoUrl || null,
+      institutionBannerUrl: institution?.branding?.bannerUrl || null,
       memberSince: Date.parse(authUser.metadata.creationTime) || null,
     };
   });

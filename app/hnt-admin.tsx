@@ -2,23 +2,28 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { InstitutionMembers } from '@/components/admin/InstitutionMembers';
+import InstitutionBanner from '@/components/InstitutionBanner';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, ensureClaims, useSession } from '@/services/auth-service';
 import {
   createInstitution,
   importRoster,
+  pickBrandingImage,
+  removeBrandingImage,
+  uploadBrandingImage,
   listInstitutions,
   parseRoster,
   rotateInviteCode,
 } from '@/services/hnt-admin-service';
-import type { AdminInstitution, RosterImportResult } from '@/services/hnt-admin-service';
+import type { AdminInstitution, BrandingKind, RosterImportResult } from '@/services/hnt-admin-service';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -26,6 +31,9 @@ type Access = 'checking' | 'granted' | 'denied';
 type CodeDialog =
   | { kind: 'confirm'; institution: AdminInstitution }
   | { kind: 'shown'; institution: AdminInstitution; words: string[]; copied: boolean };
+
+// Enough to scan at a glance; the search finds the rest.
+const INSTITUTIONS_PAGE = 10;
 
 function formatDate(millis: number) {
   return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(millis));
@@ -57,6 +65,49 @@ export default function HntAdminScreen() {
   const [importResult, setImportResult] = useState<(RosterImportResult & { headerRows: number }) | null>(null);
 
   const parsed = useMemo(() => parseRoster(rosterText), [rosterText]);
+
+  // Institutions show as a compact list, a page at a time; one opens at once.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [institutionSearch, setInstitutionSearch] = useState('');
+  const [institutionLimit, setInstitutionLimit] = useState(INSTITUTIONS_PAGE);
+  const filteredInstitutions = useMemo(() => {
+    const term = institutionSearch.trim().toLocaleLowerCase('es');
+    if (!term) return institutions;
+    return institutions.filter(item => `${item.name} ${item.fullName}`.toLocaleLowerCase('es').includes(term));
+  }, [institutions, institutionSearch]);
+
+  const [brandingBusy, setBrandingBusy] = useState<{ id: string; kind: BrandingKind } | null>(null);
+  const [brandingError, setBrandingError] = useState<{ id: string; message: string } | null>(null);
+
+  const changeBranding = async (institution: AdminInstitution, kind: BrandingKind) => {
+    if (brandingBusy) return;
+    const localUri = await pickBrandingImage();
+    if (!localUri) return;
+    setBrandingBusy({ id: institution.id, kind });
+    setBrandingError(null);
+    try {
+      const url = await uploadBrandingImage(institution.id, kind, localUri);
+      setInstitutions(list => list.map(item => (item.id === institution.id ? { ...item, [`${kind}Url`]: url } : item)));
+    } catch (uploadError) {
+      setBrandingError({ id: institution.id, message: describeAuthError(uploadError, 'No pudimos guardar la imagen. Revisa tu conexión e inténtalo nuevamente.') });
+    } finally {
+      setBrandingBusy(null);
+    }
+  };
+
+  const clearBranding = async (institution: AdminInstitution, kind: BrandingKind) => {
+    if (brandingBusy) return;
+    setBrandingBusy({ id: institution.id, kind });
+    setBrandingError(null);
+    try {
+      await removeBrandingImage(institution.id, kind);
+      setInstitutions(list => list.map(item => (item.id === institution.id ? { ...item, [`${kind}Url`]: null } : item)));
+    } catch (removeError) {
+      setBrandingError({ id: institution.id, message: describeAuthError(removeError, 'No pudimos quitar la imagen. Inténtalo nuevamente.') });
+    } finally {
+      setBrandingBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -227,13 +278,95 @@ export default function HntAdminScreen() {
             <ThemedText style={styles.muted}>Todavía no hay instituciones. Crea la primera más abajo.</ThemedText>
           )}
 
-          {institutions.map(institution => {
+          {institutions.length > 5 && (
+            <TextInput
+              accessibilityLabel="Buscar institución"
+              value={institutionSearch}
+              onChangeText={text => { setInstitutionSearch(text); setInstitutionLimit(INSTITUTIONS_PAGE); }}
+              placeholder="Buscar institución"
+              placeholderTextColor="rgba(221,221,226,0.4)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.search}
+            />
+          )}
+          {institutions.length > 0 && filteredInstitutions.length === 0 && (
+            <ThemedText style={styles.muted}>Ninguna institución coincide con esa búsqueda.</ThemedText>
+          )}
+
+          {filteredInstitutions.slice(0, institutionLimit).map(institution => {
             const rosterOpen = rosterFor === institution.id;
+            const expanded = expandedId === institution.id;
+            const busyKind = brandingBusy?.id === institution.id ? brandingBusy.kind : null;
             return (
               <View key={institution.id} style={styles.card}>
-                <View>
-                  <ThemedText style={styles.cardTitle}>{institution.name}</ThemedText>
-                  {!!institution.fullName && <ThemedText style={styles.muted}>{institution.fullName}</ThemedText>}
+                {/* A compact row; tapping it opens the institution's tools. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityHint={expanded ? 'Cierra la institución' : 'Abre la identidad, el código y la lista de la institución'}
+                  onPress={() => setExpandedId(current => (current === institution.id ? null : institution.id))}
+                  style={({ pressed }) => [styles.rowHeader, pressed && styles.pressed]}
+                >
+                  <View style={styles.rowLogo}>
+                    {institution.logoUrl
+                      ? <Image source={{ uri: institution.logoUrl }} style={styles.rowLogoImage} contentFit="contain" />
+                      : <ThemedText style={styles.rowInitials}>{institution.name.slice(0, 2).toLocaleUpperCase('es')}</ThemedText>}
+                  </View>
+                  <View style={styles.rowText}>
+                    <ThemedText style={styles.cardTitle} numberOfLines={1}>{institution.name}</ThemedText>
+                    <ThemedText style={styles.muted} numberOfLines={1}>
+                      {institution.rosterCount === 1 ? '1 persona' : `${institution.rosterCount} personas`}
+                      {institution.hasInviteCode ? ' · con código' : ' · sin código'}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.chevron}>{expanded ? '−' : '+'}</ThemedText>
+                </Pressable>
+
+                {expanded && (
+                <>
+                {!!institution.fullName && <ThemedText style={styles.muted}>{institution.fullName}</ThemedText>}
+
+                {/* Identity shown in Home, the identity link and its emails. */}
+                <View style={styles.branding}>
+                  <ThemedText style={styles.brandingTitle}>Identidad</ThemedText>
+                  <InstitutionBanner title={institution.name} logoUrl={institution.logoUrl} bannerUrl={institution.bannerUrl} />
+                  <ThemedText style={styles.muted}>
+                    Se ve en el inicio de sus miembros, al unirse a la institución y en el correo de verificación institucional.
+                  </ThemedText>
+                  <View style={styles.actions}>
+                    <HanetButton
+                      label={busyKind === 'logo' ? 'Guardando…' : institution.logoUrl ? 'Cambiar escudo' : 'Subir escudo'}
+                      variant="surface"
+                      onPress={() => changeBranding(institution, 'logo')}
+                      disabled={!!brandingBusy}
+                      style={styles.action}
+                    />
+                    <HanetButton
+                      label={busyKind === 'banner' ? 'Guardando…' : institution.bannerUrl ? 'Cambiar banner' : 'Subir banner'}
+                      variant="surface"
+                      onPress={() => changeBranding(institution, 'banner')}
+                      disabled={!!brandingBusy}
+                      style={styles.action}
+                    />
+                  </View>
+                  {(!!institution.logoUrl || !!institution.bannerUrl) && (
+                    <View style={styles.brandingRemove}>
+                      {!!institution.logoUrl && (
+                        <Pressable accessibilityRole="button" disabled={!!brandingBusy} onPress={() => clearBranding(institution, 'logo')} hitSlop={8} style={({ pressed }) => pressed && styles.pressed}>
+                          <ThemedText style={styles.link}>Quitar escudo</ThemedText>
+                        </Pressable>
+                      )}
+                      {!!institution.bannerUrl && (
+                        <Pressable accessibilityRole="button" disabled={!!brandingBusy} onPress={() => clearBranding(institution, 'banner')} hitSlop={8} style={({ pressed }) => pressed && styles.pressed}>
+                          <ThemedText style={styles.link}>Quitar banner</ThemedText>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                  {brandingError?.id === institution.id && (
+                    <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{brandingError.message}</ThemedText>
+                  )}
                 </View>
 
                 <View style={styles.facts}>
@@ -341,9 +474,19 @@ export default function HntAdminScreen() {
                     />
                   </View>
                 )}
+                </>
+                )}
               </View>
             );
           })}
+
+          {filteredInstitutions.length > institutionLimit && (
+            <HanetButton
+              label={`Mostrar más (${filteredInstitutions.length - institutionLimit} ${filteredInstitutions.length - institutionLimit === 1 ? 'restante' : 'restantes'})`}
+              variant="surface"
+              onPress={() => setInstitutionLimit(limit => limit + INSTITUTIONS_PAGE)}
+            />
+          )}
 
           <ThemedText style={styles.sectionTitle}>Nueva institución</ThemedText>
           <View style={styles.card}>
@@ -450,6 +593,72 @@ const styles = StyleSheet.create({
     borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
+  },
+  rowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    minHeight: 48,
+  },
+  rowLogo: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.canvas,
+    overflow: 'hidden',
+  },
+  rowLogoImage: {
+    width: 34,
+    height: 38,
+  },
+  rowInitials: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  rowText: {
+    flex: 1,
+  },
+  chevron: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 24,
+    lineHeight: 28,
+    color: AppColors.textSecondary,
+    width: 24,
+    textAlign: 'center',
+  },
+  branding: {
+    gap: AppSpacing.md,
+  },
+  brandingTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: AppColors.textPrimary,
+  },
+  brandingRemove: {
+    flexDirection: 'row',
+    gap: AppSpacing.xl,
+  },
+  link: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: 'underline',
+    color: AppColors.textSecondary,
+  },
+  search: {
+    minHeight: 48,
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 16,
+    color: AppColors.textPrimary,
   },
   cardTitle: {
     fontFamily: 'DMSans_700Bold',
@@ -600,7 +809,5 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: AppColors.textPrimary,
   },
-  pressed: {
-    opacity: 0.6,
-  },
+  pressed: AppPressed,
 });

@@ -1,7 +1,8 @@
 rules_version = '2';
 
-// Firebase Storage. For now it only holds profile photos, one per account:
-//   profile-photos/{uid}/avatar.jpg
+// Firebase Storage:
+//   profile-photos/{uid}/avatar.jpg        one per account, private
+//   institutions/{id}/logo.png|banner.jpg  the institution's shield and banner
 //
 // Photos are private to their owner: the app does not show anyone's photo to
 // other people yet. Widen `read` only together with the feature that needs it.
@@ -17,6 +18,19 @@ service firebase.storage {
         && request.resource != null
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // Institution identity: public, because emails load it from its URL and
+    // Home shows it to every member. Only the HaNet team (role HNT) changes it.
+    match /institutions/{institutionId}/{file} {
+      allow read: if file in ['logo.png', 'banner.jpg'];
+      allow delete: if request.auth != null && request.auth.token.role == 'HNT';
+      allow write: if request.auth != null
+        && request.auth.token.role == 'HNT'
+        && file in ['logo.png', 'banner.jpg']
+        && request.resource != null
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
     }
 
     match /{allPaths=**} {

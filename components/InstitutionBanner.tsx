@@ -1,81 +1,72 @@
-import { AppColors, AppType } from '@/constants/design-tokens';
-import React from 'react';
-import { View, StyleSheet, ImageBackground, Image, Platform } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
+import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
+import { Image } from 'expo-image';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
-export default function InstitutionBanner() {
+type Props = {
+  /** What the banner says: the institution's name, or a phrase around it. */
+  title: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  height?: number;
+};
+
+/**
+ * The institution's identity: its banner photo with the shield and name over
+ * it. Both images are set by the HaNet team in the HNT panel; without a
+ * banner the card is plain, and without a shield only the name shows.
+ */
+export default function InstitutionBanner({ title, logoUrl, bannerUrl, height = 105 }: Props) {
   return (
-    <View style={styles.container}>
-      <ImageBackground
-        source={{ uri: 'https://www.ufromedios.cl/wp-content/uploads/2021/04/Edificio_Liceo_Camilo_Henriquez.jpg' }}
-        style={styles.imageBackground}
-        imageStyle={styles.imageStyle}
-      >
-        <View style={styles.overlay} />
-        <View style={styles.content}>
-          <View style={styles.logoPlaceholder}>
-            <Image
-              source={require('@/assets/images/lch-transparente.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-          <ThemedText style={styles.title}>LCH Temuco</ThemedText>
-        </View>
-      </ImageBackground>
+    <View style={[styles.card, { height }]} accessible accessibilityRole="header" accessibilityLabel={title.replace(/\n/g, ' ')}>
+      {!!bannerUrl && (
+        <>
+          <Image source={{ uri: bannerUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+          {/* Keeps the name legible over any photo. */}
+          <View style={styles.shade} />
+        </>
+      )}
+      <View style={styles.content}>
+        {!!logoUrl && <Image source={{ uri: logoUrl }} style={styles.logo} contentFit="contain" transition={200} />}
+        <ThemedText style={[styles.title, !!bannerUrl && styles.titleOverPhoto]} numberOfLines={2}>{title}</ThemedText>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 24,
-  },
-  imageBackground: {
-    height: 105,
+  card: {
     width: '100%',
+    overflow: 'hidden',
     justifyContent: 'center',
-    ...(Platform.OS === 'web'
-      ? ({ boxShadow: '0 4px 10px rgba(0,0,0,0.3)' } as any)
-      : { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }),
-    elevation: 8,
-  },
-  imageStyle: {
-    borderRadius: 32,
+    borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
   },
-  overlay: {
+  shade: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 32,
-    borderCurve: 'continuous',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.xxl,
   },
-  logoPlaceholder: {
-    width: 65,
-    height: 75,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    overflow: 'hidden',
-  },
-  logoImage: {
+  logo: {
     width: 56,
     height: 67,
   },
   title: {
-    color: AppColors.textSecondary,
     ...AppType.title2,
-    marginBottom: 0,
-    ...(Platform.OS === 'web'
-      ? ({ textShadow: '0 4px 5px rgba(0,0,0,0.7)' } as any)
-      : { textShadowColor: 'rgba(0,0,0,0.7)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 5.1 }),
+    flexShrink: 1,
+    color: AppColors.textSecondary,
+  },
+  titleOverPhoto: {
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 5,
   },
 });

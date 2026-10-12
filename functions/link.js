@@ -126,6 +126,7 @@ function build(getAdminApp) {
       const message = magicLinkEmail({
         fullName: account.fullName,
         institutionName: institution.data().name,
+        institutionLogoUrl: institution.data().branding?.logoUrl || null,
         url: `${CONFIRM_URL}?u=${encodeURIComponent(auth.uid)}&t=${token}`,
         minutes: LINK_MINUTES,
       });
@@ -200,7 +201,12 @@ function build(getAdminApp) {
     const auth = requireVerified(request);
     const db = identityDb(getAdminApp);
     const { institution } = await loadInstitution(db, auth.uid);
-    const base = { institutionId: institution.id, institutionName: institution.data().name };
+    const base = {
+      institutionId: institution.id,
+      institutionName: institution.data().name,
+      logoUrl: institution.data().branding?.logoUrl || null,
+      bannerUrl: institution.data().branding?.bannerUrl || null,
+    };
 
     const stored = (await db.collection("linkRequests").doc(auth.uid).get()).data();
     if (!stored || stored.expiresAt.toMillis() < Date.now()) return { ...base, status: "none" };

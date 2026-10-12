@@ -4,7 +4,8 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 const WORDS = require("./wordlist");
 
 // institutions/{institutionId}
-//   name, fullName, methods, inviteHash, inviteUpdatedAt, createdAt
+//   name, fullName, methods, inviteHash, inviteUpdatedAt, createdAt,
+//   branding: { logoUrl, bannerUrl, updatedAt }   (images in Storage, see storage.rules)
 // institutions/{institutionId}/roster/{rut}
 //   rut, nombres, apellidos, curso, email, updatedAt, linkedUid?
 //
@@ -76,6 +77,24 @@ function normalizeRut(value) {
   const rest = 11 - (sum % 11);
   const expected = rest === 11 ? "0" : rest === 10 ? "K" : String(rest);
   return expected === clean.slice(-1) ? clean : null;
+}
+
+const BUCKET = "hanet-edu.firebasestorage.app";
+const BRANDING_KINDS = ["logo", "banner"];
+
+// The institution's shield and banner: part of its identity, shown in Home,
+// in the identity link and in the emails it sends. Missing ones are null.
+function brandingOf(data) {
+  return {
+    logoUrl: data?.branding?.logoUrl || null,
+    bannerUrl: data?.branding?.bannerUrl || null,
+  };
+}
+
+// Only download URLs of this institution's own files in our bucket.
+function isBrandingUrl(url, institutionId, kind) {
+  const prefix = `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodeURIComponent(`institutions/${institutionId}/${kind}`)}`;
+  return typeof url === "string" && url.length < 2000 && url.startsWith(prefix);
 }
 
 function build(getAdminApp) {
@@ -158,6 +177,7 @@ function build(getAdminApp) {
         rosterCount: roster.data().count,
         hasInviteCode: Boolean(data.inviteHash),
         inviteUpdatedAt: data.inviteUpdatedAt ? data.inviteUpdatedAt.toMillis() : null,
+        ...brandingOf(data),
       };
     }));
 
@@ -271,7 +291,36 @@ function build(getAdminApp) {
     return { imported: entries.length, rejected: rejected.slice(0, 50), rejectedCount: rejected.length };
   });
 
-  return { redeemInviteCode, adminListInstitutions, adminCreateInstitution, adminRotateInviteCode, adminImportRoster };
+  // Sets or clears the shield ("logo") or banner. The app uploads the image to
+  // Storage first (HNT only, by the storage rules) and hands over its URL.
+  const adminSetInstitutionBranding = onCall(async (request) => {
+    requireHnt(request);
+    const institutionId = text(request.data?.institutionId, 60);
+    const kind = request.data?.kind;
+    const url = request.data?.url ?? null;
+
+    if (!BRANDING_KINDS.includes(kind)) {
+      throw new HttpsError("invalid-argument", "Elige el escudo o el banner.");
+    }
+    if (url !== null && !isBrandingUrl(url, institutionId, kind)) {
+      throw new HttpsError("invalid-argument", "Esa imagen no es de esta institución.");
+    }
+
+    const ref = identityDb(getAdminApp).collection("institutions").doc(institutionId);
+    if (!institutionId || !(await ref.get()).exists) {
+      throw new HttpsError("not-found", "No encontramos esa institución.");
+    }
+
+    await ref.set({
+      branding: {
+        [`${kind}Url`]: url === null ? FieldValue.delete() : url,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+    }, { merge: true });
+    return { kind, url };
+  });
+
+  return { redeemInviteCode, adminListInstitutions, adminCreateInstitution, adminRotateInviteCode, adminImportRoster, adminSetInstitutionBranding };
 }
 
 module.exports = { build, normalizeRut };

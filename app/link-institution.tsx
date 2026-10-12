@@ -1,5 +1,6 @@
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { AlertModal } from '@/components/ui/alert-modal';
+import InstitutionBanner from '@/components/InstitutionBanner';
 import { ThemedText } from '@/components/themed-text';
 import { HanetField } from '@/components/ui/hanet-auth-fields';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -25,7 +26,6 @@ const ICONS = {
   back: require('@/assets/icons/event/arrow-left-long.svg'),
   lock: require('@/assets/icons/auth/lock.svg'),
   logo: require('@/assets/icons/auth/logo-mark.svg'),
-  mark: require('@/assets/icons/auth/hanet-icon.svg'),
   mail: require('@/assets/icons/auth/mail.svg'),
   arrow: require('@/assets/icons/auth/arrow-right-long.svg'),
 };
@@ -186,11 +186,9 @@ export default function LinkInstitutionScreen() {
     );
   }
 
+  // The institution's own banner and shield when it has them (HNT panel).
   const banner = (
-    <View style={styles.banner}>
-      <ThemedText style={styles.bannerText}>Unirse a{'\n'}{institutionName}</ThemedText>
-      <Image source={ICONS.mark} style={styles.bannerMark} contentFit="contain" />
-    </View>
+    <InstitutionBanner title={`Unirse a\n${institutionName}`} logoUrl={status?.logoUrl} bannerUrl={status?.bannerUrl} height={138} />
   );
 
   return (
@@ -464,28 +462,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 47,
     height: 43,
-  },
-  banner: {
-    height: 138,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.sm,
-    paddingHorizontal: 35,
-    borderRadius: AppRadii.xl,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.canvas,
-  },
-  bannerText: {
-    flex: 1,
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 24,
-    lineHeight: 29,
-    letterSpacing: -1.08,
-    color: AppColors.textPrimary,
-  },
-  bannerMark: {
-    width: 41,
-    height: 61,
   },
   lead: {
     fontFamily: 'DMSans_500Medium',

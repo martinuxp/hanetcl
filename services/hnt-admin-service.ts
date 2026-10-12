@@ -1,5 +1,8 @@
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { functions, storage } from './firebase';
 
 export type AdminInstitution = {
   id: string;
@@ -8,7 +11,48 @@ export type AdminInstitution = {
   rosterCount: number;
   hasInviteCode: boolean;
   inviteUpdatedAt: number | null;
+  /** The institution's shield and banner, shown in Home, the identity link and its emails. */
+  logoUrl: string | null;
+  bannerUrl: string | null;
 };
+
+export type BrandingKind = 'logo' | 'banner';
+
+// The shield keeps its transparency (PNG); the banner is a photo (JPEG).
+const BRANDING_FILES: Record<BrandingKind, { file: string; width: number; format: SaveFormat; contentType: string }> = {
+  logo: { file: 'logo.png', width: 512, format: SaveFormat.PNG, contentType: 'image/png' },
+  banner: { file: 'banner.jpg', width: 1600, format: SaveFormat.JPEG, contentType: 'image/jpeg' },
+};
+
+/** Opens the photo library for a shield or banner. Null if the person backs out. */
+export async function pickBrandingImage(): Promise<string | null> {
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+  return result.canceled ? null : result.assets[0]?.uri ?? null;
+}
+
+/** Resizes, uploads and records the image; returns its public URL. */
+export async function uploadBrandingImage(institutionId: string, kind: BrandingKind, localUri: string) {
+  const spec = BRANDING_FILES[kind];
+  const resized = await manipulateAsync(localUri, [{ resize: { width: spec.width } }], {
+    compress: kind === 'banner' ? 0.82 : 1,
+    format: spec.format,
+  });
+  const blob = await (await fetch(resized.uri)).blob();
+  const fileRef = ref(storage, `institutions/${institutionId}/${spec.file}`);
+  await uploadBytes(fileRef, blob, { contentType: spec.contentType, cacheControl: 'public, max-age=86400' });
+  const url = await getDownloadURL(fileRef);
+  await httpsCallable(functions, 'adminSetInstitutionBranding')({ institutionId, kind, url });
+  return url;
+}
+
+export async function removeBrandingImage(institutionId: string, kind: BrandingKind) {
+  await httpsCallable(functions, 'adminSetInstitutionBranding')({ institutionId, kind, url: null });
+  try {
+    await deleteObject(ref(storage, `institutions/${institutionId}/${BRANDING_FILES[kind].file}`));
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'storage/object-not-found') throw error;
+  }
+}
 
 export type RosterRow = {
   rut: string;

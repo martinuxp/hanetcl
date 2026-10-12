@@ -104,12 +104,26 @@ ${nameLine}
   return { subject: `${code} es tu código de HaNet`, html, text };
 }
 
-function magicLinkEmail({ fullName, institutionName, url, minutes }) {
+// The institution's own shield and name, so the email reads as coming from
+// the school the student is joining. Without a shield, just the name.
+function institutionRow(institutionName, logoUrl) {
+  const logo = logoUrl
+    ? `<td width="56" style="width:56px;padding-right:16px;"><img src="${escapeHtml(logoUrl)}" width="56" height="56" alt="" style="display:block;border:0;width:56px;height:56px;object-fit:contain;"></td>`
+    : "";
+  return `
+<tr><td style="padding:32px 32px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>${logo}
+<td style="font-family:'DM Sans',Arial,sans-serif;font-size:18px;line-height:24px;font-weight:700;color:#000000;">${escapeHtml(institutionName)}</td>
+</tr></table>
+</td></tr>`;
+}
+
+function magicLinkEmail({ fullName, institutionName, institutionLogoUrl, url, minutes }) {
   const firstName = String(fullName || "").trim().split(/\s+/)[0] || "";
   const greeting = firstName ? `Hola ${escapeHtml(firstName)}, estás` : "Estás";
 
-  const html = layout(`
-<tr><td style="padding:44px 32px 24px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
+  const html = layout(`${institutionRow(institutionName, institutionLogoUrl)}
+<tr><td style="padding:32px 32px 24px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
 <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Conecta tu HaNet ID</p>
 <p style="margin:22px 0 0;">${greeting} a un paso de unirte a ${escapeHtml(institutionName)} en HaNet. Confirma que este correo institucional es tuyo:</p>
 </td></tr>

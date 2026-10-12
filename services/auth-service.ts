@@ -81,6 +81,9 @@ export async function redeemInviteCode(words: string[]) {
 export type LinkStatus = {
   institutionId: string;
   institutionName: string;
+  /** The institution's shield and banner (null or missing while it has none). */
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
   /** 'sent' also covers an email that is not on the roster: the app cannot tell them apart. */
   status: 'none' | 'sent' | 'email-confirmed';
   email?: string;
@@ -115,6 +118,8 @@ export type MyProfile = {
   courseId: string | null;
   institutionName: string | null;
   institutionFullName: string | null;
+  institutionLogoUrl: string | null;
+  institutionBannerUrl: string | null;
   /** Milliseconds since epoch of the account's creation. */
   memberSince: number | null;
 };
