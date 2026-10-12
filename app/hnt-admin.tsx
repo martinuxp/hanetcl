@@ -269,6 +269,7 @@ export default function HntAdminScreen() {
           </View>
 
           <HanetButton label="Sistema HaNet UI" variant="surface" onPress={() => router.push('/ui-showcase')} />
+          <HanetButton label="Ver onboarding" variant="surface" onPress={() => router.push({ pathname: '/onboarding', params: { preview: '1' } })} />
 
           <ThemedText style={styles.sectionTitle}>Instituciones</ThemedText>
 

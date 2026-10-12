@@ -3,7 +3,7 @@ import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-
 import { markOnboardingSeen } from '@/services/onboarding';
 import PagerView from '@/components/PagerView';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import React, { useRef } from 'react';
@@ -42,6 +42,9 @@ const ARROWS = {
 /** The two welcome pages shown once, before signing in for the first time. */
 export default function OnboardingScreen() {
   const router = useRouter();
+  // Opened from the HNT panel to look at it: finishing goes back there and
+  // changes nothing on this device.
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const pagerRef = useRef<PagerView>(null);
@@ -57,6 +60,11 @@ export default function OnboardingScreen() {
   };
 
   const finish = () => {
+    if (preview) {
+      if (router.canGoBack()) router.back();
+      else router.replace('/hnt-admin');
+      return;
+    }
     void markOnboardingSeen();
     router.replace('/auth');
   };
