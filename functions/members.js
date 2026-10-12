@@ -55,6 +55,7 @@ function build(getAdminApp) {
       .map(doc => db.collection("users").doc(doc.data().linkedUid));
     const profiles = linkedRefs.length > 0 ? await db.getAll(...linkedRefs) : [];
     const roleByUid = new Map(profiles.filter(doc => doc.exists).map(doc => [doc.id, doc.data().role || "Estudiante"]));
+    const blockedUids = new Set(profiles.filter(doc => doc.exists && doc.data().blocked === true).map(doc => doc.id));
 
     const members = roster.docs.map((doc) => {
       const data = doc.data();
@@ -66,6 +67,7 @@ function build(getAdminApp) {
         email: data.email,
         uid: linkedUid,
         role: linkedUid ? roleByUid.get(linkedUid) : null,
+        blocked: linkedUid ? blockedUids.has(linkedUid) : false,
       };
     }).sort((a, b) => a.fullName.localeCompare(b.fullName, "es"));
 
@@ -94,6 +96,37 @@ function build(getAdminApp) {
     await userRef.update({ role, roleUpdatedAt: FieldValue.serverTimestamp(), roleUpdatedBy: caller.uid });
     await writeClaims(getAdminApp(), uid, { role });
     return { role };
+  });
+
+  // Blocks or unblocks a HaNet ID for breaking the terms. Firebase Auth
+  // disables the account, so it cannot sign in and its session stops working
+  // (the app shows the blocked screen); the profile keeps the flag for the panel.
+  const adminSetBlocked = onCall({ invoker: "public" }, async (request) => {
+    const caller = requireHnt(request);
+    const uid = id(request.data?.uid);
+    const blocked = request.data?.blocked === true;
+    if (!uid) {
+      throw new HttpsError("invalid-argument", "Falta indicar a quién bloquear.");
+    }
+    if (uid === caller.uid) {
+      throw new HttpsError("failed-precondition", "No puedes bloquearte a ti.");
+    }
+
+    const userRef = identityDb(getAdminApp).collection("users").doc(uid);
+    if (!(await userRef.get()).exists) {
+      throw new HttpsError("not-found", "Esa persona todavía no vincula su HaNet ID.");
+    }
+
+    const auth = getAuth(getAdminApp());
+    await auth.updateUser(uid, { disabled: blocked });
+    if (blocked) await auth.revokeRefreshTokens(uid);
+    await userRef.update({
+      blocked,
+      blockedUpdatedAt: FieldValue.serverTimestamp(),
+      blockedUpdatedBy: caller.uid,
+    });
+    console.log("adminSetBlocked", { by: caller.uid, uid, blocked });
+    return { blocked };
   });
 
   // Undoes the link: the person keeps their HaNet ID but loses the profile,
@@ -155,7 +188,7 @@ function build(getAdminApp) {
     return { institutionId };
   });
 
-  return { adminListMembers, adminSetRole, adminUnlinkMember, adminJoinInstitution };
+  return { adminListMembers, adminSetRole, adminSetBlocked, adminUnlinkMember, adminJoinInstitution };
 }
 
 module.exports = { build };

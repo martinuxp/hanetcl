@@ -206,7 +206,7 @@ export function describeAuthError(error: unknown, fallback: string) {
     case 'auth/weak-password':
       return 'La contraseña debe tener al menos 8 caracteres.';
     case 'auth/user-disabled':
-      return 'Esta cuenta está desactivada. Contacta a tu institución.';
+      return 'Esta cuenta está bloqueada.';
     case 'auth/too-many-requests':
       return 'Hubo demasiados intentos. Espera un momento e inténtalo nuevamente.';
     case 'auth/network-request-failed':

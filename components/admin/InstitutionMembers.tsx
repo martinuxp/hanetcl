@@ -3,7 +3,7 @@ import { AlertModal } from '@/components/ui/alert-modal';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
-import { joinInstitution, listMembers, MEMBER_ROLES, setMemberRole, unlinkMember } from '@/services/hnt-admin-service';
+import { joinInstitution, listMembers, MEMBER_ROLES, setMemberBlocked, setMemberRole, unlinkMember } from '@/services/hnt-admin-service';
 import type { Member, MemberRole } from '@/services/hnt-admin-service';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -38,6 +38,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
 
   const [selected, setSelected] = useState<Member | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
@@ -82,7 +83,27 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
     if (busy) return;
     setSelected(null);
     setConfirmUnlink(false);
+    setConfirmBlock(false);
     setDialogError(null);
+  };
+
+  // Blocking disables the HaNet ID: it cannot sign in and its session ends.
+  const toggleBlocked = async () => {
+    if (!selected?.uid || busy) return;
+    const blocked = !selected.blocked;
+    setBusy(true);
+    setDialogError(null);
+    try {
+      await setMemberBlocked(selected.uid, blocked);
+      const updated = { ...selected, blocked };
+      setSelected(updated);
+      setMembers(list => list.map(member => (member.rut === updated.rut ? updated : member)));
+      setConfirmBlock(false);
+    } catch (blockError) {
+      setDialogError(describeAuthError(blockError, blocked ? 'No pudimos bloquear esta cuenta. Inténtalo nuevamente.' : 'No pudimos desbloquear esta cuenta. Inténtalo nuevamente.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   // The new role shows at once and is rolled back if saving fails.
@@ -187,9 +208,9 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
               <ThemedText style={[styles.rowName, !linked && styles.rowMuted]} numberOfLines={1}>{member.fullName}</ThemedText>
               <ThemedText style={styles.rowDetail} numberOfLines={1}>{member.curso}</ThemedText>
             </View>
-            <View style={[styles.badge, linked && member.role !== 'Estudiante' && styles.badgeStrong]}>
-              <ThemedText style={[styles.badgeText, linked && member.role !== 'Estudiante' && styles.badgeTextStrong]}>
-                {linked ? member.role : 'Sin vincular'}
+            <View style={[styles.badge, linked && member.role !== 'Estudiante' && styles.badgeStrong, member.blocked && styles.badgeBlocked]}>
+              <ThemedText style={[styles.badgeText, linked && member.role !== 'Estudiante' && styles.badgeTextStrong, member.blocked && styles.badgeTextBlocked]}>
+                {member.blocked ? 'Bloqueada' : linked ? member.role : 'Sin vincular'}
               </ThemedText>
             </View>
           </Pressable>
@@ -224,7 +245,26 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
               <ThemedText style={styles.dialogTitle}>{selected.fullName}</ThemedText>
               <ThemedText style={styles.dialogBody}>{selected.curso} · {selected.email}</ThemedText>
 
-              {confirmUnlink ? (
+              {confirmBlock ? (
+                <>
+                  <ThemedText style={styles.dialogBody}>
+                    {selected.blocked
+                      ? 'Podrá volver a iniciar sesión en HaNet con su cuenta.'
+                      : 'No podrá iniciar sesión en HaNet y su sesión abierta se cerrará. Verá la pantalla de cuenta bloqueada, con la opción de apelar por correo. Su vínculo y su rol se conservan.'}
+                  </ThemedText>
+                  {!!dialogError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{dialogError}</ThemedText>}
+                  <View style={styles.dialogActions}>
+                    <HanetButton label="Cancelar" variant="surface" onPress={() => { setConfirmBlock(false); setDialogError(null); }} disabled={busy} style={styles.dialogAction} />
+                    <HanetButton
+                      label={busy ? 'Guardando…' : selected.blocked ? 'Desbloquear' : 'Bloquear'}
+                      variant="accent"
+                      onPress={toggleBlocked}
+                      disabled={busy}
+                      style={styles.dialogAction}
+                    />
+                  </View>
+                </>
+              ) : confirmUnlink ? (
                 <>
                   <ThemedText style={styles.dialogBody}>
                     Al desvincularla pierde su rol y el acceso al calendario de su curso. Conserva su HaNet ID y puede volver a vincularse con su correo institucional.
@@ -268,6 +308,14 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
                     </ThemedText>
                   )}
 
+                  {!isSelf && (
+                    <HanetButton
+                      label={selected.blocked ? 'Desbloquear cuenta' : 'Bloquear cuenta'}
+                      variant="surface"
+                      onPress={() => { setDialogError(null); setConfirmBlock(true); }}
+                      disabled={busy}
+                    />
+                  )}
                   <View style={styles.dialogActions}>
                     {!isSelf && <HanetButton label="Desvincular" variant="surface" onPress={() => setConfirmUnlink(true)} disabled={busy} style={styles.dialogAction} />}
                     <HanetButton label="Listo" onPress={closeDialog} disabled={busy} style={styles.dialogAction} />
@@ -351,6 +399,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: AppColors.textSecondary,
+  },
+  badgeBlocked: {
+    backgroundColor: AppColors.accent,
+  },
+  badgeTextBlocked: {
+    color: AppColors.textOnLight,
   },
   badgeTextStrong: {
     color: AppColors.controlOnActive,

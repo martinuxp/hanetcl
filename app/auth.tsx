@@ -1,3 +1,4 @@
+import { isBlockedError, showAppError } from '@/services/app-error';
 import { ThemedText } from '@/components/themed-text';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { HanetField, HanetSegmented } from '@/components/ui/hanet-auth-fields';
@@ -111,6 +112,8 @@ export default function AuthScreen() {
     try {
       await signInWithEmail(email, password);
     } catch (authError) {
+      // A HaNet ID blocked from the HNT panel gets the blocked screen, with the appeal.
+      if (isBlockedError(authError)) showAppError('blocked');
       setError(describeAuthError(authError, 'No pudimos iniciar sesión. Inténtalo nuevamente.'));
     } finally {
       setLoading(false);

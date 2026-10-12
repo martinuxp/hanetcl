@@ -1,6 +1,8 @@
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { InstitutionSync } from '@/components/InstitutionSync';
+import { FatalScreen } from '@/components/errors/AppErrorScreens';
+import { showAppError } from '@/services/app-error';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { SUBJECTS } from '@/constants/subjects';
 import { ThemedText } from '@/components/themed-text';
@@ -43,6 +45,7 @@ export default function UiShowcaseScreen() {
   const [disabled, setDisabled] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [fatalVisible, setFatalVisible] = useState(false);
   const [shift, setShift] = useState<string | null>('Mañana');
   const [subjectId, setSubjectId] = useState<string | null>(null);
   // The preview shows the shield of the viewer's own institution, as the real link does.
@@ -137,6 +140,15 @@ export default function UiShowcaseScreen() {
           />
         </Section>
 
+        <Section title="Pantallas de error" description="Bloqueo, servidores, sin conexión y error fatal. En la vista previa los botones solo cierran la pantalla.">
+          <View style={styles.errorButtons}>
+            <HanetButton label="Cuenta bloqueada" variant="surface" onPress={() => showAppError('blocked', true)} />
+            <HanetButton label="Servidores" variant="surface" onPress={() => showAppError('server', true)} />
+            <HanetButton label="Sin conexión" variant="surface" onPress={() => showAppError('offline', true)} />
+            <HanetButton label="Error fatal" variant="surface" onPress={() => setFatalVisible(true)} />
+          </View>
+        </Section>
+
         <Section title="Selección" description="Hasta 5 opciones van como chips; con más, un campo que abre la lista en un diálogo (con buscador desde 10).">
           <HanetChoice
             label="Turno"
@@ -180,11 +192,23 @@ export default function UiShowcaseScreen() {
         onDone={() => setWelcomeVisible(false)}
       />
       {syncVisible && <InstitutionSync logoUrl={syncLogoUrl} />}
+      {fatalVisible && (
+        <View style={styles.fatalPreview}>
+          <FatalScreen preview onDismiss={() => setFatalVisible(false)} />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  errorButtons: {
+    gap: AppSpacing.sm,
+  },
+  fatalPreview: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 100,
+  },
   container: { flex: 1, backgroundColor: AppColors.canvas },
   content: { padding: AppSpacing.lg, paddingBottom: 150, gap: AppSpacing.xxl },
   header: { flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md, paddingTop: AppSpacing.sm },

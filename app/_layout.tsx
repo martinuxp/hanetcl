@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { GlobalTabBar } from '@/components/AppTabBar';
 import { LaunchSplash } from '@/components/LaunchSplash';
+import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
@@ -131,6 +132,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider theme={paperTheme}>
         <ThemeProvider value={navigationTheme}>
+          <FatalBoundary>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
@@ -154,8 +156,10 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/evaluation-form" options={sheetOptions([1.0])} />
           </Stack>
           <GlobalTabBar />
+          </FatalBoundary>
           <StatusBar style="light" />
           <LaunchSplash ready={routed} quick={returning} />
+          <AppErrorLayer />
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>

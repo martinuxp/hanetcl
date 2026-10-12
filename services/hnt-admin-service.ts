@@ -79,6 +79,8 @@ export type Member = {
   /** Null while the person has not linked their HaNet ID. */
   uid: string | null;
   role: MemberRole | null;
+  /** Blocked for breaking the terms: cannot sign in to HaNet. */
+  blocked?: boolean;
 };
 
 export async function listMembers(institutionId: string) {
@@ -88,6 +90,10 @@ export async function listMembers(institutionId: string) {
 
 export async function setMemberRole(uid: string, role: MemberRole) {
   await httpsCallable(functions, 'adminSetRole')({ uid, role });
+}
+
+export async function setMemberBlocked(uid: string, blocked: boolean) {
+  await httpsCallable(functions, 'adminSetBlocked')({ uid, blocked });
 }
 
 export async function unlinkMember(uid: string) {
