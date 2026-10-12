@@ -1,7 +1,7 @@
-import { HanetMark } from '@/components/brand/HanetMark';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -14,6 +14,16 @@ const FADE_MS = 240;
 
 const VERSION = `V${Constants.expoConfig?.version ?? '1.0.0'}`;
 
+const ASSETS = {
+  logotype: require('@/assets/onboarding/logotype.svg'),
+  ha: require('@/assets/onboarding/ha.svg'),
+  net: require('@/assets/onboarding/net.svg'),
+};
+
+// Figma [SPLASH] (10584:10895): HA is 147 × 256, NET 305 × 125 turned upright, 24 apart.
+const WORD_WIDTH = 147 + 24 + 125;
+const CARD_PADDING = 32;
+
 /**
  * HaNet's launch screen, drawn over the app while the session loads. It stays
  * at least a moment, then fades away once `ready` (the app has decided where
@@ -23,7 +33,7 @@ export function LaunchSplash({ ready }: { ready: boolean }) {
   const insets = useSafeAreaInsets();
   const [gone, setGone] = useState(false);
   const [minElapsed, setMinElapsed] = useState(false);
-  const [wordWidth, setWordWidth] = useState(0);
+  const [cardWidth, setCardWidth] = useState(0);
   const opacity = useSharedValue(1);
 
   useEffect(() => {
@@ -42,29 +52,24 @@ export function LaunchSplash({ ready }: { ready: boolean }) {
 
   if (gone) return null;
 
-  // The two lines of the wordmark run up the card and fill its width: the
-  // turned block is a square about 2.1 letters on each side.
-  const wordSize = Math.max(0, wordWidth - AppSpacing.xl * 2) / 2.1;
+  // Narrow phones shrink the wordmark so it keeps its padding.
+  const scale = cardWidth ? Math.min(1, (cardWidth - CARD_PADDING * 2) / WORD_WIDTH) : 1;
 
   return (
     <Animated.View
       accessible
       accessibilityLabel={`HaNet ${VERSION}, cargando`}
-      style={[styles.root, { paddingTop: insets.top + AppSpacing.xl, paddingBottom: insets.bottom + AppSpacing.sm }, style]}
+      style={[styles.root, { paddingTop: insets.top + AppSpacing.xl, paddingBottom: insets.bottom + AppSpacing.md }, style]}
     >
       <View style={styles.header}>
         <ThemedText style={styles.version}>{`HaNet\n${VERSION}`}</ThemedText>
-        <HanetMark height={86} />
+        <Image source={ASSETS.logotype} style={styles.logotype} contentFit="contain" />
       </View>
-      <View style={styles.wordCard} onLayout={event => setWordWidth(event.nativeEvent.layout.width)}>
-        {wordWidth > 0 && (
-          <View style={[styles.wordAnchor, { width: wordSize * 2.1 }]}>
-            <View style={[styles.wordBlock, { transform: [{ rotate: '-90deg' }] }]}>
-              <ThemedText style={[styles.word, { fontSize: wordSize, lineHeight: wordSize * 1.02 }]}>HA</ThemedText>
-              <ThemedText style={[styles.word, { fontSize: wordSize, lineHeight: wordSize * 1.02 }]}>NET</ThemedText>
-            </View>
-          </View>
-        )}
+      <View style={styles.wordCard} onLayout={event => setCardWidth(event.nativeEvent.layout.width)}>
+        <Image source={ASSETS.ha} style={{ width: 147 * scale, height: 256 * scale }} contentFit="contain" />
+        <View style={[styles.netSlot, { width: 125 * scale, height: 305 * scale }]}>
+          <Image source={ASSETS.net} style={{ width: 305 * scale, height: 125 * scale, transform: [{ rotate: '-90deg' }] }} contentFit="contain" />
+        </View>
       </View>
     </Animated.View>
   );
@@ -79,44 +84,40 @@ const styles = StyleSheet.create({
     gap: AppSpacing.md,
   },
   header: {
+    minHeight: 157,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: AppSpacing.xl,
-    paddingVertical: AppSpacing.xl,
+    padding: CARD_PADDING,
     borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
   },
   version: {
+    flex: 1,
     fontFamily: 'DMSans_700Bold',
-    fontSize: 34,
-    lineHeight: 42,
-    letterSpacing: -1.5,
+    fontSize: 40,
+    lineHeight: 48,
+    letterSpacing: -0.4,
     color: AppColors.textSecondary,
+  },
+  netSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logotype: {
+    width: 74,
+    height: 96,
   },
   wordCard: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 24,
+    padding: CARD_PADDING,
     overflow: 'hidden',
     borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
     backgroundColor: AppColors.primary,
-  },
-  // Sits in the lower left; the block inside is turned to read upwards.
-  wordAnchor: {
-    position: 'absolute',
-    left: AppSpacing.xl,
-    bottom: AppSpacing.xl,
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wordBlock: {
-    width: '100%',
-  },
-  word: {
-    fontFamily: 'DMSans_500Medium',
-    letterSpacing: 0,
-    color: AppColors.textSecondary,
   },
 });
