@@ -58,7 +58,8 @@ export default function EventInfoScreen() {
   // The calendar passes a hint so the buttons do not pop in; the token is
   // what actually decides, and the rules enforce it either way.
   const role = useRole();
-  const canEdit = role ? EVENT_EDITOR_ROLES.includes(role) : params.canEdit === '1';
+  // A teacher's evaluation from ClassHall is changed only in its Hall.
+  const canEdit = !event?.hallId && (role ? EVENT_EDITOR_ROLES.includes(role) : params.canEdit === '1');
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -304,7 +305,19 @@ export default function EventInfoScreen() {
           {!!event.description && <InfoRow icon={ICONS.description} label="Descripción" value={event.description} />}
 
           <View style={styles.cardActions}>
-            <ComingSoonButton label="Tabla de especificaciones" tall />
+            {event.hallId && event.evaluationId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityHint="Abre la evaluación en su Hall"
+                onPress={() => router.push({ pathname: '/classhall/evaluation', params: { hallId: event.hallId, id: event.evaluationId } })}
+                style={({ pressed }) => [styles.actionButton, styles.actionButtonTall, pressed && styles.pressed]}
+              >
+                <ThemedText style={styles.actionLabel}>Tabla de especificaciones</ThemedText>
+                <ThemedText style={styles.actionSoon}>Abrir en ClassHall</ThemedText>
+              </Pressable>
+            ) : (
+              <ComingSoonButton label="Tabla de especificaciones" tall />
+            )}
             <ComingSoonButton label="Ir a los documentos de la clase" dark />
           </View>
 
@@ -313,7 +326,7 @@ export default function EventInfoScreen() {
           </ThemedText>
         </View>
 
-        {!!event.writer && (
+        {!!event.writer && !event.hallId && (
           <View style={styles.attribution}>
             <CustomIcon name="check-circle" size={21} color={AppColors.textSecondary} />
             <View style={styles.attributionText}>

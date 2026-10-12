@@ -13,6 +13,56 @@ export type Hall = {
   /** Only present for whoever teaches the Hall. */
   code: string | null;
   memberCount: number | null;
+  /** The next evaluation still to come, for the card's notice. */
+  nextEvaluation?: { title: string; date: number } | null;
+};
+
+export type HallAnnouncement = {
+  id: string;
+  body: string;
+  authorName: string;
+  /** Milliseconds since epoch; null for a moment right after publishing. */
+  createdAt: number | null;
+  updatedAt: number | null;
+};
+
+/** One row of the specification table: points for knowledge, application and comprehension. */
+export type HallEvaluationContent = {
+  name: string;
+  detail: string;
+  con: number;
+  apl: number;
+  com: number;
+};
+
+export type HallEvaluation = {
+  id: string;
+  title: string;
+  /** Milliseconds since epoch. */
+  date: number;
+  /** Learning objective code, such as "LE2M OA 08". */
+  oa: string;
+  /** Percentage required to pass, 1 to 100. */
+  exigency: number | null;
+  contents: HallEvaluationContent[];
+  authorName: string;
+  updatedAt: number | null;
+};
+
+export type HallDetail = {
+  hall: Hall;
+  announcements: HallAnnouncement[];
+  evaluations: HallEvaluation[];
+};
+
+export type HallEvaluationInput = {
+  hallId: string;
+  evaluationId?: string;
+  title: string;
+  date: number;
+  oa: string;
+  exigency: number | null;
+  contents: HallEvaluationContent[];
 };
 
 export type HallPreview = {
@@ -70,6 +120,39 @@ export async function createHall(subject: string, courseId: string, theme: HallT
 export async function listHallCourses() {
   const result = await httpsCallable<void, { courses: string[] }>(functions, 'listHallCourses')();
   return result.data.courses;
+}
+
+// The last Hall opened, so its evaluation and the forms open without another read.
+let lastHall: HallDetail | null = null;
+
+export function getLoadedHall(hallId: string) {
+  return lastHall?.hall.id === hallId ? lastHall : null;
+}
+
+export async function getHall(hallId: string) {
+  const result = await httpsCallable<{ hallId: string }, HallDetail>(functions, 'getHall')({ hallId });
+  lastHall = result.data;
+  return result.data;
+}
+
+export async function saveHallAnnouncement(hallId: string, body: string, announcementId?: string) {
+  await httpsCallable(functions, 'saveHallAnnouncement')({ hallId, body, announcementId });
+}
+
+export async function deleteHallAnnouncement(hallId: string, announcementId: string) {
+  await httpsCallable(functions, 'deleteHallAnnouncement')({ hallId, announcementId });
+}
+
+export async function saveHallEvaluation(input: HallEvaluationInput) {
+  await httpsCallable(functions, 'saveHallEvaluation')(input);
+}
+
+export async function deleteHallEvaluation(hallId: string, evaluationId: string) {
+  await httpsCallable(functions, 'deleteHallEvaluation')({ hallId, evaluationId });
+}
+
+export function evaluationTotal(evaluation: Pick<HallEvaluation, 'contents'>) {
+  return evaluation.contents.reduce((sum, row) => sum + row.con + row.apl + row.com, 0);
 }
 
 /** The callable's error code without its "functions/" prefix. */

@@ -79,6 +79,11 @@ service cloud.firestore {
         && (!('cancelled' in data) || data.cancelled is bool);
     }
 
+    // Eventos publicados por el backend (evaluaciones de ClassHall).
+    function isFromBackend() {
+      return 'source' in resource.data;
+    }
+
     match /{courseCollection}/{eventId} {
       allow read: if isInCourse(courseCollection);
 
@@ -96,6 +101,7 @@ service cloud.firestore {
       // creación y los campos de verificación quedan fuera del alcance
       // del cliente.
       allow update: if canEditCourse(courseCollection)
+        && !isFromBackend()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title', 'description', 'startDate', 'endDate', 'location',
           'subject', 'type', 'verificationRequested', 'updatedAt', 'cancelled'
@@ -105,7 +111,7 @@ service cloud.firestore {
 
       // Borra quien puede editar el curso. Es un borrado definitivo: la app
       // pide confirmación antes de llegar aquí.
-      allow delete: if canEditCourse(courseCollection);
+      allow delete: if canEditCourse(courseCollection) && !isFromBackend();
     }
 
     // Subcolecciones y cualquier otra ruta quedan cerradas.

@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { daysUntil } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
@@ -12,7 +13,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function HallCard({ hall }: { hall: Hall }) {
+function evaluationNotice(date: number) {
+  const days = daysUntil(date);
+  if (days <= 0) return 'Tienes una evaluación programada hoy';
+  if (days === 1) return 'Tienes una evaluación programada mañana';
+  return `Tienes una evaluación programada en ${days} días`;
+}
+
+function HallCard({ hall, onOpen }: { hall: Hall; onOpen: () => void }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -32,7 +40,13 @@ function HallCard({ hall }: { hall: Hall }) {
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardArt}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${hall.subject}, ${hall.courseId}, ${hall.teacherName}`}
+        accessibilityHint="Abre el Hall"
+        onPress={onOpen}
+        style={({ pressed }) => [styles.cardArt, pressed && styles.pressed]}
+      >
         <Image source={hallThemeImage(hall.theme)} style={styles.cardImage} contentFit="cover" />
         {/* Keeps the text legible over any illustration. */}
         <View style={styles.cardShade} />
@@ -41,7 +55,16 @@ function HallCard({ hall }: { hall: Hall }) {
           <ThemedText numberOfLines={1} style={styles.cardCourse}>{hall.courseId}</ThemedText>
           <ThemedText numberOfLines={1} style={styles.cardTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
         </View>
-      </View>
+      </Pressable>
+      {!hall.isTeacher && !!hall.nextEvaluation && daysUntil(hall.nextEvaluation.date) <= 7 && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpen}
+          style={({ pressed }) => [styles.cardStrip, pressed && styles.pressed]}
+        >
+          <ThemedText numberOfLines={1} style={styles.stripText}>{evaluationNotice(hall.nextEvaluation.date)}</ThemedText>
+        </Pressable>
+      )}
       {hall.isTeacher && hall.code && (
         <Pressable
           accessibilityRole="button"
@@ -150,7 +173,9 @@ export default function ClassHallScreen() {
           </View>
         )}
 
-        {halls?.map(hall => <HallCard key={hall.id} hall={hall} />)}
+        {halls?.map(hall => (
+          <HallCard key={hall.id} hall={hall} onOpen={() => router.push({ pathname: '/classhall/hall', params: { id: hall.id } })} />
+        ))}
       </ScrollView>
     </SafeAreaView>
   );

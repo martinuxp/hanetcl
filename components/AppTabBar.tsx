@@ -170,7 +170,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
 /** Routes that show the bar; everything else (sign-in, onboarding, sheets) has none. */
 const TAB_ROOTS = ['/', '/explore'];
-const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/event-info', '/event-detail', '/classhall', '/hnt-admin'];
+const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin'];
 
 /**
  * The app's only bar. It lives in the root layout, above every screen, so it

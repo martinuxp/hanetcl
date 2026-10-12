@@ -59,11 +59,13 @@ type SegmentedProps<T extends string> = {
   accessibilityLabel: string;
   /** Taller segments, used by the treatment picker. */
   tall?: boolean;
+  /** Container color, for pickers that sit on the canvas instead of a card. */
+  background?: string;
 };
 
 type Frame = { x: number; width: number };
 
-export function HanetSegmented<T extends string>({ options, value, onChange, accessibilityLabel, tall }: SegmentedProps<T>) {
+export function HanetSegmented<T extends string>({ options, value, onChange, accessibilityLabel, tall, background }: SegmentedProps<T>) {
   const reduceMotion = useReducedMotion();
   const [frames, setFrames] = useState<Record<string, Frame>>({});
   const x = useSharedValue(0);
@@ -100,7 +102,7 @@ export function HanetSegmented<T extends string>({ options, value, onChange, acc
   };
 
   return (
-    <View accessibilityRole="tablist" accessibilityLabel={accessibilityLabel} style={styles.segmented}>
+    <View accessibilityRole="tablist" accessibilityLabel={accessibilityLabel} style={[styles.segmented, !!background && { backgroundColor: background }]}>
       <Animated.View pointerEvents="none" style={[styles.pill, tall && styles.pillTall, pillStyle]} />
       {options.map(option => {
         const active = option.value === value;

@@ -1,6 +1,6 @@
 const { randomInt } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -19,6 +19,17 @@ const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const MAX_HALLS_PER_TEACHER = 40;
 const MAX_COURSES = 200;
 
+const MAX_ANNOUNCEMENTS = 50;
+const MAX_EVALUATIONS = 60;
+const MAX_CONTENTS = 12;
+const MAX_POINTS = 999;
+// An evaluation takes one class block on the course calendar.
+const EVALUATION_MINUTES = 90;
+
+function calendarDb(getAdminApp) {
+  return getFirestore(getAdminApp(), "hn-calendar");
+}
+
 function classhallDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-classhall");
 }
@@ -29,6 +40,22 @@ function identityDb(getAdminApp) {
 
 function text(value, max) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
+}
+
+// Keeps the author's line breaks, at most two blank lines in a row.
+function paragraph(value, max) {
+  return typeof value === "string"
+    ? value.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, max)
+    : "";
+}
+
+function points(value) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? Math.min(Math.max(number, 0), MAX_POINTS) : 0;
+}
+
+function millis(value) {
+  return value && typeof value.toMillis === "function" ? value.toMillis() : null;
 }
 
 function cleanCode(value) {
@@ -98,6 +125,65 @@ async function resolveCode(db, profile, rawCode) {
   return { hallRef, data };
 }
 
+// Loads a Hall the caller teaches or has joined.
+async function openHall(getAdminApp, request) {
+  const profile = await requireProfile(getAdminApp, request);
+  const hallId = typeof request.data?.hallId === "string" ? request.data.hallId : "";
+  if (!hallId || hallId.includes("/")) {
+    throw new HttpsError("invalid-argument", "Falta el Hall.");
+  }
+  const hallRef = classhallDb(getAdminApp).collection("halls").doc(hallId);
+  const hall = await hallRef.get();
+  const data = hall.data();
+  const isTeacher = data?.teacherUid === profile.uid;
+  if (!data || (!isTeacher && !(data.memberUids || []).includes(profile.uid))) {
+    throw new HttpsError("not-found", "No encontramos ese Hall entre tus clases.");
+  }
+  return { profile, hallRef, data, isTeacher };
+}
+
+// Only whoever teaches the Hall publishes in it; nobody else can change what they wrote.
+function requireHallTeacher(isTeacher) {
+  if (!isTeacher) {
+    throw new HttpsError("permission-denied", "Solo el docente del Hall puede publicar aquí.");
+  }
+}
+
+function childId(value) {
+  return typeof value === "string" && value && !value.includes("/") ? value : null;
+}
+
+function announcementOut(doc) {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    body: data.body,
+    authorName: data.authorName,
+    createdAt: millis(data.createdAt),
+    updatedAt: millis(data.updatedAt),
+  };
+}
+
+function evaluationOut(doc) {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    title: data.title,
+    date: millis(data.date),
+    oa: data.oa || "",
+    exigency: data.exigency ?? null,
+    contents: data.contents || [],
+    authorName: data.authorName,
+    updatedAt: millis(data.updatedAt) ?? millis(data.createdAt),
+  };
+}
+
+// The course calendar shows each evaluation, written by the backend and
+// marked as the Hall's so the course's editors cannot change it.
+function calendarRef(getAdminApp, hall, hallId, evaluationId) {
+  return calendarDb(getAdminApp).collection(`HNC-LCH.${hall.courseId}`).doc(`hall-${hallId}-${evaluationId}`);
+}
+
 function build(getAdminApp) {
   const listMyHalls = onCall(async (request) => {
     const profile = await requireProfile(getAdminApp, request);
@@ -124,6 +210,15 @@ function build(getAdminApp) {
         memberCount: isTeacher ? (data.memberUids || []).length : null,
       });
     }
+
+    // The card says when the Hall's next evaluation comes up.
+    const now = Timestamp.now();
+    await Promise.all([...byId.values()].map(async (hall) => {
+      const next = await halls.doc(hall.id).collection("evaluations")
+        .where("date", ">=", now).orderBy("date", "asc").limit(1).get();
+      const data = next.docs[0]?.data();
+      hall.nextEvaluation = data ? { title: data.title, date: millis(data.date) } : null;
+    }));
 
     return {
       halls: [...byId.values()].sort((a, b) => a.subject.localeCompare(b.subject, "es")),
@@ -232,7 +327,160 @@ function build(getAdminApp) {
     return { courses };
   });
 
-  return { listMyHalls, checkHallCode, joinHall, createHall, listHallCourses };
+  // The inside of a Hall: its announcements and evaluations.
+  const getHall = onCall({ invoker: "public" }, async (request) => {
+    const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    const [announcements, evaluations] = await Promise.all([
+      hallRef.collection("announcements").orderBy("createdAt", "desc").limit(MAX_ANNOUNCEMENTS).get(),
+      hallRef.collection("evaluations").orderBy("date", "asc").limit(MAX_EVALUATIONS).get(),
+    ]);
+    return {
+      hall: {
+        id: hallRef.id,
+        subject: data.subject,
+        courseId: data.courseId,
+        teacherName: data.teacherName,
+        theme: data.theme,
+        isTeacher,
+        code: isTeacher ? data.code : null,
+        memberCount: isTeacher ? (data.memberUids || []).length : null,
+      },
+      announcements: announcements.docs.map(announcementOut),
+      evaluations: evaluations.docs.map(evaluationOut),
+      viewerUid: profile.uid,
+    };
+  });
+
+  const saveHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const body = paragraph(request.data?.body, 2000);
+    if (!body) {
+      throw new HttpsError("invalid-argument", "Escribe el anuncio.");
+    }
+
+    const existingId = childId(request.data?.announcementId);
+    if (existingId) {
+      const ref = hallRef.collection("announcements").doc(existingId);
+      if (!(await ref.get()).exists) {
+        throw new HttpsError("not-found", "Ese anuncio ya no existe.");
+      }
+      await ref.update({ body, updatedAt: FieldValue.serverTimestamp() });
+      return { announcementId: existingId };
+    }
+
+    const ref = hallRef.collection("announcements").doc();
+    await ref.set({ body, authorName: data.teacherName, createdAt: FieldValue.serverTimestamp() });
+    return { announcementId: ref.id };
+  });
+
+  const deleteHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const id = childId(request.data?.announcementId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta el anuncio.");
+    await hallRef.collection("announcements").doc(id).delete();
+    return { ok: true };
+  });
+
+  const saveHallEvaluation = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const title = text(request.data?.title, 80);
+    const oa = text(request.data?.oa, 40);
+    const date = Number(request.data?.date);
+    const rawExigency = request.data?.exigency;
+    const exigency = rawExigency === null || rawExigency === undefined || rawExigency === "" ? null : Math.round(Number(rawExigency));
+    const contents = (Array.isArray(request.data?.contents) ? request.data.contents : [])
+      .slice(0, MAX_CONTENTS)
+      .map(row => ({
+        name: text(row?.name, 80),
+        detail: text(row?.detail, 160),
+        con: points(row?.con),
+        apl: points(row?.apl),
+        com: points(row?.com),
+      }))
+      .filter(row => row.name);
+
+    if (title.length < 2) {
+      throw new HttpsError("invalid-argument", "Escribe el nombre de la evaluación.");
+    }
+    if (!Number.isFinite(date) || date <= 0) {
+      throw new HttpsError("invalid-argument", "Elige el día de la evaluación.");
+    }
+    if (exigency !== null && (!Number.isFinite(exigency) || exigency < 1 || exigency > 100)) {
+      throw new HttpsError("invalid-argument", "La exigencia va de 1 a 100 %.");
+    }
+
+    const existingId = childId(request.data?.evaluationId);
+    const ref = existingId ? hallRef.collection("evaluations").doc(existingId) : hallRef.collection("evaluations").doc();
+    if (existingId && !(await ref.get()).exists) {
+      throw new HttpsError("not-found", "Esa evaluación ya no existe.");
+    }
+    if (!existingId) {
+      const count = await hallRef.collection("evaluations").count().get();
+      if (count.data().count >= MAX_EVALUATIONS) {
+        throw new HttpsError("resource-exhausted", "Este Hall llegó al máximo de evaluaciones.");
+      }
+    }
+
+    const start = Timestamp.fromMillis(date);
+    const fields = { title, date: start, oa, exigency, contents, authorName: data.teacherName };
+    if (existingId) {
+      await ref.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
+    } else {
+      await ref.set({ ...fields, createdAt: FieldValue.serverTimestamp() });
+    }
+
+    const total = contents.reduce((sum, row) => sum + row.con + row.apl + row.com, 0);
+    const summary = [
+      oa && `Objetivo: ${oa}.`,
+      total > 0 && `Total ${total} puntos.`,
+      exigency !== null && `Exigencia ${exigency} %.`,
+      contents.length > 0 && `Contenidos: ${contents.map(row => row.name).join(", ")}.`,
+    ].filter(Boolean).join("\n");
+
+    const event = calendarRef(getAdminApp, data, hallRef.id, ref.id);
+    await event.set({
+      title: `${title} · ${data.subject}`.slice(0, 120),
+      description: summary || `Evaluación del Hall de ${data.subject}.`,
+      startDate: start,
+      endDate: Timestamp.fromMillis(date + EVALUATION_MINUTES * 60 * 1000),
+      location: "Sala de clases",
+      subject: data.subject.slice(0, 60),
+      type: "Evaluación",
+      verificationRequested: false,
+      verified: true,
+      verifier: data.teacherName,
+      authorUid: data.teacherUid,
+      authorName: data.teacherName,
+      source: "classhall",
+      hallId: hallRef.id,
+      evaluationId: ref.id,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    return { evaluationId: ref.id };
+  });
+
+  const deleteHallEvaluation = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const id = childId(request.data?.evaluationId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta la evaluación.");
+    await Promise.all([
+      hallRef.collection("evaluations").doc(id).delete(),
+      calendarRef(getAdminApp, data, hallRef.id, id).delete(),
+    ]);
+    return { ok: true };
+  });
+
+  return {
+    listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
+    getHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation,
+  };
 }
 
 module.exports = { build };
