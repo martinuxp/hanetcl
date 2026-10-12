@@ -13,7 +13,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { CustomIcon } from '@/components/ui/custom-icon';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { HanetDialog } from '@/components/ui/hanet-dialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAX_CONTENTS = 12;
@@ -149,12 +151,16 @@ function EvaluationFormScreen() {
     });
   };
 
+  // A new evaluation starts by choosing: scan the T.E. or fill it in by hand.
+  const [choosing, setChoosing] = useState(!id);
+
+  /** Scans a T.E.; false when the teacher closed the file picker without choosing. */
   const scan = async () => {
-    if (scanning || submitting) return;
+    if (scanning || submitting) return true;
     setScanError(null);
     try {
       const picked = await pickHallDocument();
-      if (!picked) return;
+      if (!picked) return false;
       setScanning(true);
       const { draft, staged: file } = await scanSpecTable(hallId, picked);
       applyDraft(draft);
@@ -173,6 +179,16 @@ function EvaluationFormScreen() {
     } finally {
       setScanning(false);
     }
+    return true;
+  };
+
+  const chooseScan = async () => {
+    setChoosing(false);
+    // iOS cannot open the file picker while the dialog is still closing.
+    await new Promise(resolve => setTimeout(resolve, 250));
+    const picked = await scan();
+    // Closing the file picker brings the choice back.
+    if (!picked) setChoosing(true);
   };
 
   const update = (changes: Partial<Form>) => {
@@ -264,6 +280,7 @@ function EvaluationFormScreen() {
   const moreSummary = [exigency !== null ? `Exigencia ${exigency} %` : 'Sin exigencia', form.prep.trim() ? 'Cómo prepararse' : null].filter(Boolean).join(' · ');
 
   return (
+    <View style={styles.sheet}>
     <ScrollView
       style={styles.sheet}
       contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
@@ -276,33 +293,41 @@ function EvaluationFormScreen() {
           : 'Solo el nombre y el día son obligatorios. También aparece en el Calendar del curso.'}
       </ThemedText>
 
-      <View style={local.scanCard}>
-        <View style={local.scanRow}>
-          <View style={local.scanCopy}>
-            <ThemedText style={local.scanTitle}>{staged ? 'Tabla leída' : '¿Tienes la T.E.?'}</ThemedText>
-            <ThemedText numberOfLines={2} style={local.scanText}>
-              {staged ? staged.name : 'Escanéala en PDF o foto y llenamos todo por ti.'}
-            </ThemedText>
+      {staged || scanError ? (
+        <View style={local.scanCard}>
+          <View style={local.scanRow}>
+            <View style={local.scanCopy}>
+              <ThemedText style={local.scanTitle}>{staged ? 'Tabla leída' : 'No pudimos leer la tabla'}</ThemedText>
+              <ThemedText numberOfLines={2} style={local.scanText}>{staged ? staged.name : scanError}</ThemedText>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Escanear otra tabla"
+              disabled={scanning || submitting}
+              onPress={() => void scan()}
+              style={({ pressed }) => [local.scanButton, (scanning || submitting) && styles.submitDisabled, pressed && styles.pressed]}
+            >
+              <ThemedText style={local.scanButtonText}>{staged ? 'Otra' : 'Reintentar'}</ThemedText>
+            </Pressable>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={staged ? 'Escanear otra tabla' : 'Escanear la tabla de especificaciones'}
-            accessibilityState={{ busy: scanning }}
-            disabled={scanning || submitting}
-            onPress={scan}
-            style={({ pressed }) => [local.scanButton, (scanning || submitting) && styles.submitDisabled, pressed && styles.pressed]}
-          >
-            <ThemedText style={local.scanButtonText}>{scanning ? 'Leyendo…' : staged ? 'Otra' : 'Escanear'}</ThemedText>
-          </Pressable>
+          {!!scanNotes && (
+            <View accessibilityLiveRegion="polite" style={local.notes}>
+              <ThemedText style={local.notesTitle}>{scanNotes.length ? 'Revisa esto antes de guardar' : 'Listo. Revisa los datos antes de guardar.'}</ThemedText>
+              {scanNotes.map((note, index) => <ThemedText key={index} style={local.note}>• {note}</ThemedText>)}
+            </View>
+          )}
         </View>
-        {!!scanError && <ThemedText accessibilityLiveRegion="assertive" style={local.scanError}>{scanError}</ThemedText>}
-        {!!scanNotes && (
-          <View accessibilityLiveRegion="polite" style={local.notes}>
-            <ThemedText style={local.notesTitle}>{scanNotes.length ? 'Revisa esto antes de guardar' : 'Listo. Revisa los datos antes de guardar.'}</ThemedText>
-            {scanNotes.map((note, index) => <ThemedText key={index} style={local.note}>• {note}</ThemedText>)}
-          </View>
-        )}
-      </View>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Sube la T.E. en PDF o foto y llena el formulario"
+          disabled={scanning || submitting}
+          onPress={() => void scan()}
+          style={({ pressed }) => [local.scanLink, pressed && styles.pressed]}
+        >
+          <ThemedText style={local.scanLinkText}>¿Tienes la T.E.? <ThemedText style={local.scanLinkStrong}>Escanearla</ThemedText></ThemedText>
+        </Pressable>
+      )}
 
       <View style={styles.field}>
         <ThemedText style={styles.label}>Nombre</ThemedText>
@@ -530,6 +555,32 @@ function EvaluationFormScreen() {
       />
       {dialog}
     </ScrollView>
+
+      {scanning && (
+        <Animated.View entering={FadeIn.duration(120)} style={local.scanningLayer} accessibilityLiveRegion="polite">
+          <ActivityIndicator size="large" color={AppColors.textPrimary} />
+          <ThemedText style={local.scanningText}>Leyendo la tabla…</ThemedText>
+          <ThemedText style={local.scanningHint}>Buscamos los contenidos, los puntajes y los objetivos.</ThemedText>
+        </Animated.View>
+      )}
+
+      <HanetDialog
+        visible={choosing}
+        onRequestClose={() => router.back()}
+        title={fromEvent ? 'Completar evaluación' : 'Nueva evaluación'}
+        body="¿Cómo quieres agregar la tabla de especificaciones?"
+      >
+        <Pressable accessibilityRole="button" onPress={() => void chooseScan()} style={({ pressed }) => [local.option, local.optionAccent, pressed && styles.pressed]}>
+          <ThemedText style={[local.optionTitle, local.onAccent]}>Escanear T.E.</ThemedText>
+          <ThemedText style={[local.optionText, local.onAccent]}>Sube la tabla en PDF o una foto y llenamos todo por ti. Después la revisas.</ThemedText>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setChoosing(false)} style={({ pressed }) => [local.option, pressed && styles.pressed]}>
+          <ThemedText style={local.optionTitle}>Agregar a mano</ThemedText>
+          <ThemedText style={local.optionText}>Escribe el nombre, el día y, si quieres, la tabla.</ThemedText>
+        </Pressable>
+        <HanetButton label="Cancelar" variant="surface" onPress={() => router.back()} />
+      </HanetDialog>
+    </View>
   );
 }
 
@@ -562,6 +613,70 @@ function Section({ title, summary, open, onToggle, children }: { title: string; 
 }
 
 const local = StyleSheet.create({
+  scanLink: {
+    minHeight: AppTouch.minimum,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  scanLinkText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  scanLinkStrong: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    color: AppColors.textPrimary,
+  },
+  scanningLayer: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AppSpacing.md,
+    padding: AppSpacing.xxl,
+    backgroundColor: AppColors.surface,
+  },
+  scanningText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 20,
+    lineHeight: 26,
+    color: AppColors.textPrimary,
+  },
+  scanningHint: {
+    textAlign: 'center',
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  option: {
+    gap: 4,
+    padding: AppSpacing.lg,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  optionAccent: {
+    backgroundColor: AppColors.accent,
+  },
+  optionTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: AppColors.textPrimary,
+  },
+  optionText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textSecondary,
+  },
+  onAccent: {
+    color: AppColors.textOnLight,
+  },
   content: {
     gap: AppSpacing.lg,
   },
