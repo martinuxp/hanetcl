@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { ensureClaims, useSession } from '@/services/auth-service';
 import { db, calendarDb } from '@/services/firebase';
+import { SUBJECTS, subjectName } from '@/constants/subjects';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
@@ -49,7 +50,8 @@ function CreateEventScreen() {
   const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : nextRoundedTime());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const [subject, setSubject] = useState((params.subject as string) || '');
+  // Older events may carry another name for the same subject; the form shows the shared one.
+  const [subject, setSubject] = useState(() => (params.subject ? subjectName(params.subject as string) : ''));
   const [eventType, setEventType] = useState((params.type as string) || '');
   const [location, setLocation] = useState((params.location as string) || '');
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,8 @@ function CreateEventScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
   };
 
-  const subjectsList = ['Lengua y Literatura', 'Matemáticas', 'Inglés', 'Biología', 'Química', 'Física', 'Historia', 'Filosofía', 'Artes Visuales', 'Artes Musicales', 'Tecnología', 'Educación Física', 'Religión', 'Orientación'];
+  // The same subjects as ClassHall, so events and Halls line up.
+  const subjectsList = SUBJECTS.map(item => item.name);
   const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Off Topic'];
 
   const handleSubmit = async () => {

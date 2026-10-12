@@ -24,6 +24,9 @@ import {
   setCalendarEventCancelled,
 } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
+import { listMyHalls } from '@/services/classhall-service';
+import type { Hall } from '@/services/classhall-service';
+import { sameSubject, subjectName } from '@/constants/subjects';
 import { doc, getDoc } from 'firebase/firestore';
 
 const ICONS = {
@@ -115,6 +118,22 @@ export default function EventInfoScreen() {
   }, [event, initializing, params.id, user]);
 
   const isEvaluation = event?.eventType?.toLocaleLowerCase().startsWith('evaluación') ?? false;
+
+  // The Hall of this subject, when the viewer is in one: Calendar and
+  // ClassHall share the subject list, so an event leads to its class.
+  const [halls, setHalls] = useState<Hall[] | null>(null);
+  const eventSubject = event?.subject;
+  useEffect(() => {
+    if (!user || !eventSubject) return;
+    let active = true;
+    listMyHalls()
+      .then(result => { if (active) setHalls(result.halls); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [user, eventSubject]);
+  const subjectHall = event && halls
+    ? halls.find(hall => hall.id === event.hallId) ?? halls.find(hall => sameSubject(hall.subject, event.subject))
+    : undefined;
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -301,7 +320,7 @@ export default function EventInfoScreen() {
           {!!event.eventType && (
             <InfoRow icon={ICONS.type} label={isEvaluation ? 'Tipo de evaluación' : 'Tipo de evento'} value={event.eventType} />
           )}
-          {!!event.subject && <InfoRow icon={ICONS.subject} label="Asignatura relacionada" value={event.subject} />}
+          {!!event.subject && <InfoRow icon={ICONS.subject} label="Asignatura relacionada" value={subjectName(event.subject)} />}
           {!!event.description && <InfoRow icon={ICONS.description} label="Descripción" value={event.description} />}
 
           <View style={styles.cardActions}>
@@ -351,6 +370,13 @@ export default function EventInfoScreen() {
         </ThemedText>
 
         <View style={styles.secondaryActions}>
+          {!!subjectHall && (
+            <HanetButton
+              label={`Ir al Hall de ${subjectHall.subject}`}
+              variant="surface"
+              onPress={() => router.push({ pathname: '/classhall/hall', params: { id: subjectHall.id } })}
+            />
+          )}
           {canEdit && (
             <HanetButton label="Editar información" variant="surface" onPress={handleEdit} />
           )}

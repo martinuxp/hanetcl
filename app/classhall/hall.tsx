@@ -7,7 +7,7 @@ import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/h
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { deleteHallAnnouncement, getHall, getLoadedHall } from '@/services/classhall-service';
-import type { HallAnnouncement, HallDetail, HallEvaluation } from '@/services/classhall-service';
+import type { HallAnnouncement, HallCourseEvent, HallDetail, HallEvaluation } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -91,6 +91,36 @@ function EvaluationRow({ item, onPress }: { item: HallEvaluation; onPress: () =>
   );
 }
 
+function isEvaluationType(type: string) {
+  return type.toLocaleLowerCase('es').startsWith('evaluaci');
+}
+
+/** An event the course put on its Calendar for this subject. */
+function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: () => void }) {
+  const past = item.startDate < startOfToday();
+  const days = daysUntil(item.startDate);
+  const when = item.cancelled ? 'Cancelado' : past ? 'Ya pasó' : days === 0 ? 'Hoy' : days === 1 ? 'Mañana' : `En ${days} días`;
+  return (
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`${item.title}, ${item.type ? `${item.type}, ` : ''}${hallLongDate(item.startDate)}, ${when}`}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [styles.evaluation, (past || item.cancelled) && styles.evaluationPast, pressed && AppPressed]}
+    >
+      <View style={styles.evaluationBadge}>
+        <ThemedText style={styles.evaluationDay}>{new Date(item.startDate).getDate()}</ThemedText>
+        <ThemedText style={styles.evaluationMonth}>{hallDay(item.startDate).split(' ')[1].slice(0, 3)}</ThemedText>
+      </View>
+      <View style={styles.evaluationText}>
+        <ThemedText numberOfLines={2} style={[styles.evaluationTitle, item.cancelled && styles.cancelled]}>{item.title}</ThemedText>
+        <ThemedText numberOfLines={1} style={styles.evaluationMeta}>{[item.type, hallLongDate(item.startDate)].filter(Boolean).join(' · ')}</ThemedText>
+      </View>
+      <ThemedText style={styles.evaluationWhen}>{when}</ThemedText>
+    </Pressable>
+  );
+}
+
 export default function HallScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -129,7 +159,13 @@ export default function HallScreen() {
   const hall = detail?.hall;
   const isTeacher = !!hall?.isTeacher;
   const upcoming = detail?.evaluations.filter(item => item.date >= startOfToday()) ?? [];
-  const next = upcoming[0];
+  const courseEvents = detail?.courseEvents ?? [];
+  // The course's own evaluations of this subject count too: the card shows
+  // whichever comes first, the Hall's or the Calendar's.
+  const nextCourse = courseEvents.find(item => !item.cancelled && item.startDate >= startOfToday() && isEvaluationType(item.type));
+  const hallNext = upcoming[0];
+  const next = hallNext && (!nextCourse || hallNext.date <= nextCourse.startDate) ? hallNext : undefined;
+  const nextFromCourse = !next ? nextCourse : undefined;
 
   const openEvaluation = (evaluation: HallEvaluation) =>
     router.push({ pathname: '/classhall/evaluation', params: { hallId: id, id: evaluation.id } });
@@ -153,8 +189,16 @@ export default function HallScreen() {
     }
   };
 
-  const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : 'Sin evaluaciones';
-  const nextSubtitle = next ? 'Abrir T.E.' : isTeacher ? 'Agendar una' : 'por ahora';
+  // Course events open in the Calendar, which reads them with the student's
+  // course; a teacher sees them listed but opens them from their own Calendar.
+  const openCourseEvent = (event: HallCourseEvent) => router.push({ pathname: '/event-info', params: { id: event.id } });
+  const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : nextFromCourse ? `Evaluación ${hallDay(nextFromCourse.startDate)}` : 'Sin evaluaciones';
+  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? 'Ver en Calendar' : isTeacher ? 'Agendar una' : 'por ahora';
+  const nextPress = next
+    ? () => openEvaluation(next)
+    : nextFromCourse
+      ? (isTeacher ? undefined : () => openCourseEvent(nextFromCourse))
+      : isTeacher ? newEvaluation : undefined;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -192,8 +236,10 @@ export default function HallScreen() {
                 tone="accent"
                 title={nextTitle}
                 subtitle={nextSubtitle}
-                accessibilityLabel={next ? `Próxima evaluación: ${next.title}, ${hallLongDate(next.date)}. Abrir la tabla de especificaciones` : undefined}
-                onPress={next ? () => openEvaluation(next) : isTeacher ? newEvaluation : undefined}
+                accessibilityLabel={next
+                  ? `Próxima evaluación: ${next.title}, ${hallLongDate(next.date)}. Abrir la tabla de especificaciones`
+                  : nextFromCourse ? `Próxima evaluación: ${nextFromCourse.title}, ${hallLongDate(nextFromCourse.startDate)}, del Calendar del curso` : undefined}
+                onPress={nextPress}
                 style={styles.summaryNext}
               />
             </View>
@@ -228,7 +274,7 @@ export default function HallScreen() {
             {tab === 'evaluations' && (
               <>
                 {isTeacher && <HanetButton label="Agendar una evaluación" variant="surface" onPress={newEvaluation} />}
-                {detail.evaluations.length === 0 ? (
+                {detail.evaluations.length === 0 ? (courseEvents.length === 0 && (
                   <View style={styles.card}>
                     <ThemedText style={styles.emptyTitle}>Sin evaluaciones</ThemedText>
                     <ThemedText style={styles.body}>
@@ -237,14 +283,26 @@ export default function HallScreen() {
                         : 'Cuando tu docente agende una evaluación, verás aquí la fecha y los contenidos.'}
                     </ThemedText>
                   </View>
-                ) : (
+                )) : (
                   <View style={styles.list}>
                     {[...upcoming, ...detail.evaluations.filter(item => item.date < startOfToday()).reverse()].map(item => (
                       <EvaluationRow key={item.id} item={item} onPress={() => openEvaluation(item)} />
                     ))}
                   </View>
                 )}
-                <ThemedText style={styles.finePrint}>Las evaluaciones del Hall también aparecen en el Calendar del curso. Solo tu docente puede cambiarlas.</ThemedText>
+                {courseEvents.length > 0 && (
+                  <>
+                    <ThemedText style={styles.sectionLabel}>Del Calendar del curso</ThemedText>
+                    <View style={styles.list}>
+                      {courseEvents.map(item => (
+                        <CourseEventRow key={item.id} item={item} onPress={isTeacher ? undefined : () => openCourseEvent(item)} />
+                      ))}
+                    </View>
+                  </>
+                )}
+                <ThemedText style={styles.finePrint}>
+                  Las evaluaciones del Hall también aparecen en el Calendar del curso, y lo que el curso agende para {hall.subject} aparece aquí.
+                </ThemedText>
               </>
             )}
 
@@ -450,6 +508,17 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_400Regular',
     fontSize: 13,
     lineHeight: 18,
+    color: AppColors.textSecondary,
+  },
+  cancelled: {
+    textDecorationLine: 'line-through',
+  },
+  sectionLabel: {
+    marginTop: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.xs,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
     color: AppColors.textSecondary,
   },
   evaluationWhen: {

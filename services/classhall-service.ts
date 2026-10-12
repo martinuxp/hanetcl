@@ -49,10 +49,21 @@ export type HallEvaluation = {
   updatedAt: number | null;
 };
 
+/** An event of the course Calendar about the Hall's subject, written by the course. */
+export type HallCourseEvent = {
+  id: string;
+  title: string;
+  type: string;
+  startDate: number;
+  cancelled: boolean;
+  authorName: string;
+};
+
 export type HallDetail = {
   hall: Hall;
   announcements: HallAnnouncement[];
   evaluations: HallEvaluation[];
+  courseEvents?: HallCourseEvent[];
 };
 
 export type HallEvaluationInput = {

@@ -1,3 +1,4 @@
+import { subjectName } from '@/constants/subjects';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { formatTime } from '@/services/ical-service';
@@ -119,7 +120,7 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
               <View style={styles.agendaCopy}>
                 <ThemedText numberOfLines={2} style={[styles.agendaEvent, event.cancelled && styles.cancelledText]}>{event.title}</ThemedText>
                 <ThemedText style={styles.agendaMeta}>
-                  {formatTime(event.startDate)} - {formatTime(event.endDate)}{event.subject ? ` · ${event.subject}` : ''}{event.cancelled ? ' · Cancelado' : ''}
+                  {formatTime(event.startDate)} - {formatTime(event.endDate)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? ' · Cancelado' : ''}
                 </ThemedText>
               </View>
             </Pressable>

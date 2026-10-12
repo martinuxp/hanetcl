@@ -1,6 +1,7 @@
 const { randomInt } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { findSubject, subjectKey } = require("./subjects");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -25,6 +26,9 @@ const MAX_CONTENTS = 12;
 const MAX_POINTS = 999;
 // An evaluation takes one class block on the course calendar.
 const EVALUATION_MINUTES = 90;
+// Course calendar events shown inside a Hall: from a month back.
+const COURSE_EVENTS_BACK_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_COURSE_EVENTS = 30;
 
 function calendarDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-calendar");
@@ -252,7 +256,10 @@ function build(getAdminApp) {
     const profile = await requireProfile(getAdminApp, request);
     requireTeacher(profile);
 
-    const subject = text(request.data?.subject, 60);
+    // A subject of the shared catalog is stored by its catalog name, so the
+    // Hall and the course Calendar call it the same.
+    const typed = text(request.data?.subject, 60);
+    const subject = findSubject(typed)?.name || typed;
     const courseId = text(request.data?.courseId, 64);
     const theme = THEMES.includes(request.data?.theme) ? request.data.theme : "backToSchool";
 
@@ -275,7 +282,7 @@ function build(getAdminApp) {
     if (mine.size >= MAX_HALLS_PER_TEACHER) {
       throw new HttpsError("resource-exhausted", "Llegaste al máximo de Halls por docente.");
     }
-    if (mine.docs.some(doc => doc.data().courseId === courseId && doc.data().subject.toLowerCase() === subject.toLowerCase())) {
+    if (mine.docs.some(doc => doc.data().courseId === courseId && subjectKey(doc.data().subject) === subjectKey(subject))) {
       throw new HttpsError("already-exists", "Ya tienes un Hall de esa asignatura para ese curso.");
     }
 
@@ -300,6 +307,7 @@ function build(getAdminApp) {
         code,
         teacherUid: profile.uid,
         teacherName,
+        subjectId: subjectKey(subject),
         memberUids: [],
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -330,10 +338,31 @@ function build(getAdminApp) {
   // The inside of a Hall: its announcements and evaluations.
   const getHall = onCall({ invoker: "public" }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
-    const [announcements, evaluations] = await Promise.all([
+    const [announcements, evaluations, calendar] = await Promise.all([
       hallRef.collection("announcements").orderBy("createdAt", "desc").limit(MAX_ANNOUNCEMENTS).get(),
       hallRef.collection("evaluations").orderBy("date", "asc").limit(MAX_EVALUATIONS).get(),
+      calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`)
+        .where("startDate", ">=", Timestamp.fromMillis(Date.now() - COURSE_EVENTS_BACK_MS)).get(),
     ]);
+
+    // What the course Calendar has for this subject, written by the course
+    // (the Hall's own evaluations are already listed above).
+    const key = data.subjectId || subjectKey(data.subject);
+    const courseEvents = calendar.docs
+      .filter(doc => !doc.data().source && subjectKey(doc.data().subject) === key)
+      .map(doc => {
+        const event = doc.data();
+        return {
+          id: doc.id,
+          title: event.title || "Sin título",
+          type: event.type || "",
+          startDate: millis(event.startDate),
+          cancelled: event.cancelled === true,
+          authorName: event.authorName || "",
+        };
+      })
+      .sort((a, b) => a.startDate - b.startDate)
+      .slice(0, MAX_COURSE_EVENTS);
     return {
       hall: {
         id: hallRef.id,
@@ -347,6 +376,7 @@ function build(getAdminApp) {
       },
       announcements: announcements.docs.map(announcementOut),
       evaluations: evaluations.docs.map(evaluationOut),
+      courseEvents,
       viewerUid: profile.uid,
     };
   });

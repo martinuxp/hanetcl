@@ -23,6 +23,7 @@ import {
   CalendarEvent,
 } from '@/services/ical-service';
 import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
+import { subjectName } from '@/constants/subjects';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -717,7 +718,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <View style={styles.metaChipsRow}>
             {subject && (
               <View style={styles.metaChip}>
-                <ThemedText style={styles.metaChipText}>{subject}</ThemedText>
+                <ThemedText style={styles.metaChipText}>{subjectName(subject)}</ThemedText>
               </View>
             )}
             {eventType && (

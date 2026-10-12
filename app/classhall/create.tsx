@@ -9,6 +9,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
+import { SUBJECTS } from '@/constants/subjects';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,7 +17,11 @@ function CreateHallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [subject, setSubject] = useState('');
+  // A subject of the shared catalog (the same the Calendar uses), or "other"
+  // for an elective typed by hand.
+  const [catalogId, setCatalogId] = useState<string | null>(null);
+  const [otherSubject, setOtherSubject] = useState('');
+  const [themeTouched, setThemeTouched] = useState(false);
   const [courses, setCourses] = useState<string[] | null>(null);
   const [course, setCourse] = useState<string | null>(null);
   const [theme, setTheme] = useState<HallTheme>('backToSchool');
@@ -35,7 +40,16 @@ function CreateHallScreen() {
     return () => { active = false; };
   }, []);
 
+  const subject = catalogId === 'other' ? otherSubject : SUBJECTS.find(item => item.id === catalogId)?.name ?? '';
   const ready = subject.trim().length >= 2 && !!course;
+
+  const pickSubject = (id: string) => {
+    setCatalogId(id);
+    setError(null);
+    // The cover follows the subject until the teacher picks one.
+    const suggested = SUBJECTS.find(item => item.id === id)?.theme;
+    if (!themeTouched && suggested && suggested in HALL_THEMES) setTheme(suggested as HallTheme);
+  };
 
   const submit = async () => {
     if (!ready || !course || submitting) return;
@@ -54,7 +68,7 @@ function CreateHallScreen() {
 
   // Closing with a subject, course or theme chosen asks first.
   const { allowLeave, dialog } = useUnsavedChangesGuard({
-    dirty: (!!subject.trim() || !!course || theme !== 'backToSchool') && !submitting,
+    dirty: (!!catalogId || !!course || themeTouched) && !submitting,
     onSave: submit,
     saveLabel: 'Crear Hall',
     canSave: ready,
@@ -75,17 +89,38 @@ function CreateHallScreen() {
 
       <View style={styles.field}>
         <ThemedText style={styles.label}>Asignatura</ThemedText>
-        <TextInput
-          accessibilityLabel="Asignatura"
-          value={subject}
-          onChangeText={(text) => { setSubject(text); setError(null); }}
-          placeholder="Lenguaje y Literatura"
-          placeholderTextColor={AppColors.surfaceMuted}
-          maxLength={60}
-          editable={!submitting}
-          selectionColor={AppColors.accent}
-          style={styles.input}
-        />
+        <ThemedText style={styles.hint}>Las mismas del Calendar, para que las evaluaciones del curso aparezcan en tu Hall.</ThemedText>
+        <View style={styles.chips} accessibilityRole="radiogroup">
+          {[...SUBJECTS, { id: 'other', name: 'Otra' }].map(option => {
+            const selected = option.id === catalogId;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                disabled={submitting}
+                onPress={() => pickSubject(option.id)}
+                style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+              >
+                <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>{option.name}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+        {catalogId === 'other' && (
+          <TextInput
+            accessibilityLabel="Nombre de la asignatura"
+            value={otherSubject}
+            onChangeText={(text) => { setOtherSubject(text); setError(null); }}
+            placeholder="Taller de robótica"
+            placeholderTextColor={AppColors.surfaceMuted}
+            maxLength={60}
+            autoFocus
+            editable={!submitting}
+            selectionColor={AppColors.accent}
+            style={styles.input}
+          />
+        )}
       </View>
 
       <View style={styles.field}>
@@ -125,7 +160,7 @@ function CreateHallScreen() {
                 accessibilityLabel={`Portada ${index + 1}`}
                 accessibilityState={{ selected }}
                 disabled={submitting}
-                onPress={() => setTheme(id)}
+                onPress={() => { setTheme(id); setThemeTouched(true); }}
                 style={({ pressed }) => [styles.theme, selected && styles.themeSelected, pressed && styles.pressed]}
               >
                 <Image source={HALL_THEMES[id]} style={styles.themeImage} contentFit="cover" />
