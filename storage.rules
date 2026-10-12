@@ -3,6 +3,10 @@ rules_version = '2';
 // Firebase Storage:
 //   profile-photos/{uid}/avatar.jpg        one per account, private
 //   institutions/{id}/logo.png|banner.jpg  the institution's shield and banner
+//   classhall-uploads/{uid}/{file}         a teacher's upload, before the
+//                                          backend moves it into the Hall
+//   classhall/{hallId}/...                 Hall documents: no direct access;
+//                                          members get a token URL from getHall
 //
 // Photos are private to their owner: the app does not show anyone's photo to
 // other people yet. Widen `read` only together with the feature that needs it.
@@ -31,6 +35,18 @@ service firebase.storage {
         && request.resource != null
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png)');
+    }
+
+    // A teacher uploads to their own folder; attachHallDocument checks the
+    // Hall, moves the file and records it. Nobody reads this folder.
+    match /classhall-uploads/{uid}/{file} {
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.role in ['Profesor', 'Admin', 'HNT']
+        && request.resource != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|application/msword|application/vnd[.]openxmlformats-officedocument[.](wordprocessingml[.]document|presentationml[.]presentation|spreadsheetml[.]sheet)|application/vnd[.]ms-(powerpoint|excel)|image/(jpeg|png)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /{allPaths=**} {

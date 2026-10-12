@@ -5,7 +5,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall } from '@/services/classhall-service';
+import { DocumentError, deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall, openHallDocument, pickHallDocument, uploadHallDocument } from '@/services/classhall-service';
 import type { HallDetail } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -57,6 +57,30 @@ export default function HallEvaluationScreen() {
   const hall = detail?.hall;
   const evaluation = detail?.evaluations.find(item => item.id === id);
   const missing = !!detail && !evaluation;
+
+  // The scanned specification table (T.E.) is a Hall document tied to this evaluation.
+  const teDocument = detail?.documents?.find(item => item.evaluationId === id);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadTe = async () => {
+    if (!hallId || !id || uploading) return;
+    setUploadError(null);
+    try {
+      const picked = await pickHallDocument();
+      if (!picked) return;
+      setUploading(true);
+      const added = await uploadHallDocument(hallId, picked, { evaluationId: id });
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDetail(current => current && {
+        ...current,
+        documents: [added, ...(current.documents ?? []).filter(item => item.evaluationId !== id)],
+      });
+    } catch (error) {
+      setUploadError(error instanceof DocumentError ? error.message : describeAuthError(error, 'No pudimos subir la T.E. Inténtalo nuevamente.'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const remove = async () => {
     if (!hallId || !id || deleting) return;
@@ -137,9 +161,11 @@ export default function HallEvaluationScreen() {
                 <HallTile
                   icon={HALL_ICONS.document}
                   tone="primary"
-                  title="Abrir T.E."
-                  subtitle="Próximamente"
-                compact
+                  title={teDocument ? 'Abrir T.E.' : hall.isTeacher ? 'Subir T.E.' : 'Abrir T.E.'}
+                  subtitle={uploading ? 'Subiendo…' : teDocument ? 'Ver documento' : hall.isTeacher ? 'PDF o foto' : 'Sin documento'}
+                  compact
+                  accessibilityLabel={teDocument ? `Abrir la tabla de especificaciones, ${teDocument.name}` : hall.isTeacher ? 'Subir la tabla de especificaciones escaneada' : 'Tabla de especificaciones, todavía sin documento'}
+                  onPress={uploading ? undefined : teDocument ? () => void openHallDocument(teDocument) : hall.isTeacher ? uploadTe : undefined}
                   style={styles.openTile}
                 />
                 <View style={styles.facts}>
@@ -175,9 +201,11 @@ export default function HallEvaluationScreen() {
               La publicó tu docente en ClassHall y también aparece en el Calendar del curso. Solo tu docente puede cambiarla.
             </ThemedText>
 
+            {!!uploadError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{uploadError}</ThemedText>}
             {hall.isTeacher && (
               <View style={styles.teacherActions}>
                 <HallPill label="Editar evaluación" tone="light" onPress={() => router.push({ pathname: '/classhall/evaluation-form', params: { hallId, id } })} />
+                {!!teDocument && <HallPill label={uploading ? 'Subiendo…' : 'Cambiar T.E.'} disabled={uploading} onPress={uploadTe} />}
                 <HallPill label="Eliminar" onPress={() => { setDeleteError(null); setConfirming(true); }} />
               </View>
             )}

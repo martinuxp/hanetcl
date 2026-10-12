@@ -1,5 +1,8 @@
+import * as DocumentPicker from 'expo-document-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase';
+import { ref, uploadBytes } from 'firebase/storage';
+import { auth, functions, storage } from './firebase';
 import type { HallPlan } from '@/constants/subjects';
 
 export const HALL_CODE_LENGTH = 6;
@@ -66,11 +69,29 @@ export type HallCourseEvent = {
   verificationRequested?: boolean;
 };
 
+export type HallDocumentKind = 'pdf' | 'word' | 'powerpoint' | 'excel' | 'image' | 'file';
+
+/** A file the teacher shared in the Hall; `url` opens it (only members get it). */
+export type HallDocument = {
+  id: string;
+  name: string;
+  kind: HallDocumentKind;
+  size: number;
+  url: string;
+  authorName: string;
+  /** Attached to this announcement. */
+  announcementId: string | null;
+  /** The specification table (T.E.) of this evaluation. */
+  evaluationId: string | null;
+  createdAt: number | null;
+};
+
 export type HallDetail = {
   hall: Hall;
   announcements: HallAnnouncement[];
   evaluations: HallEvaluation[];
   courseEvents?: HallCourseEvent[];
+  documents?: HallDocument[];
 };
 
 export type HallEvaluationInput = {
@@ -162,8 +183,70 @@ export async function getHall(hallId: string) {
 }
 
 export async function saveHallAnnouncement(hallId: string, body: string, announcementId?: string) {
-  await httpsCallable(functions, 'saveHallAnnouncement')({ hallId, body, announcementId });
+  const result = await httpsCallable<{ hallId: string; body: string; announcementId?: string }, { announcementId: string }>(functions, 'saveHallAnnouncement')({ hallId, body, announcementId });
+  return result.data.announcementId;
 }
+
+// What a Hall accepts: PDF, Word, PowerPoint, Excel and images, up to 10 MB.
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+};
+const ACCEPTED_TYPES = [...new Set(Object.values(MIME_BY_EXTENSION))];
+
+export type PickedDocument = { uri: string; name: string; mimeType: string; size: number; file?: File };
+
+export class DocumentError extends Error {}
+
+/** Lets the teacher choose a file; null when they cancel. Throws DocumentError for a file the Hall does not take. */
+export async function pickHallDocument(): Promise<PickedDocument | null> {
+  const result = await DocumentPicker.getDocumentAsync({ type: ACCEPTED_TYPES, copyToCacheDirectory: true, multiple: false });
+  const asset = result.canceled ? null : result.assets[0];
+  if (!asset) return null;
+  const extension = asset.name.split('.').pop()?.toLowerCase() ?? '';
+  const mimeType = ACCEPTED_TYPES.includes(asset.mimeType ?? '') ? asset.mimeType as string : MIME_BY_EXTENSION[extension];
+  if (!mimeType) throw new DocumentError('Ese tipo de archivo no se puede subir. Usa PDF, Word, PowerPoint, Excel o una imagen.');
+  if ((asset.size ?? 0) > MAX_DOCUMENT_BYTES) throw new DocumentError('El archivo pesa más de 10 MB.');
+  return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
+}
+
+/** Uploads a picked file and shares it in the Hall, optionally attached to an announcement or as an evaluation's T.E. */
+export async function uploadHallDocument(hallId: string, picked: PickedDocument, attach: { announcementId?: string; evaluationId?: string } = {}) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new DocumentError('Inicia sesión para subir documentos.');
+  const blob = picked.file ?? await (await fetch(picked.uri)).blob();
+  const uploadPath = `classhall-uploads/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await uploadBytes(ref(storage, uploadPath), blob, { contentType: picked.mimeType });
+  const result = await httpsCallable<object, HallDocument>(functions, 'attachHallDocument')({ hallId, uploadPath, name: picked.name, ...attach });
+  return result.data;
+}
+
+export async function deleteHallDocument(hallId: string, documentId: string) {
+  await httpsCallable(functions, 'deleteHallDocument')({ hallId, documentId });
+}
+
+/** Opens a document in the in-app browser (a new tab on the web). */
+export async function openHallDocument(document: HallDocument) {
+  await WebBrowser.openBrowserAsync(document.url);
+}
+
+export const DOCUMENT_LABELS: Record<HallDocumentKind, string> = {
+  pdf: 'Documento PDF',
+  word: 'Documento Word',
+  powerpoint: 'Presentación PowerPoint',
+  excel: 'Planilla Excel',
+  image: 'Imagen',
+  file: 'Documento',
+};
 
 export async function deleteHallAnnouncement(hallId: string, announcementId: string) {
   await httpsCallable(functions, 'deleteHallAnnouncement')({ hallId, announcementId });

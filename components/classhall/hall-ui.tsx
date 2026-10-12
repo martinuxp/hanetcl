@@ -1,7 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
-import { hallThemeImage } from '@/services/classhall-service';
-import type { Hall } from '@/services/classhall-service';
+import { DOCUMENT_LABELS, hallThemeImage, openHallDocument } from '@/services/classhall-service';
+import type { Hall, HallDocument } from '@/services/classhall-service';
+import { CustomIcon } from '@/components/ui/custom-icon';
 import { Image } from 'expo-image';
 import type { ImageSource } from 'expo-image';
 import React from 'react';
@@ -142,6 +143,26 @@ export function HallPill({ label, onPress, tone = 'surface', disabled }: { label
   );
 }
 
+/** A shared file as a tile: what it is and its name; tapping opens it. */
+export function DocumentTile({ document, tone = 'primary', label }: { document: HallDocument; tone?: 'accent' | 'primary'; label?: string }) {
+  const color = tone === 'accent' ? AppColors.textOnLight : AppColors.textPrimary;
+  const title = label ?? DOCUMENT_LABELS[document.kind];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${document.name}. Abrir`}
+      onPress={() => void openHallDocument(document)}
+      style={({ pressed }) => [styles.tile, styles.documentTile, tone === 'accent' ? styles.tileAccent : styles.tilePrimary, pressed && AppPressed]}
+    >
+      <View style={styles.tileIcon}>
+        <CustomIcon name="file-text" size={22} color={color} />
+      </View>
+      <ThemedText numberOfLines={1} style={[styles.tileTitle, { color }]}>{title}</ThemedText>
+      <ThemedText numberOfLines={1} style={[styles.tileSubtitle, styles.documentName, { color }]}>{document.name}</ThemedText>
+    </Pressable>
+  );
+}
+
 export const hallStyles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
@@ -251,6 +272,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 18,
     letterSpacing: -0.4,
+  },
+  documentTile: {
+    alignSelf: 'stretch',
+  },
+  documentName: {
+    maxWidth: '100%',
   },
   tileSubtitleCompact: {
     fontSize: 12,

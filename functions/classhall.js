@@ -1,6 +1,7 @@
-const { randomInt } = require("node:crypto");
+const { randomInt, randomUUID } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const { PLANS, findSubject, subjectKey } = require("./subjects");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
@@ -29,6 +30,25 @@ const EVALUATION_MINUTES = 90;
 // Course calendar events shown inside a Hall: from a month back.
 const COURSE_EVENTS_BACK_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_COURSE_EVENTS = 30;
+
+// Documents a teacher shares in a Hall. The app uploads to its own staging
+// folder (storage.rules) and attachHallDocument moves the file into the Hall;
+// nobody reads classhall/ directly, only through the token URL getHall hands
+// to the Hall's members.
+const BUCKET = "hanet-edu.firebasestorage.app";
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENTS = 100;
+const DOCUMENT_TYPES = {
+  "application/pdf": "pdf",
+  "application/msword": "word",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "word",
+  "application/vnd.ms-powerpoint": "powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "powerpoint",
+  "application/vnd.ms-excel": "excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "excel",
+  "image/jpeg": "image",
+  "image/png": "image",
+};
 
 function calendarDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-calendar");
@@ -171,6 +191,40 @@ function requireHallTeacher(isTeacher) {
 
 function childId(value) {
   return typeof value === "string" && value && !value.includes("/") ? value : null;
+}
+
+function documentUrl(data) {
+  return `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodeURIComponent(data.path)}?alt=media&token=${data.token}`;
+}
+
+function documentOut(doc) {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    name: data.name,
+    kind: DOCUMENT_TYPES[data.contentType] || "file",
+    size: data.size || 0,
+    url: documentUrl(data),
+    authorName: data.authorName,
+    announcementId: data.announcementId || null,
+    evaluationId: data.evaluationId || null,
+    createdAt: millis(data.createdAt),
+  };
+}
+
+// File names keep their letters and extension, without path characters.
+function safeFileName(value) {
+  const name = text(value, 120).replace(/[\\/:*?"<>|#%{}^~[\]`]+/g, "-").replace(/^\.+/, "");
+  return name || "documento";
+}
+
+// Removes documents (file and record) from a Hall.
+async function removeDocuments(getAdminApp, docs) {
+  const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+  await Promise.all(docs.map(async (doc) => {
+    await bucket.file(doc.data().path).delete({ ignoreNotFound: true });
+    await doc.ref.delete();
+  }));
 }
 
 function announcementOut(doc) {
@@ -397,11 +451,12 @@ function build(getAdminApp) {
   // The inside of a Hall: its announcements and evaluations.
   const getHall = onCall({ invoker: "public" }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
-    const [announcements, evaluations, calendar] = await Promise.all([
+    const [announcements, evaluations, calendar, documents] = await Promise.all([
       hallRef.collection("announcements").orderBy("createdAt", "desc").limit(MAX_ANNOUNCEMENTS).get(),
       hallRef.collection("evaluations").orderBy("date", "asc").limit(MAX_EVALUATIONS).get(),
       calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`)
         .where("startDate", ">=", Timestamp.fromMillis(Date.now() - COURSE_EVENTS_BACK_MS)).get(),
+      hallRef.collection("documents").orderBy("createdAt", "desc").limit(MAX_DOCUMENTS).get(),
     ]);
 
     // What the course Calendar has for this subject, written by the course
@@ -432,6 +487,7 @@ function build(getAdminApp) {
       announcements: announcements.docs.map(announcementOut),
       evaluations: evaluations.docs.map(evaluationOut),
       courseEvents,
+      documents: documents.docs.map(documentOut),
       viewerUid: profile.uid,
     };
   });
@@ -510,7 +566,8 @@ function build(getAdminApp) {
     requireHallTeacher(isTeacher);
     const id = childId(request.data?.announcementId);
     if (!id) throw new HttpsError("invalid-argument", "Falta el anuncio.");
-    await hallRef.collection("announcements").doc(id).delete();
+    const attached = await hallRef.collection("documents").where("announcementId", "==", id).get();
+    await Promise.all([hallRef.collection("announcements").doc(id).delete(), removeDocuments(getAdminApp, attached.docs)]);
     return { ok: true };
   });
 
@@ -620,6 +677,82 @@ function build(getAdminApp) {
     return { evaluationId: ref.id };
   });
 
+  // Takes a file the teacher uploaded to their staging folder into the Hall.
+  // Attached to an announcement or as an evaluation's T.E. it replaces the
+  // previous one there.
+  const attachHallDocument = onCall({ invoker: "public" }, async (request) => {
+    const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+
+    const uploadPath = typeof request.data?.uploadPath === "string" ? request.data.uploadPath : "";
+    if (!uploadPath.startsWith(`classhall-uploads/${profile.uid}/`) || uploadPath.includes("..")) {
+      throw new HttpsError("invalid-argument", "No encontramos el archivo subido.");
+    }
+    const announcementId = childId(request.data?.announcementId);
+    const evaluationId = childId(request.data?.evaluationId);
+    if (announcementId && !(await hallRef.collection("announcements").doc(announcementId).get()).exists) {
+      throw new HttpsError("not-found", "Ese anuncio ya no existe.");
+    }
+    if (evaluationId && !(await hallRef.collection("evaluations").doc(evaluationId).get()).exists) {
+      throw new HttpsError("not-found", "Esa evaluación ya no existe.");
+    }
+    const count = await hallRef.collection("documents").count().get();
+    if (count.data().count >= MAX_DOCUMENTS) {
+      throw new HttpsError("resource-exhausted", "Este Hall llegó al máximo de documentos.");
+    }
+
+    const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+    const upload = bucket.file(uploadPath);
+    const [exists] = await upload.exists();
+    if (!exists) throw new HttpsError("not-found", "No encontramos el archivo subido.");
+    const [metadata] = await upload.getMetadata();
+    const size = Number(metadata.size) || 0;
+    if (!DOCUMENT_TYPES[metadata.contentType] || size <= 0 || size > MAX_DOCUMENT_BYTES) {
+      await upload.delete({ ignoreNotFound: true });
+      throw new HttpsError("invalid-argument", "Sube un PDF, Word, PowerPoint, Excel o imagen de hasta 10 MB.");
+    }
+
+    const docRef = hallRef.collection("documents").doc();
+    const name = safeFileName(request.data?.name);
+    const path = `classhall/${hallRef.id}/${docRef.id}/${name}`;
+    const token = randomUUID();
+    await upload.move(path);
+    await bucket.file(path).setMetadata({
+      contentType: metadata.contentType,
+      contentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(name)}`,
+      metadata: { firebaseStorageDownloadTokens: token },
+    });
+
+    // One attachment per announcement and one T.E. per evaluation.
+    const previous = announcementId
+      ? await hallRef.collection("documents").where("announcementId", "==", announcementId).get()
+      : evaluationId ? await hallRef.collection("documents").where("evaluationId", "==", evaluationId).get() : null;
+    if (previous) await removeDocuments(getAdminApp, previous.docs);
+
+    await docRef.set({
+      name,
+      contentType: metadata.contentType,
+      size,
+      path,
+      token,
+      authorName: data.teacherName,
+      announcementId: announcementId || null,
+      evaluationId: evaluationId || null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return documentOut(await docRef.get());
+  });
+
+  const deleteHallDocument = onCall({ invoker: "public" }, async (request) => {
+    const { hallRef, isTeacher } = await openHall(getAdminApp, request);
+    requireHallTeacher(isTeacher);
+    const id = childId(request.data?.documentId);
+    if (!id) throw new HttpsError("invalid-argument", "Falta el documento.");
+    const doc = await hallRef.collection("documents").doc(id).get();
+    if (doc.exists) await removeDocuments(getAdminApp, [doc]);
+    return { ok: true };
+  });
+
   // The teacher of the subject confirms an event the course's directiva wrote
   // on its Calendar; it then shows as verified by them.
   const verifyCalendarEvent = onCall({ invoker: "public" }, async (request) => {
@@ -655,6 +788,8 @@ function build(getAdminApp) {
     if (!id) throw new HttpsError("invalid-argument", "Falta la evaluación.");
     const evaluationRef = hallRef.collection("evaluations").doc(id);
     const courses = (await evaluationRef.get()).data()?.calendarCourses || [data.courseId];
+    const attached = await hallRef.collection("documents").where("evaluationId", "==", id).get();
+    await removeDocuments(getAdminApp, attached.docs);
     const batch = calendarDb(getAdminApp).batch();
     for (const courseId of courses) batch.delete(calendarRef(getAdminApp, courseId, hallRef.id, id));
     await Promise.all([evaluationRef.delete(), batch.commit()]);
@@ -664,6 +799,7 @@ function build(getAdminApp) {
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
     getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation, verifyCalendarEvent,
+    attachHallDocument, deleteHallDocument,
   };
 }
 

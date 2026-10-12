@@ -1,13 +1,13 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
-import { HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
+import { DocumentTile, HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { deleteHallAnnouncement, getHall, getLoadedHall, verifyCalendarEvent } from '@/services/classhall-service';
-import type { HallAnnouncement, HallCourseEvent, HallDetail, HallEvaluation } from '@/services/classhall-service';
+import { DocumentError, deleteHallAnnouncement, deleteHallDocument, getHall, getLoadedHall, pickHallDocument, uploadHallDocument, verifyCalendarEvent } from '@/services/classhall-service';
+import type { HallAnnouncement, HallCourseEvent, HallDetail, HallDocument, HallEvaluation } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,7 +20,7 @@ type Tab = 'announcements' | 'evaluations' | 'documents';
 const TABS: { value: Tab; label: string; accessibilityLabel: string }[] = [
   { value: 'announcements', label: 'Anuncios', accessibilityLabel: 'Anuncios' },
   { value: 'evaluations', label: 'Evaluaciones', accessibilityLabel: 'Evaluaciones' },
-  { value: 'documents', label: 'Documentos', accessibilityLabel: 'Documentos, próximamente' },
+  { value: 'documents', label: 'Documentos', accessibilityLabel: 'Documentos' },
 ];
 
 function initials(name: string) {
@@ -51,12 +51,20 @@ function Byline({ name, date }: { name: string; date: string }) {
   );
 }
 
-function AnnouncementCard({ item, canEdit, onEdit, onDelete }: { item: HallAnnouncement; canEdit: boolean; onEdit: () => void; onDelete: () => void }) {
+const DOCUMENTS_NOTICE = 'Documentos exclusivos de ClassHall y tu institución, prohibida su distribución en caso de que no se especifique.';
+
+function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete }: { item: HallAnnouncement; attachment?: HallDocument; canEdit: boolean; onEdit: () => void; onDelete: () => void }) {
   const date = item.createdAt ? hallDay(item.createdAt) : 'Ahora';
   return (
     <View style={styles.card}>
       <Byline name={item.authorName} date={item.updatedAt ? `${date} · editado` : date} />
       <ThemedText selectable style={styles.body}>{item.body}</ThemedText>
+      {!!attachment && (
+        <>
+          <DocumentTile document={attachment} tone="accent" label="Archivo adjunto" />
+          <ThemedText style={styles.cardNotice}>{DOCUMENTS_NOTICE}</ThemedText>
+        </>
+      )}
       {canEdit && (
         <View style={styles.cardActions}>
           <HallPill label="Editar" onPress={onEdit} />
@@ -138,6 +146,9 @@ export default function HallScreen() {
   const [pendingDelete, setPendingDelete] = useState<HallAnnouncement | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [pendingDocument, setPendingDocument] = useState<HallDocument | null>(null);
   // A course Calendar event the teacher opened: confirm it or complete it here.
   const [courseEvent, setCourseEvent] = useState<HallCourseEvent | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -209,6 +220,41 @@ export default function HallScreen() {
   const courseEventPress = (event: HallCourseEvent) => {
     if (!isTeacher) return () => openCourseEvent(event);
     return event.cancelled ? undefined : () => { setVerifyError(null); setCourseEvent(event); };
+  };
+
+  const documents = detail?.documents ?? [];
+  const attachmentOf = (announcementId: string) => documents.find(item => item.announcementId === announcementId);
+
+  const addDocument = async () => {
+    if (!id || uploading) return;
+    setDocumentError(null);
+    try {
+      const picked = await pickHallDocument();
+      if (!picked) return;
+      setUploading(true);
+      const added = await uploadHallDocument(id, picked);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDetail(current => current && { ...current, documents: [added, ...(current.documents ?? [])] });
+    } catch (uploadError) {
+      setDocumentError(uploadError instanceof DocumentError ? uploadError.message : describeAuthError(uploadError, 'No pudimos subir el documento. Inténtalo nuevamente.'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeDocument = async () => {
+    if (!pendingDocument || !id || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteHallDocument(id, pendingDocument.id);
+      setDetail(current => current && { ...current, documents: current.documents?.filter(item => item.id !== pendingDocument.id) });
+      setPendingDocument(null);
+    } catch (removeError) {
+      setDeleteError(describeAuthError(removeError, 'No pudimos eliminar el documento. Inténtalo nuevamente.'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const confirmCourseEvent = async () => {
@@ -301,6 +347,7 @@ export default function HallScreen() {
                   <AnnouncementCard
                     key={item.id}
                     item={item}
+                    attachment={attachmentOf(item.id)}
                     canEdit={isTeacher}
                     onEdit={() => announce(item.id)}
                     onDelete={() => { setDeleteError(null); setPendingDelete(item); }}
@@ -348,10 +395,36 @@ export default function HallScreen() {
             )}
 
             {tab === 'documents' && (
-              <View style={styles.card}>
-                <ThemedText style={styles.emptyTitle}>Próximamente</ThemedText>
-                <ThemedText style={styles.body}>Aquí estarán las guías, presentaciones y documentos que comparta tu docente.</ThemedText>
-              </View>
+              <>
+                {isTeacher && (
+                  <HanetButton label={uploading ? 'Subiendo…' : 'Subir un documento'} variant="surface" disabled={uploading} onPress={addDocument} />
+                )}
+                {!!documentError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{documentError}</ThemedText>}
+                {documents.length === 0 ? (
+                  <View style={styles.card}>
+                    <ThemedText style={styles.emptyTitle}>Sin documentos</ThemedText>
+                    <ThemedText style={styles.body}>
+                      {isTeacher
+                        ? 'Sube guías, presentaciones o lecturas en PDF, Word, PowerPoint, Excel o imagen (hasta 10 MB). Solo los estudiantes del Hall pueden abrirlos.'
+                        : 'Aquí estarán las guías, presentaciones y documentos que comparta tu docente.'}
+                    </ThemedText>
+                  </View>
+                ) : documents.map(item => (
+                  <View key={item.id} style={styles.card}>
+                    <Byline name={item.authorName} date={item.createdAt ? hallDay(item.createdAt) : 'Ahora'} />
+                    <DocumentTile
+                      document={item}
+                      label={item.evaluationId ? 'Tabla de especificaciones' : undefined}
+                    />
+                    {isTeacher && (
+                      <View style={styles.cardActions}>
+                        <HallPill label="Eliminar" onPress={() => { setDeleteError(null); setPendingDocument(item); }} />
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {documents.length > 0 && <ThemedText style={styles.finePrint}>{DOCUMENTS_NOTICE}</ThemedText>}
+              </>
             )}
 
             {isTeacher && hall.plan === 'comun' && (
@@ -403,6 +476,20 @@ export default function HallScreen() {
           )}
           <HanetButton label="Cerrar" variant="surface" disabled={verifying} onPress={() => setCourseEvent(null)} />
         </View>
+      </HanetDialog>
+
+      <HanetDialog
+        visible={!!pendingDocument}
+        onRequestClose={() => !deleting && setPendingDocument(null)}
+        dismissOnBackdrop={!deleting}
+        title="¿Eliminar este documento?"
+        body={pendingDocument ? `${pendingDocument.name}. Los estudiantes del Hall dejarán de verlo${pendingDocument.announcementId ? ' y se quitará del anuncio' : ''}. No se puede deshacer.` : undefined}
+      >
+        {!!deleteError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{deleteError}</ThemedText>}
+        <HanetDialogActions>
+          <HanetButton label="Cancelar" variant="surface" disabled={deleting} onPress={() => setPendingDocument(null)} style={dialogStyles.action} />
+          <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={deleting} onPress={removeDocument} style={dialogStyles.action} />
+        </HanetDialogActions>
       </HanetDialog>
 
       <HanetDialog
@@ -614,6 +701,14 @@ const styles = StyleSheet.create({
   },
   dialogButtons: {
     gap: AppSpacing.sm,
+  },
+  cardNotice: {
+    opacity: 0.7,
+    fontFamily: 'DMSans_300Light',
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: -0.44,
+    color: AppColors.textPrimary,
   },
   sectionHint: {
     marginTop: -AppSpacing.sm,
