@@ -11,6 +11,8 @@ import type { HallEvaluationContent, HallObjective, SpecTableDraft, StagedDocume
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { CustomIcon } from '@/components/ui/custom-icon';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -117,6 +119,14 @@ function EvaluationFormScreen() {
   const [scanNotes, setScanNotes] = useState<string[] | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [staged, setStaged] = useState<StagedDocument | null>(null);
+  // Sections start closed, except the ones that already hold something.
+  const [openSections, setOpenSections] = useState<string[]>(() => [
+    ...(initial.rows.some(row => row.name.trim()) ? ['table'] : []),
+  ]);
+  const toggleSection = (section: string) =>
+    setOpenSections(list => (list.includes(section) ? list.filter(item => item !== section) : [...list, section]));
+  const [editingSkills, setEditingSkills] = useState(false);
+  const [detailRows, setDetailRows] = useState<number[]>([]);
 
   const applyDraft = (draft: SpecTableDraft) => {
     setForm(current => {
@@ -149,6 +159,13 @@ function EvaluationFormScreen() {
       const { draft, staged: file } = await scanSpecTable(hallId, picked);
       applyDraft(draft);
       setStaged(file);
+      // What the scan filled opens, for the teacher to review.
+      setOpenSections(list => [...new Set([
+        ...list,
+        ...(draft.contents.length ? ['table'] : []),
+        ...(draft.objectives.length ? ['objectives'] : []),
+        ...(draft.exigency !== null || draft.prep ? ['more'] : []),
+      ])]);
       setScanNotes(draft.warnings);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (readError) {
@@ -235,34 +252,49 @@ function EvaluationFormScreen() {
     message: id ? 'La evaluación quedará como estaba.' : 'Todavía no la has agendado.',
   });
 
+  const filledRows = form.rows.filter(row => row.name.trim()).length;
+  const objectiveCodes = form.objectives.filter(objective => objective.code.trim()).map(objective => objective.code.trim());
+  const filledObjectives = form.objectives.filter(objective => objective.code.trim() || objective.text.trim()).length;
+  const tableSummary = filledRows
+    ? `${filledRows} ${filledRows === 1 ? 'contenido' : 'contenidos'}${total ? ` · ${total} pts.` : ''}`
+    : 'Contenidos y puntajes';
+  const objectivesSummary = objectiveCodes.length
+    ? objectiveCodes.join(' · ')
+    : filledObjectives ? `${filledObjectives} ${filledObjectives === 1 ? 'objetivo' : 'objetivos'}` : 'Opcional';
+  const moreSummary = [exigency !== null ? `Exigencia ${exigency} %` : 'Sin exigencia', form.prep.trim() ? 'Cómo prepararse' : null].filter(Boolean).join(' · ');
+
   return (
     <ScrollView
       style={styles.sheet}
-      contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
+      contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
       <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar evaluación' : fromEvent ? 'Completar evaluación' : 'Agendar evaluación'}</ThemedText>
       <ThemedText style={styles.lead}>
         {fromEvent
-          ? 'La agendó el curso en el Calendar. Al guardarla pasa a tu Hall: podrás editarla y agregar su tabla de especificaciones, y en el Calendar quedará como verificada por ti.'
-          : 'Tus estudiantes verán la fecha y la tabla de especificaciones. También aparece en el Calendar del curso.'}
+          ? 'La agendó el curso en el Calendar. Al guardarla pasa a tu Hall y queda verificada por ti.'
+          : 'Solo el nombre y el día son obligatorios. También aparece en el Calendar del curso.'}
       </ThemedText>
 
       <View style={local.scanCard}>
-        <ThemedText style={local.scanTitle}>Escanear tabla de especificaciones</ThemedText>
-        <ThemedText style={local.scanText}>
-          Sube tu T.E. en PDF o una foto y llenamos el formulario por ti. Revisa todo antes de guardar: el archivo quedará como la T.E. de la evaluación.
-        </ThemedText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ busy: scanning }}
-          disabled={scanning || submitting}
-          onPress={scan}
-          style={({ pressed }) => [local.scanButton, (scanning || submitting) && styles.submitDisabled, pressed && styles.pressed]}
-        >
-          <ThemedText style={local.scanButtonText}>{scanning ? 'Leyendo la tabla…' : staged ? 'Escanear otra' : 'Escanear T.E.'}</ThemedText>
-        </Pressable>
-        {!!staged && <ThemedText numberOfLines={1} style={local.scanText}>Leímos: {staged.name}</ThemedText>}
+        <View style={local.scanRow}>
+          <View style={local.scanCopy}>
+            <ThemedText style={local.scanTitle}>{staged ? 'Tabla leída' : '¿Tienes la T.E.?'}</ThemedText>
+            <ThemedText numberOfLines={2} style={local.scanText}>
+              {staged ? staged.name : 'Escanéala en PDF o foto y llenamos todo por ti.'}
+            </ThemedText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={staged ? 'Escanear otra tabla' : 'Escanear la tabla de especificaciones'}
+            accessibilityState={{ busy: scanning }}
+            disabled={scanning || submitting}
+            onPress={scan}
+            style={({ pressed }) => [local.scanButton, (scanning || submitting) && styles.submitDisabled, pressed && styles.pressed]}
+          >
+            <ThemedText style={local.scanButtonText}>{scanning ? 'Leyendo…' : staged ? 'Otra' : 'Escanear'}</ThemedText>
+          </Pressable>
+        </View>
         {!!scanError && <ThemedText accessibilityLiveRegion="assertive" style={local.scanError}>{scanError}</ThemedText>}
         {!!scanNotes && (
           <View accessibilityLiveRegion="polite" style={local.notes}>
@@ -287,41 +319,120 @@ function EvaluationFormScreen() {
         />
       </View>
 
-      <View style={local.pair}>
-        <View style={[styles.field, local.pairWide]}>
-          <ThemedText style={styles.label}>Día y hora</ThemedText>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Día y hora: ${hallLongDate(form.date)}. Cambiar`}
-            disabled={submitting}
-            onPress={() => setPicking(true)}
-            style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
-          >
-            <ThemedText numberOfLines={2} style={local.dateText}>{hallLongDate(form.date)}</ThemedText>
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Día y hora</ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Día y hora: ${hallLongDate(form.date)}. Cambiar`}
+          disabled={submitting}
+          onPress={() => setPicking(true)}
+          style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
+        >
+          <ThemedText numberOfLines={1} style={local.dateText}>{hallLongDate(form.date)}</ThemedText>
+          <ThemedText style={local.dateAction}>Cambiar</ThemedText>
+        </Pressable>
+      </View>
+
+      <Section title="Tabla de especificaciones" summary={tableSummary} open={openSections.includes('table')} onToggle={() => toggleSection('table')}>
+        <View style={local.skillsBar}>
+          <View style={local.skillsCopy}>
+            <ThemedText style={local.smallLabel}>Habilidades</ThemedText>
+            <ThemedText numberOfLines={2} style={local.skillsList}>{form.skills.map(skill => skill.trim() || 'Sin nombre').join(' · ')}</ThemedText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: editingSkills }} onPress={() => setEditingSkills(value => !value)} style={({ pressed }) => [local.linkButton, pressed && styles.pressed]}>
+            <ThemedText style={local.linkText}>{editingSkills ? 'Listo' : 'Cambiar'}</ThemedText>
           </Pressable>
         </View>
-        <View style={[styles.field, local.pairNarrow]}>
-          <ThemedText style={styles.label}>Exigencia</ThemedText>
-          <View>
-            <TextInput
-              accessibilityLabel="Exigencia en porcentaje"
-              value={form.exigency}
-              onChangeText={text => update({ exigency: digits(text) })}
-              placeholder="60"
-              placeholderTextColor={AppColors.surfaceMuted}
-              keyboardType="number-pad"
-              editable={!submitting}
-              selectionColor={AppColors.accent}
-              style={[styles.input, local.percentInput]}
-            />
-            <ThemedText style={local.percent} pointerEvents="none">%</ThemedText>
-          </View>
-        </View>
-      </View>
-      {!exigencyValid && <ThemedText style={styles.error}>La exigencia va de 1 a 100 %.</ThemedText>}
+        {editingSkills && (
+          <Animated.View entering={FadeIn.duration(120)} style={local.skillsEditor}>
+            <ThemedText style={styles.hint}>Las columnas de puntos, con los nombres que usa tu tabla.</ThemedText>
+            {form.skills.map((skill, column) => (
+              <View key={column} style={local.skillRow}>
+                <TextInput
+                  accessibilityLabel={`Habilidad ${column + 1}`}
+                  value={skill}
+                  onChangeText={name => renameSkill(column, name)}
+                  placeholder="Comprensión"
+                  placeholderTextColor={AppColors.surfaceMuted}
+                  maxLength={40}
+                  editable={!submitting}
+                  selectionColor={AppColors.accent}
+                  style={[styles.input, local.skillInput]}
+                />
+                {form.skills.length > 1 && (
+                  <RemoveButton label={`Quitar la habilidad ${skill || column + 1}`} disabled={submitting} onPress={() => removeSkill(column)} />
+                )}
+              </View>
+            ))}
+            {form.skills.length < MAX_SKILLS && <AddButton label="Agregar habilidad" disabled={submitting} onPress={addSkill} />}
+          </Animated.View>
+        )}
+        {!namedSkills && <ThemedText style={styles.error}>Ponle nombre a cada habilidad.</ThemedText>}
 
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>Objetivos de aprendizaje <ThemedText style={[styles.label, styles.optional]}>(opcional)</ThemedText></ThemedText>
+        {form.rows.map((row, index) => {
+          const detailShown = !!row.detail || detailRows.includes(index);
+          return (
+            <View key={index} style={local.block}>
+              <View style={local.blockHead}>
+                <TextInput
+                  accessibilityLabel={`Nombre del contenido ${index + 1}`}
+                  value={row.name}
+                  onChangeText={name => updateRow(index, { name })}
+                  placeholder={`Contenido ${index + 1}`}
+                  placeholderTextColor={AppColors.surfaceMuted}
+                  maxLength={80}
+                  editable={!submitting}
+                  selectionColor={AppColors.accent}
+                  style={[styles.input, local.rowInput, local.grow]}
+                />
+                {form.rows.length > 1 && (
+                  <RemoveButton label={`Quitar el contenido ${index + 1}`} disabled={submitting} onPress={() => update({ rows: form.rows.filter((_, at) => at !== index) })} />
+                )}
+              </View>
+              {detailShown ? (
+                <TextInput
+                  accessibilityLabel={`Detalle del contenido ${index + 1}, opcional`}
+                  value={row.detail}
+                  onChangeText={detail => updateRow(index, { detail })}
+                  placeholder="Detalle (opcional)"
+                  placeholderTextColor={AppColors.surfaceMuted}
+                  maxLength={160}
+                  editable={!submitting}
+                  selectionColor={AppColors.accent}
+                  style={[styles.input, local.rowInput]}
+                />
+              ) : (
+                <Pressable accessibilityRole="button" onPress={() => setDetailRows(list => [...list, index])} style={({ pressed }) => [local.inlineLink, pressed && styles.pressed]}>
+                  <ThemedText style={local.linkText}>+ Agregar detalle</ThemedText>
+                </Pressable>
+              )}
+              <View style={local.points}>
+                {form.skills.map((skill, column) => (
+                  <View key={column} style={local.point}>
+                    <ThemedText numberOfLines={1} style={local.pointLabel}>{skill ? skillAbbreviation(skill) : `H${column + 1}`}</ThemedText>
+                    <TextInput
+                      accessibilityLabel={`Puntos de ${skill || `la habilidad ${column + 1}`}, contenido ${index + 1}`}
+                      value={row.points[column] ?? ''}
+                      onChangeText={value => setPoint(index, column, value)}
+                      placeholder="0"
+                      placeholderTextColor={AppColors.surfaceMuted}
+                      keyboardType="number-pad"
+                      editable={!submitting}
+                      selectionColor={AppColors.accent}
+                      style={[styles.input, local.pointInput]}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })}
+        {form.rows.length < MAX_CONTENTS && (
+          <AddButton label="Agregar contenido" disabled={submitting} onPress={() => update({ rows: [...form.rows, emptyRow(form.skills.length)] })} />
+        )}
+      </Section>
+
+      <Section title="Objetivos de aprendizaje" summary={objectivesSummary} open={openSections.includes('objectives')} onToggle={() => toggleSection('objectives')}>
         {form.objectives.map((objective, index) => (
           <View key={index} style={local.block}>
             <View style={local.blockHead}>
@@ -335,7 +446,7 @@ function EvaluationFormScreen() {
                 maxLength={40}
                 editable={!submitting}
                 selectionColor={AppColors.accent}
-                style={[styles.input, local.codeInput]}
+                style={[styles.input, local.rowInput, local.grow]}
               />
               {form.objectives.length > 1 && (
                 <RemoveButton label={`Quitar el objetivo ${index + 1}`} disabled={submitting} onPress={() => update({ objectives: form.objectives.filter((_, at) => at !== index) })} />
@@ -345,7 +456,7 @@ function EvaluationFormScreen() {
               accessibilityLabel={`Texto del objetivo ${index + 1}, opcional`}
               value={objective.text}
               onChangeText={text => updateObjective(index, { text })}
-              placeholder="Analizar las narraciones leídas… (opcional)"
+              placeholder="Qué se espera que aprendan (opcional)"
               placeholderTextColor={AppColors.surfaceMuted}
               multiline
               maxLength={600}
@@ -358,110 +469,43 @@ function EvaluationFormScreen() {
         {form.objectives.length < MAX_OBJECTIVES && (
           <AddButton label="Agregar objetivo" disabled={submitting} onPress={() => update({ objectives: [...form.objectives, { code: '', text: '' }] })} />
         )}
-      </View>
+      </Section>
 
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>Habilidades de la tabla</ThemedText>
-        <ThemedText style={styles.hint}>Las columnas de puntos, con los nombres que usa tu tabla.</ThemedText>
-        {form.skills.map((skill, column) => (
-          <View key={column} style={local.skillRow}>
+      <Section title="Más detalles" summary={moreSummary} open={openSections.includes('more')} onToggle={() => toggleSection('more')}>
+        <View style={styles.field}>
+          <ThemedText style={styles.label}>Exigencia</ThemedText>
+          <View style={local.exigency}>
             <TextInput
-              accessibilityLabel={`Habilidad ${column + 1}`}
-              value={skill}
-              onChangeText={name => renameSkill(column, name)}
-              placeholder="Comprensión"
+              accessibilityLabel="Exigencia en porcentaje"
+              value={form.exigency}
+              onChangeText={text => update({ exigency: digits(text) })}
+              placeholder="60"
               placeholderTextColor={AppColors.surfaceMuted}
-              maxLength={40}
+              keyboardType="number-pad"
               editable={!submitting}
               selectionColor={AppColors.accent}
-              style={[styles.input, local.skillInput]}
+              style={[styles.input, local.percentInput]}
             />
-            {form.skills.length > 1 && (
-              <RemoveButton label={`Quitar la habilidad ${skill || column + 1}`} disabled={submitting} onPress={() => removeSkill(column)} />
-            )}
+            <ThemedText style={local.percent} pointerEvents="none">%</ThemedText>
           </View>
-        ))}
-        {!namedSkills && <ThemedText style={styles.error}>Ponle nombre a cada habilidad.</ThemedText>}
-        {form.skills.length < MAX_SKILLS && <AddButton label="Agregar habilidad" disabled={submitting} onPress={addSkill} />}
-      </View>
-
-      <View style={styles.field}>
-        <View style={local.contentsHead}>
-          <ThemedText style={styles.label}>Contenidos <ThemedText style={[styles.label, styles.optional]}>(opcional)</ThemedText></ThemedText>
-          {total > 0 && <ThemedText style={local.total}>Total {total} pts.</ThemedText>}
+          {!exigencyValid && <ThemedText style={styles.error}>La exigencia va de 1 a 100 %.</ThemedText>}
         </View>
-
-        {form.rows.map((row, index) => (
-          <View key={index} style={local.block}>
-            <View style={local.blockHead}>
-              <ThemedText style={local.rowNumber}>Contenido {index + 1}</ThemedText>
-              {form.rows.length > 1 && (
-                <RemoveButton label={`Quitar el contenido ${index + 1}`} disabled={submitting} onPress={() => update({ rows: form.rows.filter((_, at) => at !== index) })} />
-              )}
-            </View>
-            <TextInput
-              accessibilityLabel={`Nombre del contenido ${index + 1}`}
-              value={row.name}
-              onChangeText={name => updateRow(index, { name })}
-              placeholder="Unidad 1"
-              placeholderTextColor={AppColors.surfaceMuted}
-              maxLength={80}
-              editable={!submitting}
-              selectionColor={AppColors.accent}
-              style={[styles.input, local.rowInput]}
-            />
-            <TextInput
-              accessibilityLabel={`Detalle del contenido ${index + 1}, opcional`}
-              value={row.detail}
-              onChangeText={detail => updateRow(index, { detail })}
-              placeholder="Detalle (opcional)"
-              placeholderTextColor={AppColors.surfaceMuted}
-              maxLength={160}
-              editable={!submitting}
-              selectionColor={AppColors.accent}
-              style={[styles.input, local.rowInput]}
-            />
-            <View style={local.points}>
-              {form.skills.map((skill, column) => (
-                <View key={column} style={local.point}>
-                  <ThemedText numberOfLines={1} style={local.pointLabel}>{skill ? skillAbbreviation(skill) : `H${column + 1}`}</ThemedText>
-                  <TextInput
-                    accessibilityLabel={`Puntos de ${skill || `la habilidad ${column + 1}`}, contenido ${index + 1}`}
-                    value={row.points[column] ?? ''}
-                    onChangeText={value => setPoint(index, column, value)}
-                    placeholder="0"
-                    placeholderTextColor={AppColors.surfaceMuted}
-                    keyboardType="number-pad"
-                    editable={!submitting}
-                    selectionColor={AppColors.accent}
-                    style={[styles.input, local.pointInput]}
-                  />
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-
-        {form.rows.length < MAX_CONTENTS && (
-          <AddButton label="Agregar contenido" disabled={submitting} onPress={() => update({ rows: [...form.rows, emptyRow(form.skills.length)] })} />
-        )}
-      </View>
-
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>Cómo prepararse <ThemedText style={[styles.label, styles.optional]}>(opcional)</ThemedText></ThemedText>
-        <TextInput
-          accessibilityLabel="Cómo prepararse, opcional"
-          value={form.prep}
-          onChangeText={prep => update({ prep })}
-          placeholder="Apuntes de clases, guía de contenidos, libro del Ministerio pp. 38-50…"
-          placeholderTextColor={AppColors.surfaceMuted}
-          multiline
-          maxLength={1500}
-          editable={!submitting}
-          selectionColor={AppColors.accent}
-          style={[styles.input, styles.multiline]}
-        />
-      </View>
+        <View style={styles.field}>
+          <ThemedText style={styles.label}>Cómo prepararse</ThemedText>
+          <TextInput
+            accessibilityLabel="Cómo prepararse, opcional"
+            value={form.prep}
+            onChangeText={prep => update({ prep })}
+            placeholder="Apuntes de clases, guía de contenidos, libro del Ministerio pp. 38-50…"
+            placeholderTextColor={AppColors.surfaceMuted}
+            multiline
+            maxLength={1500}
+            editable={!submitting}
+            selectionColor={AppColors.accent}
+            style={[styles.input, styles.multiline]}
+          />
+        </View>
+      </Section>
 
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
 
@@ -489,7 +533,143 @@ function EvaluationFormScreen() {
   );
 }
 
+/** A part of the form that opens on tap, with a one-line summary of what it holds. */
+function Section({ title, summary, open, onToggle, children }: { title: string; summary: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <View style={local.section}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. ${summary}`}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={({ pressed }) => [local.sectionHead, pressed && styles.pressed]}
+      >
+        <View style={local.sectionCopy}>
+          <ThemedText style={local.sectionTitle}>{title}</ThemedText>
+          <ThemedText numberOfLines={1} style={local.sectionSummary}>{summary}</ThemedText>
+        </View>
+        <View style={open ? local.chevronOpen : local.chevron}>
+          <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />
+        </View>
+      </Pressable>
+      {open && (
+        <Animated.View entering={FadeIn.duration(120)} style={local.sectionBody}>
+          {children}
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
 const local = StyleSheet.create({
+  content: {
+    gap: AppSpacing.lg,
+  },
+  scanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+  },
+  scanCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  dateAction: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  section: {
+    overflow: 'hidden',
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  sectionHead: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.lg,
+    paddingVertical: AppSpacing.md,
+  },
+  sectionCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
+  },
+  sectionSummary: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textSecondary,
+  },
+  chevron: {
+    transform: [{ rotate: '90deg' }],
+  },
+  chevronOpen: {
+    transform: [{ rotate: '-90deg' }],
+  },
+  sectionBody: {
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.md,
+    paddingBottom: AppSpacing.md,
+  },
+  skillsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.xs,
+  },
+  skillsCopy: {
+    flex: 1,
+  },
+  smallLabel: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textSecondary,
+  },
+  skillsList: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
+  },
+  skillsEditor: {
+    gap: AppSpacing.sm,
+  },
+  linkButton: {
+    minHeight: AppTouch.minimum - 8,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.md,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  linkText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  inlineLink: {
+    alignSelf: 'flex-start',
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.xs,
+  },
+  grow: {
+    flex: 1,
+  },
+  exigency: {
+    width: 120,
+  },
   scanCard: {
     gap: AppSpacing.sm,
     padding: AppSpacing.lg,
@@ -513,6 +693,7 @@ const local = StyleSheet.create({
     minHeight: AppTouch.minimum,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: AppSpacing.xl,
     borderRadius: AppRadii.pill,
     backgroundColor: AppColors.primary,
   },
@@ -548,9 +729,13 @@ const local = StyleSheet.create({
     color: AppColors.textOnLight,
   },
   dateButton: {
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AppSpacing.md,
   },
   dateText: {
+    flex: 1,
     fontFamily: 'DMSans_500Medium',
     fontSize: 15,
     lineHeight: 20,
@@ -582,9 +767,9 @@ const local = StyleSheet.create({
   block: {
     gap: AppSpacing.sm,
     padding: AppSpacing.md,
-    borderRadius: AppRadii.lg,
+    borderRadius: AppRadii.md,
     borderCurve: 'continuous',
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: AppColors.surface,
   },
   blockHead: {
     flexDirection: 'row',
@@ -671,7 +856,7 @@ const local = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.surfaceMuted,
+    backgroundColor: AppColors.surface,
   },
   addText: {
     fontFamily: 'DMSans_700Bold',
