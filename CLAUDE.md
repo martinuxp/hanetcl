@@ -52,7 +52,9 @@ Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, región `us-central1`
 
 ## Desde una sesión en la nube
 
-- No hay credenciales de Firebase. De Expo solo `EXPO_TOKEN`, para la rama `expo-go` de EAS Update (ver abajo). Fuera de eso no se publica: Dejar los cambios listos y avisar qué hay que publicar desde el equipo del usuario.
+- No hay credenciales de Firebase en la sesión. De Expo solo `EXPO_TOKEN`, para la rama `expo-go` de EAS Update (ver abajo).
+- Firebase se publica con GitHub Actions (`.github/workflows/firebase-deploy.yml`, secreto `FIREBASE_SERVICE_ACCOUNT`). Con el OK del usuario, él crea una release cuya etiqueta es `firebase-deploy-<qué>-<n>` (por ejemplo `firebase-deploy-functions-4`, `firebase-deploy-all-1`) sobre la rama de trabajo; el proxy de la nube no deja empujar etiquetas. Seguir la ejecución con las herramientas de GitHub y revisar el registro: una función sin cambios sale como "Skipped".
+- Una función callable nueva queda cerrada en Cloud Run si la cuenta de servicio no puede abrirla. Comprobar con `curl -X POST .../<función>`: 401 es lo esperado; 403 significa que hay que permitir el acceso público en Cloud Run.
 - Comprobar antes de entregar: `npx tsc --noEmit` y `npx eslint app components services`.
 - El servidor de desarrollo se define en `.claude/launch.json` (`expo`, puerto 8081), pero el túnel de Expo (ngrok) no funciona tras el proxy de la nube.
 - Para probar en el iPhone desde la nube: después de cada cambio que pase `tsc` y `eslint`, publicar sin preguntar (cada tarea terminada) con `EXPO_GO_UPDATE=1 npx eas-cli update --branch expo-go --environment development --message "<resumen>" --non-interactive` (necesita `EXPO_TOKEN` en el entorno; EAS exige `--environment` sin modo interactivo, y la app no usa variables de entorno). Se abre en Expo Go con la cuenta `muxp`. Esta autorización cubre solo la rama `expo-go`; el resto de EAS y Firebase sigue necesitando OK.
