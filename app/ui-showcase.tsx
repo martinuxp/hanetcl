@@ -1,6 +1,8 @@
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { InstitutionSync } from '@/components/InstitutionSync';
+import { HanetChoice } from '@/components/ui/hanet-select';
+import { SUBJECTS } from '@/constants/subjects';
 import { ThemedText } from '@/components/themed-text';
 import { AnimatedIcon } from '@/components/ui/AnimatedIcon';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -41,6 +43,8 @@ export default function UiShowcaseScreen() {
   const [disabled, setDisabled] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [shift, setShift] = useState<string | null>('Mañana');
+  const [subjectId, setSubjectId] = useState<string | null>(null);
   // The preview shows the shield of the viewer's own institution, as the real link does.
   const [syncLogoUrl, setSyncLogoUrl] = useState<string | null>(null);
 
@@ -130,6 +134,23 @@ export default function UiShowcaseScreen() {
               setSyncVisible(true);
               setTimeout(() => setSyncVisible(false), 3200);
             }}
+          />
+        </Section>
+
+        <Section title="Selección" description="Hasta 5 opciones van como chips; con más, un campo que abre la lista en un diálogo (con buscador desde 10).">
+          <HanetChoice
+            label="Turno"
+            options={['Mañana', 'Tarde', 'Vespertino'].map(name => ({ value: name, label: name }))}
+            value={shift}
+            onChange={setShift}
+          />
+          <HanetChoice
+            label="Asignatura"
+            options={SUBJECTS.map(item => ({ value: item.id, label: item.name }))}
+            value={subjectId}
+            onChange={setSubjectId}
+            placeholder="Elegir asignatura"
+            style={{ backgroundColor: AppColors.surface }}
           />
         </Section>
 

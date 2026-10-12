@@ -12,9 +12,9 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { ensureClaims, useSession } from '@/services/auth-service';
 import { db, calendarDb } from '@/services/firebase';
 import { SUBJECTS, subjectName } from '@/constants/subjects';
+import { HanetChoice } from '@/components/ui/hanet-select';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetChip } from '@/components/ui/hanet-chip';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 
@@ -242,37 +242,27 @@ function CreateEventScreen() {
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Asignatura relacionada</ThemedText>
           {showErrors && missingSubject && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige una asignatura.</ThemedText>}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-            {subjectsList.map((s) => {
-              const isSelected = subject === s;
-              return (
-                <HanetChip
-                  key={s}
-                  label={s}
-                  selected={isSelected}
-                  onPress={() => setSubject(s)}
-                />
-              );
-            })}
-          </ScrollView>
+          <HanetChoice
+            label="Asignatura relacionada"
+            options={subjectsList.map(name => ({ value: name, label: name }))}
+            value={subject || null}
+            onChange={setSubject}
+            placeholder="Elegir asignatura"
+            style={styles.selectField}
+          />
         </View>
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Tipo de evento</ThemedText>
           {showErrors && missingType && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige un tipo de evento.</ThemedText>}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-            {eventTypesList.map((t) => {
-              const isSelected = eventType === t;
-              return (
-                <HanetChip
-                  key={t}
-                  label={t}
-                  selected={isSelected}
-                  onPress={() => setEventType(t)}
-                />
-              );
-            })}
-          </ScrollView>
+          <HanetChoice
+            label="Tipo de evento"
+            options={eventTypesList.map(name => ({ value: name, label: name }))}
+            value={eventType || null}
+            onChange={setEventType}
+            placeholder="Elegir tipo"
+            style={styles.selectField}
+          />
         </View>
 
         <View style={styles.modalSection}>
@@ -357,7 +347,7 @@ const styles = StyleSheet.create({
   modalLabel: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
   datePickerBtn: { backgroundColor: AppColors.surface, borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   datePickerText: { fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontSize: 13 },
-  chipScroll: { gap: 10, paddingRight: 20 },
+  selectField: { backgroundColor: AppColors.surface },
   modalFooter: { flexDirection: 'row', gap: 10, width: '100%' },
   footerButton: { flex: 1 },
 });

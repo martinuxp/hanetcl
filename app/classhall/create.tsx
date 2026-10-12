@@ -1,6 +1,6 @@
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { HALL_THEMES, HALL_THEME_IDS, createHall, listHallCourses } from '@/services/classhall-service';
 import type { HallTheme } from '@/services/classhall-service';
@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { SUBJECTS } from '@/constants/subjects';
+import { HanetChoice } from '@/components/ui/hanet-select';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -90,23 +91,14 @@ function CreateHallScreen() {
       <View style={styles.field}>
         <ThemedText style={styles.label}>Asignatura</ThemedText>
         <ThemedText style={styles.hint}>Las mismas del Calendar, para que las evaluaciones del curso aparezcan en tu Hall.</ThemedText>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {[...SUBJECTS, { id: 'other', name: 'Otra' }].map(option => {
-            const selected = option.id === catalogId;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                disabled={submitting}
-                onPress={() => pickSubject(option.id)}
-                style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
-              >
-                <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>{option.name}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
+        <HanetChoice
+          label="Asignatura"
+          options={[...SUBJECTS.map(item => ({ value: item.id, label: item.name })), { value: 'other', label: 'Otra asignatura' }]}
+          value={catalogId}
+          onChange={pickSubject}
+          placeholder="Elegir asignatura"
+          disabled={submitting}
+        />
         {catalogId === 'other' && (
           <TextInput
             accessibilityLabel="Nombre de la asignatura"
@@ -129,23 +121,16 @@ function CreateHallScreen() {
         {courses?.length === 0 && !error && (
           <ThemedText style={styles.hint}>Tu institución todavía no tiene cursos en su nómina.</ThemedText>
         )}
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {courses?.map(option => {
-            const selected = option === course;
-            return (
-              <Pressable
-                key={option}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                disabled={submitting}
-                onPress={() => { setCourse(option); setError(null); }}
-                style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
-              >
-                <ThemedText style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
+        {!!courses?.length && (
+          <HanetChoice
+            label="Curso"
+            options={courses.map(option => ({ value: option, label: option }))}
+            value={course}
+            onChange={(option) => { setCourse(option); setError(null); }}
+            placeholder="Elegir curso"
+            disabled={submitting}
+          />
+        )}
       </View>
 
       <View style={styles.field}>
@@ -250,30 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: AppColors.textSecondary,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AppSpacing.sm,
-  },
-  chip: {
-    minHeight: AppTouch.minimum,
-    justifyContent: 'center',
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.canvas,
-  },
-  chipSelected: {
-    backgroundColor: AppColors.controlActive,
-  },
-  chipText: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 14,
-    lineHeight: 20,
-    color: AppColors.textPrimary,
-  },
-  chipTextSelected: {
-    color: AppColors.controlOnActive,
   },
   themes: {
     gap: AppSpacing.sm,
