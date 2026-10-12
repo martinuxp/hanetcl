@@ -295,4 +295,23 @@ export function useRole() {
   return user && known?.uid === user.uid ? known.role : null;
 }
 
+/** The course in the token's claims, or null while unknown or unlinked. */
+export function useClaimCourse() {
+  const { user } = useSession();
+  const [known, setKnown] = useState<{ uid: string; courseId: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    user.getIdTokenResult()
+      .then(({ claims }) => {
+        if (active) setKnown({ uid: user.uid, courseId: typeof claims.courseId === 'string' ? claims.courseId : null });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
+
+  return user && known?.uid === user.uid ? known.courseId : null;
+}
+
 export const EVENT_EDITOR_ROLES = ['HNT', 'Admin', 'CEE', 'Directiva'];

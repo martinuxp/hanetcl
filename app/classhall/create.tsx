@@ -9,7 +9,8 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
-import { SUBJECTS, findSubject } from '@/constants/subjects';
+import { HALL_PLANS, SUBJECTS, findSubject, subjectsForPlan } from '@/constants/subjects';
+import type { HallPlan } from '@/constants/subjects';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,8 +30,10 @@ function CreateHallScreen() {
       catalogId: editing ? known?.id ?? 'other' : null,
       otherSubject: editing && !known ? editing.subject : '',
       theme: (editing?.theme && editing.theme in HALL_THEMES ? editing.theme : 'backToSchool') as HallTheme,
+      plan: (editing?.plan ?? 'comun') as HallPlan,
     };
   });
+  const [plan, setPlan] = useState<HallPlan>(initial.plan);
   const [catalogId, setCatalogId] = useState<string | null>(initial.catalogId);
   const [otherSubject, setOtherSubject] = useState(initial.otherSubject);
   const [themeTouched, setThemeTouched] = useState(!!editing);
@@ -57,8 +60,18 @@ function CreateHallScreen() {
   const changed = !editing
     || catalogId !== initial.catalogId
     || (catalogId === 'other' && otherSubject.trim() !== initial.otherSubject.trim())
-    || theme !== initial.theme;
+    || theme !== initial.theme
+    || plan !== initial.plan;
   const ready = subject.trim().length >= 2 && !!course && changed;
+
+  // The subject list follows the kind; a subject that is not taught as the
+  // new kind is cleared.
+  const pickPlan = (next: string) => {
+    const value = next as HallPlan;
+    setPlan(value);
+    setError(null);
+    if (catalogId && catalogId !== 'other' && !SUBJECTS.find(item => item.id === catalogId)?.plans.includes(value)) setCatalogId(null);
+  };
 
   const pickSubject = (id: string) => {
     setCatalogId(id);
@@ -73,8 +86,8 @@ function CreateHallScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      if (editing) await updateHall(editing.id, subject, theme);
-      else await createHall(subject, course, theme);
+      if (editing) await updateHall(editing.id, subject, theme, plan);
+      else await createHall(subject, course, theme, plan);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
       router.back();
@@ -86,7 +99,7 @@ function CreateHallScreen() {
 
   // Closing with a subject, course or theme chosen asks first.
   const { allowLeave, dialog } = useUnsavedChangesGuard({
-    dirty: (editing ? changed : !!catalogId || !!course || themeTouched) && !submitting,
+    dirty: (editing ? changed : !!catalogId || !!course || themeTouched || plan !== 'comun') && !submitting,
     onSave: submit,
     saveLabel: editing ? 'Guardar cambios' : 'Crear Hall',
     canSave: ready,
@@ -104,15 +117,30 @@ function CreateHallScreen() {
       <ThemedText style={styles.lead}>
         {editing
           ? 'Cambia la asignatura o la portada. Tus estudiantes, anuncios y evaluaciones se mantienen.'
-          : 'Un Hall es tu asignatura en un curso. Al crearlo recibes un código para que tus estudiantes se unan.'}
+          : 'Un Hall es tu asignatura en un curso. Los de plan común reúnen solos a todo el curso; los electivos y dominios se unen con un código.'}
       </ThemedText>
+
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Tipo de Hall</ThemedText>
+        <HanetChoice
+          label="Tipo de Hall"
+          options={HALL_PLANS.map(item => ({ value: item.value, label: item.label }))}
+          value={plan}
+          onChange={pickPlan}
+          disabled={submitting}
+        />
+        <ThemedText style={styles.hint}>{HALL_PLANS.find(item => item.value === plan)?.hint}</ThemedText>
+      </View>
 
       <View style={styles.field}>
         <ThemedText style={styles.label}>Asignatura</ThemedText>
         <ThemedText style={styles.hint}>Las mismas del Calendar, para que las evaluaciones del curso aparezcan en tu Hall.</ThemedText>
         <HanetChoice
           label="Asignatura"
-          options={[...SUBJECTS.map(item => ({ value: item.id, label: item.name })), { value: 'other', label: 'Otra asignatura' }]}
+          options={[
+            ...subjectsForPlan(plan).map(item => ({ value: item.id, label: item.area ? `${item.name} · Área ${item.area}` : item.name })),
+            { value: 'other', label: 'Otra asignatura' },
+          ]}
           value={catalogId}
           onChange={pickSubject}
           placeholder="Elegir asignatura"
@@ -142,6 +170,9 @@ function CreateHallScreen() {
         )}
         {editing && (
           <ThemedText style={styles.hint}>{editing.courseId}. El curso no se puede cambiar.</ThemedText>
+        )}
+        {!editing && plan !== 'comun' && (
+          <ThemedText style={styles.hint}>El curso principal del Hall. Estudiantes de otros cursos se pueden unir con el código.</ThemedText>
         )}
         {!editing && !!courses?.length && (
           <HanetChoice

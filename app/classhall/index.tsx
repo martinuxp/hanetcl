@@ -65,7 +65,12 @@ function HallCard({ hall, onOpen }: { hall: Hall; onOpen: () => void }) {
           <ThemedText numberOfLines={1} style={styles.stripText}>{evaluationNotice(hall.nextEvaluation.date)}</ThemedText>
         </Pressable>
       )}
-      {hall.isTeacher && hall.code && (
+      {hall.isTeacher && hall.plan === 'comun' && (
+        <View style={styles.cardStrip}>
+          <ThemedText style={styles.stripText}>Plan común · todo el curso · {students}</ThemedText>
+        </View>
+      )}
+      {hall.isTeacher && hall.plan !== 'comun' && hall.code && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Copiar el código del Hall, ${hall.code.split('').join(' ')}`}
@@ -167,8 +172,8 @@ export default function ClassHallScreen() {
             <ThemedText style={styles.noticeTitle}>Todavía no tienes clases</ThemedText>
             <ThemedText style={styles.noticeText}>
               {canCreate
-                ? 'Crea un Hall para tu asignatura y comparte su código con el curso.'
-                : 'Pide a tu profesor el código del Hall de su asignatura y úsalo en "Unirse a un Hall".'}
+                ? 'Crea un Hall para tu asignatura. Si es de plan común, todo el curso entra solo.'
+                : 'Las asignaturas de tu curso aparecen aquí solas cuando tus profesores crean su Hall. Para un electivo o dominio, usa el código en "Unirse a un Hall".'}
             </ThemedText>
           </View>
         )}

@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
+import type { HallPlan } from '@/constants/subjects';
 
 export const HALL_CODE_LENGTH = 6;
 
@@ -9,6 +10,8 @@ export type Hall = {
   courseId: string;
   teacherName: string;
   theme: string;
+  /** Plan común (the whole course is in), electivo or dominio (joined with the code). */
+  plan: HallPlan;
   isTeacher: boolean;
   /** Only present for whoever teaches the Hall. */
   code: string | null;
@@ -80,6 +83,7 @@ export type HallPreview = {
   hallId: string;
   subject: string;
   courseId: string;
+  plan?: HallPlan;
   alreadyMember: boolean;
 };
 
@@ -123,13 +127,13 @@ export async function joinHall(code: string) {
   return result.data;
 }
 
-export async function createHall(subject: string, courseId: string, theme: HallTheme) {
-  const result = await httpsCallable<{ subject: string; courseId: string; theme: string }, { hallId: string; code: string }>(functions, 'createHall')({ subject, courseId, theme });
+export async function createHall(subject: string, courseId: string, theme: HallTheme, plan: HallPlan) {
+  const result = await httpsCallable<{ subject: string; courseId: string; theme: string; plan: HallPlan }, { hallId: string; code: string }>(functions, 'createHall')({ subject, courseId, theme, plan });
   return result.data;
 }
 
-export async function updateHall(hallId: string, subject: string, theme: HallTheme) {
-  const result = await httpsCallable<{ hallId: string; subject: string; theme: string }, { hallId: string; subject: string; theme: string }>(functions, 'updateHall')({ hallId, subject, theme });
+export async function updateHall(hallId: string, subject: string, theme: HallTheme, plan: HallPlan) {
+  const result = await httpsCallable<{ hallId: string; subject: string; theme: string; plan: HallPlan }, { hallId: string; subject: string; theme: string }>(functions, 'updateHall')({ hallId, subject, theme, plan });
   return result.data;
 }
 

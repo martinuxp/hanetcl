@@ -9,9 +9,9 @@ import { TouchableRipple } from 'react-native-paper';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
-import { ensureClaims, useSession } from '@/services/auth-service';
+import { ensureClaims, useClaimCourse, useSession } from '@/services/auth-service';
 import { db, calendarDb } from '@/services/firebase';
-import { SUBJECTS, subjectName } from '@/constants/subjects';
+import { SUBJECTS, isUpperLevel, subjectName } from '@/constants/subjects';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -88,8 +88,13 @@ function CreateEventScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250);
   };
 
-  // The same subjects as ClassHall, so events and Halls line up.
-  const subjectsList = SUBJECTS.map(item => item.name);
+  // The same subjects as ClassHall, so events and Halls line up. Dominios
+  // (plan diferenciado) only exist in 3° and 4° medio.
+  const courseId = useClaimCourse();
+  const upper = isUpperLevel(courseId);
+  const subjectsList = SUBJECTS
+    .filter(item => item.plans.includes('comun') || item.plans.includes('electivo') || upper || item.name === subject)
+    .map(item => item.name);
   const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Off Topic'];
 
   const handleSubmit = async () => {

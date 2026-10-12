@@ -313,9 +313,14 @@ export default function HallScreen() {
               </View>
             )}
 
-            {isTeacher && !!hall.code && (
+            {isTeacher && hall.plan === 'comun' && (
               <ThemedText style={styles.finePrint}>
-                Código del Hall: <ThemedText style={styles.code}>{hall.code}</ThemedText> · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`}
+                Plan común: todo {hall.courseId} está en este Hall · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`} en la nómina
+              </ThemedText>
+            )}
+            {isTeacher && hall.plan !== 'comun' && !!hall.code && (
+              <ThemedText style={styles.finePrint}>
+                {hall.plan === 'dominio' ? 'Dominio' : 'Electivo'} · Código del Hall: <ThemedText style={styles.code}>{hall.code}</ThemedText> · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`}
               </ThemedText>
             )}
             {isTeacher && (

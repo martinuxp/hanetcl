@@ -1,7 +1,7 @@
 const { randomInt } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
-const { findSubject, subjectKey } = require("./subjects");
+const { PLANS, findSubject, subjectKey } = require("./subjects");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -60,6 +60,16 @@ function points(value) {
 
 function millis(value) {
   return value && typeof value.toMillis === "function" ? value.toMillis() : null;
+}
+
+// Halls made before there were kinds are Plan común.
+function hallPlan(data) {
+  return PLANS.includes(data?.plan) ? data.plan : "comun";
+}
+
+// A Plan común Hall belongs to its whole course: every account of it is in.
+function inCourse(data, profile) {
+  return data.institutionId === profile.institutionId && data.courseId === profile.courseId;
 }
 
 function cleanCode(value) {
@@ -122,9 +132,14 @@ async function resolveCode(db, profile, rawCode) {
   }
 
   const data = hall.data();
-  const sameCourse = data.institutionId === profile.institutionId && data.courseId === profile.courseId;
-  if (!sameCourse && data.teacherUid !== profile.uid) {
-    throw new HttpsError("permission-denied", "Este Hall es de otro curso, así que no puedes entrar.");
+  // Plan común stays within its course; electivos and dominios gather
+  // students of several courses of the same institution.
+  const allowed = hallPlan(data) === "comun" ? inCourse(data, profile) : data.institutionId === profile.institutionId;
+  if (!allowed && data.teacherUid !== profile.uid) {
+    throw new HttpsError(
+      "permission-denied",
+      hallPlan(data) === "comun" ? "Este Hall es de otro curso, así que no puedes entrar." : "Este Hall es de otra institución.",
+    );
   }
   return { hallRef, data };
 }
@@ -140,7 +155,8 @@ async function openHall(getAdminApp, request) {
   const hall = await hallRef.get();
   const data = hall.data();
   const isTeacher = data?.teacherUid === profile.uid;
-  if (!data || (!isTeacher && !(data.memberUids || []).includes(profile.uid))) {
+  const member = (data?.memberUids || []).includes(profile.uid) || (hallPlan(data) === "comun" && inCourse(data, profile));
+  if (!data || (!isTeacher && !member)) {
     throw new HttpsError("not-found", "No encontramos ese Hall entre tus clases.");
   }
   return { profile, hallRef, data, isTeacher };
@@ -184,36 +200,75 @@ function evaluationOut(doc) {
 
 // The course calendar shows each evaluation, written by the backend and
 // marked as the Hall's so the course's editors cannot change it.
-function calendarRef(getAdminApp, hall, hallId, evaluationId) {
-  return calendarDb(getAdminApp).collection(`HNC-LCH.${hall.courseId}`).doc(`hall-${hallId}-${evaluationId}`);
+function calendarRef(getAdminApp, courseId, hallId, evaluationId) {
+  return calendarDb(getAdminApp).collection(`HNC-LCH.${courseId}`).doc(`hall-${hallId}-${evaluationId}`);
+}
+
+// Courses whose Calendar shows the Hall's evaluations: its own, plus those
+// of the students who joined an electivo or dominio from other courses.
+async function calendarCourses(getAdminApp, data) {
+  const courses = new Set([data.courseId]);
+  const uids = hallPlan(data) === "comun" ? [] : (data.memberUids || []);
+  if (uids.length) {
+    const users = identityDb(getAdminApp).collection("users");
+    const profiles = await identityDb(getAdminApp).getAll(...uids.map(uid => users.doc(uid)));
+    for (const profile of profiles) {
+      const courseId = profile.data()?.courseId;
+      if (typeof courseId === "string" && courseId && !courseId.includes("/")) courses.add(courseId);
+    }
+  }
+  return [...courses];
+}
+
+// Students of a Plan común Hall: its course on the roster.
+async function courseSize(getAdminApp, data) {
+  const count = await identityDb(getAdminApp)
+    .collection("institutions").doc(data.institutionId)
+    .collection("roster").where("curso", "==", data.courseId).count().get();
+  return count.data().count;
+}
+
+function hallOut(doc, profile, extra = {}) {
+  const data = doc.data();
+  const isTeacher = data.teacherUid === profile.uid;
+  return {
+    id: doc.id,
+    subject: data.subject,
+    courseId: data.courseId,
+    teacherName: data.teacherName,
+    theme: data.theme,
+    plan: hallPlan(data),
+    isTeacher,
+    // Only whoever teaches the Hall can read its code and size.
+    code: isTeacher ? data.code : null,
+    memberCount: isTeacher ? (data.memberUids || []).length : null,
+    ...extra,
+  };
 }
 
 function build(getAdminApp) {
   const listMyHalls = onCall(async (request) => {
     const profile = await requireProfile(getAdminApp, request);
     const halls = classhallDb(getAdminApp).collection("halls");
-    const [joined, taught] = await Promise.all([
+    const [joined, taught, course] = await Promise.all([
       halls.where("memberUids", "array-contains", profile.uid).get(),
       halls.where("teacherUid", "==", profile.uid).get(),
+      // The Plan común Halls of the caller's course, which nobody joins by hand.
+      profile.courseId
+        ? halls.where("institutionId", "==", profile.institutionId).where("courseId", "==", profile.courseId).get()
+        : Promise.resolve({ docs: [] }),
     ]);
 
     const byId = new Map();
-    for (const doc of [...taught.docs, ...joined.docs]) {
+    const commonOfCourse = course.docs.filter(doc => hallPlan(doc.data()) === "comun");
+    for (const doc of [...taught.docs, ...joined.docs, ...commonOfCourse]) {
       if (byId.has(doc.id)) continue;
-      const data = doc.data();
-      const isTeacher = data.teacherUid === profile.uid;
-      byId.set(doc.id, {
-        id: doc.id,
-        subject: data.subject,
-        courseId: data.courseId,
-        teacherName: data.teacherName,
-        theme: data.theme,
-        isTeacher,
-        // Only whoever teaches the Hall can read its code and size.
-        code: isTeacher ? data.code : null,
-        memberCount: isTeacher ? (data.memberUids || []).length : null,
-      });
+      byId.set(doc.id, hallOut(doc, profile));
     }
+    // A teacher's Plan común Hall counts its course on the roster.
+    await Promise.all(taught.docs.filter(doc => hallPlan(doc.data()) === "comun").map(async (doc) => {
+      byId.get(doc.id).memberCount = await courseSize(getAdminApp, doc.data());
+    }));
 
     // The card says when the Hall's next evaluation comes up.
     const now = Timestamp.now();
@@ -238,7 +293,8 @@ function build(getAdminApp) {
       hallId: hallRef.id,
       subject: data.subject,
       courseId: data.courseId,
-      alreadyMember: (data.memberUids || []).includes(profile.uid),
+      plan: hallPlan(data),
+      alreadyMember: (data.memberUids || []).includes(profile.uid) || (hallPlan(data) === "comun" && inCourse(data, profile)),
     };
   });
 
@@ -246,7 +302,8 @@ function build(getAdminApp) {
     const profile = await requireProfile(getAdminApp, request);
     const { hallRef, data } = await resolveCode(classhallDb(getAdminApp), profile, request.data?.code);
 
-    if (data.teacherUid !== profile.uid) {
+    // In a Plan común Hall of their own course they already are.
+    if (data.teacherUid !== profile.uid && !(hallPlan(data) === "comun" && inCourse(data, profile))) {
       await hallRef.update({ memberUids: FieldValue.arrayUnion(profile.uid) });
     }
     return { hallId: hallRef.id, subject: data.subject };
@@ -262,6 +319,7 @@ function build(getAdminApp) {
     const subject = findSubject(typed)?.name || typed;
     const courseId = text(request.data?.courseId, 64);
     const theme = THEMES.includes(request.data?.theme) ? request.data.theme : "backToSchool";
+    const plan = PLANS.includes(request.data?.plan) ? request.data.plan : "comun";
 
     if (subject.length < 2) {
       throw new HttpsError("invalid-argument", "Escribe el nombre de la asignatura.");
@@ -308,6 +366,7 @@ function build(getAdminApp) {
         teacherUid: profile.uid,
         teacherName,
         subjectId: subjectKey(subject),
+        plan,
         memberUids: [],
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -363,17 +422,10 @@ function build(getAdminApp) {
       })
       .sort((a, b) => a.startDate - b.startDate)
       .slice(0, MAX_COURSE_EVENTS);
+    const hall = hallOut({ id: hallRef.id, data: () => data }, profile);
+    if (isTeacher && hall.plan === "comun") hall.memberCount = await courseSize(getAdminApp, data);
     return {
-      hall: {
-        id: hallRef.id,
-        subject: data.subject,
-        courseId: data.courseId,
-        teacherName: data.teacherName,
-        theme: data.theme,
-        isTeacher,
-        code: isTeacher ? data.code : null,
-        memberCount: isTeacher ? (data.memberUids || []).length : null,
-      },
+      hall,
       announcements: announcements.docs.map(announcementOut),
       evaluations: evaluations.docs.map(evaluationOut),
       courseEvents,
@@ -390,6 +442,7 @@ function build(getAdminApp) {
     const typed = text(request.data?.subject, 60);
     const subject = findSubject(typed)?.name || typed;
     const theme = THEMES.includes(request.data?.theme) ? request.data.theme : data.theme;
+    const plan = PLANS.includes(request.data?.plan) ? request.data.plan : hallPlan(data);
     if (subject.length < 2) {
       throw new HttpsError("invalid-argument", "Escribe el nombre de la asignatura.");
     }
@@ -402,26 +455,27 @@ function build(getAdminApp) {
       }
     }
 
-    await hallRef.update({ subject, subjectId: key, theme, updatedAt: FieldValue.serverTimestamp() });
+    await hallRef.update({ subject, subjectId: key, theme, plan, updatedAt: FieldValue.serverTimestamp() });
 
     // The Hall's evaluations on the course Calendar carry the subject in
     // their title; they follow the new name.
     if (subject !== data.subject) {
       const evaluations = await hallRef.collection("evaluations").get();
-      const refs = evaluations.docs.map(doc => calendarRef(getAdminApp, data, hallRef.id, doc.id));
-      const events = refs.length ? await calendarDb(getAdminApp).getAll(...refs) : [];
+      const targets = evaluations.docs.flatMap(doc => (doc.data().calendarCourses || [data.courseId])
+        .map(courseId => ({ ref: calendarRef(getAdminApp, courseId, hallRef.id, doc.id), title: doc.data().title })));
+      const events = targets.length ? await calendarDb(getAdminApp).getAll(...targets.map(target => target.ref)) : [];
       const batch = calendarDb(getAdminApp).batch();
       events.forEach((event, index) => {
         if (!event.exists) return;
         batch.update(event.ref, {
-          title: `${evaluations.docs[index].data().title} · ${subject}`.slice(0, 120),
+          title: `${targets[index].title} · ${subject}`.slice(0, 120),
           subject: subject.slice(0, 60),
         });
       });
       if (events.some(event => event.exists)) await batch.commit();
     }
 
-    return { hallId: hallRef.id, subject, theme };
+    return { hallId: hallRef.id, subject, theme, plan };
   });
 
   const saveHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
@@ -500,7 +554,10 @@ function build(getAdminApp) {
     }
 
     const start = Timestamp.fromMillis(date);
-    const fields = { title, date: start, oa, exigency, contents, authorName: data.teacherName };
+    // Electivos and dominios reach the Calendar of every course their students come from.
+    const courses = await calendarCourses(getAdminApp, data);
+    const previous = existingId ? (await ref.get()).data()?.calendarCourses || [data.courseId] : [];
+    const fields = { title, date: start, oa, exigency, contents, authorName: data.teacherName, calendarCourses: courses };
     if (existingId) {
       await ref.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
     } else {
@@ -515,8 +572,7 @@ function build(getAdminApp) {
       contents.length > 0 && `Contenidos: ${contents.map(row => row.name).join(", ")}.`,
     ].filter(Boolean).join("\n");
 
-    const event = calendarRef(getAdminApp, data, hallRef.id, ref.id);
-    await event.set({
+    const event = {
       title: `${title} · ${data.subject}`.slice(0, 120),
       description: summary || `Evaluación del Hall de ${data.subject}.`,
       startDate: start,
@@ -533,7 +589,14 @@ function build(getAdminApp) {
       hallId: hallRef.id,
       evaluationId: ref.id,
       createdAt: FieldValue.serverTimestamp(),
-    });
+    };
+    const batch = calendarDb(getAdminApp).batch();
+    for (const courseId of courses) batch.set(calendarRef(getAdminApp, courseId, hallRef.id, ref.id), event);
+    // A course none of its students is in any more stops showing it.
+    for (const courseId of previous.filter(courseId => !courses.includes(courseId))) {
+      batch.delete(calendarRef(getAdminApp, courseId, hallRef.id, ref.id));
+    }
+    await batch.commit();
 
     return { evaluationId: ref.id };
   });
@@ -543,10 +606,11 @@ function build(getAdminApp) {
     requireHallTeacher(isTeacher);
     const id = childId(request.data?.evaluationId);
     if (!id) throw new HttpsError("invalid-argument", "Falta la evaluación.");
-    await Promise.all([
-      hallRef.collection("evaluations").doc(id).delete(),
-      calendarRef(getAdminApp, data, hallRef.id, id).delete(),
-    ]);
+    const evaluationRef = hallRef.collection("evaluations").doc(id);
+    const courses = (await evaluationRef.get()).data()?.calendarCourses || [data.courseId];
+    const batch = calendarDb(getAdminApp).batch();
+    for (const courseId of courses) batch.delete(calendarRef(getAdminApp, courseId, hallRef.id, id));
+    await Promise.all([evaluationRef.delete(), batch.commit()]);
     return { ok: true };
   });
 
