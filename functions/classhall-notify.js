@@ -75,9 +75,11 @@ async function tokensFor(getAdminApp, uids) {
 }
 
 // Sends through Expo, 100 per request. A device that no longer takes
-// notifications (the app was removed) loses its token.
+// notifications (the app was removed) loses its token. Returns Expo's ticket
+// for each token, in order.
 async function sendPush(getAdminApp, tokens, message) {
   const db = identityDb(getAdminApp);
+  const all = [];
   for (let start = 0; start < tokens.length; start += 100) {
     const chunk = tokens.slice(start, start + 100);
     const response = await fetch(EXPO_PUSH_URL, {
@@ -87,12 +89,14 @@ async function sendPush(getAdminApp, tokens, message) {
     });
     if (!response.ok) throw new Error(`Expo push answered ${response.status}`);
     const tickets = (await response.json()).data || [];
+    all.push(...tickets);
     await Promise.all(tickets.map((ticket, index) => (
       ticket?.status === "error" && ticket.details?.error === "DeviceNotRegistered"
         ? db.collection("pushTokens").doc(chunk[index].id).delete()
         : null
     )));
   }
+  return all;
 }
 
 // What each notification says and which screen it opens.
@@ -173,7 +177,45 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
-  return { registerPushToken, unregisterPushToken };
+  // Panel HNT: a test notification to the caller's devices or to an
+  // account by its HaNet ID, ignoring its ClassHall switch. Answers what Expo
+  // said for each device, to see why one does not arrive.
+  const adminSendTestPush = onCall({ invoker: "public" }, async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    if (request.auth.token.role !== "HNT") throw new HttpsError("permission-denied", "Esta acción es solo para el equipo HaNet.");
+
+    const db = identityDb(getAdminApp);
+    const handle = typeof request.data?.username === "string" ? request.data.username.trim().replace(/^@/, "").toLowerCase() : "";
+    let uid = request.auth.uid;
+    if (handle) {
+      if (!/^[a-z0-9._-]{2,40}$/.test(handle)) throw new HttpsError("invalid-argument", "Ese HaNet ID no es válido.");
+      const owner = (await db.collection("usernames").doc(handle).get()).data();
+      if (!owner?.uid) throw new HttpsError("not-found", `No hay ninguna cuenta @${handle}.`);
+      uid = owner.uid;
+    }
+
+    const title = truncate(request.data?.title, 80) || "Prueba de HaNet";
+    const body = truncate(request.data?.body, 200) || "Si ves esto, las notificaciones funcionan.";
+    const route = typeof request.data?.url === "string" && /^\/classhall\/(hall|task)\?[A-Za-z0-9_=&-]+$/.test(request.data.url) ? request.data.url : null;
+
+    const snapshot = await db.collection("pushTokens").where("uid", "==", uid).get();
+    const devices = snapshot.docs.map(doc => ({ id: doc.id, token: doc.data().token, platform: doc.data().platform || "unknown", updatedAt: doc.data().updatedAt?.toMillis() ?? null }));
+    if (!devices.length) return { devices: [] };
+
+    const tickets = await sendPush(getAdminApp, devices, { title, body, ...(route ? { data: { url: route } } : {}) });
+    return {
+      devices: devices.map((device, index) => ({
+        platform: device.platform,
+        updatedAt: device.updatedAt,
+        // The end of the token, to tell devices apart without showing it.
+        token: `…${device.token.slice(-8, -1)}`,
+        ok: tickets[index]?.status === "ok",
+        error: tickets[index]?.status === "error" ? (tickets[index].details?.error || tickets[index].message || "Error") : null,
+      })),
+    };
+  });
+
+  return { registerPushToken, unregisterPushToken, adminSendTestPush };
 }
 
 module.exports = { build, notifyHall, hallStudentUids };
