@@ -3,6 +3,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog } from '@/components/ui/hanet-dialog';
 import { AppSpacing } from '@/constants/design-tokens';
 import { auth } from '@/services/firebase';
+import { unregisterDevice } from '@/services/push-service';
 import * as Updates from 'expo-updates';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
@@ -28,6 +29,7 @@ export async function restartApp() {
 /** Signs out wherever the problem left the app; the root then goes to the onboarding. */
 export async function leaveSession() {
   try {
+    await unregisterDevice();
     await signOut(auth);
   } catch {
     // A blocked or offline session still ends locally.

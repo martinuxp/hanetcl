@@ -6,7 +6,6 @@ const { getStorage } = require("firebase-admin/storage");
 const { applicationDefault } = require("firebase-admin/app");
 const { pdfWords, photoWords, docxWords, parseSpecTable } = require("./spec-table");
 const { PLANS, findSubject, subjectKey } = require("./subjects");
-const { RESEND_API_KEY } = require("./email");
 const { notifyHall, hallStudentUids } = require("./classhall-notify");
 const { avatarSeeds, avatarSeed } = require("./avatar");
 
@@ -696,7 +695,7 @@ function build(getAdminApp) {
     return { hallId: hallRef.id, subject, theme, plan };
   });
 
-  const saveHallAnnouncement = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
+  const saveHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -717,7 +716,7 @@ function build(getAdminApp) {
 
     const ref = hallRef.collection("announcements").doc();
     await ref.set({ body, authorName: data.teacherName, createdAt: FieldValue.serverTimestamp() });
-    // A new announcement reaches the students by email too; an edit does not.
+    // A new announcement reaches the students' phones; an edit does not.
     await notifyHall(getAdminApp, { kind: "announcement", hallId: hallRef.id, hall: data, item: { body, createdAt: Date.now() } });
     return { announcementId: ref.id };
   });
@@ -854,7 +853,7 @@ function build(getAdminApp) {
   // Takes a file the teacher uploaded to their staging folder into the Hall.
   // Attached to an announcement or as an evaluation's T.E. it replaces the
   // previous one there.
-  const attachHallDocument = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
+  const attachHallDocument = onCall({ invoker: "public" }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -921,22 +920,9 @@ function build(getAdminApp) {
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    // Emails: a file shared on its own is new material; a new task whose
-    // file came after it is announced now, with the file.
+    // A file shared on its own is new material for the students.
     if (!announcementId && !evaluationId && !taskId) {
-      await notifyHall(getAdminApp, {
-        kind: "material", hallId: hallRef.id, hall: data,
-        item: { name, kind: DOCUMENT_TYPES[metadata.contentType] || "file", createdAt: Date.now() },
-      });
-    } else if (taskId && request.data?.notifyTask === true) {
-      const task = (await hallRef.collection("tasks").doc(taskId).get()).data();
-      if (task && !task.notifiedAt) {
-        await hallRef.collection("tasks").doc(taskId).update({ notifiedAt: FieldValue.serverTimestamp() });
-        await notifyHall(getAdminApp, {
-          kind: "task", hallId: hallRef.id, hall: data,
-          item: { id: taskId, title: task.title, instructions: task.instructions || "", dueAt: millis(task.dueAt), createdAt: Date.now(), attachment: name },
-        });
-      }
+      await notifyHall(getAdminApp, { kind: "material", hallId: hallRef.id, hall: data, item: { name } });
     }
     return documentOut(await docRef.get());
   });
@@ -1062,7 +1048,7 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
-  const saveHallTask = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
+  const saveHallTask = onCall({ invoker: "public" }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -1122,17 +1108,9 @@ function build(getAdminApp) {
     }
     await batch.commit();
 
-    // A new task reaches the students by email. When its file is still on
-    // the way, attachHallDocument sends it, with the file.
-    // A new task's file that could not be attached: the app asks for the
-    // email anyway (notifyNow), once.
-    const notifyNow = existingId && request.data?.notifyNow === true && !existing?.notifiedAt;
-    if ((!existingId && request.data?.notifyLater !== true) || notifyNow) {
-      await ref.update({ notifiedAt: FieldValue.serverTimestamp() });
-      await notifyHall(getAdminApp, {
-        kind: "task", hallId: hallRef.id, hall: data,
-        item: { id: ref.id, title, instructions, dueAt: due, createdAt: Date.now(), attachment: null },
-      });
+    // A new task reaches the students' phones.
+    if (!existingId) {
+      await notifyHall(getAdminApp, { kind: "task", hallId: hallRef.id, hall: data, item: { id: ref.id, title, dueAt: due } });
     }
 
     return { taskId: ref.id };
@@ -1311,7 +1289,7 @@ function build(getAdminApp) {
 
   // The teacher marks a submission as reviewed and can leave a comment for the student.
   const reviewHallSubmission = onCall({ invoker: "public" }, async (request) => {
-    const { hallRef, isTeacher } = await openHall(getAdminApp, request);
+    const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
     const id = childId(request.data?.taskId);
     const studentUid = childId(request.data?.studentUid);
@@ -1321,17 +1299,27 @@ function build(getAdminApp) {
       throw new HttpsError("not-found", "Esa entrega ya no existe.");
     }
     const reviewed = request.data?.reviewed !== false;
+    const feedback = paragraph(request.data?.feedback, 1000);
+    const wasReviewed = (await submissionRef.get()).data()?.reviewed === true;
     await submissionRef.update({
       reviewed,
-      feedback: paragraph(request.data?.feedback, 1000),
+      feedback,
       reviewedAt: reviewed ? FieldValue.serverTimestamp() : null,
     });
+    // The student hears it the first time it is marked reviewed.
+    if (reviewed && !wasReviewed) {
+      const task = (await hallRef.collection("tasks").doc(id).get()).data();
+      await notifyHall(getAdminApp, {
+        kind: "reviewed", hallId: hallRef.id, hall: data, onlyUids: [studentUid],
+        item: { id, title: task?.title || "Tarea", feedback },
+      });
+    }
     return submissionOut(await submissionRef.get());
   });
 
   // Every afternoon, students who have not handed in a task due tomorrow get
-  // a reminder by email. Each task is reminded once.
-  const remindTasksDueTomorrow = onSchedule({ schedule: "0 18 * * *", timeZone: "America/Santiago", secrets: [RESEND_API_KEY], memory: "512MiB", timeoutSeconds: 300 }, async () => {
+  // a reminder on their phone. Each task is reminded once.
+  const remindTasksDueTomorrow = onSchedule({ schedule: "0 18 * * *", timeZone: "America/Santiago", memory: "512MiB", timeoutSeconds: 300 }, async () => {
     const from = Timestamp.fromMillis(santiagoDayStart(1));
     const to = Timestamp.fromMillis(santiagoDayStart(2));
     const halls = await classhallDb(getAdminApp).collection("halls").get();
@@ -1349,7 +1337,7 @@ function build(getAdminApp) {
           if (!pending.length) continue;
           await notifyHall(getAdminApp, {
             kind: "taskTomorrow", hallId: hall.id, hall: hall.data(), onlyUids: pending,
-            item: { id: task.id, title: data.title, instructions: data.instructions || "", dueAt: millis(data.dueAt), createdAt: millis(data.createdAt) ?? Date.now() },
+            item: { id: task.id, title: data.title, dueAt: millis(data.dueAt) },
           });
         } catch (error) {
           console.error("remindTasksDueTomorrow", hall.id, task.id, error.message);

@@ -49,6 +49,13 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       [
+        "expo-notifications",
+        {
+          "color": "#EF2274",
+          "defaultChannel": "classhall"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "HaNet usa tus fotos para que puedas entregar tareas y cambiar tu foto de perfil.",

@@ -10,8 +10,6 @@ const TAGLINE = "La herramienta más moderna para estar conectad@ con tu institu
 const TERMS_URL = "https://hanet-edu.web.app/terminos";
 const CONTACT = "muxp@muxp.art";
 
-const STATUS_URL = "https://status.hanet.muxp.art";
-
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -34,33 +32,6 @@ async function sendEmail({ to, subject, html, text }) {
   if (!response.ok) {
     // The body can echo the recipient; log only the status.
     throw new Error(`Resend rejected the email with status ${response.status}`);
-  }
-}
-
-// Several emails in one request (Resend takes up to 100 per call). Each
-// message is { to, subject, html, text, headers }.
-async function sendEmailBatch(messages) {
-  for (let start = 0; start < messages.length; start += 100) {
-    const chunk = messages.slice(start, start + 100).map(message => ({
-      from: FROM,
-      to: [message.to],
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-      ...(message.headers ? { headers: message.headers } : {}),
-    }));
-    const response = await fetch("https://api.resend.com/emails/batch", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY.value().trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(chunk),
-    });
-    if (!response.ok) {
-      // The body can echo recipients; log only the status.
-      throw new Error(`Resend rejected the batch with status ${response.status}`);
-    }
   }
 }
 
@@ -205,7 +176,4 @@ function magicLinkEmail({ fullName, username, institutionName, institutionLogoUr
   return { subject: `Conecta tu HaNet ID a ${institutionName}`, html, text };
 }
 
-module.exports = {
-  RESEND_API_KEY, sendEmail, sendEmailBatch, verificationCodeEmail, magicLinkEmail, escapeHtml,
-  FROM, LOGO_BASE, TAGLINE, TERMS_URL, CONTACT, STATUS_URL,
-};
+module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, escapeHtml };

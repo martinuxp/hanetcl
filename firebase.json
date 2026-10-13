@@ -42,20 +42,6 @@
     ],
     "rewrites": [
       {
-        "source": "/avatar/**",
-        "function": {
-          "functionId": "avatarImage",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/notificaciones",
-        "function": {
-          "functionId": "emailPreferences",
-          "region": "us-central1"
-        }
-      },
-      {
         "source": "/vincular",
         "function": {
           "functionId": "confirmInstitutionalLink",

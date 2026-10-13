@@ -15,6 +15,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, functions } from './firebase';
+import { unregisterDevice } from './push-service';
 import { useEffect, useState } from 'react';
 
 // Required for AuthSession to work in browser/modal (native only)
@@ -124,6 +125,8 @@ export type MyProfile = {
   memberSince: number | null;
   /** Random seed of the account's blobatar, its picture when it has no photo. */
   avatarSeed: string | null;
+  /** The ClassHall notifications switch (on unless turned off). */
+  classhallNotifications: boolean;
 };
 
 export async function getMyProfile() {
@@ -270,7 +273,11 @@ export function useSession() {
   return {
     user,
     initializing,
-    signOut: () => firebaseSignOut(auth),
+    // The device stops getting this account's notifications first.
+    signOut: async () => {
+      await unregisterDevice();
+      await firebaseSignOut(auth);
+    },
   };
 }
 

@@ -2,6 +2,7 @@ import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { ThemedText } from '@/components/themed-text';
 import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { HanetButton } from '@/components/ui/hanet-button';
+import { HanetChoice } from '@/components/ui/hanet-select';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { NAME_FONTS } from '@/constants/name-fonts';
 import type { NameFontId } from '@/constants/name-fonts';
@@ -16,6 +17,8 @@ import {
   saveNameFont,
   uploadProfilePhoto,
 } from '@/services/profile-service';
+import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveClasshallNotifications } from '@/services/push-service';
+import type { PushPermission } from '@/services/push-service';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -45,6 +48,13 @@ function EditProfileScreen() {
   const [avatarSeed, setAvatarSeed] = useState<string | null>(null);
   const [rerolling, setRerolling] = useState(false);
 
+  // ClassHall notifications: the account's switch and the phone's permission.
+  const [classhallOn, setClasshallOn] = useState(true);
+  const [permission, setPermission] = useState<PushPermission | null>(null);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const support = pushSupport();
+
   const [font, setFont] = useState<NameFontId>('dm-sans');
   const [savingFont, setSavingFont] = useState<NameFontId | null>(null);
   const [fontError, setFontError] = useState<string | null>(null);
@@ -64,6 +74,8 @@ function EditProfileScreen() {
         setFont(NAME_FONTS.some(option => option.id === profile.nameFont) ? (profile.nameFont as NameFontId) : 'dm-sans');
         setPhotoUrl(photo);
         setAvatarSeed(profile.avatarSeed);
+        setClasshallOn(profile.classhallNotifications !== false);
+        setPermission(await pushPermission());
       } catch (error) {
         if (active) setLoadError(describeAuthError(error, 'No pudimos cargar tu perfil. Revisa tu conexión.'));
       } finally {
@@ -91,6 +103,24 @@ function EditProfileScreen() {
       setPhotoError(describePhotoError(error));
     } finally {
       setPhotoBusy(null);
+    }
+  };
+
+  const chooseClasshall = async (on: boolean) => {
+    if (savingNotifications || on === classhallOn) return;
+    setNotificationsError(null);
+    setSavingNotifications(true);
+    setClasshallOn(on);
+    try {
+      await saveClasshallNotifications(on);
+      // Turning them on asks the phone too, if it has not been asked yet.
+      if (on && permission === 'undetermined') setPermission(await enablePush());
+      success();
+    } catch (error) {
+      setClasshallOn(!on);
+      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+    } finally {
+      setSavingNotifications(false);
     }
   };
 
@@ -251,6 +281,34 @@ function EditProfileScreen() {
           </View>
           {!!fontError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{fontError}</ThemedText>}
           <ThemedText style={styles.note}>Se guarda al elegirla y cambia cómo se ve tu nombre en tu perfil.</ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>Notificaciones de ClassHall</ThemedText>
+          <HanetChoice
+            label="Notificaciones de ClassHall"
+            options={[{ value: 'on', label: 'Activadas' }, { value: 'off', label: 'Desactivadas' }]}
+            value={classhallOn ? 'on' : 'off'}
+            onChange={value => void chooseClasshall(value === 'on')}
+            disabled={savingNotifications || loading}
+          />
+          {!!notificationsError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{notificationsError}</ThemedText>}
+          <ThemedText style={styles.note}>
+            {support === 'web'
+              ? 'Las notificaciones llegan a la app del teléfono, no a la web.'
+              : support === 'expo-go-android'
+                ? 'En Android, las notificaciones necesitan la app de HaNet instalada; Expo Go no las recibe.'
+                : 'Anuncios, tareas y material nuevo de tus clases, un recordatorio el día antes de entregar y el aviso cuando tu docente revisa una entrega.'}
+          </ThemedText>
+          {support === 'supported' && classhallOn && permission === 'denied' && (
+            <>
+              <ThemedText style={styles.note}>Están bloqueadas en los ajustes del teléfono, así que no te llegarán.</ThemedText>
+              <HanetButton label="Abrir ajustes" variant="surface" onPress={openNotificationSettings} />
+            </>
+          )}
+          {support === 'supported' && classhallOn && permission === 'undetermined' && (
+            <HanetButton label="Permitir en este teléfono" variant="surface" onPress={() => void enablePush().then(setPermission)} />
+          )}
         </View>
 
         <HanetButton label="Listo" onPress={() => router.back()} />

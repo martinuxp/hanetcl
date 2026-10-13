@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { hallThemeImage, listMyHalls } from '@/services/classhall-service';
+import { dismissPushPrompt, enablePush, pushPermission, pushSupport, wasPushPromptDismissed } from '@/services/push-service';
 import type { Hall } from '@/services/classhall-service';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -95,10 +96,33 @@ export default function ClassHallScreen() {
   const [canCreate, setCanCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Asks once, here where it matters, to turn notifications on.
+  const [askPush, setAskPush] = useState(false);
+  const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
   }, [initializing, router, user]);
+
+  useEffect(() => {
+    if (!user || pushSupport() !== 'supported') return;
+    let active = true;
+    void Promise.all([pushPermission(), wasPushPromptDismissed()]).then(([permission, dismissed]) => {
+      if (active) setAskPush(permission === 'undetermined' && !dismissed);
+    });
+    return () => { active = false; };
+  }, [user]);
+
+  const turnOnPush = async () => {
+    setEnabling(true);
+    await enablePush();
+    setEnabling(false);
+    setAskPush(false);
+  };
+  const notNow = () => {
+    setAskPush(false);
+    void dismissPushPrompt();
+  };
 
   // Reloads when coming back from the sheets that join or create a Hall.
   useFocusEffect(useCallback(() => {
@@ -151,6 +175,24 @@ export default function ClassHallScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* Notifications are for students: teachers publish, they are not notified. */}
+        {askPush && halls !== null && !canCreate && (
+          <View style={styles.notice}>
+            <ThemedText style={styles.noticeTitle}>¿Te avisamos?</ThemedText>
+            <ThemedText style={styles.noticeText}>
+              Activa las notificaciones para enterarte de los anuncios, tareas y material nuevo de tus clases, y para que te recordemos el día antes de entregar.
+            </ThemedText>
+            <View style={styles.pushActions}>
+              <Pressable accessibilityRole="button" disabled={enabling} onPress={() => void turnOnPush()} style={({ pressed }) => [styles.retry, pressed && styles.pressed]}>
+                <ThemedText style={styles.retryText}>{enabling ? 'Activando…' : 'Activar'}</ThemedText>
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={enabling} onPress={notNow} style={({ pressed }) => [styles.later, pressed && styles.pressed]}>
+                <ThemedText style={styles.laterText}>Ahora no</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {loading && <ActivityIndicator style={styles.loader} size="large" color={AppColors.textSecondary} />}
 
@@ -292,6 +334,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: AppSpacing.xl,
     borderRadius: AppRadii.pill,
     backgroundColor: AppColors.controlActive,
+  },
+  pushActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+    marginTop: AppSpacing.xs,
+  },
+  later: {
+    minHeight: AppTouch.minimum,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+  },
+  laterText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
   },
   retryText: {
     fontFamily: 'DMSans_700Bold',

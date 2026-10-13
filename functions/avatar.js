@@ -1,15 +1,11 @@
 const { randomBytes } = require("node:crypto");
 const { getFirestore } = require("firebase-admin/firestore");
-const { onRequest } = require("firebase-functions/v2/https");
 
 // Blobatars (blobatar.dev): the picture of whoever has no photo. Each account
 // keeps a random seed (accounts/{uid}.avatarSeed), never its uid, email or
 // name, so the image and its address say nothing about the person. "Otro"
-// in the profile draws a new seed.
+// in the profile draws a new seed. The app draws the blob (components/ui/hanet-avatar.tsx).
 
-// Colour comes from the seed; the tone is fixed so every blob is as bright
-// as the others on HaNet's dark surfaces. Keep in step with components/ui/hanet-avatar.tsx.
-const AVATAR_TONE = 0.5;
 const SEED_PATTERN = /^[A-Za-z0-9_-]{12,40}$/;
 
 function identityDb(getAdminApp) {
@@ -46,32 +42,4 @@ async function avatarSeed(getAdminApp, uid) {
   return (await avatarSeeds(getAdminApp, [uid])).get(uid) || null;
 }
 
-/** Address of a blob as a PNG, for emails (they do not show SVG). */
-function avatarPngUrl(seed) {
-  return `https://hanet-edu.web.app/avatar/${encodeURIComponent(seed)}.png`;
-}
-
-function build(getAdminApp) {
-  void getAdminApp;
-  // /avatar/<seed>.png: the blob, transparent, 66 × 80 px (the 33 × 40 tile
-  // of the emails at 2×). The seed decides it, so it never changes and caches
-  // for a year.
-  const avatarImage = onRequest({ invoker: "public", memory: "256MiB" }, async (request, response) => {
-    const match = String(request.path || "").match(/\/avatar\/([A-Za-z0-9_-]{12,40})\.png$/);
-    if (!match) {
-      response.status(404).send("Not found");
-      return;
-    }
-    const [{ blobatar }, { Resvg }] = await Promise.all([import("blobatar"), import("@resvg/resvg-js")]);
-    const inner = blobatar(match[1], { background: false, tone: AVATAR_TONE, normalize: false }).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="66" height="80"><svg x="4" y="11" width="58" height="58" viewBox="0 0 100 100">${inner}</svg></svg>`;
-    const png = new Resvg(svg).render().asPng();
-    response.set("Content-Type", "image/png");
-    response.set("Cache-Control", "public, max-age=31536000, immutable");
-    response.status(200).send(png);
-  });
-
-  return { avatarImage };
-}
-
-module.exports = { build, avatarSeeds, avatarSeed, avatarPngUrl, newSeed, AVATAR_TONE };
+module.exports = { avatarSeeds, avatarSeed, newSeed };

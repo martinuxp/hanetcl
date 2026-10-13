@@ -1,20 +1,44 @@
-const { randomBytes } = require("node:crypto");
-const { getAuth } = require("firebase-admin/auth");
-const { getFirestore } = require("firebase-admin/firestore");
-const { sendEmailBatch } = require("./email");
-const { classhallEmail } = require("./classhall-email");
-const { findSubject } = require("./subjects");
-const { avatarSeed, avatarPngUrl } = require("./avatar");
+const { createHash } = require("node:crypto");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
-// Sends ClassHall's emails to the students of a Hall: its whole course for a
-// Plan común, those who joined for an electivo or a dominio. Whoever turned
-// ClassHall emails off (accounts/{uid}.emailNotifications.classhall = false)
-// is left out. A failure is logged and never undoes what the teacher saved.
+// ClassHall's push notifications, sent through Expo's push service: a new
+// announcement, task or material reaches the Hall's students, the day before
+// a task is due those who have not handed it in get a reminder, and a student
+// hears when their submission was reviewed.
+//
+// Each device registers its Expo push token in hn-enrollmentdata
+// pushTokens/{sha256(token)} with the uid signed in on it; signing in with
+// another account moves the device to that account. Whoever turned ClassHall
+// notifications off (accounts/{uid}.notifications.classhall = false) is left
+// out. A failure is logged and never undoes what the teacher saved.
 
 const STAFF_ROLES = ["Profesor", "Admin", "HNT"];
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const TOKEN_PATTERN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,}\]$/;
+const MAX_TOKENS_PER_ACCOUNT = 10;
+// Android shows ClassHall's notifications in their own channel (services/push-service.ts).
+const ANDROID_CHANNEL = "classhall";
 
 function identityDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-enrollmentdata");
+}
+
+function tokenId(token) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function truncate(text, max) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  return value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
+}
+
+/** "lunes 27 de abril, 23:59", in Chile's time zone. */
+function dueText(ms) {
+  const date = new Date(ms);
+  const day = new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", weekday: "long", day: "numeric", month: "long" }).format(date);
+  const time = new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+  return `${day.replace(",", "")}, ${time}`;
 }
 
 async function hallStudentUids(getAdminApp, hall) {
@@ -35,79 +59,121 @@ async function hallStudentUids(getAdminApp, hall) {
     .map(doc => doc.id);
 }
 
-// Name, username and the token of each account's preferences link; a token
-// is made the first time an account gets one of these emails.
-async function recipients(getAdminApp, uids) {
-  if (!uids.length) return [];
+// The tokens of these accounts, without those who turned ClassHall off.
+async function tokensFor(getAdminApp, uids) {
+  const unique = [...new Set(uids)];
+  if (!unique.length) return [];
   const db = identityDb(getAdminApp);
-  const accounts = await db.getAll(...uids.map(uid => db.collection("accounts").doc(uid)));
-  const wanted = [];
-  const batch = db.batch();
-  let newTokens = 0;
-  accounts.forEach((doc, index) => {
-    const data = doc.data() || {};
-    if (data.emailNotifications?.classhall === false) return;
-    let token = typeof data.emailToken === "string" ? data.emailToken : "";
-    if (!token) {
-      token = randomBytes(18).toString("base64url");
-      batch.set(doc.ref, { emailToken: token }, { merge: true });
-      newTokens += 1;
-    }
-    wanted.push({ uid: uids[index], fullName: data.fullName || "", username: data.username || "", token });
-  });
-  if (newTokens) await batch.commit();
-
-  // The address is the account's own (its HaNet ID email), from Auth.
-  const byUid = new Map();
-  for (let start = 0; start < wanted.length; start += 100) {
-    const result = await getAuth(getAdminApp()).getUsers(wanted.slice(start, start + 100).map(item => ({ uid: item.uid })));
-    for (const user of result.users) {
-      if (user.email && !user.disabled) byUid.set(user.uid, user.email);
-    }
+  const accounts = await db.getAll(...unique.map(uid => db.collection("accounts").doc(uid)));
+  const wanted = unique.filter((uid, index) => accounts[index].data()?.notifications?.classhall !== false);
+  const tokens = [];
+  for (let start = 0; start < wanted.length; start += 30) {
+    const snapshot = await db.collection("pushTokens").where("uid", "in", wanted.slice(start, start + 30)).get();
+    for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
   }
-  return wanted.filter(item => byUid.has(item.uid)).map(item => ({ ...item, email: byUid.get(item.uid) }));
+  return tokens;
 }
 
-async function institutionLook(getAdminApp, institutionId) {
-  const institution = await identityDb(getAdminApp).collection("institutions").doc(institutionId).get();
-  const branding = institution.data()?.branding || {};
-  return { logoUrl: branding.logoUrl || null, bannerUrl: branding.bannerUrl || null };
+// Sends through Expo, 100 per request. A device that no longer takes
+// notifications (the app was removed) loses its token.
+async function sendPush(getAdminApp, tokens, message) {
+  const db = identityDb(getAdminApp);
+  for (let start = 0; start < tokens.length; start += 100) {
+    const chunk = tokens.slice(start, start + 100);
+    const response = await fetch(EXPO_PUSH_URL, {
+      method: "POST",
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(chunk.map(item => ({ to: item.token, sound: "default", channelId: ANDROID_CHANNEL, ...message }))),
+    });
+    if (!response.ok) throw new Error(`Expo push answered ${response.status}`);
+    const tickets = (await response.json()).data || [];
+    await Promise.all(tickets.map((ticket, index) => (
+      ticket?.status === "error" && ticket.details?.error === "DeviceNotRegistered"
+        ? db.collection("pushTokens").doc(chunk[index].id).delete()
+        : null
+    )));
+  }
+}
+
+// What each notification says and which screen it opens.
+function messageFor(kind, hallId, hall, item) {
+  const subject = hall.subject;
+  if (kind === "announcement") {
+    return { title: `Anuncio nuevo · ${subject}`, body: truncate(item.body, 160), data: { url: `/classhall/hall?id=${hallId}` } };
+  }
+  if (kind === "material") {
+    return { title: `Material nuevo · ${subject}`, body: truncate(item.name, 120), data: { url: `/classhall/hall?id=${hallId}` } };
+  }
+  if (kind === "task") {
+    return { title: `Tarea nueva · ${subject}`, body: `${truncate(item.title, 80)} · Se entrega el ${dueText(item.dueAt)}.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
+  }
+  if (kind === "taskTomorrow") {
+    return { title: `Se entrega mañana · ${subject}`, body: `${truncate(item.title, 80)}. Todavía no la entregas.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
+  }
+  // reviewed
+  return {
+    title: `Tu entrega fue revisada · ${subject}`,
+    body: item.feedback ? `${truncate(item.title, 60)}: “${truncate(item.feedback, 100)}”` : truncate(item.title, 120),
+    data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` },
+  };
 }
 
 /**
- * Emails a Hall's students about something new.
- *   kind: "material" | "task" | "taskTomorrow" | "announcement"
- *   hallId, hall: the Hall's id and data
- *   item: what the email is about (see classhallEmail)
- *   onlyUids: when set, only these students (the task reminder skips who handed in)
+ * Notifies a Hall's students about something new.
+ *   kind: "material" | "task" | "taskTomorrow" | "announcement" | "reviewed"
+ *   onlyUids: the reminder's students who have not handed in, or the
+ *   student whose submission was reviewed
  */
 async function notifyHall(getAdminApp, { kind, hallId, hall, item, onlyUids }) {
   try {
-    let uids = await hallStudentUids(getAdminApp, hall);
-    if (onlyUids) uids = uids.filter(uid => onlyUids.includes(uid));
-    const [people, institution, teacherSeed] = await Promise.all([
-      recipients(getAdminApp, uids),
-      institutionLook(getAdminApp, hall.institutionId),
-      avatarSeed(getAdminApp, hall.teacherUid),
-    ]);
-    if (!people.length) return 0;
-    const hallInfo = {
-      id: hallId,
-      subject: hall.subject,
-      plan: hall.plan || "comun",
-      area: findSubject(hall.subject)?.area || null,
-      teacherName: hall.teacherName || "Tu docente",
-      teacherAvatarUrl: teacherSeed ? avatarPngUrl(teacherSeed) : null,
-    };
-    await sendEmailBatch(people.map((recipient) => {
-      const message = classhallEmail({ kind, hall: hallInfo, institution, recipient, item });
-      return { to: recipient.email, ...message };
-    }));
-    return people.length;
+    let uids = kind === "reviewed" ? (onlyUids || []) : await hallStudentUids(getAdminApp, hall);
+    if (onlyUids && kind !== "reviewed") uids = uids.filter(uid => onlyUids.includes(uid));
+    const tokens = await tokensFor(getAdminApp, uids);
+    if (!tokens.length) return 0;
+    await sendPush(getAdminApp, tokens, messageFor(kind, hallId, hall, item));
+    return tokens.length;
   } catch (error) {
     console.error("notifyHall", kind, hallId, error.message);
     return 0;
   }
 }
 
-module.exports = { notifyHall, hallStudentUids };
+function build(getAdminApp) {
+  // The app registers the device's token after the person allows
+  // notifications, and again on each start (tokens can change).
+  const registerPushToken = onCall({ invoker: "public" }, async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    const token = typeof request.data?.token === "string" ? request.data.token.trim() : "";
+    if (!TOKEN_PATTERN.test(token)) throw new HttpsError("invalid-argument", "Ese token de notificaciones no es válido.");
+    const platform = ["ios", "android", "web"].includes(request.data?.platform) ? request.data.platform : "unknown";
+
+    const db = identityDb(getAdminApp);
+    const uid = request.auth.uid;
+    await db.collection("pushTokens").doc(tokenId(token)).set({ uid, token, platform, updatedAt: FieldValue.serverTimestamp() });
+
+    // An account keeps its most recent devices.
+    const mine = await db.collection("pushTokens").where("uid", "==", uid).get();
+    if (mine.size > MAX_TOKENS_PER_ACCOUNT) {
+      const stale = mine.docs
+        .sort((a, b) => (a.data().updatedAt?.toMillis() ?? 0) - (b.data().updatedAt?.toMillis() ?? 0))
+        .slice(0, mine.size - MAX_TOKENS_PER_ACCOUNT);
+      await Promise.all(stale.map(doc => doc.ref.delete()));
+    }
+    return { ok: true };
+  });
+
+  // Signing out takes the device off the account.
+  const unregisterPushToken = onCall({ invoker: "public" }, async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    const token = typeof request.data?.token === "string" ? request.data.token.trim() : "";
+    if (!TOKEN_PATTERN.test(token)) return { ok: true };
+    const ref = identityDb(getAdminApp).collection("pushTokens").doc(tokenId(token));
+    const doc = await ref.get();
+    if (doc.exists && doc.data().uid === request.auth.uid) await ref.delete();
+    return { ok: true };
+  });
+
+  return { registerPushToken, unregisterPushToken };
+}
+
+module.exports = { build, notifyHall, hallStudentUids };

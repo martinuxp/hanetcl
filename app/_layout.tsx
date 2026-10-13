@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { DarkTheme, Stack, ThemeProvider, usePathname, useRootNavigationState, useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,6 +15,7 @@ import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer'
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
+import { listenToNotificationTaps, registerDevice } from '@/services/push-service';
 
 // The only screens reachable without an account. Everyone starts at the
 // onboarding, and signing out goes back to it.
@@ -114,6 +116,14 @@ export default function RootLayout() {
     })();
     return () => { active = false; };
   }, [initializing, navigationReady, routed, router, user]);
+
+  // Push notifications: the device registers with the account (when the person
+  // already allowed them), and a tapped notification opens its screen.
+  useEffect(() => {
+    if (!user || !routed || !navigationReady) return;
+    void registerDevice();
+    return listenToNotificationTaps(url => router.push(url as Href));
+  }, [navigationReady, routed, router, user]);
 
   // Without an account nothing but the onboarding and sign-in is open: losing
   // the session anywhere (signing out, an expired account) lands on the

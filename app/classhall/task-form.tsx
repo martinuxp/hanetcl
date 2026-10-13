@@ -83,17 +83,12 @@ function TaskFormScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      // A new task's email waits for its file, so it goes out with it.
-      const taskId = await saveHallTask({ hallId, taskId: id, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate, notifyLater: !id && !!file });
+      const taskId = await saveHallTask({ hallId, taskId: id, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate });
       try {
-        if (file) await uploadHallDocument(hallId, file, { taskId, notifyTask: !id });
+        if (file) await uploadHallDocument(hallId, file, { taskId });
         else if (removeExisting && existing) await deleteHallDocument(hallId, existing.id);
       } catch {
-        // The task is saved; the file can be added again by editing it. The
-        // students' email, which was waiting for the file, goes out without it.
-        if (!id && file) {
-          await saveHallTask({ hallId, taskId, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate, notifyNow: true }).catch(() => {});
-        }
+        // The task is saved; the file can be added again by editing it.
       }
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();

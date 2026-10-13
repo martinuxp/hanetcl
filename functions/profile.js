@@ -21,6 +21,13 @@ function build(getAdminApp) {
       return { avatarSeed: seed };
     }
 
+    // The switch for ClassHall's push notifications.
+    if (typeof request.data?.classhallNotifications === "boolean") {
+      const classhall = request.data.classhallNotifications;
+      await accountRef.set({ notifications: { classhall } }, { merge: true });
+      return { classhallNotifications: classhall };
+    }
+
     const nameFont = request.data?.nameFont;
     if (!NAME_FONTS.includes(nameFont)) {
       throw new HttpsError("invalid-argument", "Esa letra no está disponible.");
@@ -70,6 +77,7 @@ function build(getAdminApp) {
       institutionBannerUrl: institution?.branding?.bannerUrl || null,
       memberSince: Date.parse(authUser.metadata.creationTime) || null,
       avatarSeed: seed,
+      classhallNotifications: account.notifications?.classhall !== false,
     };
   });
 
