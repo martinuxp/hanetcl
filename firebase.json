@@ -42,6 +42,13 @@
     ],
     "rewrites": [
       {
+        "source": "/avatar/**",
+        "function": {
+          "functionId": "avatarImage",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/notificaciones",
         "function": {
           "functionId": "emailPreferences",

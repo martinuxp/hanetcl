@@ -2,6 +2,7 @@ import { hallFormStyles as styles } from '@/components/classhall/hall-form';
 import { hallLongDate } from '@/components/classhall/hall-ui';
 import { StatusPill, SubmissionItemRow } from '@/components/classhall/task-ui';
 import { ThemedText } from '@/components/themed-text';
+import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
@@ -70,6 +71,7 @@ function SubmissionScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={local.header}>
+        <HanetAvatar seed={submission.avatarSeed} fallback={submission.studentName.slice(0, 1).toLocaleUpperCase('es')} width={48} height={58} radius={16} />
         <View style={local.headerText}>
           <ThemedText accessibilityRole="header" style={styles.title}>{submission.studentName}</ThemedText>
           <ThemedText style={styles.lead}>

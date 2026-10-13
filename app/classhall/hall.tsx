@@ -2,6 +2,7 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { DocumentTile, HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
+import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
@@ -33,13 +34,11 @@ function shortName(name: string) {
   return parts.length >= 4 ? `${parts[0]} ${parts[2]}` : parts.slice(0, 2).join(' ');
 }
 
-/** Teacher's name with the verified mark, and the date under it. */
-function Byline({ name, date }: { name: string; date: string }) {
+/** Teacher's blobatar, name with the verified mark, and the date under it. */
+function Byline({ name, date, seed }: { name: string; date: string; seed?: string | null }) {
   return (
     <View style={styles.byline}>
-      <View style={styles.avatar} accessibilityElementsHidden importantForAccessibility="no">
-        <ThemedText style={styles.avatarText}>{initials(name)}</ThemedText>
-      </View>
+      <HanetAvatar seed={seed} fallback={initials(name)} width={33} height={40} />
       <View style={styles.bylineText}>
         <View style={styles.nameRow}>
           <ThemedText numberOfLines={1} style={styles.name}>{shortName(name)}</ThemedText>
@@ -53,11 +52,11 @@ function Byline({ name, date }: { name: string; date: string }) {
 
 const DOCUMENTS_NOTICE = 'Documentos exclusivos de ClassHall y tu institución, prohibida su distribución en caso de que no se especifique.';
 
-function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete }: { item: HallAnnouncement; attachment?: HallDocument; canEdit: boolean; onEdit: () => void; onDelete: () => void }) {
+function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete, seed }: { item: HallAnnouncement; attachment?: HallDocument; canEdit: boolean; onEdit: () => void; onDelete: () => void; seed?: string | null }) {
   const date = item.createdAt ? hallDay(item.createdAt) : 'Ahora';
   return (
     <View style={styles.card}>
-      <Byline name={item.authorName} date={item.updatedAt ? `${date} · editado` : date} />
+      <Byline name={item.authorName} seed={seed} date={item.updatedAt ? `${date} · editado` : date} />
       <ThemedText selectable style={styles.body}>{item.body}</ThemedText>
       {!!attachment && (
         <>
@@ -359,6 +358,7 @@ export default function HallScreen() {
                     key={item.id}
                     item={item}
                     attachment={attachmentOf(item.id)}
+                    seed={hall.teacherAvatarSeed}
                     canEdit={isTeacher}
                     onEdit={() => announce(item.id)}
                     onDelete={() => { setDeleteError(null); setPendingDelete(item); }}
@@ -422,7 +422,7 @@ export default function HallScreen() {
                   </View>
                 ) : documents.map(item => (
                   <View key={item.id} style={styles.card}>
-                    <Byline name={item.authorName} date={item.createdAt ? hallDay(item.createdAt) : 'Ahora'} />
+                    <Byline name={item.authorName} seed={hall.teacherAvatarSeed} date={item.createdAt ? hallDay(item.createdAt) : 'Ahora'} />
                     <DocumentTile
                       document={item}
                       label={item.evaluationId ? 'Tabla de especificaciones' : item.taskId ? 'Material de tarea' : undefined}

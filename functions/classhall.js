@@ -8,6 +8,7 @@ const { pdfWords, photoWords, docxWords, parseSpecTable } = require("./spec-tabl
 const { PLANS, findSubject, subjectKey } = require("./subjects");
 const { RESEND_API_KEY } = require("./email");
 const { notifyHall, hallStudentUids } = require("./classhall-notify");
+const { avatarSeeds, avatarSeed } = require("./avatar");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -632,6 +633,8 @@ function build(getAdminApp) {
       .slice(0, MAX_COURSE_EVENTS);
     const hall = hallOut({ id: hallRef.id, data: () => data }, profile);
     if (isTeacher && hall.plan === "comun") hall.memberCount = await courseSize(getAdminApp, data);
+    // The teacher's blob, next to their name on what they publish.
+    hall.teacherAvatarSeed = await avatarSeed(getAdminApp, data.teacherUid);
     return {
       hall,
       announcements: announcements.docs.map(announcementOut),
@@ -1121,7 +1124,10 @@ function build(getAdminApp) {
 
     // A new task reaches the students by email. When its file is still on
     // the way, attachHallDocument sends it, with the file.
-    if (!existingId && request.data?.notifyLater !== true) {
+    // A new task's file that could not be attached: the app asks for the
+    // email anyway (notifyNow), once.
+    const notifyNow = existingId && request.data?.notifyNow === true && !existing?.notifiedAt;
+    if ((!existingId && request.data?.notifyLater !== true) || notifyNow) {
       await ref.update({ notifiedAt: FieldValue.serverTimestamp() });
       await notifyHall(getAdminApp, {
         kind: "task", hallId: hallRef.id, hall: data,
@@ -1178,7 +1184,8 @@ function build(getAdminApp) {
     };
     if (isTeacher) {
       const submissions = await taskRef.collection("submissions").orderBy("submittedAt", "desc").limit(MAX_SUBMISSIONS_LISTED).get();
-      result.submissions = submissions.docs.map(submissionOut);
+      const seeds = await avatarSeeds(getAdminApp, submissions.docs.map(doc => doc.id));
+      result.submissions = submissions.docs.map(doc => ({ ...submissionOut(doc), avatarSeed: seeds.get(doc.id) || null }));
       result.expectedSubmissions = await hallSize(getAdminApp, data);
     } else {
       const mine = await taskRef.collection("submissions").doc(profile.uid).get();
@@ -1333,15 +1340,20 @@ function build(getAdminApp) {
       for (const task of tasks.docs) {
         const data = task.data();
         if (data.reminderSentAt) continue;
-        await task.ref.update({ reminderSentAt: FieldValue.serverTimestamp() });
-        const submitted = await task.ref.collection("submissions").select().get();
-        const handedIn = new Set(submitted.docs.map(doc => doc.id));
-        const pending = (await hallStudentUids(getAdminApp, hall.data())).filter(uid => !handedIn.has(uid));
-        if (!pending.length) continue;
-        await notifyHall(getAdminApp, {
-          kind: "taskTomorrow", hallId: hall.id, hall: hall.data(), onlyUids: pending,
-          item: { id: task.id, title: data.title, instructions: data.instructions || "", dueAt: millis(data.dueAt), createdAt: millis(data.createdAt) ?? Date.now() },
-        });
+        // One task that fails does not stop the others' reminders.
+        try {
+          await task.ref.update({ reminderSentAt: FieldValue.serverTimestamp() });
+          const submitted = await task.ref.collection("submissions").select().get();
+          const handedIn = new Set(submitted.docs.map(doc => doc.id));
+          const pending = (await hallStudentUids(getAdminApp, hall.data())).filter(uid => !handedIn.has(uid));
+          if (!pending.length) continue;
+          await notifyHall(getAdminApp, {
+            kind: "taskTomorrow", hallId: hall.id, hall: hall.data(), onlyUids: pending,
+            item: { id: task.id, title: data.title, instructions: data.instructions || "", dueAt: millis(data.dueAt), createdAt: millis(data.createdAt) ?? Date.now() },
+          });
+        } catch (error) {
+          console.error("remindTasksDueTomorrow", hall.id, task.id, error.message);
+        }
       }
     }
   });

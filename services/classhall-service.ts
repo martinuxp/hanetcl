@@ -21,6 +21,8 @@ export type Hall = {
   /** Only present for whoever teaches the Hall. */
   code: string | null;
   memberCount: number | null;
+  /** The teacher's blobatar seed (getHall only). */
+  teacherAvatarSeed?: string | null;
   /** The next evaluation still to come, for the card's notice. */
   nextEvaluation?: { title: string; date: number } | null;
 };
@@ -134,6 +136,8 @@ export type HallSubmission = {
   /** The teacher's comment. */
   feedback: string;
   reviewedAt: number | null;
+  /** The student's blobatar seed (for the teacher). */
+  avatarSeed?: string | null;
 };
 
 export type HallTaskDetail = {
@@ -375,6 +379,8 @@ export type HallTaskInput = {
   acceptLate: boolean;
   /** A file follows: the students' email goes out with it, from attachHallDocument. */
   notifyLater?: boolean;
+  /** The file could not be attached: email the students now, without it. */
+  notifyNow?: boolean;
 };
 
 export async function saveHallTask(input: HallTaskInput) {

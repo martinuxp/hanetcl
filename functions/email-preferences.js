@@ -1,3 +1,4 @@
+const { Buffer } = require("node:buffer");
 const { timingSafeEqual } = require("node:crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");

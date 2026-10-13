@@ -24,6 +24,7 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 - Formularios secundarios en hoja deslizable (`formSheet`). En Android la hoja la dibuja la app (`components/ui/sheet-frame.tsx`), porque el `formSheet` nativo de react-native-screens 4.26 se abre sin altura.
 - La barra inferior es una sola, en la raíz (`GlobalTabBar` en `components/AppTabBar.tsx`). Las pantallas no dibujan la suya.
 - No mostrar datos falsos como si fueran reales. Lo que no existe va como "Próximamente".
+- Quien no tiene foto aparece con su **blobatar** (blobatar.dev, versión fija 2.7.0) en `HanetAvatar` (`components/ui/hanet-avatar.tsx`): tono fijo 0.5, color libre, sobre el recuadro `surfaceRaised`. La semilla es aleatoria y vive en `accounts/{uid}.avatarSeed` (nunca el UID, correo ni nombre); "Otro blobatar" la cambia. En los correos va como PNG desde `/avatar/<semilla>.png` (`avatarImage`). Las fotos de perfil siguen siendo privadas: los demás ven el blobatar.
 
 ## Producto
 

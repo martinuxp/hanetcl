@@ -11,6 +11,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@blobatar/react-native": "2.7.0",
     "@expo-google-fonts/caveat": "^0.4.2",
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/fraunces": "^0.4.1",
@@ -23,6 +24,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/material-top-tabs": "^7.4.18",
     "@react-navigation/native": "^7.0.14",
+    "blobatar": "2.7.0",
     "cal-parser": "^1.0.2",
     "expo": "^57.0.18",
     "expo-auth-session": "~57.0.10",

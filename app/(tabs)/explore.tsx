@@ -4,6 +4,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { getNameFont } from '@/constants/name-fonts';
 import { useNameFonts } from '@/hooks/use-name-fonts';
 import { getProfilePhotoUrl } from '@/services/profile-service';
+import { Blobatar } from '@blobatar/react-native';
 import { describeAuthError, getMyProfile, getOnboardingStep, routeForStep, useSession } from '@/services/auth-service';
 import type { MyProfile } from '@/services/auth-service';
 import { Ionicons } from '@expo/vector-icons';
@@ -163,10 +164,12 @@ export default function ProfileScreen() {
               <ThemedText style={styles.qrHandle}>{handle ?? 'Tu HaNet ID'}</ThemedText>
             </Animated.View>
           ) : (
-            // Without a photo, the initials stand in for the picture.
-            <Animated.View key="portrait" entering={swap} style={styles.portrait} accessible accessibilityLabel={photoUrl ? `Foto de perfil de ${name}` : `Perfil de ${name}`}>
+            // Without a photo, the account's blobatar stands in for the picture.
+            <Animated.View key="portrait" entering={swap} style={styles.portrait} accessible accessibilityLabel={photoUrl ? `Foto de perfil de ${name}` : `Blobatar de ${name}`}>
               {photoUrl ? (
                 <Image source={{ uri: photoUrl }} style={styles.portraitPhoto} contentFit="cover" transition={150} />
+              ) : photoChecked && current.avatarSeed ? (
+                <Blobatar name={current.avatarSeed} size={208} tone={0.5} background={false} normalize={false} />
               ) : photoChecked ? (
                 <ThemedText style={styles.initials}>{initials || '·'}</ThemedText>
               ) : null}

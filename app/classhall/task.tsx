@@ -2,6 +2,7 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { DocumentTile, HALL_ICONS, HallPill, TopBarButton, hallDay, hallLongDate, hallStyles } from '@/components/classhall/hall-ui';
 import { StatusPill, SubmissionItemRow, dueLabel } from '@/components/classhall/task-ui';
 import { ThemedText } from '@/components/themed-text';
+import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
@@ -211,6 +212,7 @@ export default function TaskScreen() {
                         onPress={() => openSubmission(item)}
                         style={({ pressed }) => [styles.submission, pressed && AppPressed]}
                       >
+                        <HanetAvatar seed={item.avatarSeed} fallback={item.studentName.slice(0, 1).toLocaleUpperCase('es')} width={36} height={44} />
                         <View style={styles.submissionText}>
                           <ThemedText numberOfLines={1} style={styles.submissionName}>{item.studentName}</ThemedText>
                           <ThemedText numberOfLines={1} style={styles.meta}>

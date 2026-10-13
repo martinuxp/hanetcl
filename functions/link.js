@@ -1,3 +1,4 @@
+const { Buffer } = require("node:buffer");
 const crypto = require("node:crypto");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { getAuth } = require("firebase-admin/auth");

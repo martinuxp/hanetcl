@@ -89,7 +89,11 @@ function TaskFormScreen() {
         if (file) await uploadHallDocument(hallId, file, { taskId, notifyTask: !id });
         else if (removeExisting && existing) await deleteHallDocument(hallId, existing.id);
       } catch {
-        // The task is saved; the file can be added again by editing it.
+        // The task is saved; the file can be added again by editing it. The
+        // students' email, which was waiting for the file, goes out without it.
+        if (!id && file) {
+          await saveHallTask({ hallId, taskId, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate, notifyNow: true }).catch(() => {});
+        }
       }
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();

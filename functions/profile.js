@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const { avatarSeed, newSeed } = require("./avatar");
 
 // Typefaces offered for the profile name. Keep in step with constants/name-fonts.ts.
 const NAME_FONTS = ["dm-sans", "fraunces", "unbounded", "space-mono", "caveat"];
@@ -11,15 +12,21 @@ function build(getAdminApp) {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
     }
+    const accountRef = getFirestore(getAdminApp(), "hn-enrollmentdata").collection("accounts").doc(request.auth.uid);
+
+    // "Otro" in the profile: a new blob, drawn here so the seed stays random.
+    if (request.data?.newAvatar === true) {
+      const seed = newSeed();
+      await accountRef.set({ avatarSeed: seed }, { merge: true });
+      return { avatarSeed: seed };
+    }
+
     const nameFont = request.data?.nameFont;
     if (!NAME_FONTS.includes(nameFont)) {
       throw new HttpsError("invalid-argument", "Esa letra no está disponible.");
     }
 
-    await getFirestore(getAdminApp(), "hn-enrollmentdata")
-      .collection("accounts")
-      .doc(request.auth.uid)
-      .set({ nameFont }, { merge: true });
+    await accountRef.set({ nameFont }, { merge: true });
     return { nameFont };
   });
 
@@ -35,10 +42,11 @@ function build(getAdminApp) {
     const adminApp = getAdminApp();
     const db = getFirestore(adminApp, "hn-enrollmentdata");
 
-    const [accountSnap, userSnap, authUser] = await Promise.all([
+    const [accountSnap, userSnap, authUser, seed] = await Promise.all([
       db.collection("accounts").doc(uid).get(),
       db.collection("users").doc(uid).get(),
       getAuth(adminApp).getUser(uid),
+      avatarSeed(getAdminApp, uid),
     ]);
     const account = accountSnap.data() || {};
     const linked = userSnap.data() || null;
@@ -61,6 +69,7 @@ function build(getAdminApp) {
       institutionLogoUrl: institution?.branding?.logoUrl || null,
       institutionBannerUrl: institution?.branding?.bannerUrl || null,
       memberSince: Date.parse(authUser.metadata.creationTime) || null,
+      avatarSeed: seed,
     };
   });
 

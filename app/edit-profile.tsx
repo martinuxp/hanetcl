@@ -1,5 +1,6 @@
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { ThemedText } from '@/components/themed-text';
+import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { NAME_FONTS } from '@/constants/name-fonts';
@@ -9,13 +10,13 @@ import { describeAuthError, getMyProfile, useSession } from '@/services/auth-ser
 import {
   describePhotoError,
   getProfilePhotoUrl,
+  newAvatar,
   pickProfilePhoto,
   removeProfilePhoto,
   saveNameFont,
   uploadProfilePhoto,
 } from '@/services/profile-service';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -41,6 +42,8 @@ function EditProfileScreen() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState<'uploading' | 'removing' | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [avatarSeed, setAvatarSeed] = useState<string | null>(null);
+  const [rerolling, setRerolling] = useState(false);
 
   const [font, setFont] = useState<NameFontId>('dm-sans');
   const [savingFont, setSavingFont] = useState<NameFontId | null>(null);
@@ -60,6 +63,7 @@ function EditProfileScreen() {
         setName(profile.fullName || user.email || '');
         setFont(NAME_FONTS.some(option => option.id === profile.nameFont) ? (profile.nameFont as NameFontId) : 'dm-sans');
         setPhotoUrl(photo);
+        setAvatarSeed(profile.avatarSeed);
       } catch (error) {
         if (active) setLoadError(describeAuthError(error, 'No pudimos cargar tu perfil. Revisa tu conexión.'));
       } finally {
@@ -87,6 +91,20 @@ function EditProfileScreen() {
       setPhotoError(describePhotoError(error));
     } finally {
       setPhotoBusy(null);
+    }
+  };
+
+  const rerollAvatar = async () => {
+    if (rerolling) return;
+    setPhotoError(null);
+    setRerolling(true);
+    try {
+      setAvatarSeed(await newAvatar());
+      success();
+    } catch (error) {
+      setPhotoError(describeAuthError(error, 'No pudimos cambiar tu blobatar. Inténtalo nuevamente.'));
+    } finally {
+      setRerolling(false);
     }
   };
 
@@ -148,11 +166,15 @@ function EditProfileScreen() {
           <ThemedText style={styles.label}>Foto de perfil</ThemedText>
           <View style={styles.photoRow}>
             <View style={styles.photo}>
-              {photoUrl ? (
-                <Image source={{ uri: photoUrl }} style={styles.photoImage} contentFit="cover" transition={150} accessibilityLabel="Tu foto de perfil" />
-              ) : (
-                <ThemedText style={styles.photoInitials}>{initialsOf(name) || '·'}</ThemedText>
-              )}
+              {/* Without a photo, the account's blobatar stands in for it. */}
+              <HanetAvatar
+                photoUrl={photoUrl}
+                seed={avatarSeed}
+                fallback={initialsOf(name) || '·'}
+                width={116}
+                radius={AppRadii.lg}
+                accessibilityLabel={photoUrl ? 'Tu foto de perfil' : 'Tu blobatar'}
+              />
               {!!photoBusy && (
                 <View style={styles.photoBusy}>
                   <ActivityIndicator color={AppColors.textPrimary} />
@@ -166,18 +188,30 @@ function EditProfileScreen() {
                 onPress={changePhoto}
                 disabled={!!photoBusy}
               />
-              {!!photoUrl && (
+              {photoUrl ? (
                 <HanetButton
                   label={photoBusy === 'removing' ? 'Quitando…' : 'Quitar foto'}
                   variant="surface"
                   onPress={removePhoto}
                   disabled={!!photoBusy}
                 />
+              ) : (
+                <HanetButton
+                  label={rerolling ? 'Cambiando…' : 'Otro blobatar'}
+                  variant="surface"
+                  onPress={rerollAvatar}
+                  disabled={rerolling || !avatarSeed}
+                  accessibilityHint="Cambia tu personaje por otro al azar"
+                />
               )}
             </View>
           </View>
           {!!photoError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{photoError}</ThemedText>}
-          <ThemedText style={styles.note}>Por ahora tu foto solo la ves tú, en tu perfil.</ThemedText>
+          <ThemedText style={styles.note}>
+            {photoUrl
+              ? 'Por ahora tu foto solo la ves tú, en tu perfil. Los demás ven tu blobatar.'
+              : 'Sin foto, te representa tu blobatar: un personaje al azar que no dice nada de ti. Es lo que ven los demás en HaNet.'}
+          </ThemedText>
         </View>
 
         <View style={styles.section}>
@@ -285,17 +319,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: AppColors.surface,
-  },
-  photoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  photoInitials: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 40,
-    lineHeight: 46,
-    letterSpacing: -1.5,
-    color: AppColors.textPrimary,
   },
   photoBusy: {
     ...StyleSheet.absoluteFill,

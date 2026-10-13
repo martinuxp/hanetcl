@@ -46,6 +46,12 @@ export async function removeProfilePhoto(uid: string) {
   }
 }
 
+/** "Otro": draws a new blobatar for the account; returns its seed. */
+export async function newAvatar() {
+  const result = await httpsCallable<{ newAvatar: true }, { avatarSeed: string }>(functions, 'updateMyProfile')({ newAvatar: true });
+  return result.data.avatarSeed;
+}
+
 export async function saveNameFont(nameFont: string) {
   await httpsCallable(functions, 'updateMyProfile')({ nameFont });
 }

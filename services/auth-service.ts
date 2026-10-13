@@ -122,6 +122,8 @@ export type MyProfile = {
   institutionBannerUrl: string | null;
   /** Milliseconds since epoch of the account's creation. */
   memberSince: number | null;
+  /** Random seed of the account's blobatar, its picture when it has no photo. */
+  avatarSeed: string | null;
 };
 
 export async function getMyProfile() {

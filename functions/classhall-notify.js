@@ -4,6 +4,7 @@ const { getFirestore } = require("firebase-admin/firestore");
 const { sendEmailBatch } = require("./email");
 const { classhallEmail } = require("./classhall-email");
 const { findSubject } = require("./subjects");
+const { avatarSeed, avatarPngUrl } = require("./avatar");
 
 // Sends ClassHall's emails to the students of a Hall: its whole course for a
 // Plan común, those who joined for an electivo or a dominio. Whoever turned
@@ -84,7 +85,11 @@ async function notifyHall(getAdminApp, { kind, hallId, hall, item, onlyUids }) {
   try {
     let uids = await hallStudentUids(getAdminApp, hall);
     if (onlyUids) uids = uids.filter(uid => onlyUids.includes(uid));
-    const [people, institution] = await Promise.all([recipients(getAdminApp, uids), institutionLook(getAdminApp, hall.institutionId)]);
+    const [people, institution, teacherSeed] = await Promise.all([
+      recipients(getAdminApp, uids),
+      institutionLook(getAdminApp, hall.institutionId),
+      avatarSeed(getAdminApp, hall.teacherUid),
+    ]);
     if (!people.length) return 0;
     const hallInfo = {
       id: hallId,
@@ -92,6 +97,7 @@ async function notifyHall(getAdminApp, { kind, hallId, hall, item, onlyUids }) {
       plan: hall.plan || "comun",
       area: findSubject(hall.subject)?.area || null,
       teacherName: hall.teacherName || "Tu docente",
+      teacherAvatarUrl: teacherSeed ? avatarPngUrl(teacherSeed) : null,
     };
     await sendEmailBatch(people.map((recipient) => {
       const message = classhallEmail({ kind, hall: hallInfo, institution, recipient, item });

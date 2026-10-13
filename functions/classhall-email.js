@@ -161,12 +161,16 @@ function fileTile({ background, textColor, icon, title, name, width, arrow, maxN
 }
 
 // "Message classhall": the teacher with the verified mark, the date and the text.
-function messageCard({ teacherName, dateMs, bodyHtml, attachment }) {
+function messageCard({ teacherName, teacherAvatarUrl, dateMs, bodyHtml, attachment }) {
+  // The teacher's blob on its tile; initials when there is none.
+  const avatar = teacherAvatarUrl
+    ? `<img src="${escapeHtml(teacherAvatarUrl)}" width="33" height="40" alt="" style="display:block;border:0;width:33px;height:40px;">`
+    : escapeHtml(initials(teacherName));
   return `<tr><td align="center" bgcolor="${PAPER}" style="background:${PAPER};padding:26px 32px 0;">
 <table role="presentation" width="369" cellpadding="0" cellspacing="0" style="width:369px;max-width:100%;"><tr>
 <td bgcolor="${CARD}" style="background:${CARD};border-radius:32px;padding:32px;">
 <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td width="33" height="40" align="center" bgcolor="${SECONDARY}" style="width:33px;height:40px;background:${SECONDARY};border-radius:12px;font-family:${SANS};font-size:13px;font-weight:600;color:${LIGHT};">${escapeHtml(initials(teacherName))}</td>
+<td width="33" height="40" align="center" bgcolor="${SECONDARY}" style="width:33px;height:40px;background:${SECONDARY};border-radius:12px;font-family:${SANS};font-size:13px;font-weight:600;color:${LIGHT};">${avatar}</td>
 <td style="padding-left:10px;">
 <p style="margin:0;font-family:${SANS};font-size:18px;line-height:22px;font-weight:500;letter-spacing:-0.6px;color:${CARD_TEXT};">${escapeHtml(shortName(teacherName))} <img src="${LOGO_BASE}/icon-verificado.png" width="13" height="13" alt="Docente verificado" style="border:0;width:13px;height:13px;vertical-align:middle;"></p>
 <p style="margin:0;font-family:${SANS};font-size:14px;line-height:20px;font-weight:500;letter-spacing:-0.35px;color:${CARD_TEXT};">${escapeHtml(shortDay(dateMs))}</p>
@@ -314,6 +318,7 @@ function classhallEmail({ kind, hall, institution, recipient, item }) {
     const instructions = item.instructions ? `<br>${paragraphHtml(truncate(item.instructions, 400))}` : "";
     rows.push(messageCard({
       teacherName: hall.teacherName,
+      teacherAvatarUrl: hall.teacherAvatarUrl,
       dateMs: item.createdAt,
       bodyHtml: `${escapeHtml(item.title)}${instructions}`,
       attachment: item.attachment || null,
@@ -340,7 +345,7 @@ function classhallEmail({ kind, hall, institution, recipient, item }) {
       hello,
       messageHtml: `Tu Profesor/a ha subido un anuncio nuevo al ClassHall de ${subject}, ${plan.phrase}. Puedes revisarlo en cualquier momento.`,
     }));
-    rows.push(messageCard({ teacherName: hall.teacherName, dateMs: item.createdAt, bodyHtml: paragraphHtml(truncate(item.body, 600)) }));
+    rows.push(messageCard({ teacherName: hall.teacherName, teacherAvatarUrl: hall.teacherAvatarUrl, dateMs: item.createdAt, bodyHtml: paragraphHtml(truncate(item.body, 600)) }));
     rows.push(uploadedLine(item.createdAt, hall.teacherName));
     rows.push(actions(appLink(`classhall/hall?id=${hall.id}`), preferencesUrl));
     mailSubject = `Anuncio nuevo en ${hall.subject}`;
