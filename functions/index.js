@@ -33,6 +33,9 @@ Object.assign(exports, require("./members").build(getAdminApp));
 // ClassHall: Halls per subject and course, and joining them by code.
 Object.assign(exports, require("./classhall").build(getAdminApp));
 
+// The page behind "Configurar notificaciones" in ClassHall emails.
+Object.assign(exports, require("./email-preferences").build(getAdminApp));
+
 // Data for the profile screen.
 Object.assign(exports, require("./profile").build(getAdminApp));
 

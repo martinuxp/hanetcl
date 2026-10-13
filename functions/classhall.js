@@ -1,10 +1,13 @@
 const { randomInt, randomUUID } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const { applicationDefault } = require("firebase-admin/app");
 const { pdfWords, photoWords, docxWords, parseSpecTable } = require("./spec-table");
 const { PLANS, findSubject, subjectKey } = require("./subjects");
+const { RESEND_API_KEY } = require("./email");
+const { notifyHall, hallStudentUids } = require("./classhall-notify");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -330,6 +333,20 @@ function hallOut(doc, profile, extra = {}) {
     memberCount: isTeacher ? (data.memberUids || []).length : null,
     ...extra,
   };
+}
+
+// Start of a day in Chile (00:00 America/Santiago), `days` from today, in ms.
+function santiagoDayStart(days) {
+  const now = new Date();
+  const [year, month, day] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" })
+    .format(now).split("-").map(Number);
+  const guess = Date.UTC(year, month - 1, day + days);
+  // The offset at that moment ("GMT-03:00" / "GMT-04:00"), daylight saving included.
+  const offset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Santiago", timeZoneName: "longOffset" })
+    .formatToParts(new Date(guess)).find(part => part.type === "timeZoneName").value;
+  const match = offset.match(/GMT([+-])(\d{2}):(\d{2})/);
+  const minutes = match ? (match[1] === "-" ? -1 : 1) * (Number(match[2]) * 60 + Number(match[3])) : 0;
+  return guess - minutes * 60 * 1000;
 }
 
 // Profiles made by hand have no name; the sign-up one is the fallback.
@@ -676,7 +693,7 @@ function build(getAdminApp) {
     return { hallId: hallRef.id, subject, theme, plan };
   });
 
-  const saveHallAnnouncement = onCall({ invoker: "public" }, async (request) => {
+  const saveHallAnnouncement = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -697,6 +714,8 @@ function build(getAdminApp) {
 
     const ref = hallRef.collection("announcements").doc();
     await ref.set({ body, authorName: data.teacherName, createdAt: FieldValue.serverTimestamp() });
+    // A new announcement reaches the students by email too; an edit does not.
+    await notifyHall(getAdminApp, { kind: "announcement", hallId: hallRef.id, hall: data, item: { body, createdAt: Date.now() } });
     return { announcementId: ref.id };
   });
 
@@ -832,7 +851,7 @@ function build(getAdminApp) {
   // Takes a file the teacher uploaded to their staging folder into the Hall.
   // Attached to an announcement or as an evaluation's T.E. it replaces the
   // previous one there.
-  const attachHallDocument = onCall({ invoker: "public" }, async (request) => {
+  const attachHallDocument = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -898,6 +917,24 @@ function build(getAdminApp) {
       taskId: taskId || null,
       createdAt: FieldValue.serverTimestamp(),
     });
+
+    // Emails: a file shared on its own is new material; a new task whose
+    // file came after it is announced now, with the file.
+    if (!announcementId && !evaluationId && !taskId) {
+      await notifyHall(getAdminApp, {
+        kind: "material", hallId: hallRef.id, hall: data,
+        item: { name, kind: DOCUMENT_TYPES[metadata.contentType] || "file", createdAt: Date.now() },
+      });
+    } else if (taskId && request.data?.notifyTask === true) {
+      const task = (await hallRef.collection("tasks").doc(taskId).get()).data();
+      if (task && !task.notifiedAt) {
+        await hallRef.collection("tasks").doc(taskId).update({ notifiedAt: FieldValue.serverTimestamp() });
+        await notifyHall(getAdminApp, {
+          kind: "task", hallId: hallRef.id, hall: data,
+          item: { id: taskId, title: task.title, instructions: task.instructions || "", dueAt: millis(task.dueAt), createdAt: Date.now(), attachment: name },
+        });
+      }
+    }
     return documentOut(await docRef.get());
   });
 
@@ -1022,7 +1059,7 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
-  const saveHallTask = onCall({ invoker: "public" }, async (request) => {
+  const saveHallTask = onCall({ invoker: "public", secrets: [RESEND_API_KEY] }, async (request) => {
     const { hallRef, data, isTeacher } = await openHall(getAdminApp, request);
     requireHallTeacher(isTeacher);
 
@@ -1081,6 +1118,16 @@ function build(getAdminApp) {
       batch.delete(taskCalendarRef(getAdminApp, courseId, hallRef.id, ref.id));
     }
     await batch.commit();
+
+    // A new task reaches the students by email. When its file is still on
+    // the way, attachHallDocument sends it, with the file.
+    if (!existingId && request.data?.notifyLater !== true) {
+      await ref.update({ notifiedAt: FieldValue.serverTimestamp() });
+      await notifyHall(getAdminApp, {
+        kind: "task", hallId: hallRef.id, hall: data,
+        item: { id: ref.id, title, instructions, dueAt: due, createdAt: Date.now(), attachment: null },
+      });
+    }
 
     return { taskId: ref.id };
   });
@@ -1275,11 +1322,36 @@ function build(getAdminApp) {
     return submissionOut(await submissionRef.get());
   });
 
+  // Every afternoon, students who have not handed in a task due tomorrow get
+  // a reminder by email. Each task is reminded once.
+  const remindTasksDueTomorrow = onSchedule({ schedule: "0 18 * * *", timeZone: "America/Santiago", secrets: [RESEND_API_KEY], memory: "512MiB", timeoutSeconds: 300 }, async () => {
+    const from = Timestamp.fromMillis(santiagoDayStart(1));
+    const to = Timestamp.fromMillis(santiagoDayStart(2));
+    const halls = await classhallDb(getAdminApp).collection("halls").get();
+    for (const hall of halls.docs) {
+      const tasks = await hall.ref.collection("tasks").where("dueAt", ">=", from).where("dueAt", "<", to).get();
+      for (const task of tasks.docs) {
+        const data = task.data();
+        if (data.reminderSentAt) continue;
+        await task.ref.update({ reminderSentAt: FieldValue.serverTimestamp() });
+        const submitted = await task.ref.collection("submissions").select().get();
+        const handedIn = new Set(submitted.docs.map(doc => doc.id));
+        const pending = (await hallStudentUids(getAdminApp, hall.data())).filter(uid => !handedIn.has(uid));
+        if (!pending.length) continue;
+        await notifyHall(getAdminApp, {
+          kind: "taskTomorrow", hallId: hall.id, hall: hall.data(), onlyUids: pending,
+          item: { id: task.id, title: data.title, instructions: data.instructions || "", dueAt: millis(data.dueAt), createdAt: millis(data.createdAt) ?? Date.now() },
+        });
+      }
+    }
+  });
+
   return {
     listMyHalls, checkHallCode, joinHall, createHall, listHallCourses,
     getHall, updateHall, saveHallAnnouncement, deleteHallAnnouncement, saveHallEvaluation, deleteHallEvaluation, verifyCalendarEvent,
     attachHallDocument, deleteHallDocument, scanSpecTable,
     saveHallTask, deleteHallTask, getHallTask, submitHallTask, withdrawHallSubmission, reviewHallSubmission,
+    remindTasksDueTomorrow,
   };
 }
 

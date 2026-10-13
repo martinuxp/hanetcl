@@ -83,9 +83,10 @@ function TaskFormScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const taskId = await saveHallTask({ hallId, taskId: id, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate });
+      // A new task's email waits for its file, so it goes out with it.
+      const taskId = await saveHallTask({ hallId, taskId: id, title: form.title, instructions: form.instructions, dueAt: form.dueAt, acceptLate: form.acceptLate, notifyLater: !id && !!file });
       try {
-        if (file) await uploadHallDocument(hallId, file, { taskId });
+        if (file) await uploadHallDocument(hallId, file, { taskId, notifyTask: !id });
         else if (removeExisting && existing) await deleteHallDocument(hallId, existing.id);
       } catch {
         // The task is saved; the file can be added again by editing it.

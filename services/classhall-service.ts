@@ -294,7 +294,7 @@ export async function pickHallDocument(purpose: 'document' | 'scan' = 'document'
   return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
 }
 
-type Attach = { announcementId?: string; evaluationId?: string; taskId?: string };
+type Attach = { announcementId?: string; evaluationId?: string; taskId?: string; /** Emails the new task now, with this file. */ notifyTask?: boolean };
 
 /** A file in the teacher's upload folder, not yet in any Hall. */
 export type StagedDocument = { uploadPath: string; name: string };
@@ -373,6 +373,8 @@ export type HallTaskInput = {
   instructions: string;
   dueAt: number;
   acceptLate: boolean;
+  /** A file follows: the students' email goes out with it, from attachHallDocument. */
+  notifyLater?: boolean;
 };
 
 export async function saveHallTask(input: HallTaskInput) {
