@@ -7,7 +7,7 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 - Responder siempre en español. El usuario escribe en español chileno informal.
 - Se prueba en el teléfono con Expo Go (iPhone y Android) y en web. Nadie más revisa el código.
 - Commits solo cuando el usuario los pide, en la rama `auditoria-ui-y-auth`, no en `master`. Push también solo a pedido.
-- Publicar en Firebase (reglas, funciones, hosting, storage) o en Expo (EAS Update) necesita el OK del usuario cada vez. Un OK anterior no cubre el siguiente.
+- Las **funciones** de Firebase se publican sin preguntar cuando un cambio las toca y pasa lint, salvo que haya algo que confirmar antes (un costo nuevo, un cambio que afecte datos reales, un permiso que falte). Reglas, hosting y storage, y EAS fuera de la rama `expo-go`, siguen necesitando el OK del usuario cada vez.
 - No correr `npm audit fix` en la raíz: sube Expo y rompe el render web. En `functions/` sí es seguro.
 - Instalar un paquete nuevo exige reiniciar el servidor de Expo.
 - No borrar ni incluir en commits `Tokens.zip`, `Light.tokens.json` ni el SVG de nombre invisible de la raíz.
