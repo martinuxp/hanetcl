@@ -58,6 +58,16 @@ export function EventsMarquee({ event, now }: { event: HnEvent; now: number }) {
   );
 }
 
+// The design's 48 pt fits a short name ("Candelabro"); longer ones step down
+// so two lines stay readable instead of squeezing one.
+function titleSize(title: string) {
+  const length = title.length;
+  if (length <= 12) return { fontSize: 48, lineHeight: 52, letterSpacing: -2.4 };
+  if (length <= 22) return { fontSize: 36, lineHeight: 40, letterSpacing: -1.6 };
+  if (length <= 36) return { fontSize: 28, lineHeight: 32, letterSpacing: -1.1 };
+  return { fontSize: 22, lineHeight: 26, letterSpacing: -0.8 };
+}
+
 /** A featured event: a large photo with its name, perk and when. */
 export function FeaturedEventCard({ event, now, width, onPress }: { event: HnEvent; now: number; width: number; onPress: () => void }) {
   const when = eventSoon(event.startsAt, now) ?? eventWhen(event);
@@ -68,7 +78,7 @@ export function FeaturedEventCard({ event, now, width, onPress }: { event: HnEve
       <View style={styles.featuredShade} />
       <View style={styles.featuredTop}>
         <View style={styles.featuredTitleBlock}>
-          <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={styles.featuredTitle}>{event.title}</ThemedText>
+          <ThemedText numberOfLines={2} style={[styles.featuredTitle, titleSize(event.title)]}>{event.title}</ThemedText>
           {!!event.perk && <ThemedText numberOfLines={1} style={styles.featuredPerk}>{event.perk}</ThemedText>}
         </View>
         <View style={styles.featuredArrow}>

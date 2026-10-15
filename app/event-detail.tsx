@@ -6,14 +6,14 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { JORNADA_LABELS, deleteEvent, eventWhen, getEvent, getLoadedEvent, toggleEventSignup } from '@/services/events-service';
+import { JORNADA_LABELS, deleteEvent, eventSoon, eventWhen, getEvent, getLoadedEvent, toggleEventSignup } from '@/services/events-service';
 import type { HnEvent } from '@/services/events-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function openLink(url: string) {
@@ -23,6 +23,12 @@ function openLink(url: string) {
 function openMaps(event: HnEvent) {
   const query = encodeURIComponent([event.venueName, event.address, event.city].filter(Boolean).join(', '));
   void Linking.openURL(Platform.OS === 'ios' ? `https://maps.apple.com/?q=${query}` : `https://www.google.com/maps/search/?api=1&query=${query}`);
+}
+
+function shareEvent(event: HnEvent) {
+  const link = event.ticketUrl || event.sourceUrl;
+  const message = [event.title, [eventWhen(event), event.venueName].filter(Boolean).join(' - '), link].filter(Boolean).join('\n');
+  void Share.share(Platform.OS === 'ios' && link ? { message: [event.title, eventWhen(event)].join('\n'), url: link } : { message }).catch(() => {});
 }
 
 function hostOf(url: string) {
@@ -104,6 +110,9 @@ export default function EventDetailScreen() {
   const price = institution ? null : priceLabel(event);
   const sourceHost = hostOf(event.ticketUrl || event.sourceUrl);
   const past = (event.endsAt ?? event.startsAt) < now;
+  const soon = past ? null : eventSoon(event.startsAt, now);
+  const wikipedia = /wikipedia/i.test(event.editorial?.sourceName ?? '') || /wikipedia\.org/.test(event.editorial?.sourceUrl ?? '');
+  const hasPlace = !!event.venueName || !!event.address;
   const full = !!event.capacity && (event.signupCount ?? 0) >= event.capacity && !event.signedUp;
 
   return (
@@ -123,6 +132,7 @@ export default function EventDetailScreen() {
             <View style={[StyleSheet.absoluteFill, styles.heroFallback]}><CustomIcon name="calendar" size={48} color={AppColors.textSecondary} /></View>
           )}
           {event.sponsored && <ThemedText style={styles.sponsored}>[Patrocinado]</ThemedText>}
+          {(!!soon || past) && <ThemedText style={[styles.badge, past && styles.badgePast]}>{past ? 'Ya pasó' : soon}</ThemedText>}
         </View>
 
         <View style={styles.heading}>
@@ -139,7 +149,9 @@ export default function EventDetailScreen() {
         {!!price && <ThemedText style={styles.price}>{price}</ThemedText>}
         {!!event.perk && <ThemedText style={styles.perk}>{event.perk}</ThemedText>}
 
-        {!institution && !!event.ticketUrl && (
+        {past && <ThemedText style={styles.pastNote}>Este evento ya pasó.</ThemedText>}
+
+        {!institution && !!event.ticketUrl && !past && (
           <HanetButton label={`Comprar en ${event.sourceName || sourceHost}`} variant="accent" onPress={() => openLink(event.ticketUrl)} style={styles.wide} />
         )}
 
@@ -163,7 +175,30 @@ export default function EventDetailScreen() {
         )}
         {!!actionError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</ThemedText>}
 
-        {(!!event.venueName || !!event.address) && (
+        {event.gallery.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll} contentContainerStyle={styles.gallery}>
+            {event.gallery.map((uri, index) => (
+              <Pressable key={uri} accessibilityRole="imagebutton" accessibilityLabel={`Foto ${index + 1} de ${event.gallery.length}`} onPress={() => openLink(uri)} style={({ pressed }) => [index % 2 === 0 ? styles.galleryWide : styles.galleryNarrow, pressed && AppPressed]}>
+                <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+
+        <View style={styles.options}>
+          <Pressable accessibilityRole="button" onPress={() => shareEvent(event)} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
+            <Image source={HNE_ICONS.arrowUpRight} style={styles.icon18} contentFit="contain" tintColor={AppColors.textPrimary} />
+            <ThemedText style={styles.optionLabel}>Compartir</ThemedText>
+          </Pressable>
+          {hasPlace && (
+            <Pressable accessibilityRole="button" accessibilityHint="Abre la ubicación en mapas" onPress={() => openMaps(event)} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
+              <Image source={HNE_ICONS.location} style={styles.icon18} contentFit="contain" tintColor={AppColors.textPrimary} />
+              <ThemedText style={styles.optionLabel}>Cómo llegar</ThemedText>
+            </Pressable>
+          )}
+        </View>
+
+        {hasPlace && (
           <Pressable accessibilityRole="button" accessibilityHint="Abre la ubicación en mapas" onPress={() => openMaps(event)} style={({ pressed }) => [styles.venue, pressed && AppPressed]}>
             <View style={styles.venueIcon}><CustomIcon name="map-pin" size={22} color={AppColors.textPrimary} /></View>
             <View style={styles.venueText}>
@@ -193,7 +228,7 @@ export default function EventDetailScreen() {
               <ThemedText selectable style={styles.body}>{event.editorial.summary}</ThemedText>
               {!!event.editorial.sourceName && (
                 <Pressable onPress={() => openLink(event.editorial?.sourceUrl ?? '')} disabled={!event.editorial.sourceUrl}>
-                  <ThemedText style={styles.attribution}>Información proporcionada por {event.editorial.sourceName}</ThemedText>
+                  <ThemedText style={styles.attribution}>Información proporcionada por {event.editorial.sourceName}{wikipedia ? ' (CC BY-SA 4.0)' : ''}</ThemedText>
                 </Pressable>
               )}
             </View>
@@ -289,6 +324,78 @@ const styles = StyleSheet.create({
   icon24: {
     width: 24,
     height: 24,
+  },
+  icon18: {
+    width: 18,
+    height: 18,
+  },
+  badge: {
+    position: 'absolute',
+    left: 11,
+    bottom: 11,
+    paddingHorizontal: AppSpacing.md,
+    paddingVertical: 4,
+    borderRadius: AppRadii.pill,
+    overflow: 'hidden',
+    backgroundColor: AppColors.accent,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  badgePast: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  pastNote: {
+    textAlign: 'center',
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  galleryScroll: {
+    alignSelf: 'stretch',
+    marginHorizontal: -AppSpacing.md,
+  },
+  gallery: {
+    gap: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.md,
+  },
+  galleryWide: {
+    width: 240,
+    height: 160,
+    overflow: 'hidden',
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceRaised,
+  },
+  galleryNarrow: {
+    width: 120,
+    height: 160,
+    overflow: 'hidden',
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceRaised,
+  },
+  options: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: AppSpacing.sm,
+  },
+  option: {
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.xs,
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  optionLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
   },
   hero: {
     alignSelf: 'stretch',

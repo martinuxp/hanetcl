@@ -7,7 +7,7 @@ import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError } from '@/services/auth-service';
-import { EVENT_CATEGORIES, getLoadedEvent, importEventFromUrl, pickEventCover, saveEvent } from '@/services/events-service';
+import { EVENT_CATEGORIES, MAX_EVENT_GALLERY, fetchWikipediaSummary, getLoadedEvent, importEventFromUrl, pickEventCover, saveEvent } from '@/services/events-service';
 import type { EventJornada, EventKind, SignupMode } from '@/services/events-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -15,6 +15,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type GalleryItem = { type: 'keep' | 'url'; uri: string } | { type: 'upload'; uri: string; uploadPath: string };
 
 type Form = {
   title: string;
@@ -102,6 +104,10 @@ function EventFormScreen() {
     };
   });
   const [form, setForm] = useState<Form>(initial);
+  const [initialGallery] = useState<GalleryItem[]>(() => (getLoadedEvent(params.id ?? '')?.gallery ?? []).map(uri => ({ type: 'keep', uri })));
+  const [gallery, setGallery] = useState<GalleryItem[]>(initialGallery);
+  const [addingPhoto, setAddingPhoto] = useState(false);
+  const [wiki, setWiki] = useState<{ busy: boolean; note: string | null }>({ busy: false, note: null });
   const [cover, setCover] = useState<{ uploadPath: string; localUri: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [picking, setPicking] = useState<'start' | 'end' | null>(null);
@@ -117,7 +123,7 @@ function EventFormScreen() {
     setError(null);
   };
 
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial) || !!cover;
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial) || !!cover || JSON.stringify(gallery) !== JSON.stringify(initialGallery);
   const ready = form.title.trim().length >= 3 && dirty;
 
   const runImport = async () => {
@@ -147,6 +153,10 @@ function EventFormScreen() {
         sourceUrl: draft.sourceUrl,
         ...(category ? { category } : {}),
       });
+      setGallery(current => [
+        ...current,
+        ...draft.images.filter(uri => !current.some(item => item.uri === uri)).map(uri => ({ type: 'url' as const, uri })),
+      ].slice(0, MAX_EVENT_GALLERY));
       setImportWarnings(draft.warnings);
       const missing = [!draft.startsAt && 'la fecha', !draft.venueName && 'el lugar', !draft.priceFrom && 'el precio'].filter(Boolean);
       setImportNote(missing.length ? `Listo. Revisa y completa ${missing.join(', ')}.` : 'Listo. Revisa los datos antes de publicar.');
@@ -170,6 +180,35 @@ function EventFormScreen() {
     }
   };
 
+  const addPhoto = async () => {
+    setAddingPhoto(true);
+    setError(null);
+    try {
+      const picked = await pickEventCover('gallery');
+      if (picked) setGallery(current => [...current, { type: 'upload' as const, uri: picked.localUri, uploadPath: picked.uploadPath }].slice(0, MAX_EVENT_GALLERY));
+    } catch (pickError) {
+      setError(describeAuthError(pickError, 'No pudimos subir la foto.'));
+    } finally {
+      setAddingPhoto(false);
+    }
+  };
+
+  const fillFromWikipedia = async () => {
+    if (!form.editorialSubject.trim() || wiki.busy) return;
+    setWiki({ busy: true, note: null });
+    try {
+      const found = await fetchWikipediaSummary(form.editorialSubject);
+      if (!found) {
+        setWiki({ busy: false, note: 'No encontramos un artículo con ese nombre. Prueba con el nombre completo.' });
+        return;
+      }
+      update({ editorialSummary: found.summary, editorialSourceName: 'Wikipedia', editorialSourceUrl: found.url });
+      setWiki({ busy: false, note: `Traído de «${found.title}». Revisa que sea la persona o el lugar correcto.` });
+    } catch {
+      setWiki({ busy: false, note: 'Wikipedia no responde. Inténtalo de nuevo.' });
+    }
+  };
+
   const submit = async () => {
     if (!ready || submitting) return;
     setSubmitting(true);
@@ -187,6 +226,9 @@ function EventFormScreen() {
         address: form.address,
         city: form.city,
         uploadPath: cover?.uploadPath,
+        galleryKeep: gallery.filter(item => item.type === 'keep').map(item => item.uri),
+        galleryUploads: gallery.flatMap(item => (item.type === 'upload' ? [item.uploadPath] : [])),
+        galleryUrls: gallery.filter(item => item.type === 'url').map(item => item.uri),
         ...(regional
           ? {
             imageUrl: cover ? '' : form.imageUrl,
@@ -290,6 +332,25 @@ function EventFormScreen() {
         {regional && !!form.imageUrl && !cover && <ThemedText style={styles.hint}>Imagen de la ticketera. Si tienes una propia, súbela.</ThemedText>}
       </Field>
 
+      <Field label="Fotos" optional>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.gallery}>
+          {gallery.map((item, index) => (
+            <View key={item.uri} style={local.thumb}>
+              <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <Pressable accessibilityRole="button" accessibilityLabel={`Quitar la foto ${index + 1}`} hitSlop={8} disabled={submitting} onPress={() => setGallery(current => current.filter(other => other.uri !== item.uri))} style={({ pressed }) => [local.thumbRemove, pressed && styles.pressed]}>
+                <ThemedText style={local.thumbRemoveText}>✕</ThemedText>
+              </Pressable>
+            </View>
+          ))}
+          {gallery.length < MAX_EVENT_GALLERY && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Agregar foto" disabled={addingPhoto || submitting} onPress={() => void addPhoto()} style={({ pressed }) => [local.thumb, local.thumbAdd, pressed && styles.pressed]}>
+              {addingPhoto ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>+ Foto</ThemedText>}
+            </Pressable>
+          )}
+        </ScrollView>
+        <ThemedText style={styles.hint}>Hasta {MAX_EVENT_GALLERY} fotos del evento o del lugar. Aparecen bajo el botón de compra.</ThemedText>
+      </Field>
+
       <Field label="Nombre">{input('title', regional ? 'Candelabro - Tour Chile' : 'Fiesta de aniversario 2026', { maxLength: 120, accessibilityLabel: 'Nombre del evento' })}</Field>
       <Field label="Tipo">
         <HanetSelect label="Tipo de evento" options={EVENT_CATEGORIES.map(item => ({ value: item.value, label: item.label }))} value={form.category} onChange={category => update({ category })} disabled={submitting} />
@@ -336,6 +397,10 @@ function EventFormScreen() {
             {input('editorialSubject', 'Candelabro', { maxLength: 80, accessibilityLabel: 'Sobre quién' })}
             {!!form.editorialSubject.trim() && (
               <>
+                <Pressable accessibilityRole="button" disabled={wiki.busy || submitting} onPress={() => void fillFromWikipedia()} style={({ pressed }) => [local.pill, local.wikiButton, wiki.busy && styles.submitDisabled, pressed && styles.pressed]}>
+                  {wiki.busy ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>Traer de Wikipedia</ThemedText>}
+                </Pressable>
+                {!!wiki.note && <ThemedText accessibilityLiveRegion="polite" style={styles.hint}>{wiki.note}</ThemedText>}
                 {input('editorialSummary', 'Un párrafo breve, con tus palabras o citado.', { multiline: true, maxLength: 2000, style: [styles.input, styles.multiline], accessibilityLabel: 'Resumen' })}
                 {input('editorialSourceName', 'Wikipedia', { maxLength: 60, accessibilityLabel: 'Fuente del resumen' })}
                 {input('editorialSourceUrl', 'https://es.wikipedia.org/wiki/…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: 'Link de la fuente del resumen' })}
@@ -439,6 +504,41 @@ const local = StyleSheet.create({
     paddingHorizontal: AppSpacing.lg,
     borderRadius: AppRadii.pill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  gallery: {
+    gap: AppSpacing.sm,
+  },
+  thumb: {
+    width: 96,
+    height: 96,
+    overflow: 'hidden',
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  thumbAdd: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  thumbRemoveText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textPrimary,
+  },
+  wikiButton: {
+    alignSelf: 'flex-start',
   },
   dateButton: {
     flexDirection: 'row',

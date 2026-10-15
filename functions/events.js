@@ -23,6 +23,8 @@ const SIGNUP_MODES = ["list", "count", "none"];
 const CATEGORIES = ["music", "concert", "exhibition", "sports", "theatre", "family", "academic", "community", "other"];
 const MAX_LISTED = 60;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Photos of the event or the venue, under the buy button.
+const MAX_GALLERY = 6;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 // Ticketing sites "Importar desde link" reads, and nothing else.
 const IMPORT_HOSTS = ["tuacceso.cl", "portaltickets.cl", "portaldisc.com", "ticketplus.cl", "passline.com", "vamoh.cl"];
@@ -122,6 +124,7 @@ function eventOut(doc, extra = {}) {
     category: data.category || "other",
     description: data.description || "",
     imageUrl: imageUrl(data),
+    gallery: galleryOut(data),
     startsAt: millis(data.startsAt),
     endsAt: millis(data.endsAt),
     venueName: data.venueName || "",
@@ -156,7 +159,7 @@ async function withSignups(ref, uid) {
 // The structured data a ticketing page publishes for search engines
 // (schema.org Event in JSON-LD, then Open Graph), as a draft to review.
 function readEventPage(html, pageUrl) {
-  const draft = { title: "", description: "", imageUrl: "", startsAt: null, endsAt: null, venueName: "", address: "", city: "", priceFrom: null, ticketUrl: pageUrl };
+  const draft = { title: "", description: "", imageUrl: "", images: [], startsAt: null, endsAt: null, venueName: "", address: "", city: "", priceFrom: null, ticketUrl: pageUrl };
   const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
   const nodes = [];
   for (const block of blocks) {
@@ -178,8 +181,10 @@ function readEventPage(html, pageUrl) {
   if (event) {
     draft.title = text(event.name, 120);
     draft.description = paragraph(String(event.description || "").replace(/<[^>]+>/g, " "), 3000);
-    const image = [].concat(event.image || [])[0];
-    draft.imageUrl = cleanUrl(typeof image === "string" ? image : image?.url);
+    const images = [].concat(event.image || []).map(image => cleanUrl(typeof image === "string" ? image : image?.url)).filter(Boolean);
+    draft.imageUrl = images[0] || "";
+    // The other images of the page, for the gallery.
+    draft.images = [...new Set(images.slice(1))].slice(0, MAX_GALLERY);
     const start = Date.parse(event.startDate);
     const end = Date.parse(event.endDate);
     draft.startsAt = Number.isFinite(start) ? start : null;
@@ -240,6 +245,35 @@ async function robotsAllow(url) {
   } catch {
     return true;
   }
+}
+
+function storageUrl(path, token) {
+  return `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+}
+
+function galleryOut(data) {
+  return (data.gallery || []).map(item => (item.path ? storageUrl(item.path, item.token) : item.url)).filter(Boolean);
+}
+
+// Moves an image the app uploaded to its staging folder next to the event.
+async function moveStagedImage(getAdminApp, uid, uploadPath, eventId) {
+  if (typeof uploadPath !== "string" || !uploadPath.startsWith(`events-uploads/${uid}/`) || uploadPath.includes("..")) {
+    throw new HttpsError("invalid-argument", "No encontramos la imagen subida.");
+  }
+  const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+  const upload = bucket.file(uploadPath);
+  const [exists] = await upload.exists();
+  if (!exists) throw new HttpsError("not-found", "No encontramos la imagen subida.");
+  const [metadata] = await upload.getMetadata();
+  if (!IMAGE_TYPES.includes(metadata.contentType) || Number(metadata.size) > MAX_IMAGE_BYTES) {
+    await upload.delete({ ignoreNotFound: true });
+    throw new HttpsError("invalid-argument", "Las imágenes tienen que ser JPG, PNG o WebP de hasta 5 MB.");
+  }
+  const path = `events/${eventId}/${randomUUID()}`;
+  const token = randomUUID();
+  await upload.move(path);
+  await bucket.file(path).setMetadata({ contentType: metadata.contentType, metadata: { firebaseStorageDownloadTokens: token } });
+  return { path, token };
 }
 
 function build(getAdminApp) {
@@ -375,28 +409,34 @@ function build(getAdminApp) {
       await ref.set({ ...fields, authorUid: profile.uid, authorName: await displayName(getAdminApp, profile), createdAt: FieldValue.serverTimestamp() });
     }
 
-    // A cover the app uploaded to its staging folder moves next to the event.
-    const uploadPath = typeof input.uploadPath === "string" ? input.uploadPath : "";
-    if (uploadPath) {
-      if (!uploadPath.startsWith(`events-uploads/${profile.uid}/`) || uploadPath.includes("..")) {
-        throw new HttpsError("invalid-argument", "No encontramos la imagen subida.");
+    const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+    const current = (await ref.get()).data() || {};
+
+    // A new cover replaces the previous one.
+    if (typeof input.uploadPath === "string" && input.uploadPath) {
+      const moved = await moveStagedImage(getAdminApp, profile.uid, input.uploadPath, ref.id);
+      await ref.update({ imagePath: moved.path, imageToken: moved.token });
+      if (current.imagePath) await bucket.file(current.imagePath).delete({ ignoreNotFound: true });
+    }
+
+    // The gallery: the photos kept (by their address), new uploads and, for
+    // city events, images of the ticketing page.
+    if (Array.isArray(input.galleryKeep) || Array.isArray(input.galleryUploads) || Array.isArray(input.galleryUrls)) {
+      const keep = new Set((Array.isArray(input.galleryKeep) ? input.galleryKeep : []).filter(value => typeof value === "string"));
+      const previous = current.gallery || [];
+      const kept = previous.filter(item => keep.has(item.path ? storageUrl(item.path, item.token) : item.url));
+      const dropped = previous.filter(item => !kept.includes(item));
+      const external = kind === "regional"
+        ? (Array.isArray(input.galleryUrls) ? input.galleryUrls : []).map(cleanUrl).filter(Boolean).map(url => ({ url }))
+        : [];
+      const uploads = (Array.isArray(input.galleryUploads) ? input.galleryUploads : []).slice(0, MAX_GALLERY);
+      if (kept.length + external.length + uploads.length > MAX_GALLERY) {
+        throw new HttpsError("invalid-argument", `Un evento lleva hasta ${MAX_GALLERY} fotos.`);
       }
-      const bucket = getStorage(getAdminApp()).bucket(BUCKET);
-      const upload = bucket.file(uploadPath);
-      const [exists] = await upload.exists();
-      if (!exists) throw new HttpsError("not-found", "No encontramos la imagen subida.");
-      const [metadata] = await upload.getMetadata();
-      if (!IMAGE_TYPES.includes(metadata.contentType) || Number(metadata.size) > MAX_IMAGE_BYTES) {
-        await upload.delete({ ignoreNotFound: true });
-        throw new HttpsError("invalid-argument", "La imagen tiene que ser JPG, PNG o WebP de hasta 5 MB.");
-      }
-      const previous = (await ref.get()).data();
-      const path = `events/${ref.id}/${randomUUID()}`;
-      const token = randomUUID();
-      await upload.move(path);
-      await bucket.file(path).setMetadata({ contentType: metadata.contentType, metadata: { firebaseStorageDownloadTokens: token } });
-      await ref.update({ imagePath: path, imageToken: token });
-      if (previous?.imagePath) await bucket.file(previous.imagePath).delete({ ignoreNotFound: true });
+      const moved = [];
+      for (const uploadPath of uploads) moved.push(await moveStagedImage(getAdminApp, profile.uid, uploadPath, ref.id));
+      await ref.update({ gallery: [...kept, ...external.filter(item => !kept.some(old => old.url === item.url)), ...moved] });
+      await Promise.all(dropped.filter(item => item.path).map(item => bucket.file(item.path).delete({ ignoreNotFound: true })));
     }
     return { id: ref.id };
   });
@@ -413,7 +453,9 @@ function build(getAdminApp) {
     if (!canEdit(profile, data)) throw new HttpsError("permission-denied", "No puedes eliminar este evento.");
     const signups = await ref.collection("signups").get();
     await Promise.all(signups.docs.map(doc => doc.ref.delete()));
-    if (data.imagePath) await getStorage(getAdminApp()).bucket(BUCKET).file(data.imagePath).delete({ ignoreNotFound: true });
+    const bucket = getStorage(getAdminApp()).bucket(BUCKET);
+    const files = [data.imagePath, ...(data.gallery || []).map(item => item.path)].filter(Boolean);
+    await Promise.all(files.map(path => bucket.file(path).delete({ ignoreNotFound: true })));
     await ref.delete();
     return { ok: true };
   });
