@@ -108,6 +108,7 @@ function EventFormScreen() {
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,9 +124,14 @@ function EventFormScreen() {
     if (!importUrl.trim() || importing) return;
     setImporting(true);
     setImportNote(null);
+    setImportWarnings([]);
     setError(null);
     try {
       const draft = await importEventFromUrl(importUrl.trim());
+      // The page's own kind of event, when it matches one of ours.
+      const type = draft.typeLabel.toLocaleLowerCase('es');
+      const category = /concierto/.test(type) ? 'concert' : /m[uú]sica/.test(type) ? 'music' : /teatro|danza|comedia|humor/.test(type) ? 'theatre'
+        : /deporte/.test(type) ? 'sports' : /familia|infantil/.test(type) ? 'family' : /exposici|arte|museo/.test(type) ? 'exhibition' : null;
       update({
         title: draft.title || form.title,
         description: draft.description || form.description,
@@ -139,7 +145,9 @@ function EventFormScreen() {
         ticketUrl: draft.ticketUrl || form.ticketUrl,
         sourceName: draft.sourceName,
         sourceUrl: draft.sourceUrl,
+        ...(category ? { category } : {}),
       });
+      setImportWarnings(draft.warnings);
       const missing = [!draft.startsAt && 'la fecha', !draft.venueName && 'el lugar', !draft.priceFrom && 'el precio'].filter(Boolean);
       setImportNote(missing.length ? `Listo. Revisa y completa ${missing.join(', ')}.` : 'Listo. Revisa los datos antes de publicar.');
     } catch (importError) {
@@ -247,7 +255,7 @@ function EventFormScreen() {
       {regional && !params.id && (
         <View style={local.importCard}>
           <ThemedText style={styles.label}>Importar desde link</ThemedText>
-          <ThemedText style={styles.hint}>TuAcceso, Portal Tickets, Ticketplus o Passline. Leemos los datos públicos de la página y llenamos el formulario.</ThemedText>
+          <ThemedText style={styles.hint}>TuAcceso, Portal Tickets, Ticketplus o Passline (y Vamoh, solo en prueba). Leemos los datos públicos de la página y llenamos el formulario; revisa todo antes de publicar.</ThemedText>
           <View style={local.importRow}>
             <TextInput
               accessibilityLabel="Link del evento en la ticketera"
@@ -266,6 +274,9 @@ function EventFormScreen() {
             </Pressable>
           </View>
           {!!importNote && <ThemedText accessibilityLiveRegion="polite" style={styles.hint}>{importNote}</ThemedText>}
+          {importWarnings.map((warning, index) => (
+            <ThemedText key={index} accessibilityLiveRegion="assertive" style={styles.error}>⚠ {warning}</ThemedText>
+          ))}
         </View>
       )}
 

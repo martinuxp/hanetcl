@@ -25,7 +25,26 @@ const MAX_LISTED = 60;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 // Ticketing sites "Importar desde link" reads, and nothing else.
-const IMPORT_HOSTS = ["tuacceso.cl", "portaltickets.cl", "portaldisc.com", "ticketplus.cl", "passline.com"];
+const IMPORT_HOSTS = ["tuacceso.cl", "portaltickets.cl", "portaldisc.com", "ticketplus.cl", "passline.com", "vamoh.cl"];
+// TEST ONLY, not for the beta: Vamoh's terms (section 15) forbid automated
+// extraction and derived services without written permission. Remove it
+// before the beta unless Vamoh authorizes it in writing.
+const TEST_ONLY_HOSTS = ["vamoh.cl"];
+const SOURCE_NAMES = {
+  "tuacceso.cl": "TuAcceso", "portaltickets.cl": "Portal Tickets", "portaldisc.com": "Portal Tickets",
+  "ticketplus.cl": "Ticketplus", "passline.com": "Passline", "puntoticket.com": "PuntoTicket", "vamoh.cl": "Vamoh",
+};
+// Signs of an event not meant for a school audience; the form warns before publishing.
+const ADULT_SIGNS = [
+  /discoteca/i, /\bdisco\b/i, /\bclub nocturno\b/i, /vida nocturna/i, /\bafter\b/i, /open bar/i, /barra libre/i,
+  /\+ ?18/, /mayores de (18|edad)/i, /solo adultos/i, /\bperreo\b/i, /\bfiesta\b/i, /\bcerveza/i, /\bwhisky\b/i, /\bpiscola/i, /\bstand ?up adult/i,
+];
+
+function adultWarnings(...values) {
+  const textToCheck = values.filter(Boolean).join(" \n ");
+  const hits = [...new Set(ADULT_SIGNS.map(sign => textToCheck.match(sign)?.[0]).filter(Boolean))];
+  return hits.length ? [`Revisa si es apto para estudiantes: menciona «${hits.slice(0, 3).join("», «")}».`] : [];
+}
 
 function calendarDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-calendar");
@@ -178,6 +197,22 @@ function readEventPage(html, pageUrl) {
       || html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${property}["']`, "i"));
     return match ? match[1].replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'") : "";
   };
+  // Aggregators (Vamoh) answer in an FAQ where it is and where tickets are sold.
+  const faq = nodes.find(node => [].concat(node["@type"] || []).includes("FAQPage"));
+  for (const entry of [].concat(faq?.mainEntity || [])) {
+    const question = String(entry?.name || "");
+    const answer = String(entry?.acceptedAnswer?.text || "");
+    if (/^¿Dónde es/i.test(question) && !draft.address) {
+      const parts = answer.split(",").map(part => part.trim()).filter(Boolean);
+      draft.address = text(parts.slice(1, 2).join(", "), 160);
+      draft.city = draft.city || text(parts.find(part => /^[0-9]{5,7} /.test(part))?.replace(/^[0-9]+ /, "") || "", 60);
+    } else if (/^¿Dónde se compran/i.test(question)) {
+      const link = answer.match(/https?:\/\/\S+/);
+      if (link) draft.originalTicketUrl = cleanUrl(link[0].replace(/[.,)]+$/, ""));
+    } else if (/^¿Qué tipo de evento/i.test(question)) {
+      draft.typeLabel = text(answer.replace(/^Es un evento de /i, "").replace(/\.$/, ""), 60);
+    }
+  }
   draft.title = draft.title || text(meta("og:title"), 120);
   draft.description = draft.description || paragraph(meta("og:description"), 3000);
   draft.imageUrl = draft.imageUrl || cleanUrl(meta("og:image"));
@@ -446,8 +481,22 @@ function build(getAdminApp) {
     }
     const draft = readEventPage(html, url.toString());
     if (!draft.title) throw new HttpsError("not-found", "Esa página no trae los datos del evento. Cárgalo a mano.");
-    const names = { "tuacceso.cl": "TuAcceso", "portaltickets.cl": "Portal Tickets", "portaldisc.com": "Portal Tickets", "ticketplus.cl": "Ticketplus", "passline.com": "Passline" };
-    return { ...draft, sourceName: names[site], sourceUrl: url.toString() };
+    const warnings = adultWarnings(draft.title, draft.description, draft.typeLabel);
+    const testOnly = TEST_ONLY_HOSTS.includes(site);
+    // From an aggregator, tickets are bought at the original site; that is the source shown.
+    let sourceName = SOURCE_NAMES[site];
+    let ticketUrl = draft.ticketUrl;
+    if (testOnly) {
+      warnings.unshift("Prueba: los términos de Vamoh no permiten reutilizar sus datos. No publiques esto en la beta.");
+      if (draft.originalTicketUrl) {
+        ticketUrl = draft.originalTicketUrl;
+        const original = new URL(draft.originalTicketUrl).hostname.replace(/^www\./, "");
+        sourceName = `${SOURCE_NAMES[original] || original} (vía Vamoh)`;
+      }
+    }
+    const { originalTicketUrl, typeLabel, ...fields } = draft;
+    void originalTicketUrl;
+    return { ...fields, ticketUrl, sourceName, sourceUrl: url.toString(), typeLabel: typeLabel || "", warnings, testOnly };
   });
 
   return { listEvents, getEvent, saveEvent, deleteEvent, toggleEventSignup, importEventFromUrl };

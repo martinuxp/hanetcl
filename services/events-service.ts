@@ -111,6 +111,12 @@ export type ImportedEvent = Pick<HnEvent, 'title' | 'description' | 'venueName' 
   imageUrl: string;
   startsAt: number | null;
   endsAt: number | null;
+  /** The kind of event as the page names it ("Música"). */
+  typeLabel: string;
+  /** What to check before publishing: not suitable for students, test-only source. */
+  warnings: string[];
+  /** Read from a site only allowed for testing (Vamoh), never for the beta. */
+  testOnly: boolean;
 };
 
 /** Panel HNT: reads a ticketing page into a draft to review. */
