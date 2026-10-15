@@ -34,6 +34,8 @@ export type HnEvent = {
   category: string;
   description: string;
   imageUrl: string | null;
+  /** The cover's main colors, for the light behind the event page. */
+  palette: string[];
   /** Photos of the event or the venue, under the buy button. */
   gallery: string[];
   startsAt: number;

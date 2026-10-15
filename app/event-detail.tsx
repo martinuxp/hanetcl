@@ -131,8 +131,8 @@ export default function EventDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
-        <EventGlow position="top" />
-        <EventGlow position="bottom" />
+        <EventGlow position="top" colors={event.palette} />
+        <EventGlow position="bottom" colors={event.palette} />
         <View style={styles.topBar}>
           <ThemedText style={styles.brand}>HaNet Eventos</ThemedText>
           <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/events'))} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>

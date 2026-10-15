@@ -1,4 +1,5 @@
 const { randomUUID } = require("node:crypto");
+const { Buffer } = require("node:buffer");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
@@ -16,6 +17,7 @@ const { getStorage } = require("firebase-admin/storage");
 
 const BUCKET = "hanet-edu.firebasestorage.app";
 const COLLECTION = "hnEvents";
+const USER_AGENT = "HaNetEventos/1.0 (+https://hanet-edu.web.app; muxp@muxp.art)";
 const REGIONAL_EDITORS = ["HNT"];
 const INSTITUTION_EDITORS = ["CEE", "Admin", "HNT"];
 const JORNADAS = ["manana", "tarde", "ambas"];
@@ -140,6 +142,7 @@ function eventOut(doc, extra = {}) {
     perk: data.perk || "",
     editorial: data.editorial || null,
     coupon: data.coupon || null,
+    palette: data.palette?.source && data.palette.source === imageUrl(data) ? data.palette.colors : [],
     jornada: data.jornada || "ambas",
     signupMode: data.signupMode || "none",
     capacity: typeof data.capacity === "number" ? data.capacity : null,
@@ -226,6 +229,55 @@ function readEventPage(html, pageUrl) {
 }
 
 // Whether robots.txt lets a general crawler read that path.
+function hsl([red, green, blue]) {
+  const [r, g, b] = [red / 255, green / 255, blue / 255];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+/**
+ * The cover's most telling colors, most vivid first, for the light behind the
+ * event page (the app blends them with HaNet's own). Reads the cover shrunk to
+ * a 6×6 grid; null when it cannot be read.
+ */
+async function coverPalette(url) {
+  try {
+    if (!/^https:\/\//.test(url)) return null;
+    const response = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) });
+    if (!response.ok) return null;
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > MAX_IMAGE_BYTES * 2) return null;
+    const sharp = require("sharp");
+    const raw = await sharp(bytes).resize(6, 6, { fit: "cover" }).removeAlpha().raw().toBuffer();
+    const pixels = [];
+    for (let index = 0; index + 2 < raw.length; index += 3) pixels.push([raw[index], raw[index + 1], raw[index + 2]]);
+    const ranked = pixels
+      .map(rgb => ({ rgb, ...hsl(rgb) }))
+      .map(pixel => ({ ...pixel, score: pixel.s * Math.max(0, 1 - Math.abs(pixel.l - 0.5) * 2.2) + 0.001 }))
+      .sort((a, b) => b.score - a.score);
+    const picked = [];
+    for (const pixel of ranked) {
+      const distinct = picked.every(other => {
+        const hueGap = Math.min(Math.abs(other.h - pixel.h), 360 - Math.abs(other.h - pixel.h));
+        return hueGap >= 28 || Math.abs(other.l - pixel.l) >= 0.3;
+      });
+      if (distinct) picked.push(pixel);
+      if (picked.length === 4) break;
+    }
+    const hex = ({ rgb }) => `#${rgb.map(value => value.toString(16).padStart(2, "0")).join("")}`;
+    return picked.map(hex);
+  } catch (error) {
+    console.warn("coverPalette", error.message);
+    return null;
+  }
+}
+
 async function robotsAllow(url) {
   try {
     const response = await fetch(`${url.origin}/robots.txt`, { signal: AbortSignal.timeout(5000) });
@@ -326,6 +378,15 @@ function build(getAdminApp) {
       throw new HttpsError("not-found", "Ese evento ya no está disponible.");
     }
     const extra = { canEdit: editor };
+    // The cover's colors, read once per cover and kept with the event.
+    const cover = imageUrl(data);
+    if (cover && data.palette?.source !== cover) {
+      const colors = await coverPalette(cover);
+      if (colors) {
+        extra.palette = colors;
+        await ref.update({ palette: { source: cover, colors } }).catch(() => {});
+      }
+    }
     if (data.kind === "institution" && data.signupMode !== "none") {
       Object.assign(extra, await withSignups(ref, profile.uid));
       // Organizers see who signed up when the event keeps a list.
@@ -516,7 +577,7 @@ function build(getAdminApp) {
     let html;
     try {
       const response = await fetch(url.toString(), {
-        headers: { "User-Agent": "HaNetEventos/1.0 (+https://hanet-edu.web.app; muxp@muxp.art)", "Accept": "text/html" },
+        headers: { "User-Agent": USER_AGENT, "Accept": "text/html" },
         signal: AbortSignal.timeout(10000),
         redirect: "follow",
       });
