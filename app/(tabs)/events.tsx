@@ -1,230 +1,458 @@
-import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
-import { formatRegionalEventDate, regionalEventsRepository } from '@/services/regional-events-service';
-import { isDemoRegionalEvent } from '@/services/regional-events-fixtures';
-import type { NearbyEventsQuery, RegionalEvent, RegionalEventCategory } from '@/types/regional-events';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CustomIcon } from '@/components/ui/custom-icon';
-import { HanetChip } from '@/components/ui/hanet-chip';
+import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { EVENTS_DISCLAIMER, EventCard, EventsMarquee, FeaturedEventCard, HNE_ICONS, PageDots } from '@/components/events/event-ui';
 import { ThemedText } from '@/components/themed-text';
+import { CustomIcon } from '@/components/ui/custom-icon';
+import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { HanetDialog } from '@/components/ui/hanet-dialog';
+import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { describeAuthError, useSession } from '@/services/auth-service';
+import { JORNADA_LABELS, eventSoon, listEvents, toggleEventSignup } from '@/services/events-service';
+import type { EventKind, EventList, HnEvent, Jornada } from '@/services/events-service';
+import { functions } from '@/services/firebase';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { httpsCallable } from 'firebase/functions';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const CATEGORY_LABELS: { value: RegionalEventCategory | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'music', label: 'Música' },
-  { value: 'concert', label: 'Conciertos' },
-  { value: 'exhibition', label: 'Expos' },
-  { value: 'sports', label: 'Deportes' },
-  { value: 'other', label: 'Otros' },
+const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = [
+  { value: 'regional', label: 'Cerca de mí', accessibilityLabel: 'Cerca de mí' },
+  { value: 'institution', label: 'En mi institución', accessibilityLabel: 'En mi institución' },
 ];
 
-const defaultQuery: NearbyEventsQuery = {
-  city: 'Temuco',
-  region: 'La Araucanía',
-  category: 'all',
-  from: new Date(),
-};
+// HaNet Eventos shows Temuco for now; more cities will come with more schools.
+const CITY = { name: 'Temuco', region: 'Región de la Araucanía' };
 
 export default function EventsScreen() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
-  const [events, setEvents] = useState<RegionalEvent[]>([]);
-  const [category, setCategory] = useState<RegionalEventCategory | 'all'>('all');
+  const { user } = useSession();
+  const { width } = useWindowDimensions();
+
+  const [kind, setKind] = useState<EventKind>('regional');
+  const [lists, setLists] = useState<Partial<Record<EventKind, EventList>>>({});
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(false);
   const [search, setSearch] = useState('');
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<'jornada' | 'city' | null>(null);
+  const [savingJornada, setSavingJornada] = useState(false);
+  const [now] = useState(() => Date.now());
 
-  const loadEvents = useCallback(async () => {
-    setError(false);
+  const load = useCallback(async (which: EventKind) => {
     try {
-      setEvents(await regionalEventsRepository.listNearby({ ...defaultQuery, category }));
-    } catch {
-      setError(true);
-      setEvents([]);
+      const result = await listEvents(which);
+      setLists(current => ({ ...current, [which]: result }));
+      setError(null);
+    } catch (loadError) {
+      setError(describeAuthError(loadError, 'No pudimos cargar los eventos. Desliza hacia abajo para reintentar.'));
     }
-  }, [category]);
+  }, []);
 
-  useEffect(() => {
-    const task = setTimeout(() => { void loadEvents(); }, 0);
-    return () => clearTimeout(task);
-  }, [loadEvents]);
+  // Reloads on coming back from an event or the form.
+  useFocusEffect(useCallback(() => {
+    if (!user) return;
+    void load(kind);
+  }, [kind, load, user]));
 
-  const visibleEvents = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase();
-    if (!term) return events;
-    return events.filter(event => [event.title, event.location.venueName, event.location.city]
-      .some(value => value.toLocaleLowerCase().includes(term)));
-  }, [events, search]);
+  const list = lists[kind];
+  const events = useMemo(() => list?.events ?? [], [list]);
+  const term = search.trim().toLocaleLowerCase('es');
+  const visible = term
+    ? events.filter(event => [event.title, event.venueName, event.city].some(value => value.toLocaleLowerCase('es').includes(term)))
+    : events;
+  // Featured: what is sponsored, else the next three.
+  const featured = useMemo(() => {
+    if (kind !== 'regional') return [];
+    const sponsored = events.filter(event => event.sponsored);
+    return (sponsored.length ? sponsored : events).slice(0, 5);
+  }, [events, kind]);
+  const soonest = events.find(event => eventSoon(event.startsAt, now));
+  const featuredWidth = Math.min(width, 480) - AppSpacing.md * 2;
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    await loadEvents();
+    await load(kind);
     setRefreshing(false);
-  }, [loadEvents]);
+  };
 
-  const header = useMemo(() => (
-    <View>
+  const openEvent = (event: HnEvent) => router.push({ pathname: '/event-detail', params: { id: event.id } });
+
+  const signup = async (event: HnEvent) => {
+    setBusyId(event.id);
+    setActionError(null);
+    try {
+      const result = await toggleEventSignup(event.id);
+      if (Platform.OS !== 'web') void Haptics.selectionAsync();
+      setLists(current => {
+        const institution = current.institution;
+        if (!institution) return current;
+        return { ...current, institution: { ...institution, events: institution.events.map(item => (item.id === event.id ? { ...item, ...result } : item)) } };
+      });
+    } catch (signupError) {
+      setActionError(describeAuthError(signupError, 'No pudimos guardar tu inscripción. Inténtalo nuevamente.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const chooseJornada = async (jornada: Jornada) => {
+    setSavingJornada(true);
+    try {
+      await httpsCallable(functions, 'updateMyProfile')({ jornada });
+      setDialog(null);
+      await load('institution');
+    } catch (saveError) {
+      setActionError(describeAuthError(saveError, 'No pudimos cambiar tu jornada.'));
+      setDialog(null);
+    } finally {
+      setSavingJornada(false);
+    }
+  };
+
+  const onFeaturedScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setFeaturedIndex(Math.round(event.nativeEvent.contentOffset.x / (featuredWidth + AppSpacing.sm)));
+  };
+
+  const header = (
+    <View style={styles.header}>
       <View style={styles.topBar}>
-        <Image source={require('@/headline HNE.svg')} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet Eventos" />
+        <ThemedText accessibilityRole="header" style={styles.title}>HaNet Eventos</ThemedText>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cambiar ciudad" onPress={() => setDialog('city')} style={({ pressed }) => [styles.globe, pressed && AppPressed]}>
+          <Image source={HNE_ICONS.globe} style={styles.icon24} contentFit="contain" tintColor={AppColors.textPrimary} />
+        </Pressable>
+      </View>
+      {kind === 'regional' && soonest && <EventsMarquee event={soonest} now={now} />}
+
+      <HanetSegmented options={TABS} value={kind} onChange={value => { setKind(value); setFeaturedIndex(0); }} accessibilityLabel="Tipo de eventos" background={AppColors.surface} />
+
+      <View style={styles.placeRow}>
+        <View style={styles.placeText}>
+          {kind === 'regional' ? (
+            <>
+              <ThemedText style={styles.placeTitle}>En {CITY.name}, Chile.</ThemedText>
+              <ThemedText style={styles.placeSubtitle}>{CITY.region}.</ThemedText>
+            </>
+          ) : (
+            <>
+              <ThemedText numberOfLines={1} style={styles.placeTitle}>{list?.institutionName ? `${list.institutionName}.` : 'Tu institución.'}</ThemedText>
+              <ThemedText style={styles.placeSubtitle}>{list?.jornada ? `${JORNADA_LABELS[list.jornada]}.` : 'Elige tu jornada para ver solo sus eventos.'}</ThemedText>
+            </>
+          )}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setDialog(kind === 'regional' ? 'city' : 'jornada')}
+          style={({ pressed }) => [styles.outlinePill, pressed && AppPressed]}
+        >
+          <ThemedText style={styles.outlinePillText}>{kind === 'regional' ? 'Cambiar ubicación' : list?.jornada ? 'Cambiar jornada' : 'Elegir jornada'}</ThemedText>
+        </Pressable>
       </View>
 
-      <View style={styles.segmented}>
-        <View accessible accessibilityRole="tab" accessibilityState={{ selected: true }} style={[styles.segment, styles.segmentActive]}>
-          <ThemedText style={styles.segmentActiveText}>Cerca de mí</ThemedText>
+      {mode === 'search' && (
+        <View style={styles.searchField}>
+          <CustomIcon name="search" size={19} color={AppColors.controlOnActive} />
+          <TextInput
+            autoFocus
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar eventos"
+            placeholderTextColor={AppColors.controlOnActive}
+            selectionColor={AppColors.accent}
+            style={styles.searchInput}
+            accessibilityLabel="Buscar eventos"
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Limpiar búsqueda">
+              <ThemedText style={styles.clearSearch}>×</ThemedText>
+            </Pressable>
+          )}
         </View>
-        <View accessible accessibilityRole="tab" accessibilityLabel="En mi institución, próximamente" accessibilityState={{ selected: false, disabled: true }} style={styles.segment}>
-          <ThemedText style={styles.segmentText}>En mi institución</ThemedText>
-          <ThemedText style={styles.segmentSoon}>Próximamente</ThemedText>
-        </View>
-      </View>
+      )}
 
-      <View style={styles.locationRow}>
-        <View>
-          <ThemedText style={styles.locationTitle}>En {defaultQuery.city}, Chile</ThemedText>
-          <ThemedText style={styles.locationSubtitle}>{defaultQuery.region}</ThemedText>
+      {!term && featured.length > 0 && (
+        <View style={styles.featuredWrap}>
+          {/* The cards behind are only depth, as in the design. */}
+          {featured.length > 1 && <View style={[styles.stackCard, styles.stackCard2]} />}
+          {featured.length > 2 && <View style={[styles.stackCard, styles.stackCard3]} />}
+          <FlatList
+            horizontal
+            data={featured}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => <FeaturedEventCard event={item} now={now} width={featuredWidth} onPress={() => openEvent(item)} />}
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={featuredWidth + AppSpacing.sm}
+            decelerationRate="fast"
+            ItemSeparatorComponent={() => <View style={{ width: AppSpacing.sm }} />}
+            onMomentumScrollEnd={onFeaturedScroll}
+            style={styles.featuredList}
+          />
         </View>
-        {/* Picking another city does not exist yet. */}
-        <View accessible accessibilityLabel="Cambiar ubicación, próximamente" style={styles.locationAction}>
-          <ThemedText style={styles.changeLocation}>Cambiar ubicación</ThemedText>
-          <ThemedText style={styles.locationSoon}>Próximamente</ThemedText>
-        </View>
-      </View>
+      )}
+      {!term && <PageDots count={featured.length} index={featuredIndex} />}
 
-      {mode === 'search' && <View style={styles.searchField}>
-        <CustomIcon name="search" size={19} color={AppColors.controlOnActive} />
-        <TextInput
-          autoFocus
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Buscar eventos"
-          placeholderTextColor={AppColors.controlOnActive}
-          selectionColor={AppColors.accent}
-          style={styles.searchInput}
-          accessibilityLabel="Buscar eventos"
+      {list?.canPublish && (
+        <HanetButton
+          label={kind === 'regional' ? 'Publicar evento de la ciudad' : 'Publicar evento del liceo'}
+          variant="surface"
+          onPress={() => router.push({ pathname: '/event-form', params: { kind } })}
         />
-        {search.length > 0 && <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Limpiar búsqueda"><ThemedText style={styles.clearSearch}>×</ThemedText></Pressable>}
-      </View>}
-
-      <FlatList
-        horizontal
-        data={CATEGORY_LABELS}
-        keyExtractor={item => item.value}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filters}
-        renderItem={({ item }) => (
-          <HanetChip accessibilityRole="tab" label={item.label} selected={category === item.value} onPress={() => setCategory(item.value)} />
-        )}
-      />
-
-      <ThemedText style={styles.sectionTitle}>Próximos eventos</ThemedText>
-      {events.some(isDemoRegionalEvent) && <ThemedText style={styles.demoNote}>Cartelera de prueba · visible solo durante el desarrollo</ThemedText>}
-      {error && <ThemedText style={styles.errorText}>No pudimos cargar los eventos. Intenta actualizar.</ThemedText>}
+      )}
+      {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.error}>{error}</ThemedText>}
+      {!!actionError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</ThemedText>}
     </View>
-  ), [category, error, events, mode, search]);
+  );
+
+  const empty = !list ? (
+    !error ? <ActivityIndicator style={styles.loader} color={AppColors.textSecondary} /> : null
+  ) : (
+    <View style={styles.empty}>
+      <CustomIcon name="calendar" size={40} color={AppColors.textSecondary} />
+      <ThemedText style={styles.emptyTitle}>
+        {term ? 'No encontramos coincidencias' : kind === 'regional' ? 'Todavía no hay eventos en la ciudad' : 'Tu liceo no tiene eventos próximos'}
+      </ThemedText>
+      <ThemedText style={styles.emptyText}>
+        {term
+          ? 'Prueba con otro nombre o lugar.'
+          : kind === 'regional'
+            ? `Estamos armando la cartelera de ${CITY.name}. Vuelve pronto.`
+            : 'Cuando el CEE o la administración publiquen algo, aparecerá aquí.'}
+      </ThemedText>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={visibleEvents}
+        data={visible}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <EventCard event={item} onPress={() => router.push({ pathname: '/event-detail', params: { eventId: item.id } })} />}
+        renderItem={({ item }) => (
+          <EventCard
+            event={item}
+            onPress={() => openEvent(item)}
+            action={item.kind === 'institution' && item.signupMode !== 'none'
+              ? {
+                label: item.signedUp ? (item.signupMode === 'list' ? 'Inscrito ✓' : 'Voy ✓') : item.signupMode === 'list' ? 'Inscribirme' : '¡Participo!',
+                onPress: () => void signup(item),
+                busy: busyId === item.id,
+                active: item.signedUp,
+              }
+              : undefined}
+          />
+        )}
         ListHeaderComponent={header}
-        ListEmptyComponent={!error ? <EmptyState isSearch={Boolean(search)} /> : null}
+        ListEmptyComponent={empty}
+        ListFooterComponent={<ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>}
+        ItemSeparatorComponent={() => <View style={{ height: AppSpacing.lg }} />}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} />}
       />
+
+      <HanetDialog
+        visible={dialog === 'city'}
+        onRequestClose={() => setDialog(null)}
+        dismissOnBackdrop
+        title="Ciudad"
+        body={`Por ahora HaNet Eventos muestra ${CITY.name}. Iremos sumando ciudades a medida que lleguen más liceos.`}
+      >
+        <HanetButton label="Entendido" variant="surface" onPress={() => setDialog(null)} />
+      </HanetDialog>
+
+      <HanetDialog
+        visible={dialog === 'jornada'}
+        onRequestClose={() => !savingJornada && setDialog(null)}
+        dismissOnBackdrop={!savingJornada}
+        title="¿En qué jornada estás?"
+        body="Verás los eventos de tu jornada y los que son para ambas."
+      >
+        <View style={styles.dialogButtons}>
+          <HanetButton label="Jornada mañana" variant={list?.jornada === 'manana' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('manana')} />
+          <HanetButton label="Jornada tarde" variant={list?.jornada === 'tarde' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('tarde')} />
+        </View>
+      </HanetDialog>
     </SafeAreaView>
   );
 }
 
-function EventCard({ event, onPress }: { event: RegionalEvent; onPress: () => void }) {
-  const image = event.images[0];
-  const hanetOffer = event.offers.find(offer => offer.type === 'hanet' && offer.verification === 'verified');
-  const studentOffer = event.offers.find(offer => offer.type === 'student' && offer.verification === 'verified');
-  const benefitLabel = hanetOffer ? 'Descuento HaNet disponible' : studentOffer ? 'Descuento estudiante' : undefined;
-  const priceLabel = event.price?.isFree ? 'Gratis' : event.price?.label || formatPrice(event.price?.min, event.price?.max);
-
-  return (
-    <Pressable accessibilityLabel={`${event.title}. ${priceLabel}`} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress} accessibilityRole="button">
-      <View style={styles.cardImageWrap}>
-        {image ? <Image source={image.url} style={styles.cardImage} contentFit="cover" accessibilityLabel={image.alt || event.title} /> : <View style={styles.cardImageFallback}><CustomIcon name="calendar" size={36} color={AppColors.textSecondary} /></View>}
-        <View style={styles.moreChip}><ThemedText style={styles.moreChipText}>Ver más</ThemedText></View>
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.cardInfo}>
-          <ThemedText style={styles.cardTitle} numberOfLines={1}>{event.title}</ThemedText>
-          <ThemedText style={styles.cardMeta} numberOfLines={1}>{formatRegionalEventDate(event.startsAt)} · {event.location.venueName}</ThemedText>
-          {benefitLabel && <ThemedText style={styles.offerText} numberOfLines={1}>{benefitLabel}</ThemedText>}
-        </View>
-        <View style={styles.priceChip}><ThemedText style={styles.priceText}>{priceLabel}</ThemedText></View>
-      </View>
-    </Pressable>
-  );
-}
-
-function EmptyState({ isSearch = false }: { isSearch?: boolean }) {
-  return (
-    <View style={styles.empty}>
-      <CustomIcon name="calendar" size={42} color={AppColors.primary} />
-      <ThemedText style={styles.emptyTitle}>{isSearch ? 'No encontramos coincidencias' : 'Aún no hay eventos publicados'}</ThemedText>
-      <ThemedText style={styles.emptyText}>{isSearch ? 'Prueba con otro nombre, lugar o categoría.' : 'Estamos preparando la cartelera de Temuco. Vuelve a revisar más tarde.'}</ThemedText>
-      {!isSearch && <ThemedText style={styles.sourceNote}>Información recopilada desde fuentes públicas y validada por HaNet.</ThemedText>}
-    </View>
-  );
-}
-
-function formatPrice(min?: number, max?: number) {
-  if (min == null) return 'Precio por confirmar';
-  const range = max && max !== min
-    ? `$${min.toLocaleString('es-CL')} - $${max.toLocaleString('es-CL')}`
-    : `$${min.toLocaleString('es-CL')}`;
-  return `Desde ${range}`;
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppColors.canvas },
-  content: { width: '100%', maxWidth: 800, alignSelf: 'center', paddingHorizontal: AppSpacing.lg, paddingBottom: 140 },
-  topBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  logo: { width: 127, height: 15 },
-  segmented: { minHeight: 56, borderRadius: AppRadii.xl, padding: AppSpacing.sm, gap: AppSpacing.xs, backgroundColor: AppColors.controlContainer, flexDirection: 'row', marginBottom: AppSpacing.lg },
-  segment: { flex: 1, borderRadius: AppRadii.sm, alignItems: 'center', justifyContent: 'center' },
-  segmentActive: { backgroundColor: AppColors.controlActive, borderRadius: AppRadii.pill },
-  segmentText: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 20, fontFamily: 'DMSans_700Bold', opacity: 0.6 },
-  segmentSoon: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, fontFamily: 'DMSans_500Medium', opacity: 0.6 },
-  segmentActiveText: { color: AppColors.controlOnActive, fontSize: 14, lineHeight: 21, fontFamily: 'DMSans_700Bold' },
-  locationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: AppSpacing.lg },
-  locationTitle: { color: AppColors.textPrimary, fontSize: 19, lineHeight: 25, fontFamily: 'DMSans_500Medium' },
-  locationSubtitle: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 20 },
-  changeLocation: { color: AppColors.textSecondary, fontSize: 13, lineHeight: 18, fontFamily: 'DMSans_700Bold', opacity: 0.6, textAlign: 'right' },
-  locationSoon: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, fontFamily: 'DMSans_500Medium', opacity: 0.6, textAlign: 'right' },
-  locationAction: { minHeight: 44, justifyContent: 'center' },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
-  filters: { gap: AppSpacing.sm, paddingBottom: AppSpacing.xl },
-  searchField: { minHeight: 48, borderRadius: AppRadii.pill, paddingHorizontal: AppSpacing.md, flexDirection: 'row', alignItems: 'center', gap: AppSpacing.sm, backgroundColor: AppColors.controlActive, marginBottom: AppSpacing.md },
-  searchInput: { flex: 1, color: AppColors.controlOnActive, fontFamily: 'DMSans_500Medium', fontSize: 15, paddingVertical: 0, outlineStyle: 'none' as any },
-  clearSearch: { color: AppColors.controlOnActive, fontSize: 24, lineHeight: 24, fontFamily: 'DMSans_500Medium' },
-  sectionTitle: { color: AppColors.textPrimary, fontSize: 22, lineHeight: 28, fontFamily: 'DMSans_500Medium', marginBottom: AppSpacing.md },
-  demoNote: { color: AppColors.textSecondary, opacity: 0.76, fontSize: 12, lineHeight: 18, marginTop: -8, marginBottom: AppSpacing.md },
-  errorText: { color: AppColors.accent, fontSize: 14, marginBottom: AppSpacing.md },
-  card: { marginBottom: AppSpacing.xl },
-  cardPressed: { opacity: 0.9, transform: [{ scale: 0.992 }] },
-  cardImageWrap: { position: 'relative' },
-  cardImage: { width: '100%', height: 208, borderRadius: AppRadii.lg, backgroundColor: AppColors.surfaceRaised },
-  cardImageFallback: { height: 208, borderRadius: AppRadii.lg, backgroundColor: AppColors.primary, alignItems: 'center', justifyContent: 'center' },
-  moreChip: { position: 'absolute', right: 8, bottom: 8, minHeight: 28, paddingHorizontal: AppSpacing.lg, borderRadius: AppRadii.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.canvas },
-  moreChipText: { color: AppColors.textPrimary, fontSize: 12, lineHeight: 18, fontFamily: 'DMSans_400Regular' },
-  cardContent: { minHeight: 62, paddingHorizontal: AppSpacing.md, paddingTop: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: AppSpacing.sm },
-  cardInfo: { flex: 1, minWidth: 0 },
-  cardTitle: { color: AppColors.textPrimary, fontSize: 18, lineHeight: 25, fontFamily: 'DMSans_500Medium', letterSpacing: -0.5 },
-  cardMeta: { color: AppColors.textPrimary, opacity: 0.5, fontSize: 12, lineHeight: 18, fontFamily: 'DMSans_400Regular', letterSpacing: -0.2 },
-  offerText: { color: AppColors.accent, fontSize: 12, lineHeight: 18, fontFamily: 'DMSans_400Regular', letterSpacing: -0.2 },
-  priceChip: { width: 112, minHeight: 43, borderWidth: 1, borderColor: AppColors.primary, borderRadius: AppRadii.pill, paddingHorizontal: AppSpacing.md, alignItems: 'center', justifyContent: 'center' },
-  priceText: { color: AppColors.textPrimary, fontSize: 13, lineHeight: 20, fontFamily: 'DMSans_500Medium', letterSpacing: -0.3 },
-  empty: { alignItems: 'center', paddingHorizontal: 26, paddingTop: 48 },
-  emptyTitle: { color: AppColors.textPrimary, fontSize: 20, fontFamily: 'DMSans_500Medium', textAlign: 'center', marginTop: 16 },
-  emptyText: { color: AppColors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8 },
-  sourceNote: { color: AppColors.textSecondary, opacity: 0.7, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.canvas,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: AppSpacing.md,
+    paddingBottom: TAB_BAR_CLEARANCE + AppSpacing.xl,
+  },
+  header: {
+    gap: AppSpacing.md,
+    marginBottom: AppSpacing.lg,
+  },
+  topBar: {
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    paddingLeft: AppSpacing.sm,
+  },
+  title: {
+    flex: 1,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: -0.8,
+    color: AppColors.textPrimary,
+  },
+  globe: {
+    height: 40,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  icon24: {
+    width: 24,
+    height: 24,
+  },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.md,
+  },
+  placeText: {
+    flex: 1,
+  },
+  placeTitle: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 18,
+    lineHeight: 25,
+    letterSpacing: -0.63,
+    color: AppColors.textPrimary,
+  },
+  placeSubtitle: {
+    opacity: 0.5,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: -0.24,
+    color: AppColors.textPrimary,
+  },
+  outlinePill: {
+    height: 32,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.md,
+    borderWidth: 1,
+    borderColor: AppColors.textSecondary,
+    borderRadius: AppRadii.pill,
+  },
+  outlinePillText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: AppColors.textPrimary,
+  },
+  searchField: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.md,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.controlActive,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 0,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    color: AppColors.controlOnActive,
+  },
+  clearSearch: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 24,
+    lineHeight: 24,
+    color: AppColors.controlOnActive,
+  },
+  featuredWrap: {
+    height: 258,
+    alignItems: 'center',
+  },
+  featuredList: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+  },
+  stackCard: {
+    position: 'absolute',
+    borderRadius: AppRadii.xl,
+    borderCurve: 'continuous',
+  },
+  stackCard2: {
+    top: 20,
+    width: '82%',
+    height: 220,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  stackCard3: {
+    top: 38,
+    width: '68%',
+    height: 220,
+    backgroundColor: AppColors.surface,
+  },
+  loader: {
+    marginTop: AppSpacing.xxl,
+  },
+  empty: {
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.xl,
+    paddingVertical: AppSpacing.xxl,
+  },
+  emptyTitle: {
+    textAlign: 'center',
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 19,
+    lineHeight: 25,
+    color: AppColors.textPrimary,
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: AppColors.textSecondary,
+  },
+  error: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.errorText,
+  },
+  disclaimer: {
+    marginTop: AppSpacing.xl,
+    paddingHorizontal: AppSpacing.xl,
+    textAlign: 'center',
+    opacity: 0.6,
+    fontFamily: 'DMSans_300Light',
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: -0.44,
+    color: AppColors.textPrimary,
+  },
+  dialogButtons: {
+    gap: AppSpacing.sm,
+  },
 });

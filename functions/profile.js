@@ -21,6 +21,12 @@ function build(getAdminApp) {
       return { avatarSeed: seed };
     }
 
+    // The student's jornada, for the institution's events.
+    if (["manana", "tarde"].includes(request.data?.jornada)) {
+      await accountRef.set({ jornada: request.data.jornada }, { merge: true });
+      return { jornada: request.data.jornada };
+    }
+
     // The switch for ClassHall's push notifications.
     if (typeof request.data?.classhallNotifications === "boolean") {
       const classhall = request.data.classhallNotifications;
@@ -78,6 +84,7 @@ function build(getAdminApp) {
       memberSince: Date.parse(authUser.metadata.creationTime) || null,
       avatarSeed: seed,
       classhallNotifications: account.notifications?.classhall !== false,
+      jornada: ["manana", "tarde"].includes(account.jornada) ? account.jornada : null,
     };
   });
 

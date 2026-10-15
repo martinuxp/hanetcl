@@ -7,6 +7,8 @@ rules_version = '2';
 //                                          backend moves it into the Hall
 //   classhall-submissions/{uid}/{file}     a student's file for a task, before
 //                                          submitHallTask moves it into the Hall
+//   events-uploads/{uid}/{file}            an event cover, before saveEvent
+//                                          moves it to events/{eventId}/
 //   classhall/{hallId}/...                 Hall documents and submissions: no
 //                                          direct access; getHall and
 //                                          getHallTask hand out token URLs
@@ -60,6 +62,18 @@ service firebase.storage {
         && request.resource != null
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf|application/msword|application/vnd[.]openxmlformats-officedocument[.](wordprocessingml[.]document|presentationml[.]presentation|spreadsheetml[.]sheet)|application/vnd[.]ms-(powerpoint|excel)|image/(jpeg|png|heic|heif|webp)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Covers of HaNet Eventos: the HaNet team and the institution's
+    // organizers upload here; saveEvent moves the file next to its event.
+    match /events-uploads/{uid}/{file} {
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.role in ['HNT', 'CEE', 'Admin']
+        && request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 

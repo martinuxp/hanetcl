@@ -29,6 +29,9 @@ export const AppColors = {
   warning: '#EF2274',
   danger: '#262D37',
   neutral: '#504F53',
+  // Accents of HaNet Eventos (Figma "Accents/Mint" and "Accents/Yellow"): perks and featured lines.
+  accentMint: '#00C8B3',
+  accentYellow: '#FFCC00',
 } as const;
 
 export const AppSpacing = {
