@@ -1,5 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { EVENTS_DISCLAIMER, EventCard, EventsMarquee, FeaturedEventCard, HNE_ICONS, PageDots } from '@/components/events/event-ui';
+import { useEventBar } from '@/components/events/event-bar-store';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
@@ -12,10 +13,10 @@ import type { EventKind, EventList, HnEvent, Jornada } from '@/services/events-s
 import { functions } from '@/services/firebase';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -29,7 +30,6 @@ const CITY = { name: 'Temuco', region: 'Región de la Araucanía' };
 
 export default function EventsScreen() {
   const router = useRouter();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const { user } = useSession();
   const { width } = useWindowDimensions();
 
@@ -37,7 +37,7 @@ export default function EventsScreen() {
   const [lists, setLists] = useState<Partial<Record<EventKind, EventList>>>({});
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
+  const { query: search } = useEventBar();
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -154,27 +154,6 @@ export default function EventsScreen() {
           <ThemedText style={styles.outlinePillText}>{kind === 'regional' ? 'Cambiar ubicación' : list?.jornada ? 'Cambiar jornada' : 'Elegir jornada'}</ThemedText>
         </Pressable>
       </View>
-
-      {mode === 'search' && (
-        <View style={styles.searchField}>
-          <CustomIcon name="search" size={19} color={AppColors.controlOnActive} />
-          <TextInput
-            autoFocus
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Buscar eventos"
-            placeholderTextColor={AppColors.controlOnActive}
-            selectionColor={AppColors.accent}
-            style={styles.searchInput}
-            accessibilityLabel="Buscar eventos"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8} accessibilityLabel="Limpiar búsqueda">
-              <ThemedText style={styles.clearSearch}>×</ThemedText>
-            </Pressable>
-          )}
-        </View>
-      )}
 
       {!term && featured.length > 0 && (
         <View style={styles.featuredWrap}>
@@ -361,28 +340,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.35,
     color: AppColors.textPrimary,
-  },
-  searchField: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.sm,
-    paddingHorizontal: AppSpacing.md,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.controlActive,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 0,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 15,
-    color: AppColors.controlOnActive,
-  },
-  clearSearch: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 24,
-    lineHeight: 24,
-    color: AppColors.controlOnActive,
   },
   featuredWrap: {
     height: 258,

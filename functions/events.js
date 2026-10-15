@@ -139,6 +139,7 @@ function eventOut(doc, extra = {}) {
     sponsored: data.sponsored === true,
     perk: data.perk || "",
     editorial: data.editorial || null,
+    coupon: data.coupon || null,
     jornada: data.jornada || "ambas",
     signupMode: data.signupMode || "none",
     capacity: typeof data.capacity === "number" ? data.capacity : null,
@@ -376,6 +377,10 @@ function build(getAdminApp) {
         sourceUrl: cleanUrl(input.sourceUrl),
         sponsored: input.sponsored === true,
         perk: text(input.perk, 80),
+        // A discount HaNet got for its community; only shown when there is one.
+        coupon: input.coupon && text(input.coupon.code, 40)
+          ? { code: text(input.coupon.code, 40), description: text(input.coupon.description, 120) }
+          : null,
         imageUrl: cleanUrl(input.imageUrl),
         editorial: input.editorial && text(input.editorial.subject, 80)
           ? {

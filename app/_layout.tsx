@@ -153,6 +153,7 @@ export default function RootLayout() {
             <Stack.Screen name="hnt-admin" options={{ headerShown: false }} />
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
             <Stack.Screen name="event-form" options={sheetOptions([1.0])} />
+            <Stack.Screen name="event-options" options={sheetOptions([0.5])} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />

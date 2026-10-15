@@ -1,15 +1,18 @@
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors } from '@/constants/design-tokens';
+import { eventBar, useEventBar } from '@/components/events/event-bar-store';
+import { useEventOptions } from '@/components/events/event-options';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
-import { LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Keyboard, LayoutChangeEvent, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
   Easing,
+  Extrapolation,
   FadeIn,
   FadeOut,
   LinearTransition,
@@ -104,6 +107,50 @@ function HanetLogo() {
   );
 }
 
+/** A search that grows out of the bar's center pill until it fills the bar. */
+type BarSearch = {
+  open: boolean;
+  value: string;
+  placeholder: string;
+  onChangeText: (text: string) => void;
+  onOpen: () => void;
+  onClose: () => void;
+};
+
+const SEARCH_PILL_WIDTH = 118;
+const SEARCH_INSET = 8;
+
+function CloseGlyph() {
+  return (
+    <Svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <Path d="M1.5 1.5L12.5 12.5M12.5 1.5L1.5 12.5" stroke={AppColors.controlOnActive} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Lifts the bar over the keyboard while `active`; the bar stays put otherwise. */
+function useKeyboardLift(active: boolean) {
+  const height = useSharedValue(0);
+  React.useEffect(() => {
+    if (!active) {
+      height.value = withTiming(0, { duration: 200 });
+      return;
+    }
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', event => {
+      height.value = withTiming(event.endCoordinates.height, { duration: event.duration || 220, easing: Easing.out(Easing.cubic) });
+    });
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', event => {
+      height.value = withTiming(0, { duration: event.duration || 200, easing: Easing.out(Easing.cubic) });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [active, height]);
+  return height;
+}
+
 type AppTabBarProps = {
   /** Given on screens reached from another one: the left slot becomes "Volver". */
   onBack?: () => void;
@@ -114,20 +161,75 @@ type AppTabBarProps = {
   center?: React.ReactNode;
   /** Changes when the set of controls changes, to crossfade between them. */
   controlsKey?: string;
+  /** Replaces `center` with a search pill that expands over the whole bar. */
+  search?: BarSearch;
 };
 
 /** The one floating bar of the app: back or home, the section's action, profile. */
-export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main' }: AppTabBarProps) {
+export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main', search }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
   const TabBarSurface: React.ComponentType<any> = useLiquidGlass ? GlassView : BlurView;
 
+  const open = !!search?.open;
+  const input = React.useRef<TextInput>(null);
+  const [barWidth, setBarWidth] = React.useState(0);
+  const [centerFrame, setCenterFrame] = React.useState({ x: 0, width: 0 });
+  const morph = useSharedValue(open ? 1 : 0);
+  const keyboard = useKeyboardLift(open);
+  const restingBottom = Math.max(insets.bottom, 12) + 12;
+
+  React.useEffect(() => {
+    morph.value = reduceMotion
+      ? withTiming(open ? 1 : 0, { duration: 120 })
+      // A soft spring with a little overshoot, so the pill flows out like liquid.
+      : withSpring(open ? 1 : 0, open ? { damping: 17, stiffness: 190, mass: 0.9 } : { damping: 24, stiffness: 260, mass: 0.9 });
+    if (open) {
+      const focus = setTimeout(() => input.current?.focus(), reduceMotion ? 0 : 140);
+      return () => clearTimeout(focus);
+    }
+    input.current?.blur();
+  }, [morph, open, reduceMotion]);
+
+  // Where the pill rests (in the middle slot) and the whole bar it grows to.
+  const startLeft = 12 + centerFrame.x + (centerFrame.width - SEARCH_PILL_WIDTH) / 2;
+  const fullWidth = Math.max(barWidth - 2 - SEARCH_INSET * 2, SEARCH_PILL_WIDTH);
+
+  const liftStyle = useAnimatedStyle(() => ({ bottom: Math.max(restingBottom, keyboard.value + 10) }));
+  const controlsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(morph.value, [0, 0.45], [1, 0], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(morph.value, [0, 1], [1, 0.9], Extrapolation.CLAMP) }],
+  }));
+  const searchStyle = useAnimatedStyle(() => ({
+    left: interpolate(morph.value, [0, 1], [startLeft, SEARCH_INSET]),
+    width: interpolate(morph.value, [0, 1], [SEARCH_PILL_WIDTH, fullWidth]),
+    // Stretches a touch on the way, like a drop pulled sideways.
+    transform: [{ scaleY: interpolate(morph.value, [0, 0.5, 1], [1, 0.94, 1], Extrapolation.CLAMP) }],
+    opacity: morph.value > 0.001 ? 1 : 0,
+  }));
+  const fieldStyle = useAnimatedStyle(() => ({ opacity: interpolate(morph.value, [0.35, 0.8], [0, 1], Extrapolation.CLAMP) }));
+
+  const searchPill = search ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={search.placeholder}
+      style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
+      onPress={() => {
+        if (Platform.OS === 'ios') void Haptics.selectionAsync();
+        search.onOpen();
+      }}
+    >
+      <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
+      <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
+    </Pressable>
+  ) : null;
+
   return (
     <Animated.View
       entering={reduceMotion ? undefined : FadeIn.duration(180)}
       exiting={reduceMotion ? undefined : FadeOut.duration(120)}
-      style={[styles.tabBarWrapper, { bottom: Math.max(insets.bottom, 12) + 12 }]}
+      style={[styles.tabBarWrapper, search ? liftStyle : { bottom: restingBottom }]}
     >
       <TabBarSurface
         {...(useLiquidGlass
@@ -138,7 +240,9 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
               ...(Platform.OS === 'android' ? { blurMethod: 'dimezisBlurView' } : {}),
             })}
         style={styles.tabBarContainer}
+        onLayout={(event: LayoutChangeEvent) => setBarWidth(event.nativeEvent.layout.width)}
       >
+        <Animated.View style={[styles.controlsLayer, controlsStyle]} pointerEvents={open ? 'none' : 'auto'}>
         <Animated.View
           key={controlsKey}
           entering={reduceMotion ? undefined : FadeIn.duration(180).easing(Easing.out(Easing.cubic))}
@@ -159,10 +263,44 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
             <MotionTab active={active === 'home'} icon="home" label="Inicio" onPress={onHome} />
           )}
 
-          <View style={styles.center}>{center ?? <HanetLogo />}</View>
+          <View style={styles.center} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
+            {searchPill ?? center ?? <HanetLogo />}
+          </View>
 
           <MotionTab active={active === 'profile'} icon="user" label="Perfil" onPress={onProfile} />
         </Animated.View>
+        </Animated.View>
+
+        {search && (
+          <Animated.View style={[styles.centerPill, styles.searchOpen, searchStyle]} pointerEvents={open ? 'auto' : 'none'}>
+            <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
+            <Animated.View style={[styles.searchFieldWrap, fieldStyle]}>
+              <TextInput
+                ref={input}
+                value={search.value}
+                onChangeText={search.onChangeText}
+                placeholder={search.placeholder}
+                placeholderTextColor="rgba(40, 40, 41, 0.6)"
+                selectionColor={AppColors.accent}
+                returnKeyType="search"
+                autoCorrect={false}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                onKeyPress={event => { if (event.nativeEvent.key === 'Escape') search.onClose(); }}
+                maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE}
+                accessibilityLabel={search.placeholder}
+                style={styles.searchInput}
+              />
+              {search.value.length > 0 && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Borrar la búsqueda" hitSlop={8} onPress={() => search.onChangeText('')} style={({ pressed }) => [styles.clearButton, pressed && styles.motionPressPressed]}>
+                  <ThemedText style={styles.clearText}>Borrar</ThemedText>
+                </Pressable>
+              )}
+            </Animated.View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar la búsqueda" hitSlop={6} onPress={search.onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.motionPressPressed]}>
+              <CloseGlyph />
+            </Pressable>
+          </Animated.View>
+        )}
       </TabBarSurface>
     </Animated.View>
   );
@@ -181,6 +319,13 @@ export function GlobalTabBar() {
   const pathname = usePathname();
   const { user } = useSession();
   const role = useRole();
+  const bar = useEventBar();
+  const options = useEventOptions(bar.actions);
+
+  // The search belongs to HaNet Eventos: leaving it closes the search.
+  React.useEffect(() => {
+    if (pathname !== '/events' && bar.searchOpen) eventBar.closeSearch();
+  }, [bar.searchOpen, pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
 
@@ -196,16 +341,21 @@ export function GlobalTabBar() {
 
   // The center action changes by section.
   let center: React.ReactNode;
-  if (pathname === '/events') {
+  if (pathname === '/event-detail') {
+    // Always there; it buys, claims the HaNet coupon or asks which, by what the event has.
+    const none = options.count === 0;
     center = (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Buscar eventos"
-        style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
-        onPress={() => router.push({ pathname: '/events', params: { mode: 'search' } })}
+        accessibilityLabel="Opciones del evento"
+        accessibilityHint={none ? 'Este evento no tiene entradas ni cupones' : options.count === 1 ? options.singleLabel : 'Comprar entradas o reclamar el cupón HaNet'}
+        accessibilityState={{ disabled: none }}
+        disabled={none}
+        style={({ pressed }) => [styles.centerPill, styles.optionsPill, none && styles.pillDisabled, pressed && styles.motionPressPressed]}
+        onPress={options.open}
       >
-        <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
+        <CustomIcon name="tag" size={18} color={AppColors.textOnLight} />
+        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>Opciones</ThemedText>
       </Pressable>
     );
   } else if (pathname === '/calendar' && canAddEvents) {
@@ -223,14 +373,20 @@ export function GlobalTabBar() {
   }
 
   return (
+    <>
     <AppTabBar
       onBack={isTabRoot ? undefined : goBack}
       onHome={() => goToTab('/')}
       onProfile={() => goToTab('/explore')}
       active={pathname === '/' ? 'home' : pathname === '/explore' ? 'profile' : null}
       center={center}
-      controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' ? pathname : 'screen'}
+      controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' || pathname === '/event-detail' ? pathname : 'screen'}
+      search={pathname === '/events'
+        ? { open: bar.searchOpen, value: bar.query, placeholder: 'Buscar eventos', onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
+        : undefined}
     />
+    {options.dialog}
+    </>
   );
 }
 
@@ -291,6 +447,58 @@ const styles = StyleSheet.create({
   },
   createPill: {
     width: 100,
+  },
+  optionsPill: {
+    width: 124,
+  },
+  pillDisabled: {
+    opacity: 0.45,
+  },
+  controlsLayer: {
+    width: '100%',
+    height: '100%',
+  },
+  searchOpen: {
+    position: 'absolute',
+    top: (64 - 2 - 45) / 2,
+    justifyContent: 'flex-start',
+    paddingLeft: 14,
+    paddingRight: 5,
+    gap: 8,
+    overflow: 'hidden',
+  },
+  searchFieldWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchInput: {
+    flex: 1,
+    height: 45,
+    paddingVertical: 0,
+    color: AppColors.controlOnActive,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    outlineStyle: 'none' as any,
+  },
+  clearButton: {
+    paddingHorizontal: 4,
+  },
+  clearText: {
+    color: AppColors.controlOnActive,
+    opacity: 0.6,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  closeButton: {
+    width: 35,
+    height: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: 'rgba(40, 40, 41, 0.12)',
   },
   searchText: {
     color: AppColors.controlOnActive,

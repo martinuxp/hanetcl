@@ -51,6 +51,8 @@ export type HnEvent = {
   /** A perk the ticketing site itself offers ("Descuento estudiantil"). */
   perk: string;
   editorial: { subject: string; summary: string; sourceName: string; sourceUrl: string } | null;
+  /** A HaNet discount code for this event, when there is one. */
+  coupon: { code: string; description: string } | null;
   jornada: EventJornada;
   signupMode: SignupMode;
   capacity: number | null;

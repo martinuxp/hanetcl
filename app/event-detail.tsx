@@ -1,4 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { eventBar } from '@/components/events/event-bar-store';
+import { EventGlow } from '@/components/events/event-glow';
 import { EVENTS_DISCLAIMER, HNE_ICONS, priceLabel } from '@/components/events/event-ui';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -14,7 +16,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function openLink(url: string) {
   if (url) void WebBrowser.openBrowserAsync(url);
@@ -44,6 +46,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
   const scroll = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
 
   const [event, setEvent] = useState<HnEvent | null>(() => (id ? getLoadedEvent(id) : null));
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +67,16 @@ export default function EventDetailScreen() {
       .catch(loadError => { if (active) setError(describeAuthError(loadError, 'No pudimos abrir este evento.')); });
     return () => { active = false; };
   }, [id, user]));
+
+  // What the bar's "Opciones" offers: buying while the event is ahead, and the HaNet coupon.
+  useEffect(() => {
+    if (!event) return;
+    const over = (event.endsAt ?? event.startsAt) < now;
+    eventBar.setActions(over || event.kind !== 'regional'
+      ? { title: event.title, ticketUrl: '', sourceName: '', coupon: null }
+      : { title: event.title, ticketUrl: event.ticketUrl, sourceName: event.sourceName, coupon: event.coupon ?? null });
+  }, [event, now]);
+  useEffect(() => () => eventBar.setActions(null), []);
 
   const signup = async () => {
     if (!event || busy) return;
@@ -116,8 +129,10 @@ export default function EventDetailScreen() {
   const full = !!event.capacity && (event.signupCount ?? 0) >= event.capacity && !event.signedUp;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView ref={scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
+        <EventGlow position="top" />
+        <EventGlow position="bottom" />
         <View style={styles.topBar}>
           <ThemedText style={styles.brand}>HaNet Eventos</ThemedText>
           <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/events'))} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
@@ -275,7 +290,7 @@ export default function EventDetailScreen() {
           <HanetButton label={busy ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={busy} onPress={() => void remove()} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
-    </SafeAreaView>
+    </View>
   );
 }
 

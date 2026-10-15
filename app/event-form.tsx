@@ -40,6 +40,8 @@ type Form = {
   editorialSummary: string;
   editorialSourceName: string;
   editorialSourceUrl: string;
+  couponCode: string;
+  couponDescription: string;
   // Institution
   jornada: EventJornada;
   signupMode: SignupMode;
@@ -98,6 +100,8 @@ function EventFormScreen() {
       editorialSummary: event?.editorial?.summary ?? '',
       editorialSourceName: event?.editorial?.sourceName ?? '',
       editorialSourceUrl: event?.editorial?.sourceUrl ?? '',
+      couponCode: event?.coupon?.code ?? '',
+      couponDescription: event?.coupon?.description ?? '',
       jornada: event?.jornada ?? 'ambas',
       signupMode: event?.signupMode ?? 'list',
       capacity: event?.capacity ? String(event.capacity) : '',
@@ -239,6 +243,7 @@ function EventFormScreen() {
             sourceUrl: form.sourceUrl,
             sponsored: form.sponsored,
             perk: form.perk,
+            coupon: form.couponCode.trim() ? { code: form.couponCode.trim(), description: form.couponDescription.trim() } : null,
             editorial: form.editorialSubject.trim()
               ? { subject: form.editorialSubject, summary: form.editorialSummary, sourceName: form.editorialSourceName, sourceUrl: form.editorialSourceUrl }
               : null,
@@ -389,6 +394,11 @@ function EventFormScreen() {
           <Field label="Link de compra" optional>{input('ticketUrl', 'https://…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: 'Link de compra' })}</Field>
           <Field label="Fuente">{input('sourceName', 'Ticketplus', { maxLength: 60, accessibilityLabel: 'Nombre de la fuente' })}</Field>
           <Field label="Beneficio de la ticketera" optional>{input('perk', 'Descuento estudiantil disponible', { maxLength: 80, accessibilityLabel: 'Beneficio' })}</Field>
+          <Field label="Cupón HaNet" optional>
+            {input('couponCode', 'HANET10', { maxLength: 40, autoCapitalize: 'characters', autoCorrect: false, accessibilityLabel: 'Código del cupón HaNet' })}
+            {!!form.couponCode.trim() && input('couponDescription', '10% de descuento en entrada general', { maxLength: 120, accessibilityLabel: 'Qué da el cupón' })}
+            <ThemedText style={styles.hint}>Solo si la ticketera le dio un código a HaNet. Aparece en «Opciones» del evento.</ThemedText>
+          </Field>
           <Field label="¿Patrocinado?">
             <HanetChoice label="¿Patrocinado?" options={YES_NO} value={form.sponsored ? 'yes' : 'no'} onChange={value => update({ sponsored: value === 'yes' })} disabled={submitting} />
             <ThemedText style={styles.hint}>Se marca «[Patrocinado]» y aparece primero en los destacados.</ThemedText>
