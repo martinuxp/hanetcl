@@ -42,7 +42,7 @@ function hostOf(url: string) {
 export default function EventDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useSession();
+  const { user, initializing } = useSession();
   const scroll = useRef<ScrollView>(null);
 
   const [event, setEvent] = useState<HnEvent | null>(() => (id ? getLoadedEvent(id) : null));
@@ -53,8 +53,8 @@ export default function EventDetailScreen() {
   const [now] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!user) router.replace('/onboarding');
-  }, [router, user]);
+    if (!initializing && !user) router.replace('/onboarding');
+  }, [initializing, router, user]);
 
   useFocusEffect(useCallback(() => {
     if (!user || !id) return;
