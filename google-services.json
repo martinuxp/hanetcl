@@ -1,0 +1,134 @@
+{
+  "project_info": {
+    "project_number": "283230293926",
+    "project_id": "hanet-edu",
+    "storage_bucket": "hanet-edu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283230293926:android:15a65642b61d76e2760967",
+        "android_client_info": {
+          "package_name": "art.muxp.hanetcl"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9qvdlvvnP3LqEK1I8p_Ja53LVspkvEo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "283230293926-ut40jumf3q5ggiseabc9g3v9lbbt5gh9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "cl.hanet.edu.beta"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283230293926:android:62739bac28d55cbb760967",
+        "android_client_info": {
+          "package_name": "cl.hanet.edu.beta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "283230293926-dmjc0767b7dvignpmdqsufiokvt1qsbd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cl.hanet.edu.beta",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9qvdlvvnP3LqEK1I8p_Ja53LVspkvEo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "283230293926-ut40jumf3q5ggiseabc9g3v9lbbt5gh9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "cl.hanet.edu.beta"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283230293926:android:ad2a4920b912d3fc760967",
+        "android_client_info": {
+          "package_name": "com.muxp.hanetcl"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "283230293926-2pq60rr326emkij7j05215vs3tqqd825.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.muxp.hanetcl",
+            "certificate_hash": "6fc4766d672a0b0fa7099577a27add62b985c8a0"
+          }
+        },
+        {
+          "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9qvdlvvnP3LqEK1I8p_Ja53LVspkvEo8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "283230293926-rtchbg73dususnr0nl3uu183qmvvj2i0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "283230293926-ut40jumf3q5ggiseabc9g3v9lbbt5gh9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "cl.hanet.edu.beta"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
