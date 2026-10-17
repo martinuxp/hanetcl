@@ -41,6 +41,9 @@ export function useHomeHighlights() {
   const { user } = useSession();
   const [calendar, setCalendar] = useState<{ uid: string; item: NextCalendarItem | null } | null>(null);
   const [promo, setPromo] = useState<{ uid: string; event: HnEvent | null } | null>(null);
+  // Which account each tile has finished loading for, failed or not: the
+  // launch splash waits on both.
+  const [settled, setSettled] = useState<{ calendar?: string; promo?: string }>({});
 
   // Reloaded on every visit; what was there stays while it loads, and a
   // failed read just leaves the tile plain.
@@ -57,11 +60,13 @@ export function useHomeHighlights() {
           return courseId ? fetchCalendarEvents(courseId) : [];
         })
         .then(events => { if (active) setCalendar({ uid: user.uid, item: pickNextCalendarItem(events) }); })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => { if (active) setSettled(current => ({ ...current, calendar: user.uid })); });
 
       listEvents('regional')
         .then(list => { if (active) setPromo({ uid: user.uid, event: pickPromotedEvent(list.events) }); })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => { if (active) setSettled(current => ({ ...current, promo: user.uid })); });
 
       return () => { active = false; };
     }, [user])
@@ -70,5 +75,6 @@ export function useHomeHighlights() {
   return {
     nextCalendarItem: user && calendar?.uid === user.uid ? calendar.item : null,
     promotedEvent: user && promo?.uid === user.uid ? promo.event : null,
+    loaded: !!user && settled.calendar === user.uid && settled.promo === user.uid,
   };
 }

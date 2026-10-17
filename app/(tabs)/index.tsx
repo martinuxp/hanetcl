@@ -1,6 +1,7 @@
 import { AppColors } from '@/constants/design-tokens';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
@@ -10,6 +11,8 @@ import type { Treatment } from '@/services/auth-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { useHomeHighlights } from '@/hooks/use-home-highlights';
+import { HomeSkeleton } from '@/components/skeletons';
+import { markLaunchContentReady } from '@/services/launch-ready';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -20,23 +23,32 @@ export default function HomeScreen() {
   // The account's institution and its identity (shield and banner), set in
   // the HNT panel. Reloaded on every visit; the last one stays while it loads.
   const [institution, setInstitution] = useState<{ uid: string; name: string; logoUrl: string | null; bannerUrl: string | null } | null>(null);
+  // Which account the banner is known for (with its photos downloaded, so
+  // they don't fade in after the splash), even if there is none.
+  const [institutionUid, setInstitutionUid] = useState<string | null>(null);
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
       let active = true;
       getMyProfile()
-        .then(profile => {
+        .then(async profile => {
+          if (!active) return;
+          const urls = [profile.institutionBannerUrl, profile.institutionLogoUrl].filter((url): url is string => !!url);
+          // A photo that never arrives must not hold back the banner.
+          if (urls.length) await Promise.race([Image.prefetch(urls).catch(() => false), new Promise(resolve => setTimeout(resolve, 4000))]);
           if (!active) return;
           setInstitution(profile.institutionName
             ? { uid: user.uid, name: profile.institutionName, logoUrl: profile.institutionLogoUrl ?? null, bannerUrl: profile.institutionBannerUrl ?? null }
             : null);
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => { if (active) setInstitutionUid(user.uid); });
       return () => { active = false; };
     }, [user])
   );
   const shownInstitution = user && institution?.uid === user.uid ? institution : null;
-  const { nextCalendarItem, promotedEvent } = useHomeHighlights();
+  const institutionKnown = !!user && institutionUid === user.uid;
+  const { nextCalendarItem, promotedEvent, loaded: highlightsLoaded } = useHomeHighlights();
 
   const [welcome, setWelcome] = useState<{ firstName: string; treatment: Treatment; institutionName?: string } | null>(null);
 
@@ -69,17 +81,28 @@ export default function HomeScreen() {
       .then(step => {
         if (!active) return;
         if (step === 'done') setCheckedUid(user.uid);
-        else router.replace(routeForStep(step));
+        else {
+          router.replace(routeForStep(step));
+          // The step it goes to has its own content; nothing to wait for here.
+          markLaunchContentReady();
+        }
       })
       // Offline or a failed read: let the account in rather than lock it out.
       .catch(() => { if (active) setCheckedUid(user.uid); });
     return () => { active = false; };
   }, [router, user]);
 
+  // Opening the app, the splash stays up until Home has all of this.
+  const contentLoaded = gateOpen && (!user || (institutionKnown && highlightsLoaded));
+  useEffect(() => {
+    if (contentLoaded) markLaunchContentReady();
+  }, [contentLoaded]);
+
   if (!gateOpen) {
     return (
-      <View style={[styles.container, styles.loading]}>
-        <ActivityIndicator size="large" color={AppColors.textSecondary} />
+      <View style={styles.container}>
+        <TopHeader />
+        <HomeSkeleton />
       </View>
     );
   }
@@ -91,6 +114,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TopHeader />
+        {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
         {!!shownInstitution && (
           <View style={styles.banner}>
             <InstitutionBanner title={shownInstitution.name} logoUrl={shownInstitution.logoUrl} bannerUrl={shownInstitution.bannerUrl} />
@@ -131,10 +155,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.textOnLight,
-  },
-  loading: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scrollContent: {
     width: '100%',

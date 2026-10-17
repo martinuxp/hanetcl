@@ -1,6 +1,7 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { EVENTS_DISCLAIMER, EventCard, EventsMarquee, FeaturedEventCard, HNE_ICONS, PageDots } from '@/components/events/event-ui';
 import { useEventBar } from '@/components/events/event-bar-store';
+import { EventsSkeleton } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
@@ -16,7 +17,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -189,7 +190,7 @@ export default function EventsScreen() {
   );
 
   const empty = !list ? (
-    !error ? <ActivityIndicator style={styles.loader} color={AppColors.textSecondary} /> : null
+    !error ? <EventsSkeleton featured={kind === 'regional' && !term} /> : null
   ) : (
     <View style={styles.empty}>
       <CustomIcon name="calendar" size={40} color={AppColors.textSecondary} />
@@ -368,9 +369,6 @@ const styles = StyleSheet.create({
     width: '68%',
     height: 220,
     backgroundColor: AppColors.surface,
-  },
-  loader: {
-    marginTop: AppSpacing.xxl,
   },
   empty: {
     alignItems: 'center',

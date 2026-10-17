@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { HallListSkeleton } from '@/components/skeletons';
 import { daysUntil } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -11,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function evaluationNotice(date: number) {
@@ -194,7 +195,7 @@ export default function ClassHallScreen() {
           </View>
         )}
 
-        {loading && <ActivityIndicator style={styles.loader} size="large" color={AppColors.textSecondary} />}
+        {loading && <HallListSkeleton />}
 
         {!!error && (
           <View style={styles.notice}>
@@ -302,9 +303,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.3,
     color: AppColors.textPrimary,
-  },
-  loader: {
-    marginTop: AppSpacing.xxl,
   },
   notice: {
     padding: AppSpacing.xl,

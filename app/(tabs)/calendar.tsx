@@ -1,12 +1,13 @@
 import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import PagerView from '@/components/PagerView';
+import { CalendarDaySkeleton } from '@/components/skeletons';
 import Animated, { Easing, FadeIn, FadeInLeft, FadeInRight, FadeOut, Keyframe, SlideInLeft, SlideInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -486,8 +487,7 @@ export default function CalendarScreen() {
       {/* Loading */}
       {loading || initializing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={AppColors.success} />
-          <ThemedText accessibilityLiveRegion="polite" style={styles.loadingText}>Cargando eventos…</ThemedText>
+          <CalendarDaySkeleton />
         </View>
       ) : loadError ? (
         <View accessibilityLiveRegion="polite" style={styles.statusContainer}>
@@ -905,15 +905,6 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: AppColors.textSecondary,
-    fontSize: 14,
-    fontFamily: 'DMSans_500Medium',
-    opacity: 0.7,
   },
   statusContainer: {
     flex: 1,

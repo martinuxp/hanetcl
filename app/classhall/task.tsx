@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { HallSkeleton } from '@/components/skeletons';
 import { DocumentTile, HALL_ICONS, HallPill, TopBarButton, hallDay, hallLongDate, hallStyles } from '@/components/classhall/hall-ui';
 import { StatusPill, SubmissionItemRow, dueLabel } from '@/components/classhall/task-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -13,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function openItem(item: SubmissionItem) {
@@ -102,7 +103,7 @@ export default function TaskScreen() {
           <TopBarButton icon={HALL_ICONS.calendar} label="Abrir el Calendar del curso" wide onPress={() => router.navigate('/calendar')} />
         </View>
 
-        {!detail && !error && <ActivityIndicator style={styles.loader} size="large" color={AppColors.textSecondary} />}
+        {!detail && !error && <HallSkeleton />}
         {!!error && !detail && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
@@ -275,9 +276,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: AppSpacing.md,
     paddingBottom: TAB_BAR_CLEARANCE + AppSpacing.xl,
     gap: AppSpacing.md,
-  },
-  loader: {
-    marginTop: AppSpacing.xxl,
   },
   hero: {
     gap: AppSpacing.sm,

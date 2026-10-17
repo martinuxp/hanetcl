@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { HallSkeleton } from '@/components/skeletons';
 import { HALL_ICONS, TopBarButton, hallStyles } from '@/components/classhall/hall-ui';
 import { TaskRow } from '@/components/classhall/task-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -11,7 +12,7 @@ import type { HallDetail, HallTaskSummary } from '@/services/classhall-service';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Filter = 'open' | 'done';
@@ -83,7 +84,7 @@ export default function TasksScreen() {
           {!!hall && <ThemedText style={styles.subtitle}>{hall.subject} · {hall.courseId}</ThemedText>}
         </View>
 
-        {!detail && !error && <ActivityIndicator style={styles.loader} size="large" color={AppColors.textSecondary} />}
+        {!detail && !error && <HallSkeleton hero={false} />}
         {!!error && !detail && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
@@ -166,9 +167,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: AppColors.textSecondary,
-  },
-  loader: {
-    marginTop: AppSpacing.xxl,
   },
   card: {
     gap: AppSpacing.xl,

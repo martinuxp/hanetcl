@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { EventDetailSkeleton } from '@/components/skeletons';
 import { eventBar } from '@/components/events/event-bar-store';
 import { EventGlow } from '@/components/events/event-glow';
 import { EVENTS_DISCLAIMER, HNE_ICONS, priceLabel } from '@/components/events/event-ui';
@@ -15,7 +16,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function openLink(url: string) {
@@ -107,14 +108,17 @@ export default function EventDetailScreen() {
   };
 
   if (!event) {
+    if (!error) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.skeleton}><EventDetailSkeleton /></View>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        {error ? (
-          <>
-            <ThemedText style={styles.emptyTitle}>{error}</ThemedText>
-            <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
-          </>
-        ) : <ActivityIndicator color={AppColors.textSecondary} />}
+        <ThemedText style={styles.emptyTitle}>{error}</ThemedText>
+        <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -298,6 +302,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.canvas,
+  },
+  skeleton: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: AppSpacing.md,
+    paddingTop: 64 + AppSpacing.md,
   },
   center: {
     alignItems: 'center',
