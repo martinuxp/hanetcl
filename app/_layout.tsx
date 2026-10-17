@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider, MD3DarkTheme, configureFonts } from 'react-native-paper';
-import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
+import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_400Regular_Italic, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_700Bold_Italic } from '@expo-google-fonts/dm-sans';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { GlobalTabBar } from '@/components/AppTabBar';
@@ -94,6 +94,9 @@ export default function RootLayout() {
     DMSans_500Medium,
     DMSans_600SemiBold,
     DMSans_700Bold,
+    // Italics of the feed's Markdown.
+    DMSans_400Regular_Italic,
+    DMSans_700Bold_Italic,
   });
 
   // The native splash only covers the font load; HaNet's own splash takes

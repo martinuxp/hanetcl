@@ -1,5 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { useEventBar } from '@/components/events/event-bar-store';
+import { markdownToPlain } from '@/components/feed/feed-markdown';
 import { FeedPostView, SpaceTile } from '@/components/feed/feed-ui';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -108,7 +109,7 @@ export default function FeedScreen() {
   };
 
   const share = (post: FeedPost) => {
-    void Share.share({ message: post.body ? `${post.space.name}: ${post.body}` : post.space.name }).catch(() => undefined);
+    void Share.share({ message: post.body ? `${post.space.name}: ${markdownToPlain(post.body)}` : post.space.name }).catch(() => undefined);
   };
 
   const run = async (action: () => Promise<void>, fallback: string, done?: string) => {

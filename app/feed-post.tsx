@@ -1,3 +1,4 @@
+import { FeedMarkdown } from '@/components/feed/feed-markdown';
 import { SpaceAvatar } from '@/components/feed/feed-ui';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -78,6 +79,9 @@ function FeedPostScreen() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Where the cursor is, so the format buttons wrap what is selected.
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [preview, setPreview] = useState(false);
   const [dialog, setDialog] = useState<'space' | 'audience' | 'tags' | null>(null);
 
   const dirty = body !== null || tags !== null || pictures !== null || audience !== null || pinned !== null || spaceKey !== null;
@@ -92,6 +96,36 @@ function FeedPostScreen() {
       setError(pickError instanceof FeedImageError ? pickError.message : 'No pudimos abrir las imágenes.');
     }
   };
+
+  // Markdown marks around the selection (or a placeholder when nothing is selected).
+  const wrap = (before: string, after: string, placeholder: string) => {
+    const start = Math.min(selection.start, currentBody.length);
+    const end = Math.min(Math.max(selection.end, start), currentBody.length);
+    const inner = currentBody.slice(start, end) || placeholder;
+    const next = `${currentBody.slice(0, start)}${before}${inner}${after}${currentBody.slice(end)}`;
+    if (next.length <= MAX_FEED_BODY) setBody(next);
+  };
+
+  // A mark at the start of the line the cursor is on ("- ", "> ", "## ").
+  const prefixLine = (prefix: string) => {
+    const at = Math.min(selection.start, currentBody.length);
+    const lineStart = currentBody.lastIndexOf('\n', at - 1) + 1;
+    const line = currentBody.slice(lineStart);
+    const next = line.startsWith(prefix)
+      ? currentBody.slice(0, lineStart) + line.slice(prefix.length)
+      : currentBody.slice(0, lineStart) + prefix + line;
+    if (next.length <= MAX_FEED_BODY) setBody(next);
+  };
+
+  const FORMATS = [
+    { key: 'bold', label: 'B', name: 'Negrita', style: styles.formatBold, onPress: () => wrap('**', '**', 'texto') },
+    { key: 'italic', label: 'I', name: 'Cursiva', style: styles.formatItalic, onPress: () => wrap('*', '*', 'texto') },
+    { key: 'strike', label: 'S', name: 'Tachado', style: styles.formatStrike, onPress: () => wrap('~~', '~~', 'texto') },
+    { key: 'heading', label: 'Título', name: 'Título', onPress: () => prefixLine('## ') },
+    { key: 'list', label: '• Lista', name: 'Lista', onPress: () => prefixLine('- ') },
+    { key: 'quote', label: '“ Cita', name: 'Cita', onPress: () => prefixLine('> ') },
+    { key: 'link', label: 'Enlace', name: 'Enlace', onPress: () => wrap('[', '](https://)', 'texto') },
+  ];
 
   const toggleTag = (tag: string) => {
     if (currentTags.includes(tag)) setTags(currentTags.filter(item => item !== tag));
@@ -200,10 +234,16 @@ function FeedPostScreen() {
         {!original && feed.publishAs.length > 1 && <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />}
       </Pressable>
 
+      {preview ? (
+        <View style={styles.preview}>
+          {currentBody.trim() ? <FeedMarkdown source={currentBody} /> : <ThemedText style={styles.hint}>Todavía no escribes nada.</ThemedText>}
+        </View>
+      ) : (
       <TextInput
         accessibilityLabel="Mensaje"
         value={currentBody}
         onChangeText={text => { setBody(text); setError(null); }}
+        onSelectionChange={event => setSelection(event.nativeEvent.selection)}
         placeholder={spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : '¿Qué quieres contarle a tu liceo?'}
         placeholderTextColor="rgba(221, 221, 226, 0.4)"
         multiline
@@ -213,6 +253,25 @@ function FeedPostScreen() {
         selectionColor={AppColors.accent}
         style={styles.input}
       />
+      )}
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.formats}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: preview }}
+          accessibilityLabel={preview ? 'Volver a escribir' : 'Ver cómo queda'}
+          disabled={submitting}
+          onPress={() => setPreview(value => !value)}
+          style={({ pressed }) => [styles.format, preview && styles.formatOn, pressed && AppPressed]}
+        >
+          <ThemedText style={[styles.formatText, preview && styles.formatTextOn]}>{preview ? 'Editar' : 'Vista previa'}</ThemedText>
+        </Pressable>
+        {!preview && FORMATS.map(format => (
+          <Pressable key={format.key} accessibilityRole="button" accessibilityLabel={format.name} disabled={submitting} onPress={format.onPress} style={({ pressed }) => [styles.format, pressed && AppPressed]}>
+            <ThemedText style={[styles.formatText, format.style]}>{format.label}</ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
       {currentBody.length > MAX_FEED_BODY - 200 && (
         <ThemedText style={styles.hint}>{MAX_FEED_BODY - currentBody.length} caracteres disponibles</ThemedText>
       )}
@@ -397,6 +456,44 @@ const styles = StyleSheet.create({
     color: AppColors.textPrimary,
     textAlignVertical: 'top',
     outlineStyle: 'none' as never,
+  },
+  preview: {
+    minHeight: 112,
+    marginHorizontal: AppSpacing.lg,
+  },
+  formats: {
+    gap: AppSpacing.sm,
+    paddingHorizontal: AppSpacing.lg,
+  },
+  format: {
+    minWidth: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.md,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  formatOn: {
+    backgroundColor: AppColors.controlActive,
+  },
+  formatText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  formatTextOn: {
+    color: AppColors.controlOnActive,
+  },
+  formatBold: {
+    fontFamily: 'DMSans_700Bold',
+  },
+  formatItalic: {
+    fontFamily: 'DMSans_400Regular_Italic',
+  },
+  formatStrike: {
+    textDecorationLine: 'line-through',
   },
   hint: {
     marginTop: -AppSpacing.md,

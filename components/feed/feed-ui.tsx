@@ -1,3 +1,4 @@
+import { FeedMarkdown } from '@/components/feed/feed-markdown';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -112,6 +113,14 @@ export function FeedCarousel({ images, width }: { images: string[]; width: numbe
 // Long posts open folded, as in Substack's notes.
 const FOLD_CHARS = 360;
 
+/** The start of a long post, cut at a paragraph or a word. */
+function folded(body: string) {
+  const head = body.slice(0, FOLD_CHARS);
+  const line = head.lastIndexOf('\n');
+  const cut = line > FOLD_CHARS / 2 ? line : head.lastIndexOf(' ');
+  return `${head.slice(0, cut > 0 ? cut : FOLD_CHARS).trimEnd()}…`;
+}
+
 type PostProps = {
   post: FeedPost;
   emojis: string[];
@@ -126,7 +135,7 @@ type PostProps = {
 export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onMore, onShare }: PostProps) {
   const reduceMotion = useReducedMotion();
   const [picker, setPicker] = useState(false);
-  const long = post.body.length > FOLD_CHARS || post.body.split('\n').length > 8;
+  const long = post.body.length > FOLD_CHARS;
   const [expanded, setExpanded] = useState(false);
 
   const react = (emoji: string) => {
@@ -157,7 +166,7 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onM
 
       {!!post.body && (
         <View style={styles.bodyWrap}>
-          <ThemedText selectable numberOfLines={long && !expanded ? 8 : undefined} style={styles.body}>{post.body}</ThemedText>
+          <FeedMarkdown source={long && !expanded ? folded(post.body) : post.body} />
           {long && (
             <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setExpanded(value => !value)} style={({ pressed }) => pressed && AppPressed}>
               <ThemedText style={styles.more}>{expanded ? 'Ver menos' : 'Ver más'}</ThemedText>
@@ -355,12 +364,6 @@ const styles = StyleSheet.create({
   bodyWrap: {
     gap: AppSpacing.xs,
     paddingHorizontal: AppSpacing.lg,
-  },
-  body: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 17,
-    lineHeight: 25,
-    color: AppColors.textPrimary,
   },
   more: {
     fontFamily: 'DMSans_700Bold',
