@@ -91,11 +91,17 @@ function AndroidSheet({ backgroundColor, children }: { backgroundColor: string; 
     return () => subscription.remove();
   }, [close]);
 
+  // Grabbed while it is still moving (opening, or settling back), the sheet
+  // carries on from where it is on screen instead of jumping to the finger.
+  const grabbedAt = useSharedValue(0);
   const drag = Gesture.Pan()
     .activeOffsetY([-8, 8])
+    .onStart(() => {
+      grabbedAt.set(offset.get());
+    })
     .onUpdate(event => {
       if (closing.get()) return;
-      const y = event.translationY;
+      const y = grabbedAt.get() + event.translationY;
       offset.set(y >= 0 ? y : rubberband(y, windowHeight));
     })
     .onEnd(event => {

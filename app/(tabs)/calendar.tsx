@@ -336,16 +336,29 @@ export default function CalendarScreen() {
   useLayoutEffect(() => {
     swipeX.set(0);
   }, [swipeX, visibleMonth]);
+  // Grabbed while settling back, the page carries on from where it is on
+  // screen; once a change of month is under way it finishes first.
+  const swipeFrom = useSharedValue(0);
+  const swipeCommitted = useSharedValue(false);
+  useLayoutEffect(() => {
+    swipeCommitted.set(false);
+  }, [swipeCommitted, visibleMonth]);
   const levelSwipe = Gesture.Pan()
     .activeOffsetX([-12, 12])
     .failOffsetY([-12, 12])
+    .onStart(() => {
+      swipeFrom.set(swipeX.get());
+    })
     .onUpdate(event => {
-      swipeX.set(event.translationX);
+      if (swipeCommitted.get()) return;
+      swipeX.set(swipeFrom.get() + event.translationX);
     })
     .onEnd(event => {
-      const resting = event.translationX + project(event.velocityX);
+      if (swipeCommitted.get()) return;
+      const resting = swipeX.get() + project(event.velocityX);
       if (Math.abs(resting) > width / 3) {
         const delta: 1 | -1 = resting < 0 ? 1 : -1;
+        swipeCommitted.set(true);
         swipeX.set(withSpring(-delta * width, { ...SPRING_MOMENTUM, velocity: event.velocityX, overshootClamping: true }, finished => {
           if (finished) scheduleOnRN(finishSwipe, delta);
         }));
