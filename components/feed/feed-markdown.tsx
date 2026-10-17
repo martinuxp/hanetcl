@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppSpacing } from '@/constants/design-tokens';
 import React from 'react';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
 
 // The Markdown a post may carry: headings, lists, quotes, a rule, and inline
@@ -108,7 +108,10 @@ function Inline({ text, style, baseFont }: { text: string; style: StyleProp<Text
   return (
     <ThemedText selectable style={style}>
       {parseInline(text).map((span, index) => (
-        <ThemedText
+        // Plain Text, so each piece inherits the paragraph's color and size;
+        // a nested ThemedText would bring the system theme's color back
+        // (dark text on the dark canvas when the phone is in light mode).
+        <Text
           key={index}
           onPress={span.url ? () => void Linking.openURL(span.url!) : undefined}
           accessibilityRole={span.url ? 'link' : undefined}
@@ -120,7 +123,7 @@ function Inline({ text, style, baseFont }: { text: string; style: StyleProp<Text
           ]}
         >
           {span.text}
-        </ThemedText>
+        </Text>
       ))}
     </ThemedText>
   );
