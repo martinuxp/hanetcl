@@ -3,6 +3,10 @@ import React from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useRouter } from 'expo-router';
+import { MarqueeLine } from '@/components/events/event-ui';
+import { eventDay } from '@/services/events-service';
+import type { HnEvent } from '@/services/events-service';
+import type { NextCalendarItem } from '@/hooks/use-home-highlights';
 
 // Premium Native Animated Icons
 import { SparklesIcon } from '@/assets/animated-icons/sparks';
@@ -12,17 +16,21 @@ import { MessageCircleIcon } from '@/assets/animated-icons/message-circle';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { Square2StackIcon } from '@/assets/animated-icons/tasks';
 
+type SideBadge = { main: string; sub: string; label: string; onPress: () => void };
+
 type GridItemProps = {
   title: string;
   IconComponent: React.ComponentType<any>;
   height: number;
   badgeText?: string;
   layout?: 'default' | 'side-badge';
+  sideBadge?: SideBadge | null;
+  topStrip?: React.ReactNode;
   href?: any;
   iconSize?: number;
 };
 
-function GridItem({ title, IconComponent, height, badgeText, layout = 'default', href, iconSize }: GridItemProps) {
+function GridItem({ title, IconComponent, height, badgeText, layout = 'default', sideBadge, topStrip, href, iconSize }: GridItemProps) {
   const isSideBadge = layout === 'side-badge';
   const router = useRouter();
 
@@ -46,14 +54,21 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
             </View>
             <ThemedText style={styles.itemTitleSide}>{title}</ThemedText>
           </View>
-          {badgeText && (
-            <View style={styles.sideBadge}>
-              <ThemedText style={styles.sideBadgeTextMain}>{badgeText}</ThemedText>
-            </View>
+          {sideBadge && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={sideBadge.label}
+              onPress={sideBadge.onPress}
+              style={({ pressed }) => [styles.sideBadge, pressed && styles.sideBadgePressed]}
+            >
+              <ThemedText numberOfLines={1} style={styles.sideBadgeTextMain}>{sideBadge.main}</ThemedText>
+              <ThemedText numberOfLines={1} style={styles.sideBadgeTextSub}>{sideBadge.sub}</ThemedText>
+            </Pressable>
           )}
         </View>
       ) : (
-        <View style={[styles.gridItemInnerDefault, badgeText ? { paddingTop: 36 } : {}]}>
+        <View style={[styles.gridItemInnerDefault, badgeText ? { paddingTop: 36 } : topStrip ? { paddingTop: 41 } : {}]}>
+          {topStrip}
           {badgeText && (
             <View style={styles.topBadge}>
               <ThemedText style={styles.topBadgeText}>{badgeText}</ThemedText>
@@ -69,7 +84,52 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
   );
 }
 
-export default function GridMenu() {
+// Figma "Promo - evento promocionado": the city's featured event slides
+// across the top of the Eventos tile, tilted like the strip on Eventos.
+function PromoStrip({ event }: { event: HnEvent }) {
+  const router = useRouter();
+  const [now] = React.useState(() => Date.now());
+  const day = eventDay(event.startsAt, now);
+  const when = day.charAt(0).toUpperCase() + day.slice(1);
+  const main = `¡${when}! - ¡${event.title}! -`;
+  const place = `${event.venueName || event.city} -`;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${event.sponsored ? 'Evento promocionado' : 'Próximo evento'}: ${event.title}, ${when}, ${event.venueName || event.city}. Abrir`}
+      onPress={() => router.push({ pathname: '/event-detail', params: { id: event.id } })}
+      style={({ pressed }) => [styles.promoStrip, pressed && styles.sideBadgePressed]}
+    >
+      <View style={styles.promoTilt}>
+        <MarqueeLine text={place} top={-6} color={AppColors.textSecondary} opacity={0.5} duration={20000} reverse />
+        <MarqueeLine text={main} top={10} color={AppColors.textPrimary} opacity={1} duration={14000} />
+        <MarqueeLine text={place} top={26} color={AppColors.textSecondary} opacity={0.5} duration={20000} reverse />
+      </View>
+    </Pressable>
+  );
+}
+
+// Figma "Alerta (próximo evento evaluación)": how many days to the course's
+// next evaluation, or to whatever comes next when there is none.
+function calendarBadge(item: NextCalendarItem, open: () => void): SideBadge {
+  const main = item.days === 0 ? 'Hoy' : item.days === 1 ? 'Mañana' : `${item.days} días`;
+  const when = item.days > 1 ? `en ${main}` : main.toLocaleLowerCase('es');
+  return {
+    main,
+    sub: item.isEvaluation ? 'Prox. eval.' : 'Prox.',
+    label: `Próxima ${item.isEvaluation ? 'evaluación' : 'actividad'}: ${item.event.title}, ${when}. Abrir`,
+    onPress: open,
+  };
+}
+
+type GridMenuProps = {
+  nextCalendarItem?: NextCalendarItem | null;
+  promotedEvent?: HnEvent | null;
+};
+
+export default function GridMenu({ nextCalendarItem, promotedEvent }: GridMenuProps) {
+  const router = useRouter();
+  const openCalendarItem = (item: NextCalendarItem) => router.push({ pathname: '/event-info', params: { id: item.event.id, canEdit: '0' } });
   return (
     <View style={styles.container}>
       {/* Left Column */}
@@ -79,6 +139,7 @@ export default function GridMenu() {
           IconComponent={SparklesIcon}
           height={148}
           href="/events"
+          topStrip={promotedEvent ? <PromoStrip event={promotedEvent} /> : null}
         />
         <GridItem
           title="ClassHall"
@@ -108,6 +169,7 @@ export default function GridMenu() {
           IconComponent={CalendarDaysIcon}
           height={74}
           layout="side-badge"
+          sideBadge={nextCalendarItem ? calendarBadge(nextCalendarItem, () => openCalendarItem(nextCalendarItem)) : null}
           href="/calendar"
           iconSize={26}
         />
@@ -206,12 +268,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sideBadgePressed: {
+    opacity: 0.8,
+  },
   sideBadgeTextMain: {
     fontSize: 13,
-    lineHeight: 12.87,
+    lineHeight: 16,
     letterSpacing: -0.325,
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'DMSans_500Medium',
     color: AppColors.textPrimary,
-    marginBottom: 2,
+  },
+  sideBadgeTextSub: {
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: -0.25,
+    fontFamily: 'DMSans_500Medium',
+    color: AppColors.textPrimary,
+    opacity: 0.7,
+  },
+  /* Promo strip (Eventos) */
+  promoStrip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 37,
+    overflow: 'hidden',
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  promoTilt: {
+    flex: 1,
+    transform: [{ rotate: '-4.19deg' }, { scale: 1.1 }],
   },
 });
