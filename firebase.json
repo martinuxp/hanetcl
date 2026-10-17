@@ -8,5 +8,19 @@
       "firebase-debug.*.log",
       "*.local"
     ]
-  }
+  },
+  "firestore": [
+    {
+      "database": "hn-enrollmentdata",
+      "rules": "firestore/hn-enrollmentdata.rules"
+    },
+    {
+      "database": "hn-calendar",
+      "rules": "firestore/hn-calendar.rules"
+    },
+    {
+      "database": "hn-events",
+      "rules": "firestore/hn-events.rules"
+    }
+  ]
 }

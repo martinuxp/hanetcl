@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// Calendario por curso: colecciones HNC-LCH.{courseId}.
+// Estudiantes crean y editan sus eventos; docentes del curso y admins
+// los verifican, editan o eliminan.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.get('role', null);
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function teaches(courseId) {
+      return signedIn() && role() == 'docente'
+        && courseId in request.auth.token.get('courses', []);
+    }
+
+    function verificationFields() {
+      return ['verified', 'verifiedBy', 'verifiedByName', 'verifiedAt'];
+    }
+
+    match /{collection}/{eventId} {
+      function isCourseCollection() {
+        return collection.matches('HNC-LCH[.].+');
+      }
+
+      function courseId() {
+        return collection.split('[.]')[1];
+      }
+
+      function isStaff() {
+        return isAdmin() || teaches(courseId());
+      }
+
+      function isAuthor() {
+        return signedIn() && resource.data.get('authorUid', null) == request.auth.uid;
+      }
+
+      // Las reglas no pueden leer users/{uid} en otra base, así que no se
+      // puede limitar la lectura al curso propio. El feed iCal ya es público.
+      allow read: if isCourseCollection() && signedIn();
+
+      allow create: if isCourseCollection() && (isStaff() || (
+        signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && !request.resource.data.keys().hasAny(verificationFields())
+      ));
+
+      allow update: if isCourseCollection() && (isStaff() || (
+        isAuthor()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(verificationFields().concat(['authorUid']))
+      ));
+
+      allow delete: if isCourseCollection() && (isStaff() || isAuthor());
+    }
+  }
+}

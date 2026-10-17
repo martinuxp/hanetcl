@@ -1,0 +1,13 @@
+{
+  "name": "hanet-firestore-rules-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-hanet \"node --test\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.10.0",
+    "firebase-tools": "^14.0.0"
+  }
+}

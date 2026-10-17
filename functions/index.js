@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const { initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { FieldValue } = require("firebase-admin/firestore");
 const ical = require("ical-generator").default;
@@ -22,8 +23,11 @@ function getAdminApp() {
 
 // Creates a pending identity-link request. Approval is intentionally separate
 // so knowing a RUT is never enough to claim an academic identity.
-exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+// firebase-functions v6+ exposes the v2 API: onCall receives one `request`
+// object with `data` and `auth`, not the v1 (data, context) pair.
+exports.requestIdentityLink = functions.https.onCall(async (request) => {
+  const { data, auth } = request;
+  if (!auth) {
     throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
   }
 
@@ -44,7 +48,7 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
 
   const existing = await enrollmentDb
     .collection("identityLinkRequests")
-    .where("firebaseUid", "==", context.auth.uid)
+    .where("firebaseUid", "==", auth.uid)
     .where("rut", "==", rut)
     .where("status", "==", "pending")
     .limit(1)
@@ -56,7 +60,7 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
 
   const requestRef = enrollmentDb.collection("identityLinkRequests").doc();
   await requestRef.set({
-    firebaseUid: context.auth.uid,
+    firebaseUid: auth.uid,
     rut,
     institutionId: data && typeof data.institutionId === "string"
       ? data.institutionId.trim()
@@ -66,6 +70,71 @@ exports.requestIdentityLink = functions.https.onCall(async (data, context) => {
   });
 
   return { requestId: requestRef.id, status: "pending" };
+});
+
+const PANEL_ROLES = ["admin", "docente"];
+
+function normalizeCourses(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => /^[A-Za-z0-9_-]{1,32}$/.test(item)))];
+}
+
+// Assigns or removes a panel role (custom claim). Only admins can call it.
+// Docentes carry the courses they teach so Firestore rules can scope them.
+// The first admin is created with functions/scripts/set-role.js.
+exports.setUserRole = functions.https.onCall(async (request) => {
+  const { data, auth } = request;
+  if (!auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  if (auth.token.role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Solo un administrador puede asignar roles.");
+  }
+
+  const email = data && typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
+  const role = data ? data.role : undefined;
+  if (!email) {
+    throw new functions.https.HttpsError("invalid-argument", "Falta el correo.");
+  }
+  if (role !== null && !PANEL_ROLES.includes(role)) {
+    throw new functions.https.HttpsError("invalid-argument", "El rol debe ser admin, docente o null.");
+  }
+
+  const adminApp = getAdminApp();
+  const adminAuth = getAuth(adminApp);
+  let target;
+  try {
+    target = await adminAuth.getUserByEmail(email);
+  } catch (error) {
+    throw new functions.https.HttpsError("not-found", "No existe una cuenta con ese correo.");
+  }
+  if (target.uid === auth.uid && role !== "admin") {
+    throw new functions.https.HttpsError("failed-precondition", "No puedes quitarte tu propio rol de admin.");
+  }
+
+  const courses = role === "docente" ? normalizeCourses(data.courses) : [];
+  const claims = { ...(target.customClaims || {}) };
+  delete claims.role;
+  delete claims.courses;
+  if (role) {
+    claims.role = role;
+    if (courses.length) claims.courses = courses;
+  }
+  await adminAuth.setCustomUserClaims(target.uid, claims);
+
+  await getFirestore(adminApp, "hn-enrollmentdata").collection("roleAssignments").add({
+    targetUid: target.uid,
+    targetEmail: email,
+    role: role || null,
+    courses,
+    assignedBy: auth.uid,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  return { uid: target.uid, role: role || null, courses };
 });
 
 exports.icalFeed = functions.https.onRequest(async (req, res) => {

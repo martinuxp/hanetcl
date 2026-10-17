@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// Eventos regionales: públicos para leer, solo admins escriben.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.get('role', null) == 'admin';
+    }
+
+    match /regionalEvents/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
