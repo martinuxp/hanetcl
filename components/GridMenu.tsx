@@ -161,7 +161,7 @@ export default function GridMenu({ nextCalendarItem, promotedEvent }: GridMenuPr
           title="Feed y comunidad"
           IconComponent={MessageCircleIcon}
           height={125}
-          badgeText="¡Pronto disponible!"
+          href="/feed"
           iconSize={25}
         />
         <GridItem

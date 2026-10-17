@@ -28,6 +28,10 @@ export default function TabLayout() {
         name="events"
         options={{ title: 'Eventos', href: null }}
       />
+      <Tabs.Screen
+        name="feed"
+        options={{ title: 'Feed', href: null }}
+      />
     </Tabs>
   );
 }
