@@ -26,7 +26,13 @@ type IconProps = SvgProps & {
     | 'file-text'
     | 'link'
     | 'image'
-    | 'camera';
+    | 'camera'
+    | 'plus'
+    | 'close'
+    | 'more'
+    | 'share'
+    | 'smile-plus'
+    | 'pin';
   size?: number;
   color?: string;
 }
@@ -187,6 +193,45 @@ export function CustomIcon({ name, size = 24, color = AppColors.textPrimary, ...
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
           <Path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'plus':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'close':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M6 6l12 12M18 6L6 18" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'more':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Circle cx="5" cy="12" r="1.8" fill={color} />
+          <Circle cx="12" cy="12" r="1.8" fill={color} />
+          <Circle cx="19" cy="12" r="1.8" fill={color} />
+        </Svg>
+      );
+    case 'share':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M12 15V3M7.5 7.5L12 3l4.5 4.5M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'smile-plus':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Circle cx="11" cy="13" r="8" stroke={color} strokeWidth={1.7} />
+          <Path d="M8 15c.8 1 1.8 1.5 3 1.5s2.2-.5 3-1.5M8.5 11h.01M13.5 11h.01M19 2v5M16.5 4.5h5" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'pin':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     default:

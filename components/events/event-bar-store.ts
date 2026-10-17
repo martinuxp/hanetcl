@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
-// What HaNet Eventos shares with the global bar: the search, which opens in
-// the bar itself, and the buying options of the event on screen.
+// What a screen shares with the global bar: the search, which opens in the bar
+// itself (HaNet Eventos and the feed), and the buying options of the event on
+// screen.
 
 export type EventBarActions = {
   title: string;

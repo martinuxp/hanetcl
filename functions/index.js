@@ -36,6 +36,9 @@ Object.assign(exports, require("./classhall").build(getAdminApp));
 // HaNet Eventos: city events (HNT) and the institution's own.
 Object.assign(exports, require("./events").build(getAdminApp));
 
+// Feed y Comunidad: announcements by Espacios, with reactions.
+Object.assign(exports, require("./feed").build(getAdminApp));
+
 // Push notifications: devices register their token here.
 Object.assign(exports, require("./classhall-notify").build(getAdminApp));
 

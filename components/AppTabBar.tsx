@@ -308,7 +308,10 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
 /** Routes that show the bar; everything else (sign-in, onboarding, sheets) has none. */
 const TAB_ROOTS = ['/', '/explore'];
-const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin'];
+const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin'];
+
+/** Screens whose center pill is a search, which they read from the bar store. */
+const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed' };
 
 /**
  * The app's only bar. It lives in the root layout, above every screen, so it
@@ -322,10 +325,12 @@ export function GlobalTabBar() {
   const bar = useEventBar();
   const options = useEventOptions(bar.actions);
 
-  // The search belongs to HaNet Eventos: leaving it closes the search.
+  // The search belongs to the screen it was opened on: changing screen closes it.
+  const searchRoute = React.useRef(pathname);
   React.useEffect(() => {
-    if (pathname !== '/events' && bar.searchOpen) eventBar.closeSearch();
-  }, [bar.searchOpen, pathname]);
+    if (searchRoute.current !== pathname && (bar.searchOpen || bar.query)) eventBar.closeSearch();
+    searchRoute.current = pathname;
+  }, [bar.query, bar.searchOpen, pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
 
@@ -380,9 +385,9 @@ export function GlobalTabBar() {
       onProfile={() => goToTab('/explore')}
       active={pathname === '/' ? 'home' : pathname === '/explore' ? 'profile' : null}
       center={center}
-      controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' || pathname === '/event-detail' ? pathname : 'screen'}
-      search={pathname === '/events'
-        ? { open: bar.searchOpen, value: bar.query, placeholder: 'Buscar eventos', onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
+      controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' || pathname === '/feed' || pathname === '/event-detail' ? pathname : 'screen'}
+      search={SEARCH_PLACEHOLDERS[pathname]
+        ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
         : undefined}
     />
     {options.dialog}

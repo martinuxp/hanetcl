@@ -9,6 +9,8 @@ rules_version = '2';
 //                                          submitHallTask moves it into the Hall
 //   events-uploads/{uid}/{file}            an event cover, before saveEvent
 //                                          moves it to events/{eventId}/
+//   feed-uploads/{uid}/{file}              a feed image, before saveFeedPost
+//                                          moves it to feed/{postId}/
 //   classhall/{hallId}/...                 Hall documents and submissions: no
 //                                          direct access; getHall and
 //                                          getHallTask hand out token URLs
@@ -71,6 +73,18 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.auth.token.role in ['HNT', 'CEE', 'Admin']
+        && request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Feed images: whoever publishes in an Espacio uploads here; saveFeedPost
+    // moves the file next to its post.
+    match /feed-uploads/{uid}/{file} {
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.role in ['HNT', 'Admin', 'CEE', 'Directiva']
         && request.resource != null
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
