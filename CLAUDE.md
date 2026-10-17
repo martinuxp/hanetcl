@@ -53,6 +53,14 @@ Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, región `us-central1`
 - Los secretos van con `firebase functions:secrets:set NOMBRE --data-file <archivo>`. Nunca pegarlos en el chat ni en el repositorio.
 - El código de invitación se guarda solo como hash y se muestra una única vez en el panel.
 
+## Panel web (hanet-panel)
+
+- Repositorio aparte, `martinuxp/hanet-panel` (rama `main`), con su propio CLAUDE.md. Vite + React + TypeScript, TanStack Router, componentes Arc (uiarc.dev) solo con los colores de HaNet. Mismo proyecto de Firebase; sitio de Hosting `hanet-panel` configurado, todavía no creado ni publicado (publicarlo necesita el OK del usuario).
+- Es para el trabajo de escritorio: listas largas, cargas masivas, revisar en lote y ver más datos que la app. Lo que se hace una vez al día desde el celular va en la app.
+- Áreas por rol: **HaNet Team** (HNT, todas las instituciones), **Administración** (Admin, su institución), **Docente** (Profesor, sus Halls) y **Estudiante** (más adelante, con Directiva y CEE). Cada módulo activo de la institución tiene su sección.
+- Nunca escribe Firestore directo: llama a las mismas Cloud Functions que la app. Las `admin*` solo aceptan HNT, así que el área Administración necesita funciones nuevas limitadas a la institución de quien llama.
+- Hecho en la web: lo del Panel HNT de la app (instituciones, códigos, nóminas, personas y roles) y un inicio con datos. Orden acordado: cerrar HaNet Team, luego Docente (ClassHall ya tiene backend), luego Administración. Plan: https://claude.ai/code/artifact/a807008e-b009-4df3-92e2-03932af8cf37
+
 ## Desde una sesión en la nube
 
 - No hay credenciales de Firebase en la sesión. De Expo solo `EXPO_TOKEN`, para la rama `expo-go` de EAS Update (ver abajo).
