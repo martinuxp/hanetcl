@@ -373,7 +373,7 @@ function EventFormScreen() {
           <ThemedText style={local.dateAction}>{form.endsAt ? 'Cambiar' : 'Agregar'}</ThemedText>
         </Pressable>
         {!!form.endsAt && (
-          <Pressable accessibilityRole="button" onPress={() => update({ endsAt: null })}><ThemedText style={styles.hint}>Quitar el término</ThemedText></Pressable>
+          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => update({ endsAt: null })} style={({ pressed }) => pressed && styles.pressed}><ThemedText style={styles.hint}>Quitar el término</ThemedText></Pressable>
         )}
       </Field>
 

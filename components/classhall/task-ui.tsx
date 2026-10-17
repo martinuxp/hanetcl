@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_600SemiBold',
     fontSize: 20,
     lineHeight: 22,
+    letterSpacing: -0.4,
     color: AppColors.textPrimary,
   },
   badgeMonth: {

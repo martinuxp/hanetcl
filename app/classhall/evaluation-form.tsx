@@ -621,6 +621,7 @@ const local = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 20,
     lineHeight: 26,
+    letterSpacing: -0.8,
     color: AppColors.textPrimary,
   },
   scanningHint: {

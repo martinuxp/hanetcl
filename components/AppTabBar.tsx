@@ -487,8 +487,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     outlineStyle: 'none' as any,
   },
+  // As tall as the pill, so the small label still has a full-size target.
   clearButton: {
-    paddingHorizontal: 4,
+    height: 45,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
   },
   clearText: {
     color: AppColors.controlOnActive,

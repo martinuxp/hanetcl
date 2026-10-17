@@ -159,7 +159,7 @@ export default function EventDetailScreen() {
           <ThemedText style={styles.when}>{[eventWhen(event), event.venueName].filter(Boolean).join(' - ')}</ThemedText>
           {institution && <ThemedText style={styles.whenSmall}>{JORNADA_LABELS[event.jornada]}</ThemedText>}
           {!institution && !!sourceHost && (
-            <Pressable accessibilityRole="link" onPress={() => openLink(event.sourceUrl || event.ticketUrl)}>
+            <Pressable accessibilityRole="link" hitSlop={8} onPress={() => openLink(event.sourceUrl || event.ticketUrl)} style={({ pressed }) => pressed && AppPressed}>
               <ThemedText style={styles.sourceLink}>{sourceHost}</ThemedText>
             </Pressable>
           )}
@@ -246,7 +246,7 @@ export default function EventDetailScreen() {
               <ThemedText style={styles.editorialTitle}>Sobre {event.editorial.subject}</ThemedText>
               <ThemedText selectable style={styles.body}>{event.editorial.summary}</ThemedText>
               {!!event.editorial.sourceName && (
-                <Pressable onPress={() => openLink(event.editorial?.sourceUrl ?? '')} disabled={!event.editorial.sourceUrl}>
+                <Pressable accessibilityRole="link" hitSlop={8} onPress={() => openLink(event.editorial?.sourceUrl ?? '')} disabled={!event.editorial.sourceUrl} style={({ pressed }) => pressed && AppPressed}>
                   <ThemedText style={styles.attribution}>Información proporcionada por {event.editorial.sourceName}{wikipedia ? ' (CC BY-SA 4.0)' : ''}</ThemedText>
                 </Pressable>
               )}

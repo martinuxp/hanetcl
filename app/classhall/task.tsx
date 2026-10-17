@@ -419,6 +419,7 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_600SemiBold',
     fontSize: 24,
     lineHeight: 30,
+    letterSpacing: -0.6,
     color: AppColors.textPrimary,
   },
   statOf: {

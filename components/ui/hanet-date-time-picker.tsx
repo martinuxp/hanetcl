@@ -205,6 +205,15 @@ function Wheel({ label, values, selectedIndex, onSelect }: WheelProps) {
     selectedRef.current = selectedIndex;
   }, [selectedIndex]);
 
+  // The row under the band while the wheel turns: it lights up and ticks as
+  // it passes, as a native picker does, before the wheel comes to rest.
+  const [centered, setCentered] = useState(selectedIndex);
+  const [shownSelection, setShownSelection] = useState(selectedIndex);
+  if (shownSelection !== selectedIndex) {
+    setShownSelection(selectedIndex);
+    setCentered(selectedIndex);
+  }
+
   useEffect(() => () => {
     if (settleTimer.current) clearTimeout(settleTimer.current);
   }, []);
@@ -213,17 +222,22 @@ function Wheel({ label, values, selectedIndex, onSelect }: WheelProps) {
     scrollRef.current?.scrollTo({ y: index * WHEEL_ITEM_HEIGHT, animated });
   };
 
+  const center = (index: number) => {
+    if (index === centered) return;
+    setCentered(index);
+    tick();
+  };
+
   const select = (index: number) => {
     const clamped = Math.max(0, Math.min(values.length - 1, index));
     scrollToIndex(clamped, true);
-    if (clamped !== selectedRef.current) {
-      tick();
-      onSelect(clamped);
-    }
+    center(clamped);
+    if (clamped !== selectedRef.current) onSelect(clamped);
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.y;
+    center(Math.max(0, Math.min(values.length - 1, Math.round(offset / WHEEL_ITEM_HEIGHT))));
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => select(Math.round(offset / WHEEL_ITEM_HEIGHT)), WHEEL_SETTLE_MS);
   };
@@ -253,7 +267,7 @@ function Wheel({ label, values, selectedIndex, onSelect }: WheelProps) {
       >
         {values.map((item, index) => (
           <Pressable key={item} onPress={() => select(index)} style={styles.wheelItem}>
-            <ThemedText style={[styles.wheelText, index === selectedIndex && styles.wheelTextSelected]}>
+            <ThemedText style={[styles.wheelText, index === centered && styles.wheelTextSelected]}>
               {String(item).padStart(2, '0')}
             </ThemedText>
           </Pressable>

@@ -117,8 +117,10 @@ export default function EventsScreen() {
     }
   };
 
+  // The dots follow the cards while they move, not only once they stop.
   const onFeaturedScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setFeaturedIndex(Math.round(event.nativeEvent.contentOffset.x / (featuredWidth + AppSpacing.sm)));
+    const page = Math.round(event.nativeEvent.contentOffset.x / (featuredWidth + AppSpacing.sm));
+    setFeaturedIndex(Math.max(0, Math.min(featured.length - 1, page)));
   };
 
   const header = (
@@ -170,7 +172,8 @@ export default function EventsScreen() {
             snapToInterval={featuredWidth + AppSpacing.sm}
             decelerationRate="fast"
             ItemSeparatorComponent={() => <View style={{ width: AppSpacing.sm }} />}
-            onMomentumScrollEnd={onFeaturedScroll}
+            onScroll={onFeaturedScroll}
+            scrollEventThrottle={32}
             style={styles.featuredList}
           />
         </View>
