@@ -174,7 +174,6 @@ export default function RootLayout() {
             <Stack.Screen name="event-options" options={sheetOptions([0.5])} />
             <Stack.Screen name="feed-post" options={sheetOptions([1.0])} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />
             <Stack.Screen name="edit-profile" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
