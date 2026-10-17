@@ -14,12 +14,17 @@ import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
 import { AppColors } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
+import { useLaunchContentReady } from '@/services/launch-ready';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
 import { listenToNotificationTaps, registerDevice } from '@/services/push-service';
 
 // The only screens reachable without an account. Everyone starts at the
 // onboarding, and signing out goes back to it.
 const PUBLIC_ROUTES = ['/onboarding', '/auth'];
+
+// The splash waits for Home's content, but never longer than this from
+// launch: a slow or missing network still gets into the app.
+const LAUNCH_WAIT_CAP_MS = 6000;
 
 
 export const unstable_settings = {
@@ -87,6 +92,15 @@ export default function RootLayout() {
   const [routed, setRouted] = useState(false);
   // A device that has opened HaNet before only gets a short splash.
   const [returning, setReturning] = useState(false);
+  // Signed in, the splash also waits for Home to have its content.
+  const contentReady = useLaunchContentReady();
+  const [waitedEnough, setWaitedEnough] = useState(false);
+  const [signedInAtLaunch, setSignedInAtLaunch] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setWaitedEnough(true), LAUNCH_WAIT_CAP_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   const [loaded, error] = useFonts({
     DMSans_300Light,
@@ -112,6 +126,7 @@ export default function RootLayout() {
       // Signed in already means past the welcome pages.
       if (user && !seen) void markOnboardingSeen();
       setReturning(seen);
+      setSignedInAtLaunch(!!user);
       setRouted(true);
     })();
     return () => { active = false; };
@@ -176,7 +191,7 @@ export default function RootLayout() {
           <GlobalTabBar />
           </FatalBoundary>
           <StatusBar style="light" />
-          <LaunchSplash ready={routed} quick={returning} />
+          <LaunchSplash ready={routed && (!signedInAtLaunch || contentReady || waitedEnough)} quick={returning} />
           <AppErrorLayer />
         </ThemeProvider>
       </PaperProvider>

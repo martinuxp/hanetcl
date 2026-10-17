@@ -1,7 +1,8 @@
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
+import { EventDetailSkeleton } from '@/components/skeletons';
 import { AlertModal } from '@/components/ui/alert-modal';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View, ScrollView, Platform, Linking, Alert, Pressable } from 'react-native';
+import { StyleSheet, View, ScrollView, Platform, Linking, Alert, Pressable } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -292,9 +293,8 @@ export default function EventInfoScreen() {
 
   if (initializing || (loading && user)) {
     return (
-      <SafeAreaView style={[styles.container, styles.missing]}>
-        <ActivityIndicator size="large" color={AppColors.textSecondary} />
-        <ThemedText accessibilityLiveRegion="polite" style={styles.missingText}>Cargando evento…</ThemedText>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.skeleton}><EventDetailSkeleton /></View>
       </SafeAreaView>
     );
   }
@@ -804,6 +804,13 @@ const styles = StyleSheet.create({
   managePicker: {
     marginTop: AppSpacing.sm,
     padding: 0,
+  },
+  skeleton: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    padding: AppSpacing.md,
+    paddingTop: 64 + AppSpacing.md,
   },
   missing: {
     alignItems: 'center',

@@ -1,6 +1,7 @@
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
+import { ProfileSkeleton } from '@/components/skeletons';
 import { getNameFont } from '@/constants/name-fonts';
 import { useNameFonts } from '@/hooks/use-name-fonts';
 import { getProfilePhotoUrl } from '@/services/profile-service';
@@ -11,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -78,13 +79,15 @@ export default function ProfileScreen() {
     }, [user])
   );
 
-  if (initializing) {
-    return (
-      <SafeAreaView style={[styles.screen, styles.centered]}>
-        <ActivityIndicator size="large" color={AppColors.textSecondary} />
-      </SafeAreaView>
-    );
-  }
+  const skeleton = (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <View style={styles.page}>
+        <ProfileSkeleton />
+      </View>
+    </SafeAreaView>
+  );
+
+  if (initializing) return skeleton;
 
   if (!user) {
     return (
@@ -101,17 +104,12 @@ export default function ProfileScreen() {
   const current = loadedUid === user.uid ? profile : null;
 
   if (!current) {
+    if (!error) return skeleton;
     return (
       <SafeAreaView style={[styles.screen, styles.centered]}>
-        {error ? (
-          <>
-            <ThemedText style={styles.emptyTitle}>Perfil no disponible</ThemedText>
-            <ThemedText accessibilityLiveRegion="polite" style={styles.emptyText}>{error}</ThemedText>
-            <HanetButton label="Cerrar sesión" variant="surface" onPress={() => void signOut()} style={styles.emptyButton} />
-          </>
-        ) : (
-          <ActivityIndicator size="large" color={AppColors.textSecondary} />
-        )}
+        <ThemedText style={styles.emptyTitle}>Perfil no disponible</ThemedText>
+        <ThemedText accessibilityLiveRegion="polite" style={styles.emptyText}>{error}</ThemedText>
+        <HanetButton label="Cerrar sesión" variant="surface" onPress={() => void signOut()} style={styles.emptyButton} />
       </SafeAreaView>
     );
   }

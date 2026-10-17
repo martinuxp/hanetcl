@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { HallSkeleton } from '@/components/skeletons';
 import { HALL_ICONS, HallPill, HallTile, TopBarButton, hallLongDate, hallShortDate, hallStyles } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -11,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 /** For tables with many skills: each value under its column name, scrolling sideways. */
@@ -129,7 +130,7 @@ export default function HallEvaluationScreen() {
           <ThemedText numberOfLines={1} style={styles.topTitle}>Contenidos a evaluar</ThemedText>
         </View>
 
-        {!detail && !error && <ActivityIndicator style={styles.loader} size="large" color={AppColors.textSecondary} />}
+        {!detail && !error && <HallSkeleton />}
         {!!error && !detail && <ThemedText accessibilityLiveRegion="polite" style={styles.notice}>{error}</ThemedText>}
         {missing && <ThemedText style={styles.notice}>Esta evaluación ya no está en el Hall.</ThemedText>}
 
@@ -305,9 +306,6 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     letterSpacing: -0.8,
     color: AppColors.textPrimary,
-  },
-  loader: {
-    marginTop: AppSpacing.xxl,
   },
   notice: {
     padding: AppSpacing.xl,
