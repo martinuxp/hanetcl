@@ -24,18 +24,28 @@ export function priceLabel(event: Pick<HnEvent, 'isFree' | 'priceFrom'>) {
 }
 
 // One diagonal line of the banner, sliding sideways forever.
-function MarqueeLine({ text, top, color, opacity, duration, reverse }: { text: string; top: number; color: string; opacity: number; duration: number; reverse?: boolean }) {
+export function MarqueeLine({ text, top, color, opacity, duration, reverse }: { text: string; top: number; color: string; opacity: number; duration: number; reverse?: boolean }) {
   const reduceMotion = useReducedMotion();
   const shift = useSharedValue(0);
+  const copyWidth = useSharedValue(0);
   useEffect(() => {
     if (reduceMotion) return;
     shift.value = withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false);
   }, [duration, reduceMotion, shift]);
   // The text repeats, so moving it by one copy's width loops without a jump.
-  const style = useAnimatedStyle(() => ({ transform: [{ translateX: (reverse ? -1 + shift.value : -shift.value) * 320 }] }));
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: (reverse ? -1 + shift.value : -shift.value) * copyWidth.value }] }));
   return (
     <Animated.View style={[styles.marqueeLine, { top }, style]}>
-      <ThemedText numberOfLines={1} style={[styles.marqueeText, { color, opacity }]}>{`${text}   `.repeat(8)}</ThemedText>
+      {Array.from({ length: 8 }, (_, index) => (
+        <ThemedText
+          key={index}
+          numberOfLines={1}
+          onLayout={index === 0 ? event => { copyWidth.value = event.nativeEvent.layout.width; } : undefined}
+          style={[styles.marqueeText, { color, opacity }]}
+        >
+          {`${text}   `}
+        </ThemedText>
+      ))}
     </Animated.View>
   );
 }
@@ -177,6 +187,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: -40,
     width: 2000,
+    flexDirection: 'row',
   },
   marqueeText: {
     fontFamily: 'DMSans_700Bold',

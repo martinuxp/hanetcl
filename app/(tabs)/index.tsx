@@ -9,6 +9,7 @@ import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingS
 import type { Treatment } from '@/services/auth-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
+import { useHomeHighlights } from '@/hooks/use-home-highlights';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function HomeScreen() {
     }, [user])
   );
   const shownInstitution = user && institution?.uid === user.uid ? institution : null;
+  const { nextCalendarItem, promotedEvent } = useHomeHighlights();
 
   const [welcome, setWelcome] = useState<{ firstName: string; treatment: Treatment; institutionName?: string } | null>(null);
 
@@ -94,7 +96,7 @@ export default function HomeScreen() {
             <InstitutionBanner title={shownInstitution.name} logoUrl={shownInstitution.logoUrl} bannerUrl={shownInstitution.bannerUrl} />
           </View>
         )}
-        <GridMenu />
+        <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} />
 
         {!user && (
           <HanetButton

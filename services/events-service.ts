@@ -204,6 +204,15 @@ export function eventSoon(startsAt: number, now: number) {
   return null;
 }
 
+/** "Hoy", "Mañana" or "sáb 18 oct.", and "Ahora" once it started; for the Home strip. */
+export function eventDay(startsAt: number, now: number) {
+  if (startsAt <= now) return 'Ahora';
+  const soon = eventSoon(startsAt, now);
+  if (soon) return soon.split(',')[0];
+  const start = new Date(startsAt);
+  return `${WEEKDAYS[start.getDay()]} ${start.getDate()} ${MONTHS[start.getMonth()]}.`;
+}
+
 export function formatClp(value: number) {
   return `$${Math.round(value).toLocaleString('es-CL')}`;
 }
