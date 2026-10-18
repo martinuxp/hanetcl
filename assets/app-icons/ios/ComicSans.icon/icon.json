@@ -1,0 +1,168 @@
+{
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.15686,0.15686,0.16078,1.00000",
+      "srgb:0.15686,0.15686,0.16078,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.5,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.5,
+        "y" : 1
+      }
+    }
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "blur-material" : null,
+      "hidden" : false,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "H.svg",
+          "name" : "H",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 2.24,
+            "translation-in-points" : [
+              11,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "opacity" : 1,
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "blend-mode" : "normal",
+      "blur-material" : 0.58,
+      "hidden" : true,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "HaNet Icon.svg",
+          "name" : "HaNet Icon",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 2.11975,
+            "translation-in-points" : [
+              20.48,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "opacity" : 1,
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 1
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.44
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.56
+      }
+    },
+    {
+      "blend-mode" : "normal",
+      "blur-material" : null,
+      "hidden" : false,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "gradiente.png",
+          "name" : "gradiente",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.024,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "opacity" : 1,
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : false,
+        "strength" : 0.5
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

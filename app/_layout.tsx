@@ -176,6 +176,7 @@ export default function RootLayout() {
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />
             <Stack.Screen name="edit-profile" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions([0.75, 1.0])} />

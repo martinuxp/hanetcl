@@ -143,8 +143,8 @@ export default function ProfileScreen() {
             <ThemedText style={styles.brandName}>HaNet</ThemedText>
             <ThemedText style={styles.brandId}>ID</ThemedText>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Compartir perfil" hitSlop={6} onPress={shareProfile} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-            <Ionicons name="share-social-outline" size={20} color={AppColors.textPrimary} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Configuraciones" hitSlop={6} onPress={() => router.push('/settings')} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+            <Ionicons name="settings-outline" size={20} color={AppColors.textPrimary} />
           </Pressable>
         </View>
 
@@ -228,14 +228,6 @@ export default function ProfileScreen() {
 
         {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.staleNote}>No pudimos actualizar tu perfil; puede que veas datos de hace un momento.</ThemedText>}
 
-        <View style={styles.accountActions}>
-          <HanetButton
-            label="Cerrar sesión"
-            variant="surface"
-            accessibilityHint={user.email ? `Sesión iniciada como ${user.email}` : undefined}
-            onPress={() => void signOut()}
-          />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -303,7 +295,6 @@ const styles = StyleSheet.create({
   linkEyebrow: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16 },
   linkTitle: { color: AppColors.textPrimary, fontSize: 15, lineHeight: 20, fontFamily: 'DMSans_700Bold' },
 
-  accountActions: { gap: AppSpacing.md, marginTop: AppSpacing.lg },
   staleNote: { color: AppColors.textSecondary, fontSize: 12, lineHeight: 16, textAlign: 'center', opacity: 0.8 },
   pressed: { opacity: 0.72 },
 });
