@@ -1,0 +1,5 @@
+# Skills de terceros y assets: no son código de HaNet
+.claude/
+Brand/
+assets/
+*.tokens.json
