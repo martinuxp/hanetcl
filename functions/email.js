@@ -176,4 +176,30 @@ function magicLinkEmail({ fullName, username, institutionName, institutionLogoUr
   return { subject: `Conecta tu HaNet ID a ${institutionName}`, html, text };
 }
 
-module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, escapeHtml };
+// Sent instead of the link when the institutional email already belongs to
+// another HaNet ID. It only reaches that mailbox, so it tells the requester
+// nothing they could not already read there.
+function alreadyLinkedEmail({ institutionName, institutionLogoUrl, institutionBannerUrl, institutionalEmail }) {
+  const name = escapeHtml(institutionName);
+  const body = "font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;";
+
+  const html = layout(`${institutionHero(institutionBannerUrl, institutionLogoUrl)}
+<tr><td style="padding:44px 32px;background:#efeeea;">
+<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Este correo ya tiene un HaNet ID</p>
+<p style="margin:22px 0 0;${body}">Alguien pidió conectar ${escapeHtml(institutionalEmail)} a un HaNet ID para entrar a “${name}”, pero ese correo ya está conectado a otro HaNet ID.</p>
+<p style="margin:24px 0 0;${body}">Si fuiste tú, entra con la cuenta que conectaste antes. Si necesitas cambiar de cuenta, o no reconoces la cuenta conectada, pide a los encargados de HaNet en tu institución que la desvinculen.</p>
+<p style="margin:24px 0 0;${body}">Si no fuiste tú, puedes ignorar este correo: nadie entrará a tu institución con él.</p>
+</td></tr>`);
+
+  const text = [
+    "Este correo ya tiene un HaNet ID",
+    "",
+    `Alguien pidió conectar ${institutionalEmail} a un HaNet ID para entrar a ${institutionName}, pero ese correo ya está conectado a otro HaNet ID.`,
+    "Si fuiste tú, entra con la cuenta que conectaste antes o pide a los encargados de HaNet en tu institución que la desvinculen.",
+    "Si no fuiste tú, puedes ignorar este correo.",
+  ].join("\n");
+
+  return { subject: `Tu correo ya está conectado a un HaNet ID de ${institutionName}`, html, text };
+}
+
+module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, alreadyLinkedEmail, escapeHtml };
