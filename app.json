@@ -8,6 +8,7 @@
     "scheme": "hanetcl",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "icon": "./assets/app-icons/ios/Fractal.icon",
       "supportsTablet": true,
       "bundleIdentifier": "art.muxp.hanetcl",
       "config": {
@@ -61,6 +62,40 @@
           "photosPermission": "HaNet usa tus fotos para que puedas entregar tareas y cambiar tu foto de perfil.",
           "cameraPermission": "HaNet usa la cámara para que fotografíes tus tareas y las entregues en ClassHall."
         }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Simple",
+            "android": {
+              "foregroundImage": "./assets/app-icons/android/simple-foreground.png",
+              "backgroundColor": "#282829"
+            }
+          },
+          {
+            "name": "ComicSans",
+            "android": {
+              "foregroundImage": "./assets/app-icons/android/comic-sans-foreground.png",
+              "backgroundColor": "#282829"
+            }
+          },
+          {
+            "name": "TestFlight",
+            "android": {
+              "foregroundImage": "./assets/app-icons/android/testflight-foreground.png",
+              "backgroundColor": "#4895F3"
+            }
+          }
+        ]
+      ],
+      [
+        "./plugins/with-ios-alternate-icons",
+        [
+          "./assets/app-icons/ios/Simple.icon",
+          "./assets/app-icons/ios/ComicSans.icon",
+          "./assets/app-icons/ios/TestFlight.icon"
+        ]
       ]
     ],
     "experiments": {
