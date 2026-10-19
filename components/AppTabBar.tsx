@@ -308,7 +308,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
 /** Routes that show the bar; everything else (sign-in, onboarding, sheets) has none. */
 const TAB_ROOTS = ['/', '/explore'];
-const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin', '/settings'];
+const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin', '/settings', '/licenses'];
 
 /** Screens whose center pill is a search, which they read from the bar store. */
 const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed' };

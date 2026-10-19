@@ -170,6 +170,7 @@ export default function SettingsScreen() {
         <Section title="Acerca de HaNet">
           {!!version && <Row icon="information-circle-outline" label="Versión" detail={`${version} beta`} />}
           <Row icon="chatbubble-ellipses-outline" label="Contacto" detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
+          <Row icon="document-text-outline" label="Licencias de código abierto" detail="Las bibliotecas con que está hecha HaNet" onPress={() => router.push('/licenses')} />
         </Section>
 
         <HanetButton

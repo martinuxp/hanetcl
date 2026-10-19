@@ -25,6 +25,7 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 - La barra inferior es una sola, en la raíz (`GlobalTabBar` en `components/AppTabBar.tsx`). Las pantallas no dibujan la suya.
 - No mostrar datos falsos como si fueran reales. Lo que no existe va como "Próximamente".
 - **Ícono de la app:** el predeterminado en iOS es `assets/app-icons/ios/Fractal.icon` (Icon Composer, Liquid Glass; necesita Xcode 26). Los alternativos (Simple, Comic Sans, TestFlight) se eligen en Configuraciones con `expo-alternate-app-icons`; en iOS los `.icon` los agrega `plugins/with-ios-alternate-icons.js` y en Android salen de `assets/app-icons/android/`. Un ícono nuevo necesita una build nativa: en Expo Go el selector solo los muestra.
+- **Licencias de código abierto** (Configuraciones → `app/licenses.tsx`): la lista sale de `constants/open-source-licenses.json`, que genera `node scripts/generate-licenses.js` con lo que de verdad va en la app (los source maps de un `expo export` más los módulos nativos). Volver a generarla al cambiar dependencias.
 - Quien no tiene foto aparece con su **blobatar** (blobatar.dev, versión fija 2.7.0) en `HanetAvatar` (`components/ui/hanet-avatar.tsx`): tono fijo 0.5, color libre, sobre el recuadro `surfaceRaised`. La semilla es aleatoria y vive en `accounts/{uid}.avatarSeed` (nunca el UID, correo ni nombre); "Otro blobatar" la cambia. Las fotos de perfil siguen siendo privadas: los demás ven el blobatar.
 
 ## Producto
