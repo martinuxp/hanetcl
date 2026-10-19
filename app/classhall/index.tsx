@@ -11,6 +11,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCached } from '@/services/cache';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -93,8 +94,12 @@ export default function ClassHallScreen() {
   const router = useRouter();
   const { user, initializing } = useSession();
 
-  const [halls, setHalls] = useState<Hall[] | null>(null);
-  const [canCreate, setCanCreate] = useState(false);
+  const [loadedHalls, setHalls] = useState<Hall[] | null>(null);
+  const [loadedCanCreate, setCanCreate] = useState<boolean | null>(null);
+  // What the phone kept shows until this visit's load answers.
+  const kept = useCached<{ halls: Hall[]; canCreate: boolean }>(user ? 'halls' : null);
+  const halls = loadedHalls ?? kept?.halls ?? null;
+  const canCreate = loadedCanCreate ?? kept?.canCreate ?? false;
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   // Asks once, here where it matters, to turn notifications on.

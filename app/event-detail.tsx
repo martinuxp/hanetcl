@@ -14,6 +14,7 @@ import type { HnEvent } from '@/services/events-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCached } from '@/services/cache';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
@@ -49,7 +50,10 @@ export default function EventDetailScreen() {
   const scroll = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
 
-  const [event, setEvent] = useState<HnEvent | null>(() => (id ? getLoadedEvent(id) : null));
+  const [loadedEvent, setEvent] = useState<HnEvent | null>(() => (id ? getLoadedEvent(id) : null));
+  // What the phone kept shows until this visit's load answers.
+  const kept = useCached<HnEvent>(user && id ? `event:${id}` : null);
+  const event = loadedEvent ?? kept ?? null;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);

@@ -278,6 +278,13 @@ async function coverPalette(url) {
   }
 }
 
+/** Reads the cover's colors and keeps them with the event. */
+async function keepCoverPalette(ref, cover) {
+  const colors = await coverPalette(cover);
+  if (colors) await ref.update({ palette: { source: cover, colors } }).catch(() => {});
+  return colors;
+}
+
 async function robotsAllow(url) {
   try {
     const response = await fetch(`${url.origin}/robots.txt`, { signal: AbortSignal.timeout(5000) });
@@ -331,16 +338,22 @@ async function moveStagedImage(getAdminApp, uid, uploadPath, eventId) {
 
 function build(getAdminApp) {
   const listEvents = onCall({ invoker: "public" }, async (request) => {
-    const profile = await requireProfile(getAdminApp, request);
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
     const kind = request.data?.kind === "institution" ? "institution" : "regional";
     const events = calendarDb(getAdminApp).collection(COLLECTION);
     const since = Timestamp.fromMillis(Date.now() - 12 * 60 * 60 * 1000);
-    // One range on the date (no composite index needed); the rest is
-    // filtered here, the list is short.
-    const snapshot = await events.where("startsAt", ">=", since).orderBy("startsAt", "asc").limit(400).get();
+    // The reads that only need the caller go out together: each one is a
+    // round trip to the database.
+    const [profile, snapshot, accountSnap] = await Promise.all([
+      requireProfile(getAdminApp, request),
+      // One range on the date (no composite index needed); the rest is
+      // filtered here, the list is short.
+      events.where("startsAt", ">=", since).orderBy("startsAt", "asc").limit(400).get(),
+      identityDb(getAdminApp).collection("accounts").doc(request.auth.uid).get(),
+    ]);
 
     // A jornada sees its own events and those for both.
-    const account = (await identityDb(getAdminApp).collection("accounts").doc(profile.uid).get()).data() || {};
+    const account = accountSnap.data() || {};
     const jornada = ["manana", "tarde"].includes(account.jornada) ? account.jornada : null;
     const docs = snapshot.docs.filter((doc) => {
       const data = doc.data();
@@ -349,15 +362,16 @@ function build(getAdminApp) {
       return data.institutionId === profile.institutionId && (!jornada || [jornada, "ambas"].includes(data.jornada || "ambas"));
     }).slice(0, MAX_LISTED);
 
-    const list = await Promise.all(docs.map(async (doc) => (
-      kind === "institution" && doc.data().signupMode !== "none"
-        ? eventOut(doc, await withSignups(doc.ref, profile.uid))
-        : eventOut(doc)
-    )));
-    let institutionName = null;
-    if (kind === "institution") {
-      institutionName = (await identityDb(getAdminApp).collection("institutions").doc(profile.institutionId).get()).data()?.name || null;
-    }
+    const [list, institutionName] = await Promise.all([
+      Promise.all(docs.map(async (doc) => (
+        kind === "institution" && doc.data().signupMode !== "none"
+          ? eventOut(doc, await withSignups(doc.ref, profile.uid))
+          : eventOut(doc)
+      ))),
+      kind === "institution"
+        ? identityDb(getAdminApp).collection("institutions").doc(profile.institutionId).get().then(doc => doc.data()?.name || null)
+        : null,
+    ]);
     return {
       events: list,
       jornada,
@@ -367,25 +381,22 @@ function build(getAdminApp) {
   });
 
   const getEvent = onCall({ invoker: "public" }, async (request) => {
-    const profile = await requireProfile(getAdminApp, request);
     const id = eventId(request.data?.id);
     if (!id) throw new HttpsError("invalid-argument", "Falta el evento.");
     const ref = calendarDb(getAdminApp).collection(COLLECTION).doc(id);
-    const doc = await ref.get();
+    const [profile, doc] = await Promise.all([requireProfile(getAdminApp, request), ref.get()]);
     const data = doc.data();
     const editor = data ? canEdit(profile, data) : false;
     if (!data || (data.kind === "institution" && data.institutionId !== profile.institutionId) || (data.status !== "published" && !editor)) {
       throw new HttpsError("not-found", "Ese evento ya no está disponible.");
     }
     const extra = { canEdit: editor };
-    // The cover's colors, read once per cover and kept with the event.
+    // The cover's colors are read when the event is saved; events saved
+    // before that get them here, once.
     const cover = imageUrl(data);
     if (cover && data.palette?.source !== cover) {
-      const colors = await coverPalette(cover);
-      if (colors) {
-        extra.palette = colors;
-        await ref.update({ palette: { source: cover, colors } }).catch(() => {});
-      }
+      const colors = await keepCoverPalette(ref, cover);
+      if (colors) extra.palette = colors;
     }
     if (data.kind === "institution" && data.signupMode !== "none") {
       Object.assign(extra, await withSignups(ref, profile.uid));
@@ -504,6 +515,11 @@ function build(getAdminApp) {
       await ref.update({ gallery: [...kept, ...external.filter(item => !kept.some(old => old.url === item.url)), ...moved] });
       await Promise.all(dropped.filter(item => item.path).map(item => bucket.file(item.path).delete({ ignoreNotFound: true })));
     }
+
+    // The cover's colors, so opening the event does not have to read them.
+    const saved = (await ref.get()).data() || {};
+    const cover = imageUrl(saved);
+    if (cover && saved.palette?.source !== cover) await keepCoverPalette(ref, cover);
     return { id: ref.id };
   });
 

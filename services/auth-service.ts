@@ -15,6 +15,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, functions } from './firebase';
+import { cached, clearCache } from './cache';
 import { unregisterDevice } from './push-service';
 import { useEffect, useState } from 'react';
 
@@ -129,9 +130,8 @@ export type MyProfile = {
   classhallNotifications: boolean;
 };
 
-export async function getMyProfile() {
-  const result = await httpsCallable<void, MyProfile>(functions, 'getMyProfile')();
-  return result.data;
+export function getMyProfile() {
+  return cached('profile', async () => (await httpsCallable<void, MyProfile>(functions, 'getMyProfile')()).data);
 }
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
@@ -234,8 +234,12 @@ export function ensureClaims(user: User): Promise<void> {
   if (claimsSync?.uid === user.uid) return claimsSync.promise;
 
   const promise = (async () => {
-    const result = await httpsCallable(functions, 'syncMyClaims')();
-    await user.getIdToken(true);
+    const result = await httpsCallable<void, { role: string; courseId: string | null }>(functions, 'syncMyClaims')();
+    // The token is only refreshed (another round trip) when what it carries
+    // is not what the backend just confirmed.
+    const { claims } = await user.getIdTokenResult();
+    const courseId = typeof claims.courseId === 'string' ? claims.courseId : null;
+    if (claims.role !== result.data.role || courseId !== result.data.courseId) await user.getIdToken(true);
     if (__DEV__) {
       const { claims } = await user.getIdTokenResult();
       console.log('[claims]', JSON.stringify({ synced: result.data, token: { role: claims.role, courseId: claims.courseId } }));
@@ -246,6 +250,23 @@ export function ensureClaims(user: User): Promise<void> {
     if (claimsSync?.promise === promise) claimsSync = null;
   });
   return promise;
+}
+
+/**
+ * The course in the token's claims without waiting for the sync when the
+ * token already carries a role: the sync still runs behind, once per
+ * session. A token without claims yet waits for it.
+ */
+export async function claimedCourse(user: User): Promise<string | null> {
+  const sync = ensureClaims(user);
+  let { claims } = await user.getIdTokenResult();
+  if (typeof claims.role !== 'string') {
+    await sync.catch(() => undefined);
+    ({ claims } = await user.getIdTokenResult());
+  } else {
+    sync.catch(() => undefined);
+  }
+  return typeof claims.courseId === 'string' ? claims.courseId : null;
 }
 
 // ─── Native: uses expo-auth-session (PAUSED) ─────────────────────────────────
@@ -277,6 +298,7 @@ export function useSession() {
     signOut: async () => {
       await unregisterDevice();
       await firebaseSignOut(auth);
+      await clearCache();
     },
   };
 }

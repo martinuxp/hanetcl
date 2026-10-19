@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
+import { cached } from './cache';
 import { auth, functions, storage } from './firebase';
 import type { HallPlan } from '@/constants/subjects';
 
@@ -210,9 +211,8 @@ export function hallThemeImage(theme: string) {
   return HALL_THEMES[theme as HallTheme] ?? HALL_THEMES.backToSchool;
 }
 
-export async function listMyHalls() {
-  const result = await httpsCallable<void, { halls: Hall[]; canCreate: boolean }>(functions, 'listMyHalls')();
-  return result.data;
+export function listMyHalls() {
+  return cached('halls', async () => (await httpsCallable<void, { halls: Hall[]; canCreate: boolean }>(functions, 'listMyHalls')()).data);
 }
 
 export async function checkHallCode(code: string) {
@@ -248,9 +248,9 @@ export function getLoadedHall(hallId: string) {
 }
 
 export async function getHall(hallId: string) {
-  const result = await httpsCallable<{ hallId: string }, HallDetail>(functions, 'getHall')({ hallId });
-  lastHall = result.data;
-  return result.data;
+  const detail = await cached(`hall:${hallId}`, async () => (await httpsCallable<{ hallId: string }, HallDetail>(functions, 'getHall')({ hallId })).data);
+  lastHall = detail;
+  return detail;
 }
 
 export async function saveHallAnnouncement(hallId: string, body: string, announcementId?: string) {

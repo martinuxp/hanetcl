@@ -24,7 +24,7 @@ const PUBLIC_ROUTES = ['/onboarding', '/auth'];
 
 // The splash waits for Home's content, but never longer than this from
 // launch: a slow or missing network still gets into the app.
-const LAUNCH_WAIT_CAP_MS = 6000;
+const LAUNCH_WAIT_CAP_MS = 3000;
 
 
 export const unstable_settings = {

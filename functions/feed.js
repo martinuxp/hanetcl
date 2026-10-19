@@ -205,20 +205,26 @@ function cleanAudience(input, space) {
 
 function build(getAdminApp) {
   const listFeed = onCall({ invoker: "public" }, async (request) => {
-    const profile = await requireProfile(getAdminApp, request);
-    const institution = await requireModule(getAdminApp, profile);
-    const account = (await identityDb(getAdminApp).collection("accounts").doc(profile.uid).get()).data() || {};
+    if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+    // The reads that only need the caller go out together: each one is a
+    // round trip to the database.
+    const [profile, accountSnap, snapshot] = await Promise.all([
+      requireProfile(getAdminApp, request),
+      identityDb(getAdminApp).collection("accounts").doc(request.auth.uid).get(),
+      calendarDb(getAdminApp).collection(POSTS).orderBy("createdAt", "desc").limit(SCAN_LIMIT).get(),
+    ]);
+    const account = accountSnap.data() || {};
     const jornada = ["manana", "tarde"].includes(account.jornada) ? account.jornada : null;
 
-    const snapshot = await calendarDb(getAdminApp).collection(POSTS).orderBy("createdAt", "desc").limit(SCAN_LIMIT).get();
     const docs = snapshot.docs.filter(doc => reaches(doc.data(), profile, jornada));
     // Pinned posts of the school first, then the newest.
     const ordered = [...docs.filter(doc => doc.data().pinned === true), ...docs.filter(doc => doc.data().pinned !== true)].slice(0, PAGE_SIZE);
 
     const db = calendarDb(getAdminApp);
-    const mine = ordered.length
-      ? await db.getAll(...ordered.map(doc => doc.ref.collection("reactions").doc(profile.uid)))
-      : [];
+    const [institution, mine] = await Promise.all([
+      requireModule(getAdminApp, profile),
+      ordered.length ? db.getAll(...ordered.map(doc => doc.ref.collection("reactions").doc(profile.uid))) : [],
+    ]);
 
     const spaces = [spaceOut("school", institution), spaceOut("cee", institution)];
     if (profile.courseId) spaces.push(spaceOut("course", institution, profile.courseId));

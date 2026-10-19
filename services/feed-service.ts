@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
+import { cached } from './cache';
 import { auth, functions, storage } from './firebase';
 
 // Feed y Comunidad (functions/feed.js): announcements published by Espacios,
@@ -80,9 +81,9 @@ export function getLoadedFeed() {
 }
 
 export async function listFeed() {
-  const result = await httpsCallable<void, Feed>(functions, 'listFeed')();
-  lastFeed = result.data;
-  return result.data;
+  const feed = await cached('feed', async () => (await httpsCallable<void, Feed>(functions, 'listFeed')()).data);
+  lastFeed = feed;
+  return feed;
 }
 
 /** The Espacio a post belongs to, as the row on top names it ("course:<id>" folds into "course"). */
