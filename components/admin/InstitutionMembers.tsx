@@ -250,7 +250,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
                   <ThemedText style={styles.dialogBody}>
                     {selected.blocked
                       ? 'Podrá volver a iniciar sesión en HaNet con su cuenta.'
-                      : 'No podrá iniciar sesión en HaNet y su sesión abierta se cerrará. Verá la pantalla de cuenta bloqueada, con la opción de apelar por correo. Su vínculo y su rol se conservan.'}
+                      : 'Se cerrará su sesión y no podrá volver a entrar. Podrá apelar por correo. Su vínculo y su rol se mantienen.'}
                   </ThemedText>
                   {!!dialogError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{dialogError}</ThemedText>}
                   <View style={styles.dialogActions}>

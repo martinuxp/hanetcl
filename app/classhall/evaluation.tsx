@@ -253,7 +253,7 @@ export default function HallEvaluationScreen() {
               </View>
             </View>
             <ThemedText style={styles.finePrint}>
-              La publicó tu docente en ClassHall y también aparece en el Calendar del curso. Solo tu docente puede cambiarla.
+              También aparece en el Calendar del curso. Solo tu docente puede cambiarla.
             </ThemedText>
 
             {!!uploadError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{uploadError}</ThemedText>}

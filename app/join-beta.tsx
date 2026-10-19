@@ -126,7 +126,7 @@ export default function JoinBetaScreen() {
             </View>
 
             <ThemedText style={styles.lead}>
-              Para unirte a HaNet necesitas obligatoriamente contar con un código de invitación que te ha dado tu institución. Son cuatro palabras.
+              Escribe el código de invitación que te dio tu institución. Son cuatro palabras.
             </ThemedText>
 
             <View style={styles.grid}>
@@ -175,7 +175,7 @@ export default function JoinBetaScreen() {
             <View style={styles.help}>
               <ThemedText style={styles.helpTitle}>¿No funciona el código?</ThemedText>
               <ThemedText style={styles.helpText}>
-                Revisa que las palabras estén en el mismo orden en que te las dieron. Si sigue sin funcionar, contacta a los encargados de HaNet en tu institución.
+                Revisa que las palabras vayan en el orden en que te las dieron. Si sigue sin funcionar, pregunta a los encargados de HaNet en tu institución.
               </ThemedText>
             </View>
           </View>

@@ -103,12 +103,12 @@ function JoinHallScreen() {
       <Image source={LOGO} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet ClassHall" />
       <ThemedText accessibilityRole="header" style={styles.title}>Unirse a un Hall</ThemedText>
       <ThemedText style={styles.lead}>
-        Pide a tu profesor el código del Hall (o clase) y, luego, ingrésalo aquí abajo.
+        Pídele el código a tu profesor y escríbelo aquí.
       </ThemedText>
 
       <View style={styles.divider} />
 
-      <ThemedText style={styles.label}>Código del Hall (clase)</ThemedText>
+      <ThemedText style={styles.label}>Código del Hall</ThemedText>
       <Pressable accessible={false} onPress={() => input.current?.focus()} style={styles.boxes}>
         {BOXES.map(index => (
           <View key={index} style={[styles.box, index === code.length && styles.boxCurrent]}>
@@ -136,12 +136,6 @@ function JoinHallScreen() {
         />
       </Pressable>
 
-      <View style={styles.requirements}>
-        <ThemedText style={styles.label}>Para acceder al Hall necesitas</ThemedText>
-        <ThemedText style={styles.requirement}>•  Una cuenta vinculada al curso del Hall</ThemedText>
-        <ThemedText style={styles.requirement}>•  Un código de Hall que tenga 6 letras o números, sin espacios ni símbolos</ThemedText>
-      </View>
-
       <View style={styles.divider} />
 
       <Pressable
@@ -156,7 +150,7 @@ function JoinHallScreen() {
 
       {status.kind === 'rejected' && (
         <ThemedText accessibilityLiveRegion="assertive" style={styles.footnote}>
-          Este Hall es de otro curso. Solo pueden entrar las cuentas vinculadas al curso del Hall.
+          Este Hall es de otro curso, así que no puedes entrar.
         </ThemedText>
       )}
       {status.kind === 'invalid' && (
@@ -259,16 +253,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     opacity: 0,
-  },
-  requirements: {
-    gap: AppSpacing.xs,
-  },
-  requirement: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.3,
-    color: AppColors.textOnLight,
   },
   button: {
     minHeight: 56,

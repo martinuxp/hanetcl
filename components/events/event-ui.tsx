@@ -15,7 +15,7 @@ export const HNE_ICONS = {
   album: require('@/assets/icons/hne/album.svg'),
 } as const;
 
-export const EVENTS_DISCLAIMER = 'HaNet Eventos muestra eventos de distintas fuentes para la comunidad HaNet.\nLa responsabilidad por organización, calidad, cancelaciones y devoluciones recae en sus respectivos organizadores.';
+export const EVENTS_DISCLAIMER = 'HaNet Eventos reúne eventos de distintas fuentes.\nCada organizador responde por su evento, incluidas cancelaciones y devoluciones.';
 
 /** What the price pill says. */
 export function priceLabel(event: Pick<HnEvent, 'isFree' | 'priceFrom'>) {

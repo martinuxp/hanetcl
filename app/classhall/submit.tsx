@@ -235,7 +235,7 @@ function SubmitScreen() {
         </View>
       </HanetDialog>
 
-      <HanetDialog visible={addingLink} onRequestClose={() => setAddingLink(false)} title="Agregar un vínculo" body="Pega la dirección. Si es un documento de Google, Canva u otro, revisa que tu docente pueda abrirlo.">
+      <HanetDialog visible={addingLink} onRequestClose={() => setAddingLink(false)} title="Agregar un vínculo" body="Si es un documento de Google, Canva u otro, revisa que tu docente pueda abrirlo.">
         <TextInput
           accessibilityLabel="Dirección del vínculo"
           value={linkText}

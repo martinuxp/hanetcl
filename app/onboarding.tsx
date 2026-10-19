@@ -13,9 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Kept honest: the network is just starting (CLAUDE.md, no invented figures).
 const PAGES = [
   'Únete a la red escolar de HaNet, solo faltas tú.',
-  'Calendario, anuncios, actividades, evaluaciones y mucho más en solo una App.',
+  'Calendario, anuncios, tareas y evaluaciones en una sola app.',
 ];
-const SUBTITLE = 'La herramienta más moderna para estar conectad@ con tu institución.';
+const SUBTITLE = 'Para estar al día con tu institución.';
 
 // Headline growth with the system text size is capped so it still reads as a
 // headline; past that the card scrolls instead of clipping.

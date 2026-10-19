@@ -165,7 +165,7 @@ export default function EventInfoScreen() {
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const courseId = userDoc.data()?.courseId as string | undefined;
     if (!courseId) {
-      Alert.alert('Error', 'No tienes un curso vinculado a tu HaNet ID.');
+      Alert.alert('Sin curso', 'Tu HaNet ID todavía no está vinculado a un curso.');
       return null;
     }
     return courseId;
@@ -187,7 +187,7 @@ export default function EventInfoScreen() {
     await Clipboard.setStringAsync(`https://${ICAL_HOST}?courseId=${encodeURIComponent(courseIdState)}`);
     setIcalModalVisible(false);
     setTimeout(() => {
-      Alert.alert('Copiado', 'Enlace de suscripción iCal copiado al portapapeles.');
+      Alert.alert('Enlace copiado', 'Pégalo en tu app de calendario.');
     }, 500);
   };
 
@@ -204,7 +204,7 @@ export default function EventInfoScreen() {
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Hubo un error al abrir el calendario.');
+      Alert.alert('No pudimos abrir el calendario', 'Inténtalo nuevamente.');
     }
   };
 
@@ -371,9 +371,6 @@ export default function EventInfoScreen() {
             <ComingSoonButton label="Ir a los documentos de la clase" dark />
           </View>
 
-          <ThemedText style={styles.finePrint}>
-            Evento generado y conectado al HaNet Calendar del curso.
-          </ThemedText>
         </View>
 
         {!!event.writer && !event.hallId && (
@@ -401,7 +398,7 @@ export default function EventInfoScreen() {
         )}
 
         <ThemedText style={styles.finePrint}>
-          La información publicada por miembros de la directiva puede no ser oficial. La información verificada por tus profesores está indicada con un verificado azul.
+          Lo que publica la directiva puede no ser oficial. Lo que confirma un docente lleva el verificado azul.
         </ThemedText>
 
         <View style={styles.secondaryActions}>
@@ -521,7 +518,7 @@ export default function EventInfoScreen() {
             <View style={styles.modalTextSection}>
               <ThemedText style={styles.modalTitle}>Añadir calendario iCal</ThemedText>
               <ThemedText style={styles.modalSubtitle}>
-                {`Al copiar la fuente iCal de "HNC - ${courseIdState || ''}", podrás suscribir el calendario a cualquier aplicación o servicio compatible sin depender de HaNet Calendar.`}
+                Copia el enlace y agrégalo a Google Calendar, Calendario de Apple u Outlook para ver ahí los eventos de tu curso.
               </ThemedText>
             </View>
             <HanetButton label="Copiar al portapapeles" onPress={copyIcalToClipboard} />

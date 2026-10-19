@@ -280,16 +280,13 @@ function CreateEventScreen() {
             disabled
             variant="surface"
           />
-          <ThemedText style={{ fontSize: 12, color: AppColors.surface, opacity: 0.8, marginTop: 10, lineHeight: 16 }}>
-            Formatos permitidos: PDF, Word, PowerPoint, Excel, imágenes (JPG, PNG, WEBP), video (MP4) y audio (MP3). Máx. 10 MB por archivo.
-          </ThemedText>
         </View>
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>Añadir descripción</ThemedText>
           <TextInput
             accessibilityLabel="Descripción del evento"
-            placeholder="Añade descripción adicional"
+            placeholder="Qué hay que saber o traer"
             placeholderTextColor="rgba(62,62,58,0.5)"
             multiline
             value={description}
@@ -298,7 +295,7 @@ function CreateEventScreen() {
             style={{ fontSize: 16, color: AppColors.textOnLight, minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: AppColors.textOnLight, fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
           />
           <ThemedText style={{ fontSize: 12, color: AppColors.surface, opacity: 0.8, marginTop: 10, lineHeight: 16 }}>
-            La información que publiques podrá ser verificada por tu profesor de asignatura si es correcta, eliminada si es completamente incorrecta, o editada y verificada si requiere cambios.
+            Un docente puede confirmar, corregir o borrar lo que publiques.
           </ThemedText>
         </View>
 

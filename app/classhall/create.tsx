@@ -117,7 +117,7 @@ function CreateHallScreen() {
       <ThemedText style={styles.lead}>
         {editing
           ? 'Cambia la asignatura o la portada. Tus estudiantes, anuncios y evaluaciones se mantienen.'
-          : 'Un Hall es tu asignatura en un curso. Los de plan común reúnen solos a todo el curso; los electivos y dominios se unen con un código.'}
+          : 'Un Hall es tu asignatura en un curso.'}
       </ThemedText>
 
       <View style={styles.field}>

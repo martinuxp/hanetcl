@@ -182,7 +182,7 @@ export default function ClassHallScreen() {
           <View style={styles.notice}>
             <ThemedText style={styles.noticeTitle}>¿Te avisamos?</ThemedText>
             <ThemedText style={styles.noticeText}>
-              Activa las notificaciones para enterarte de los anuncios, tareas y material nuevo de tus clases, y para que te recordemos el día antes de entregar.
+              Te avisamos de anuncios, tareas y material nuevo, y te recordamos el día antes de entregar.
             </ThemedText>
             <View style={styles.pushActions}>
               <Pressable accessibilityRole="button" disabled={enabling} onPress={() => void turnOnPush()} style={({ pressed }) => [styles.retry, pressed && styles.pressed]}>

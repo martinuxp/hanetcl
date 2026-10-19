@@ -210,7 +210,7 @@ function EditProfileScreen() {
           <ThemedText style={styles.note}>
             {photoUrl
               ? 'Por ahora tu foto solo la ves tú, en tu perfil. Los demás ven tu blobatar.'
-              : 'Sin foto, te representa tu blobatar: un personaje al azar que no dice nada de ti. Es lo que ven los demás en HaNet.'}
+              : 'Sin foto, los demás te ven con tu blobatar, un personaje al azar.'}
           </ThemedText>
         </View>
 

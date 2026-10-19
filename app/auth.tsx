@@ -230,7 +230,7 @@ export default function AuthScreen() {
             {isSignUp && (
               <Animated.View key="identity" entering={appear} exiting={vanish} layout={moveLayout} style={styles.group}>
                 <HanetField
-                  label="Nombres y Apellidos"
+                  label="Nombres y apellidos"
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -360,7 +360,7 @@ export default function AuthScreen() {
                   hitSlop={8}
                   style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}
                 >
-                  <ThemedText style={styles.forgotText}>Olvidé mis credenciales</ThemedText>
+                  <ThemedText style={styles.forgotText}>Olvidé mi contraseña</ThemedText>
                 </Pressable>
               </Animated.View>
             )}
