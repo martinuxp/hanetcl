@@ -581,13 +581,15 @@ function build(getAdminApp) {
   // The inside of a Hall: its announcements and evaluations.
   const getHall = onCall({ invoker: "public" }, async (request) => {
     const { profile, hallRef, data, isTeacher } = await openHall(getAdminApp, request);
-    const [announcements, evaluations, calendar, documents, tasks] = await Promise.all([
+    const [announcements, evaluations, calendar, documents, tasks, teacherAvatarSeed] = await Promise.all([
       hallRef.collection("announcements").orderBy("createdAt", "desc").limit(MAX_ANNOUNCEMENTS).get(),
       hallRef.collection("evaluations").orderBy("date", "asc").limit(MAX_EVALUATIONS).get(),
       calendarDb(getAdminApp).collection(`HNC-LCH.${data.courseId}`)
         .where("startDate", ">=", Timestamp.fromMillis(Date.now() - COURSE_EVENTS_BACK_MS)).get(),
       hallRef.collection("documents").orderBy("createdAt", "desc").limit(MAX_DOCUMENTS).get(),
       hallRef.collection("tasks").orderBy("dueAt", "desc").limit(MAX_TASK_SUMMARIES).get(),
+      // The teacher's blob, next to their name on what they publish.
+      avatarSeed(getAdminApp, data.teacherUid),
     ]);
 
     // Each task says how it stands: for a student, their own submission;
@@ -632,8 +634,7 @@ function build(getAdminApp) {
       .slice(0, MAX_COURSE_EVENTS);
     const hall = hallOut({ id: hallRef.id, data: () => data }, profile);
     if (isTeacher && hall.plan === "comun") hall.memberCount = await courseSize(getAdminApp, data);
-    // The teacher's blob, next to their name on what they publish.
-    hall.teacherAvatarSeed = await avatarSeed(getAdminApp, data.teacherUid);
+    hall.teacherAvatarSeed = teacherAvatarSeed;
     return {
       hall,
       announcements: announcements.docs.map(announcementOut),

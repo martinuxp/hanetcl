@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
+import { cached, peekCached } from './cache';
 import { auth, functions, storage } from './firebase';
 
 // HaNet Eventos (functions/events.js): city events loaded by the HaNet team
@@ -76,22 +77,25 @@ export type EventList = {
   canPublish: boolean;
 };
 
-export async function listEvents(kind: EventKind) {
-  const result = await httpsCallable<{ kind: EventKind }, EventList>(functions, 'listEvents')({ kind });
-  return result.data;
+export function listEvents(kind: EventKind) {
+  return cached(`events:${kind}`, async () => (await httpsCallable<{ kind: EventKind }, EventList>(functions, 'listEvents')({ kind })).data);
 }
 
 // The last event opened, so its form opens without another read.
 let lastEvent: HnEvent | null = null;
 
 export function getLoadedEvent(id: string) {
-  return lastEvent?.id === id ? lastEvent : null;
+  if (lastEvent?.id === id) return lastEvent;
+  // Opened from a list: the list already has the event, short of its extras.
+  return peekCached<HnEvent>(`event:${id}`)
+    ?? (['regional', 'institution'] as const).map(kind => peekCached<EventList>(`events:${kind}`)?.events.find(event => event.id === id)).find(Boolean)
+    ?? null;
 }
 
 export async function getEvent(id: string) {
-  const result = await httpsCallable<{ id: string }, HnEvent>(functions, 'getEvent')({ id });
-  lastEvent = result.data;
-  return result.data;
+  const event = await cached(`event:${id}`, async () => (await httpsCallable<{ id: string }, HnEvent>(functions, 'getEvent')({ id })).data);
+  lastEvent = event;
+  return event;
 }
 
 export type EventInput = Partial<Omit<HnEvent, 'signupCount' | 'signedUp' | 'canEdit' | 'signups'>> & {

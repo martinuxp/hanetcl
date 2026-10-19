@@ -17,6 +17,7 @@ import { MONTH_NAMES, MonthView, YearView } from '@/components/calendar/MonthYea
 import type { ScreenPoint } from '@/components/calendar/MonthYearViews';
 import {
   fetchCalendarEvents,
+  restoreCalendarEvents,
   getEventsForDate,
   getWeekDays,
   getMonday,
@@ -192,10 +193,22 @@ export default function CalendarScreen() {
     if (!silent) setLoading(true);
     setLoadError(null);
     try {
+      // The claims sync starts with the profile read instead of after it.
+      const claims = ensureClaims(user);
+      claims.catch(() => undefined);
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const courseId = userDoc.data()?.courseId;
       if (courseId) {
-        await ensureClaims(user);
+        // What the phone kept from last time shows while the course loads.
+        if (!hasEventsRef.current) {
+          const kept = await restoreCalendarEvents(courseId);
+          if (kept && !hasEventsRef.current) {
+            setAllEvents(kept);
+            hasEventsRef.current = true;
+            setLoading(false);
+          }
+        }
+        await claims;
         const events = await fetchCalendarEvents(courseId);
         setAllEvents(events);
         setLastUpdated(new Date());

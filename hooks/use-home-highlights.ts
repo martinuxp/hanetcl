@@ -1,9 +1,10 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ensureClaims, useSession } from '@/services/auth-service';
+import { claimedCourse, useSession } from '@/services/auth-service';
+import { restoreCached } from '@/services/cache';
 import { listEvents } from '@/services/events-service';
-import type { HnEvent } from '@/services/events-service';
-import { fetchCalendarEvents } from '@/services/ical-service';
+import type { EventList, HnEvent } from '@/services/events-service';
+import { fetchCalendarEvents, restoreCalendarEvents } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
 
 // What the Home tiles point at (Figma "[home] beta", 10587:1792): the
@@ -46,27 +47,39 @@ export function useHomeHighlights() {
   const [settled, setSettled] = useState<{ calendar?: string; promo?: string }>({});
 
   // Reloaded on every visit; what was there stays while it loads, and a
-  // failed read just leaves the tile plain.
+  // failed read just leaves the tile plain. What the phone kept from last
+  // time counts as loaded, so the splash does not wait on the network.
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
       let active = true;
+      const settle = (tile: 'calendar' | 'promo') => {
+        if (active) setSettled(current => ({ ...current, [tile]: user.uid }));
+      };
 
-      ensureClaims(user)
-        .catch(() => undefined)
-        .then(() => user.getIdTokenResult())
-        .then(({ claims }) => {
-          const courseId = typeof claims.courseId === 'string' ? claims.courseId : null;
-          return courseId ? fetchCalendarEvents(courseId) : [];
+      claimedCourse(user)
+        .then(courseId => {
+          if (!courseId) return [];
+          void restoreCalendarEvents(courseId).then(kept => {
+            if (!active || !kept) return;
+            setCalendar(current => current?.uid === user.uid ? current : { uid: user.uid, item: pickNextCalendarItem(kept) });
+            settle('calendar');
+          });
+          return fetchCalendarEvents(courseId);
         })
         .then(events => { if (active) setCalendar({ uid: user.uid, item: pickNextCalendarItem(events) }); })
         .catch(() => undefined)
-        .finally(() => { if (active) setSettled(current => ({ ...current, calendar: user.uid })); });
+        .finally(() => settle('calendar'));
 
+      void restoreCached<EventList>('events:regional').then(kept => {
+        if (!active || !kept) return;
+        setPromo(current => current?.uid === user.uid ? current : { uid: user.uid, event: pickPromotedEvent(kept.events) });
+        settle('promo');
+      });
       listEvents('regional')
         .then(list => { if (active) setPromo({ uid: user.uid, event: pickPromotedEvent(list.events) }); })
         .catch(() => undefined)
-        .finally(() => { if (active) setSettled(current => ({ ...current, promo: user.uid })); });
+        .finally(() => settle('promo'));
 
       return () => { active = false; };
     }, [user])

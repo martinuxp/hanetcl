@@ -13,6 +13,7 @@ import type { HallAnnouncement, HallCourseEvent, HallDetail, HallDocument, HallE
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { dropCached, useCached } from '@/services/cache';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -139,7 +140,12 @@ export default function HallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
 
-  const [detail, setDetail] = useState<HallDetail | null>(() => (id ? getLoadedHall(id) : null));
+  const [loadedDetail, setDetail] = useState<HallDetail | null>(() => (id ? getLoadedHall(id) : null));
+  // What the phone kept shows until this visit's load answers, unless the
+  // Hall turned out to be gone.
+  const kept = useCached<HallDetail>(user && id ? `hall:${id}` : null);
+  const [gone, setGone] = useState(false);
+  const detail = loadedDetail ?? (gone ? null : kept) ?? null;
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('announcements');
   const [attempt, setAttempt] = useState(0);
@@ -171,7 +177,15 @@ export default function HallScreen() {
         setError(null);
       })
       .catch(loadError => {
-        if (active) setError(describeAuthError(loadError, 'No pudimos abrir este Hall. Inténtalo nuevamente.'));
+        if (!active) return;
+        // A Hall that is gone or closed to this account stops showing what the phone kept.
+        const code = (loadError as { code?: string }).code;
+        if (code === 'functions/not-found' || code === 'functions/permission-denied') {
+          dropCached(`hall:${id}`);
+          setDetail(null);
+          setGone(true);
+        }
+        setError(describeAuthError(loadError, 'No pudimos abrir este Hall. Inténtalo nuevamente.'));
       });
     return () => { active = false; };
     // `attempt` re-runs the load from the retry button.

@@ -1,5 +1,6 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
+import { cached, restoreCached } from './cache';
 import { calendarDb } from './firebase';
 
 export interface CalendarEvent {
@@ -73,15 +74,31 @@ export function getLoadedCalendarEvent(id: string): CalendarEvent | undefined {
   return loadedEvents.get(id);
 }
 
-// Throws on failure: an empty list means the course really has no events.
-export async function fetchCalendarEvents(courseId: string): Promise<CalendarEvent[]> {
-  const snapshot = await getDocs(collection(calendarDb, `HNC-LCH.${courseId}`));
-  const events = snapshot.docs
-    .map(eventDoc => toCalendarEvent(eventDoc.id, eventDoc.data()))
-    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+// The phone keeps the course's events with their dates as milliseconds.
+type StoredCalendarEvent = Omit<CalendarEvent, 'startDate' | 'endDate'> & { startDate: number; endDate: number };
 
+function revive(stored: StoredCalendarEvent[]): CalendarEvent[] {
+  const events = stored.map(event => ({ ...event, startDate: new Date(event.startDate), endDate: new Date(event.endDate) }));
   events.forEach(event => loadedEvents.set(event.id, event));
   return events;
+}
+
+// Throws on failure: an empty list means the course really has no events.
+export async function fetchCalendarEvents(courseId: string): Promise<CalendarEvent[]> {
+  const stored = await cached<StoredCalendarEvent[]>(`calendar:${courseId}`, async () => {
+    const snapshot = await getDocs(collection(calendarDb, `HNC-LCH.${courseId}`));
+    return snapshot.docs
+      .map(eventDoc => toCalendarEvent(eventDoc.id, eventDoc.data()))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+      .map(event => ({ ...event, startDate: event.startDate.getTime(), endDate: event.endDate.getTime() }));
+  });
+  return revive(stored);
+}
+
+/** The course's events as the phone last saw them, to show while they load. */
+export async function restoreCalendarEvents(courseId: string): Promise<CalendarEvent[] | undefined> {
+  const stored = await restoreCached<StoredCalendarEvent[]>(`calendar:${courseId}`);
+  return stored && revive(stored);
 }
 
 export async function fetchCalendarEvent(courseId: string, eventId: string): Promise<CalendarEvent | null> {

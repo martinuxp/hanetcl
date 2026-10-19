@@ -12,6 +12,7 @@ import { REPORT_REASONS, deleteFeedPost, listFeed, reportFeedPost, setFeedPostPi
 import type { Feed, FeedPost } from '@/services/feed-service';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCached } from '@/services/cache';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,7 +33,10 @@ export default function FeedScreen() {
   const list = useRef<FlatList<FeedPost>>(null);
   const { query } = useEventBar();
 
-  const [feed, setFeed] = useState<Feed | null>(null);
+  const [loadedFeed, setFeed] = useState<Feed | null>(null);
+  // What the phone kept shows until this visit's load answers.
+  const kept = useCached<Feed>(user ? 'feed' : null);
+  const feed = loadedFeed ?? kept ?? null;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);

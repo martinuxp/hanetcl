@@ -7,7 +7,11 @@ import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
 import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
-import type { Treatment } from '@/services/auth-service';
+import type { MyProfile, Treatment } from '@/services/auth-service';
+import { restoreCached } from '@/services/cache';
+import { listMyHalls } from '@/services/classhall-service';
+import { listEvents } from '@/services/events-service';
+import { listFeed } from '@/services/feed-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { useHomeHighlights } from '@/hooks/use-home-highlights';
@@ -30,16 +34,26 @@ export default function HomeScreen() {
     useCallback(() => {
       if (!user) return;
       let active = true;
+      const show = (profile: MyProfile) => setInstitution(profile.institutionName
+        ? { uid: user.uid, name: profile.institutionName, logoUrl: profile.institutionLogoUrl ?? null, bannerUrl: profile.institutionBannerUrl ?? null }
+        : null);
+      // The banner the phone kept (its photos are already on disk) shows
+      // right away; the fresh profile replaces it when it arrives.
+      let fresh = false;
+      void restoreCached<MyProfile>('profile').then(kept => {
+        if (!active || !kept || fresh) return;
+        show(kept);
+        setInstitutionUid(user.uid);
+      });
       getMyProfile()
         .then(async profile => {
+          fresh = true;
           if (!active) return;
           const urls = [profile.institutionBannerUrl, profile.institutionLogoUrl].filter((url): url is string => !!url);
           // A photo that never arrives must not hold back the banner.
           if (urls.length) await Promise.race([Image.prefetch(urls).catch(() => false), new Promise(resolve => setTimeout(resolve, 4000))]);
           if (!active) return;
-          setInstitution(profile.institutionName
-            ? { uid: user.uid, name: profile.institutionName, logoUrl: profile.institutionLogoUrl ?? null, bannerUrl: profile.institutionBannerUrl ?? null }
-            : null);
+          show(profile);
         })
         .catch(() => undefined)
         .finally(() => { if (active) setInstitutionUid(user.uid); });
@@ -97,6 +111,16 @@ export default function HomeScreen() {
   useEffect(() => {
     if (contentLoaded) markLaunchContentReady();
   }, [contentLoaded]);
+
+  // With Home on screen, the other sections load behind it: they open with
+  // their content, and their functions are already awake.
+  const linked = gateOpen && !!user && isOnboardingKnownDone(user);
+  useEffect(() => {
+    if (!contentLoaded || !linked) return;
+    void listFeed().catch(() => undefined);
+    void listMyHalls().catch(() => undefined);
+    void listEvents('institution').catch(() => undefined);
+  }, [contentLoaded, linked]);
 
   if (!gateOpen) {
     return (

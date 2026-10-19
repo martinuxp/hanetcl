@@ -11,6 +11,7 @@ import type { MyProfile } from '@/services/auth-service';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCached } from '@/services/cache';
 import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -48,12 +49,16 @@ export default function ProfileScreen() {
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [loadedPhotoUrl, setPhotoUrl] = useState<string | null>(null);
   // Whether we already know if this account has a photo; until then the
   // portrait stays empty instead of flashing the initials first.
   const [photoCheckedUid, setPhotoCheckedUid] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const fontsReady = useNameFonts();
+
+  // What the phone kept shows until this visit's load answers.
+  const keptProfile = useCached<MyProfile>(user ? 'profile' : null);
+  const keptPhoto = useCached<string | null>(user ? `photo:${user.uid}` : null);
 
   // Reloaded on every visit: the role or the link may have changed elsewhere.
   useFocusEffect(
@@ -101,7 +106,7 @@ export default function ProfileScreen() {
   }
 
   // A profile loaded for another account must never be shown for this one.
-  const current = loadedUid === user.uid ? profile : null;
+  const current = (loadedUid === user.uid ? profile : null) ?? keptProfile ?? null;
 
   if (!current) {
     if (!error) return skeleton;
@@ -122,7 +127,8 @@ export default function ProfileScreen() {
   const nameFont = getNameFont(current.nameFont);
   // Until the chosen typeface has loaded, the name shows in the default one.
   const nameFontReady = fontsReady || !nameFont.source;
-  const photoChecked = photoCheckedUid === user.uid;
+  const photoChecked = photoCheckedUid === user.uid || keptPhoto !== undefined;
+  const photoUrl = photoCheckedUid === user.uid ? loadedPhotoUrl : keptPhoto ?? null;
   // The QR and the portrait trade places with a short fade, never a hard cut.
   const swap = reducedMotion ? undefined : FadeIn.duration(150);
 

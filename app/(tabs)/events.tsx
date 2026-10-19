@@ -15,6 +15,7 @@ import { functions } from '@/services/firebase';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCached } from '@/services/cache';
 import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -62,7 +63,9 @@ export default function EventsScreen() {
     void load(kind);
   }, [kind, load, user]));
 
-  const list = lists[kind];
+  // What the phone kept shows until this visit's load answers.
+  const kept = useCached<EventList>(user ? `events:${kind}` : null);
+  const list = lists[kind] ?? kept;
   const events = useMemo(() => list?.events ?? [], [list]);
   const term = search.trim().toLocaleLowerCase('es');
   const visible = term
