@@ -53,8 +53,8 @@ export function InstitutionSync({ logoUrl }: Props) {
   }));
 
   const message = phase === 'secure'
-    ? 'Conectando a los servidores seguros de tu institución…'
-    : 'Descargando datos e información desde tu institución…';
+    ? 'Conectando con tu institución…'
+    : 'Descargando los datos de tu institución…';
 
   return (
     <Animated.View

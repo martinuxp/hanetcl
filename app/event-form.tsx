@@ -302,7 +302,7 @@ function EventFormScreen() {
       {regional && !params.id && (
         <View style={local.importCard}>
           <ThemedText style={styles.label}>Importar desde link</ThemedText>
-          <ThemedText style={styles.hint}>TuAcceso, Portal Tickets, Ticketplus o Passline (y Vamoh, solo en prueba). Leemos los datos públicos de la página y llenamos el formulario; revisa todo antes de publicar.</ThemedText>
+          <ThemedText style={styles.hint}>TuAcceso, Portal Tickets, Ticketplus o Passline (Vamoh solo en prueba). Llenamos el formulario con los datos de la página; revisa todo antes de publicar.</ThemedText>
           <View style={local.importRow}>
             <TextInput
               accessibilityLabel="Link del evento en la ticketera"

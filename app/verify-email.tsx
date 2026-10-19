@@ -213,7 +213,7 @@ export default function VerifyEmailScreen() {
             <View style={styles.why}>
               <ThemedText style={styles.whyTitle}>¿Por qué un código al email?</ThemedText>
               <ThemedText style={styles.whyText}>
-                Al enviarte un código a tu email nos aseguramos que la persona que está registrándose en HaNet seas realmente tú.
+                Así sabemos que el correo es tuyo.
               </ThemedText>
             </View>
           </View>

@@ -123,7 +123,7 @@ export default function TaskScreen() {
                 </View>
                 {!isTeacher && status && <StatusPill label={status.label} tone={status.tone} />}
               </View>
-              {task.acceptLate && <ThemedText style={styles.heroNote}>Recibe entregas atrasadas, que quedan marcadas como tales.</ThemedText>}
+              {task.acceptLate && <ThemedText style={styles.heroNote}>Acepta entregas atrasadas.</ThemedText>}
             </View>
 
             {(!!task.instructions || !!detail.attachment) && (
@@ -170,7 +170,7 @@ export default function TaskScreen() {
                     <ThemedText style={styles.body}>
                       {closed
                         ? 'El plazo terminó, pero tu docente todavía recibe esta tarea. Quedará marcada como atrasada.'
-                        : 'Sube archivos, fotos de tu cuaderno o vínculos (por ejemplo, a un documento de Google). Puedes cambiar tu entrega hasta que venza el plazo.'}
+                        : 'Sube archivos, fotos o vínculos. Puedes cambiar tu entrega hasta que venza el plazo.'}
                     </ThemedText>
                     <HanetButton label="Entregar tarea" variant="accent" onPress={openSubmit} />
                   </>
@@ -200,7 +200,7 @@ export default function TaskScreen() {
                 <ThemedText style={styles.sectionLabel}>Entregas</ThemedText>
                 {submissions.length === 0 ? (
                   <View style={styles.card}>
-                    <ThemedText style={styles.body}>Todavía nadie entrega esta tarea. Cuando lo hagan, las verás aquí para revisarlas.</ThemedText>
+                    <ThemedText style={styles.body}>Todavía nadie entrega esta tarea.</ThemedText>
                   </View>
                 ) : (
                   <View style={styles.list}>

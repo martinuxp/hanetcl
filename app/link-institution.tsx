@@ -246,12 +246,12 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <ThemedText style={styles.lead}>
-                {institutionName}, la institución asociada al código que ingresaste, pide comprobar quién eres antes de entrar a su Red HaNet.
+                {institutionName} pide comprobar quién eres antes de entrar.
               </ThemedText>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.methodPrimary, pressed && styles.pressed]}>
                 <ThemedText style={styles.methodHint}>(Más rápida)</ThemedText>
-                <ThemedText style={styles.methodPrimaryText}>Conectar ID a email institucional</ThemedText>
+                <ThemedText style={styles.methodPrimaryText}>Usar mi correo institucional</ThemedText>
               </Pressable>
 
               <View accessible accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel="Rellenar formulario verificador, próximamente" style={styles.methodSecondary}>
@@ -264,7 +264,7 @@ export default function LinkInstitutionScreen() {
               <View style={styles.help}>
                 <ThemedText style={styles.helpTitle}>¿Por qué solo están estas opciones?</ThemedText>
                 <ThemedText style={styles.helpText}>
-                  Estas son las opciones que tu institución decidió activar para entrar a su Red HaNet. Si necesitas ayuda con alguno de estos métodos, comunícate con {institutionName}.
+                  Son las que activó tu institución. Si tienes problemas con alguna, habla con {institutionName}.
                 </ThemedText>
               </View>
             </View>
@@ -336,7 +336,7 @@ export default function LinkInstitutionScreen() {
                 <View accessibilityLiveRegion="polite" style={styles.stuck}>
                   <ThemedText style={styles.stuckTitle}>¿No te llega?</ThemedText>
                   <ThemedText style={styles.stuckText}>
-                    Revisa que escribiste tu correo institucional tal como te lo entregó {institutionName} y mira la carpeta de spam. Si sigue sin llegar, puede que tu correo no esté en su lista: pide ayuda a los encargados de HaNet en tu institución.
+                    Revisa que el correo esté bien escrito y mira en spam. Si sigue sin llegar, puede que no esté en la lista de {institutionName}: pide ayuda a los encargados de HaNet en tu institución.
                   </ThemedText>
                 </View>
               )}
@@ -378,7 +378,7 @@ export default function LinkInstitutionScreen() {
           <View accessibilityViewIsModal style={styles.review}>
             <ThemedText style={styles.reviewTitle}>Verifica los datos.</ThemedText>
             <ThemedText style={styles.reviewBody}>
-              Tu institución entregó los siguientes datos que se enlazarán con tu HaNet ID:
+              Estos datos de tu institución quedarán unidos a tu HaNet ID:
             </ThemedText>
             {!!status?.person && (
               <View style={styles.reviewList}>

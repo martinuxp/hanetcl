@@ -27,7 +27,7 @@ export default function LicensesScreen() {
             <ThemedText style={styles.eyebrow}>Configuraciones</ThemedText>
             <ThemedText accessibilityRole="header" style={styles.title}>Licencias de código abierto</ThemedText>
             <ThemedText style={styles.intro}>
-              HaNet está hecha con {LICENSES.packages.length} bibliotecas de código abierto. Estas son, con la licencia de cada una. Gracias a quienes las hacen.
+              HaNet está hecha con {LICENSES.packages.length} bibliotecas de código abierto. Gracias a quienes las hacen.
             </ThemedText>
           </View>
         }

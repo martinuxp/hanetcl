@@ -529,7 +529,7 @@ export default function HntAdminScreen() {
               ))}
             </View>
             <ThemedText style={styles.dialogBody}>
-              Anótalo ahora: por seguridad solo guardamos una huella del código y no podremos mostrarlo otra vez. Si se pierde, genera uno nuevo.
+              Anótalo ahora: no podremos mostrarlo otra vez. Si se pierde, genera uno nuevo.
             </ThemedText>
             <HanetDialogActions>
               <HanetButton label={codeDialog.copied ? 'Copiado' : 'Copiar'} variant="surface" onPress={copyCode} style={dialogStyles.action} />

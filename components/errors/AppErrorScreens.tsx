@@ -88,7 +88,7 @@ export function ServerScreen({ onDismiss, onRetry, retrying, signedIn, preview }
     <ErrorScreen
       icon={ERROR_ICONS.server}
       title="Parece que las oficinas se están quemando…"
-      body="¡No te preocupes, no se está quemando nada! Los servidores de HaNet no responden o tienen problemas técnicos. Vuelve a intentarlo en unos minutos."
+      body="¡No te preocupes, no se está quemando nada! Los servidores de HaNet no responden. Vuelve a intentarlo en unos minutos."
       note={
         <>
           Mantente al tanto de errores e interrupciones de la red HaNet en{' '}
@@ -106,7 +106,7 @@ export function OfflineScreen({ onDismiss, onRetry, retrying, signedIn, preview 
     <ErrorScreen
       icon={ERROR_ICONS.offline}
       title="Parece que no hay internet"
-      body="Tu teléfono no está conectado o la señal es muy débil. Revisa el wifi o los datos móviles y vuelve a intentarlo."
+      body="Revisa el wifi o los datos móviles y vuelve a intentarlo."
       primary={{ label: retrying ? 'Probando…' : 'Reintentar', onPress: onRetry, disabled: retrying }}
       secondary={signedIn ? { label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) } : undefined}
     />
@@ -118,8 +118,8 @@ export function FatalScreen({ onDismiss, preview }: { onDismiss: () => void; pre
   return (
     <ErrorScreen
       icon=":("
-      title="Ocurrió un error inesperado."
-      body={<>Algo falló y HaNet tuvo que detenerse. Reinicia la app para seguir. Si vuelve a pasar, escríbenos a <Strong>{SUPPORT_EMAIL}</Strong> contándonos qué estabas haciendo. ¡Gracias por probar la beta!</>}
+      title="Ups, algo falló"
+      body={<>HaNet tuvo que detenerse. Si vuelve a pasar después de reiniciar, escríbenos a <Strong>{SUPPORT_EMAIL}</Strong> y cuéntanos qué estabas haciendo. ¡Gracias por probar la beta!</>}
       primary={{ label: 'Reiniciar', onPress: () => (preview ? onDismiss() : void restartApp()) }}
       secondary={{ label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) }}
     />

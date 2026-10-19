@@ -106,8 +106,8 @@ export default function TasksScreen() {
                 <ThemedText style={styles.emptyTitle}>Sin tareas</ThemedText>
                 <ThemedText style={styles.body}>
                   {isTeacher
-                    ? 'Publica una tarea con su fecha de entrega. Tus estudiantes la entregan aquí con archivos, fotos o vínculos, y tú revisas cada entrega.'
-                    : 'Cuando tu docente publique una tarea, aparecerá aquí y podrás entregarla desde la app.'}
+                    ? 'Publica una tarea y revisa aquí lo que entreguen.'
+                    : 'Cuando tu docente publique una tarea, la entregas aquí.'}
                 </ThemedText>
               </View>
             ) : shown.length === 0 ? (
@@ -128,7 +128,7 @@ export default function TasksScreen() {
             )}
 
             <ThemedText style={styles.finePrint}>
-              Las tareas también aparecen en el Calendar del curso. HaNet no pone notas: tu docente revisa cada entrega y puede dejarte un comentario.
+              Las tareas también aparecen en el Calendar del curso. Tu docente revisa cada entrega y puede dejarte un comentario.
             </ThemedText>
           </>
         )}

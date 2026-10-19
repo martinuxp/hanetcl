@@ -51,7 +51,7 @@ function Byline({ name, date, seed }: { name: string; date: string; seed?: strin
   );
 }
 
-const DOCUMENTS_NOTICE = 'Documentos exclusivos de ClassHall y tu institución, prohibida su distribución en caso de que no se especifique.';
+const DOCUMENTS_NOTICE = 'Estos documentos son solo para tu clase. No los compartas salvo que tu docente lo permita.';
 
 function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete, seed }: { item: HallAnnouncement; attachment?: HallDocument; canEdit: boolean; onEdit: () => void; onDelete: () => void; seed?: string | null }) {
   const date = item.createdAt ? hallDay(item.createdAt) : 'Ahora';
@@ -376,7 +376,7 @@ export default function HallScreen() {
                     <ThemedText style={styles.emptyTitle}>Sin evaluaciones</ThemedText>
                     <ThemedText style={styles.body}>
                       {isTeacher
-                        ? 'Cada evaluación que agendes aparece también en el Calendar del curso, con su tabla de especificaciones.'
+                        ? 'También aparecen en el Calendar del curso, con su tabla de especificaciones.'
                         : 'Cuando tu docente agende una evaluación, verás aquí la fecha y los contenidos.'}
                     </ThemedText>
                   </View>
@@ -417,7 +417,7 @@ export default function HallScreen() {
                     <ThemedText style={styles.emptyTitle}>Sin documentos</ThemedText>
                     <ThemedText style={styles.body}>
                       {isTeacher
-                        ? 'Sube guías, presentaciones o lecturas en PDF, Word, PowerPoint, Excel o imagen (hasta 10 MB). Solo los estudiantes del Hall pueden abrirlos.'
+                        ? 'PDF, Word, PowerPoint, Excel o imagen, hasta 10 MB. Solo los ven los estudiantes del Hall.'
                         : 'Aquí estarán las guías, presentaciones y documentos que comparta tu docente.'}
                     </ThemedText>
                   </View>
@@ -470,7 +470,7 @@ export default function HallScreen() {
             ? `Ya la confirmó ${courseEvent.verifier ?? 'un docente'}.`
             : courseEvent.verificationRequested
               ? 'La directiva pidió que un docente confirme esta información.'
-              : 'Si la información es correcta, puedes confirmarla para que el curso sepa que la revisaste.',
+              : 'Si está bien, confírmala para que el curso sepa que la revisaste.',
         ].join('\n\n') : undefined}
       >
         {!!verifyError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{verifyError}</ThemedText>}

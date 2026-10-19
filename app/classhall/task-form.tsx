@@ -118,7 +118,7 @@ function TaskFormScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar tarea' : 'Nueva tarea'}</ThemedText>
-      <ThemedText style={styles.lead}>Los estudiantes la entregan desde el Hall con archivos, fotos o vínculos. También aparece en el Calendar del curso.</ThemedText>
+      <ThemedText style={styles.lead}>Tus estudiantes la entregan en el Hall. También aparece en el Calendar del curso.</ThemedText>
 
       <View style={styles.field}>
         <ThemedText style={styles.label}>Nombre</ThemedText>
