@@ -3,7 +3,7 @@ const crypto = require("node:crypto");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
-const { RESEND_API_KEY, sendEmail, magicLinkEmail, escapeHtml } = require("./email");
+const { RESEND_API_KEY, sendEmail, magicLinkEmail, alreadyLinkedEmail, escapeHtml } = require("./email");
 
 // Identity link by institutional email:
 //   1. startInstitutionalLink   the student names their institutional email
@@ -122,7 +122,24 @@ function build(getAdminApp) {
     });
 
     // The answer is the same whether or not the email is on the roster, so
-    // this cannot be used to find out who studies where.
+    // this cannot be used to find out who studies where. A roster email that
+    // already belongs to another HaNet ID gets a notice instead of silence, so
+    // whoever owns the mailbox knows why no link came.
+    if (person && !available) {
+      const message = alreadyLinkedEmail({
+        institutionName: institution.data().name,
+        institutionLogoUrl: institution.data().branding?.logoUrl || null,
+        institutionBannerUrl: institution.data().branding?.bannerUrl || null,
+        institutionalEmail: email,
+      });
+      try {
+        await sendEmail({ to: email, ...message });
+      } catch (error) {
+        console.error("startInstitutionalLink", error.message);
+        throw new HttpsError("unavailable", "No pudimos enviar el correo. Inténtalo de nuevo en unos minutos.");
+      }
+    }
+
     if (available) {
       const message = magicLinkEmail({
         fullName: account.fullName,
