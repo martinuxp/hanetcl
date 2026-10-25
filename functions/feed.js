@@ -1,7 +1,8 @@
 const { randomUUID } = require("node:crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { getFirestore, FieldValue, FieldPath } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
+const { eventSummary } = require("./events");
 
 // Feed y Comunidad: announcements published by Espacios (group accounts),
 // never by a person. Students only read and react; there are no comments and
@@ -20,6 +21,13 @@ const { getStorage } = require("firebase-admin/storage");
 //     jornada, courseIds }, body, images [{ path, token }], tags, pinned,
 //     reactions { emoji: count }, authorUid, authorName, createdAt, updatedAt
 //   feedPosts/{postId}/reactions/{uid}   { emojis: [] }
+//   feedPosts/{postId}/voters/{uid}      {} — only that this account voted
+// A post can carry an event of HaNet Eventos (eventId) or a poll:
+//   poll { options [{ id, text }], counts { id: n }, total, closesAt,
+//          results: "live" (after voting) | "closed" (when it closes) }
+// Votes are anonymous: nothing stored says what anyone voted. The counts go
+// up and the voter is only marked as having voted, so a vote cannot be
+// changed or taken back, and not even HaNet can tell who chose what.
 //   feedReports/{postId_uid}             a report for the panel's moderation
 // Who wrote a post is kept for moderation only; the app shows the Espacio.
 //
@@ -49,6 +57,16 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const SCAN_LIMIT = 300;
 const PAGE_SIZE = 40;
 const REPORT_REASONS = ["inapropiado", "falso", "acoso", "otro"];
+const EVENTS = "hnEvents";
+// Polls, a module of their own on top of the feed. Directivas de curso do not
+// run them: the school, the CEE and HaNet do.
+const POLLS_MODULE = "polls";
+const POLL_SPACES = ["school", "cee", "hanet"];
+const POLL_MIN_OPTIONS = 2;
+const POLL_MAX_OPTIONS = 6;
+const POLL_OPTION_CHARS = 80;
+const POLL_MIN_MS = 10 * 60 * 1000;
+const POLL_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 
 function calendarDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-calendar");
@@ -108,6 +126,10 @@ async function requireModule(getAdminApp, profile) {
   return institution;
 }
 
+function pollsOn(institution) {
+  return !Array.isArray(institution?.modules) || institution.modules.includes(POLLS_MODULE);
+}
+
 function tagsOf(institution) {
   const custom = Array.isArray(institution?.feed?.tags) ? institution.feed.tags.map(tag => text(tag, 24)).filter(Boolean) : [];
   return custom.length ? custom : DEFAULT_TAGS;
@@ -148,9 +170,26 @@ function reaches(post, profile, jornada) {
   return true;
 }
 
-function postOut(doc, institution, mine, profile) {
+/** A poll as this person sees it: the counts only once they may see them. */
+function pollOut(poll, voted, manager, now = Date.now()) {
+  if (!poll) return null;
+  const closesAt = millis(poll.closesAt);
+  const closed = !closesAt || closesAt <= now;
+  const showResults = closed || manager || (poll.results !== "closed" && voted);
+  return {
+    options: (poll.options || []).map(option => ({ id: option.id, text: option.text, count: showResults ? poll.counts?.[option.id] || 0 : null })),
+    total: showResults ? poll.total || 0 : null,
+    closesAt,
+    closed,
+    results: poll.results === "closed" ? "closed" : "live",
+    voted,
+  };
+}
+
+function postOut(doc, institution, mine, profile, extra = {}) {
   const data = doc.data();
   const reactions = data.reactions || {};
+  const manager = canManage(profile, data);
   return {
     id: doc.id,
     space: spaceOut(data.space, institution, data.courseId),
@@ -162,7 +201,9 @@ function postOut(doc, institution, mine, profile) {
     createdAt: millis(data.createdAt),
     edited: !!data.updatedAt && millis(data.updatedAt) - (millis(data.createdAt) || 0) > 60 * 1000,
     reactions: EMOJIS.filter(emoji => reactions[emoji] > 0).map(emoji => ({ emoji, count: reactions[emoji], mine: mine.includes(emoji) })),
-    canEdit: canManage(profile, data),
+    event: data.eventId ? extra.event || { id: data.eventId, missing: true } : null,
+    poll: pollOut(data.poll, extra.voted === true, manager),
+    canEdit: manager,
     canPin: profile.role === "HNT" || (profile.role === "Admin" && data.space !== "hanet" && data.institutionId === profile.institutionId),
   };
 }
@@ -203,6 +244,30 @@ function cleanAudience(input, space) {
   return { kind: "all" };
 }
 
+/** A new poll from the form, or null when the post has none. */
+function cleanPoll(input, space, institution) {
+  if (!input) return null;
+  if (!POLL_SPACES.includes(space)) throw new HttpsError("permission-denied", "Las votaciones las hacen la administración, el CEE y HaNet.");
+  if (!pollsOn(institution)) throw new HttpsError("failed-precondition", "Las votaciones no están activas en tu institución.");
+  const texts = (Array.isArray(input.options) ? input.options : []).map(option => text(option, POLL_OPTION_CHARS)).filter(Boolean);
+  const unique = [...new Map(texts.map(option => [option.toLocaleLowerCase("es"), option])).values()];
+  if (unique.length < POLL_MIN_OPTIONS) throw new HttpsError("invalid-argument", `Una votación necesita al menos ${POLL_MIN_OPTIONS} opciones distintas.`);
+  if (unique.length > POLL_MAX_OPTIONS) throw new HttpsError("invalid-argument", `Una votación lleva hasta ${POLL_MAX_OPTIONS} opciones.`);
+  const closesAt = Number(input.closesAt);
+  const now = Date.now();
+  if (!Number.isFinite(closesAt) || closesAt < now + POLL_MIN_MS || closesAt > now + POLL_MAX_MS) {
+    throw new HttpsError("invalid-argument", "La votación cierra entre 10 minutos y 30 días desde ahora.");
+  }
+  const options = unique.map((option, index) => ({ id: `o${index + 1}`, text: option }));
+  return {
+    options,
+    counts: Object.fromEntries(options.map(option => [option.id, 0])),
+    total: 0,
+    closesAt: Timestamp.fromMillis(Math.round(closesAt)),
+    results: input.results === "closed" ? "closed" : "live",
+  };
+}
+
 function build(getAdminApp) {
   const listFeed = onCall({ invoker: "public" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
@@ -221,22 +286,33 @@ function build(getAdminApp) {
     const ordered = [...docs.filter(doc => doc.data().pinned === true), ...docs.filter(doc => doc.data().pinned !== true)].slice(0, PAGE_SIZE);
 
     const db = calendarDb(getAdminApp);
-    const [institution, mine] = await Promise.all([
+    const polls = ordered.filter(doc => doc.data().poll);
+    const eventIds = [...new Set(ordered.map(doc => doc.data().eventId).filter(Boolean))];
+    const [institution, mine, votes, events] = await Promise.all([
       requireModule(getAdminApp, profile),
       ordered.length ? db.getAll(...ordered.map(doc => doc.ref.collection("reactions").doc(profile.uid))) : [],
+      polls.length ? db.getAll(...polls.map(doc => doc.ref.collection("voters").doc(profile.uid))) : [],
+      eventIds.length ? db.getAll(...eventIds.map(id => db.collection(EVENTS).doc(id))) : [],
     ]);
+    const voted = new Set(votes.filter(doc => doc.exists).map(doc => doc.ref.parent.parent.id));
+    const eventById = new Map(events.map(doc => [doc.id, eventSummary(doc, profile.institutionId)]));
 
     const spaces = [spaceOut("school", institution), spaceOut("cee", institution)];
     if (profile.courseId) spaces.push(spaceOut("course", institution, profile.courseId));
     spaces.push(spaceOut("hanet", institution));
 
     return {
-      posts: ordered.map((doc, index) => postOut(doc, institution, mine[index]?.data()?.emojis || [], profile)),
+      posts: ordered.map((doc, index) => postOut(doc, institution, mine[index]?.data()?.emojis || [], profile, {
+        voted: voted.has(doc.id),
+        event: doc.data().eventId ? eventById.get(doc.data().eventId) || undefined : undefined,
+      })),
       spaces,
       publishAs: spacesFor(profile).map(space => spaceOut(space, institution, profile.courseId)),
       tags: tagsOf(institution),
       emojis: EMOJIS,
       institutionName: institution.name || "",
+      // Where this person may run a poll.
+      pollSpaces: pollsOn(institution) ? spacesFor(profile).filter(space => POLL_SPACES.includes(space)) : [],
     };
   });
 
@@ -264,7 +340,19 @@ function build(getAdminApp) {
     const kept = (previous?.images || []).filter(image => keep.has(storageUrl(image.path, image.token)));
     const uploads = (Array.isArray(input.uploadPaths) ? input.uploadPaths : []).filter(value => typeof value === "string");
     if (kept.length + uploads.length > MAX_IMAGES) throw new HttpsError("invalid-argument", `Una publicación lleva hasta ${MAX_IMAGES} imágenes.`);
-    if (!body && !kept.length && !uploads.length) throw new HttpsError("invalid-argument", "Escribe algo o agrega una imagen.");
+
+    // The event and the poll are set when the post is created and stay as they are.
+    const eventId = previous ? previous.eventId || null : postId(input.eventId);
+    if (!previous && eventId) {
+      const summary = eventSummary(await calendarDb(getAdminApp).collection(EVENTS).doc(eventId).get(), profile.institutionId);
+      if (!summary) throw new HttpsError("not-found", "Ese evento ya no está disponible.");
+      if (space === "hanet" && summary.kind === "institution") throw new HttpsError("invalid-argument", "HaNet comparte solo eventos de la ciudad.");
+    }
+    const poll = previous ? null : cleanPoll(input.poll, space, institution);
+    if (!body && !kept.length && !uploads.length && !eventId && !poll && !previous?.poll) {
+      throw new HttpsError("invalid-argument", "Escribe algo o agrega una imagen.");
+    }
+    if (poll && !body) throw new HttpsError("invalid-argument", "Escribe la pregunta de la votación.");
 
     const ref = previous ? posts.doc(existingId) : posts.doc();
     const moved = [];
@@ -291,6 +379,8 @@ function build(getAdminApp) {
         space,
         institutionId: space === "hanet" ? null : profile.institutionId,
         courseId: space === "course" ? profile.courseId : null,
+        eventId: eventId || null,
+        ...(poll ? { poll } : {}),
         reactions: {},
         authorUid: profile.uid,
         authorName: text(profile.name, 80),
@@ -309,8 +399,8 @@ function build(getAdminApp) {
     const data = (await ref.get()).data();
     if (!data) return { ok: true };
     if (!canManage(profile, data)) throw new HttpsError("permission-denied", "No puedes eliminar esta publicación.");
-    const reactions = await ref.collection("reactions").get();
-    await Promise.all(reactions.docs.map(doc => doc.ref.delete()));
+    const [reactions, voters] = await Promise.all([ref.collection("reactions").get(), ref.collection("voters").get()]);
+    await Promise.all([...reactions.docs, ...voters.docs].map(doc => doc.ref.delete()));
     const bucket = getStorage(getAdminApp()).bucket(BUCKET);
     await Promise.all((data.images || []).map(image => bucket.file(image.path).delete({ ignoreNotFound: true })));
     await ref.delete();
@@ -341,6 +431,33 @@ function build(getAdminApp) {
       else tx.delete(mineRef);
       return { emoji, count, mine: !had };
     });
+  });
+
+  // One anonymous vote per account: the option's count goes up and the
+  // account is marked as having voted, with nothing that says what it chose.
+  const voteFeedPoll = onCall({ invoker: "public" }, async (request) => {
+    const profile = await requireProfile(getAdminApp, request);
+    await requireModule(getAdminApp, profile);
+    const id = postId(request.data?.id);
+    const option = typeof request.data?.option === "string" ? request.data.option : "";
+    if (!id || !option) throw new HttpsError("invalid-argument", "Elige una opción.");
+    const account = (await identityDb(getAdminApp).collection("accounts").doc(profile.uid).get()).data() || {};
+    const jornada = ["manana", "tarde"].includes(account.jornada) ? account.jornada : null;
+    const db = calendarDb(getAdminApp);
+    const ref = db.collection(POSTS).doc(id);
+    const poll = await db.runTransaction(async (tx) => {
+      const post = (await tx.get(ref)).data();
+      if (!post?.poll || !reaches(post, profile, jornada)) throw new HttpsError("not-found", "Esa votación ya no está disponible.");
+      if ((millis(post.poll.closesAt) || 0) <= Date.now()) throw new HttpsError("failed-precondition", "Esta votación ya cerró.");
+      if (!post.poll.options.some(item => item.id === option)) throw new HttpsError("invalid-argument", "Esa opción no existe.");
+      const voterRef = ref.collection("voters").doc(profile.uid);
+      if ((await tx.get(voterRef)).exists) throw new HttpsError("already-exists", "Ya votaste en esta votación.");
+      tx.set(voterRef, {});
+      tx.update(ref, { [`poll.counts.${option}`]: FieldValue.increment(1), "poll.total": FieldValue.increment(1) });
+      const counts = { ...post.poll.counts, [option]: (post.poll.counts?.[option] || 0) + 1 };
+      return { ...post.poll, counts, total: (post.poll.total || 0) + 1, manager: canManage(profile, post) };
+    });
+    return pollOut(poll, true, poll.manager);
   });
 
   // Fixes a school post at the top, or lets it go.
@@ -381,7 +498,7 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
-  return { listFeed, saveFeedPost, deleteFeedPost, toggleFeedReaction, setFeedPostPinned, reportFeedPost };
+  return { listFeed, saveFeedPost, deleteFeedPost, toggleFeedReaction, voteFeedPoll, setFeedPostPinned, reportFeedPost };
 }
 
 module.exports = { build };

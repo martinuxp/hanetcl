@@ -1,3 +1,4 @@
+import { FeedEventCard, FeedPollView } from '@/components/feed/feed-attachments';
 import { FeedMarkdown } from '@/components/feed/feed-markdown';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -110,6 +111,79 @@ export function FeedCarousel({ images, width }: { images: string[]; width: numbe
   );
 }
 
+type Reaction = { emoji: string; count: number; mine: boolean };
+
+/** The reaction chips with their counts and the button that opens the picker. */
+export function ReactionChips({ reactions, busyEmoji, open, onToggleOpen, onReact }: {
+  reactions: Reaction[];
+  busyEmoji?: string | null;
+  open: boolean;
+  onToggleOpen: () => void;
+  onReact: (emoji: string) => void;
+}) {
+  return (
+    <>
+      {reactions.map(reaction => (
+        <Pressable
+          key={reaction.emoji}
+          accessibilityRole="button"
+          accessibilityState={{ selected: reaction.mine, busy: busyEmoji === reaction.emoji }}
+          accessibilityLabel={`${EMOJI_NAMES[reaction.emoji] ?? reaction.emoji}, ${reaction.count}${reaction.mine ? ', reaccionaste' : ''}`}
+          disabled={!!busyEmoji}
+          onPress={() => onReact(reaction.emoji)}
+          style={({ pressed }) => [styles.chip, reaction.mine && styles.chipMine, pressed && AppPressed]}
+        >
+          <ThemedText maxFontSizeMultiplier={1.2} style={styles.chipEmoji}>{reaction.emoji}</ThemedText>
+          <ThemedText maxFontSizeMultiplier={1.2} style={[styles.chipCount, reaction.mine && styles.chipCountMine]}>{reaction.count}</ThemedText>
+        </Pressable>
+      ))}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={open ? 'Cerrar las reacciones' : 'Agregar una reacción'}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggleOpen}
+        style={({ pressed }) => [styles.iconButton, open && styles.iconButtonOpen, pressed && AppPressed]}
+      >
+        <CustomIcon name="smile-plus" size={23} color={AppColors.textSecondary} />
+      </Pressable>
+    </>
+  );
+}
+
+/** The closed set of emojis, under the chips while it is open. */
+export function ReactionPicker({ emojis, reactions, busyEmoji, onReact }: {
+  emojis: string[];
+  reactions: Reaction[];
+  busyEmoji?: string | null;
+  onReact: (emoji: string) => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+      <Animated.View
+        entering={reduceMotion ? undefined : FadeIn.duration(120)}
+        exiting={reduceMotion ? undefined : FadeOut.duration(100)}
+        style={styles.picker}
+      >
+        {emojis.map(emoji => {
+          const mine = reactions.some(reaction => reaction.emoji === emoji && reaction.mine);
+          return (
+            <Pressable
+              key={emoji}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mine }}
+              accessibilityLabel={`${EMOJI_NAMES[emoji] ?? emoji}${mine ? ', quitar tu reacción' : ''}`}
+              disabled={!!busyEmoji}
+              onPress={() => onReact(emoji)}
+              style={({ pressed }) => [styles.pickerItem, mine && styles.pickerItemMine, pressed && AppPressed]}
+            >
+              <ThemedText maxFontSizeMultiplier={1} style={styles.pickerEmoji}>{emoji}</ThemedText>
+            </Pressable>
+          );
+        })}
+      </Animated.View>
+  );
+}
+
 // Long posts open folded, as in Substack's notes.
 const FOLD_CHARS = 360;
 
@@ -127,13 +201,15 @@ type PostProps = {
   width: number;
   now: number;
   busyEmoji?: string | null;
+  votingPoll?: boolean;
   onReact: (emoji: string) => void;
+  onVote: (option: string) => void;
+  onOpenEvent: (id: string) => void;
   onMore: () => void;
   onShare: () => void;
 };
 
-export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onMore, onShare }: PostProps) {
-  const reduceMotion = useReducedMotion();
+export function FeedPostView({ post, emojis, width, now, busyEmoji, votingPoll = false, onReact, onVote, onOpenEvent, onMore, onShare }: PostProps) {
   const [picker, setPicker] = useState(false);
   const long = post.body.length > FOLD_CHARS;
   const [expanded, setExpanded] = useState(false);
@@ -175,7 +251,11 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onM
         </View>
       )}
 
+      {!!post.poll && <FeedPollView poll={post.poll} now={now} busy={votingPoll} onVote={onVote} />}
+
       <FeedCarousel images={post.images} width={width} />
+
+      {!!post.event && <FeedEventCard event={post.event} onPress={post.event.missing ? undefined : () => onOpenEvent(post.event!.id)} />}
 
       {post.tags.length > 0 && (
         <View style={styles.tags}>
@@ -184,29 +264,7 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onM
       )}
 
       <View style={styles.actions}>
-        {post.reactions.map(reaction => (
-          <Pressable
-            key={reaction.emoji}
-            accessibilityRole="button"
-            accessibilityState={{ selected: reaction.mine, busy: busyEmoji === reaction.emoji }}
-            accessibilityLabel={`${EMOJI_NAMES[reaction.emoji] ?? reaction.emoji}, ${reaction.count}${reaction.mine ? ', reaccionaste' : ''}`}
-            disabled={!!busyEmoji}
-            onPress={() => react(reaction.emoji)}
-            style={({ pressed }) => [styles.chip, reaction.mine && styles.chipMine, pressed && AppPressed]}
-          >
-            <ThemedText maxFontSizeMultiplier={1.2} style={styles.chipEmoji}>{reaction.emoji}</ThemedText>
-            <ThemedText maxFontSizeMultiplier={1.2} style={[styles.chipCount, reaction.mine && styles.chipCountMine]}>{reaction.count}</ThemedText>
-          </Pressable>
-        ))}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={picker ? 'Cerrar las reacciones' : 'Agregar una reacción'}
-          accessibilityState={{ expanded: picker }}
-          onPress={() => setPicker(value => !value)}
-          style={({ pressed }) => [styles.iconButton, picker && styles.iconButtonOpen, pressed && AppPressed]}
-        >
-          <CustomIcon name="smile-plus" size={23} color={AppColors.textSecondary} />
-        </Pressable>
+        <ReactionChips reactions={post.reactions} busyEmoji={busyEmoji} open={picker} onToggleOpen={() => setPicker(value => !value)} onReact={react} />
         <View style={styles.spacer} />
         <Pressable accessibilityRole="button" accessibilityLabel="Más opciones" onPress={onMore} style={({ pressed }) => [styles.iconButton, pressed && AppPressed]}>
           <CustomIcon name="more" size={22} color={AppColors.textSecondary} />
@@ -216,30 +274,7 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, onReact, onM
         </Pressable>
       </View>
 
-      {picker && (
-        <Animated.View
-          entering={reduceMotion ? undefined : FadeIn.duration(120)}
-          exiting={reduceMotion ? undefined : FadeOut.duration(100)}
-          style={styles.picker}
-        >
-          {emojis.map(emoji => {
-            const mine = post.reactions.some(reaction => reaction.emoji === emoji && reaction.mine);
-            return (
-              <Pressable
-                key={emoji}
-                accessibilityRole="button"
-                accessibilityState={{ selected: mine }}
-                accessibilityLabel={`${EMOJI_NAMES[emoji] ?? emoji}${mine ? ', quitar tu reacción' : ''}`}
-                disabled={!!busyEmoji}
-                onPress={() => react(emoji)}
-                style={({ pressed }) => [styles.pickerItem, mine && styles.pickerItemMine, pressed && AppPressed]}
-              >
-                <ThemedText maxFontSizeMultiplier={1} style={styles.pickerEmoji}>{emoji}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </Animated.View>
-      )}
+      {picker && <ReactionPicker emojis={emojis} reactions={post.reactions} busyEmoji={busyEmoji} onReact={react} />}
     </View>
   );
 }

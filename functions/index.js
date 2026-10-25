@@ -42,6 +42,12 @@ Object.assign(exports, require("./feed").build(getAdminApp));
 // Push notifications: devices register their token here.
 Object.assign(exports, require("./classhall-notify").build(getAdminApp));
 
+// The changing code of the HN-QR, for check-in at events.
+Object.assign(exports, require("./hanet-id").build(getAdminApp));
+
+// The course's timetable and the 7:00 summary.
+Object.assign(exports, require("./schedule").build(getAdminApp));
+
 // Data for the profile screen.
 Object.assign(exports, require("./profile").build(getAdminApp));
 

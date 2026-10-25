@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { DarkTheme, Stack, ThemeProvider, usePathname, useRootNavigationState, useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +17,7 @@ import { useSession } from '@/services/auth-service';
 import { useLaunchContentReady } from '@/services/launch-ready';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
 import { listenToNotificationTaps, registerDevice } from '@/services/push-service';
+import { refreshDayWidgets } from '@/services/day-sync';
 
 // The only screens reachable without an account. Everyone starts at the
 // onboarding, and signing out goes back to it.
@@ -143,6 +144,17 @@ export default function RootLayout() {
     return listenToNotificationTaps(url => router.push(url as Href));
   }, [navigationReady, routed, router, user]);
 
+  // The widget, the evaluation reminders and the Live Activity follow the
+  // course's timetable and Calendar: refreshed on opening and on coming back.
+  useEffect(() => {
+    if (!user || !routed) return;
+    void refreshDayWidgets(user);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void refreshDayWidgets(user);
+    });
+    return () => subscription.remove();
+  }, [routed, user]);
+
   // Without an account nothing but the onboarding and sign-in is open: losing
   // the session anywhere (signing out, an expired account) lands on the
   // onboarding.
@@ -172,6 +184,8 @@ export default function RootLayout() {
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
             <Stack.Screen name="event-form" options={sheetOptions([1.0])} />
             <Stack.Screen name="event-options" options={sheetOptions([0.5])} />
+            <Stack.Screen name="event-checkin" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="schedule" options={{ headerShown: false }} />
             <Stack.Screen name="feed-post" options={sheetOptions([1.0])} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />

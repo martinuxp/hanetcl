@@ -18,6 +18,8 @@ export type PushSupport = 'supported' | 'expo-go-android' | 'web';
 export type PushPermission = 'granted' | 'denied' | 'undetermined';
 
 const ANDROID_CHANNEL = 'classhall';
+// The day's summary at 7:00 and the reminders of evaluations (services/exam-reminders.ts).
+export const AGENDA_CHANNEL = 'agenda';
 const PROMPT_DISMISSED_KEY = 'hanet.pushPromptDismissed';
 
 export function pushSupport(): PushSupport {
@@ -28,7 +30,8 @@ export function pushSupport(): PushSupport {
 
 let notificationsModule: NotificationsModule | null = null;
 
-function notifications(): NotificationsModule | null {
+/** The notifications module where it works; null in Expo Go on Android and on the web. */
+export function notifications(): NotificationsModule | null {
   if (pushSupport() !== 'supported') return null;
   if (!notificationsModule) {
     // Loaded here and not at the top, so platforms without push never load it.
@@ -43,11 +46,17 @@ function notifications(): NotificationsModule | null {
 }
 
 // Android needs a channel before it asks for permission (Android 13) or hands out a token.
-async function ensureChannel(module: NotificationsModule) {
+export async function ensureChannel(module: NotificationsModule) {
   if (Platform.OS !== 'android') return;
   await module.setNotificationChannelAsync(ANDROID_CHANNEL, {
     name: 'ClassHall',
     description: 'Anuncios, tareas, material nuevo y recordatorios de entrega.',
+    importance: module.AndroidImportance.HIGH,
+    lightColor: '#EF2274',
+  });
+  await module.setNotificationChannelAsync(AGENDA_CHANNEL, {
+    name: 'Tu día y tus pruebas',
+    description: 'El resumen de las 7:00 y los avisos 24 y 4 horas antes de cada prueba.',
     importance: module.AndroidImportance.HIGH,
     lightColor: '#EF2274',
   });
@@ -108,8 +117,8 @@ export function listenToNotificationTaps(open: (url: string) => void) {
   if (!module) return () => {};
   const handle = (data: unknown) => {
     const url = (data as { url?: unknown } | undefined)?.url;
-    // Only ClassHall's own screens.
-    if (typeof url === 'string' && /^\/classhall\/(hall|task)\?[A-Za-z0-9_=&-]+$/.test(url)) open(url);
+    // Only HaNet's own screens: ClassHall, the timetable and the Calendar's events.
+    if (typeof url === 'string' && /^\/(classhall\/(hall|task)\?[A-Za-z0-9_=&-]+|schedule|calendar|event-info\?[A-Za-z0-9_=&%-]+)$/.test(url)) open(url);
   };
   void module.getLastNotificationResponseAsync().then(response => {
     if (response) handle(response.notification.request.content.data);
@@ -137,6 +146,11 @@ export async function dismissPushPrompt() {
   } catch {
     // Only a convenience: the card shows again next time.
   }
+}
+
+/** The 7:00 summary's switch, saved with the account. */
+export async function saveMorningNotifications(on: boolean) {
+  await httpsCallable(functions, 'updateMyProfile')({ morningNotifications: on });
 }
 
 /** The ClassHall notifications switch, saved with the account. */

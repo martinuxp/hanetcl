@@ -34,6 +34,13 @@ function build(getAdminApp) {
       return { classhallNotifications: classhall };
     }
 
+    // The switch for the 7:00 summary of the day.
+    if (typeof request.data?.morningNotifications === "boolean") {
+      const morning = request.data.morningNotifications;
+      await accountRef.set({ notifications: { morning } }, { merge: true });
+      return { morningNotifications: morning };
+    }
+
     const nameFont = request.data?.nameFont;
     if (!NAME_FONTS.includes(nameFont)) {
       throw new HttpsError("invalid-argument", "Esa letra no está disponible.");
@@ -84,6 +91,7 @@ function build(getAdminApp) {
       memberSince: Date.parse(authUser.metadata.creationTime) || null,
       avatarSeed: seed,
       classhallNotifications: account.notifications?.classhall !== false,
+      morningNotifications: account.notifications?.morning !== false,
       jornada: ["manana", "tarde"].includes(account.jornada) ? account.jornada : null,
     };
   });

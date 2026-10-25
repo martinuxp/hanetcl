@@ -409,11 +409,18 @@ export default function CalendarScreen() {
               <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
               <CustomIcon name="calendar" size={16} color={AppColors.textSecondary} />
             </Pressable>
-            {!isTodaySelected && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
-              </Pressable>
-            )}
+            <View style={styles.headerLinks}>
+              {!isTodaySelected && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+                </Pressable>
+              )}
+              {!!user && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Ver el horario del curso" hitSlop={10} onPress={() => router.push('/schedule')} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>Horario</ThemedText>
+                </Pressable>
+              )}
+            </View>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
             <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
