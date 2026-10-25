@@ -1,8 +1,9 @@
 const { randomUUID } = require("node:crypto");
 const { Buffer } = require("node:buffer");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
+const { readIdQr } = require("./hanet-id");
 
 // HaNet Eventos. Two kinds, in hn-calendar's `hnEvents` collection (closed
 // to the app; only these functions read and write it):
@@ -12,6 +13,10 @@ const { getStorage } = require("firebase-admin/storage");
 //     by CEE, Admin or HNT for their institution and a jornada.
 // Sign-ups live in hnEvents/{id}/signups/{uid}. With signupMode "list" the
 // organizers see who signed up; with "count" only how many are going.
+// Reactions, the feed's closed set of emojis: counts in `reactions` and each
+// person's in hnEvents/{id}/reactions/{uid}. At an institution event the
+// organizers scan the attendees' HN-QR (functions/hanet-id.js) and each
+// arrival is kept in hnEvents/{id}/checkins/{uid}.
 //
 // HaNet shows these events; it does not sell tickets or run them.
 
@@ -24,6 +29,11 @@ const JORNADAS = ["manana", "tarde", "ambas"];
 const SIGNUP_MODES = ["list", "count", "none"];
 const CATEGORIES = ["music", "concert", "exhibition", "sports", "theatre", "family", "academic", "community", "other"];
 const MAX_LISTED = 60;
+// The same closed set of reactions as the feed (functions/feed.js).
+const EMOJIS = ["👍", "❤️", "😂", "🎉", "😮", "🔥", "👏"];
+// Check-in opens a while before the event starts and closes a day after it ends.
+const CHECKIN_OPENS_MS = 3 * 60 * 60 * 1000;
+const CHECKIN_CLOSES_MS = 24 * 60 * 60 * 1000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 // Photos of the event or the venue, under the buy button.
 const MAX_GALLERY = 6;
@@ -147,8 +157,45 @@ function eventOut(doc, extra = {}) {
     signupMode: data.signupMode || "none",
     capacity: typeof data.capacity === "number" ? data.capacity : null,
     authorName: data.authorName || "",
+    reactions: EMOJIS.filter(emoji => data.reactions?.[emoji] > 0).map(emoji => ({ emoji, count: data.reactions[emoji], mine: false })),
     ...extra,
   };
+}
+
+/** Marks the reactions this person gave. */
+function withMine(reactions, mine) {
+  return reactions.map(reaction => ({ ...reaction, mine: mine.includes(reaction.emoji) }));
+}
+
+/** Whether this person can see the event at all. */
+function visibleTo(data, profile, editor) {
+  if (!data) return false;
+  if (data.kind === "institution" && data.institutionId !== profile.institutionId) return false;
+  return data.status === "published" || editor;
+}
+
+/** What a feed post shows of an event it shares; null when the event is not there for this person. */
+function eventSummary(doc, institutionId) {
+  const data = doc.exists ? doc.data() : null;
+  if (!data || data.status !== "published") return null;
+  if (data.kind === "institution" && data.institutionId !== institutionId) return null;
+  return {
+    id: doc.id,
+    kind: data.kind,
+    title: data.title,
+    startsAt: millis(data.startsAt),
+    endsAt: millis(data.endsAt),
+    imageUrl: imageUrl(data),
+    venueName: data.venueName || "",
+    city: data.city || "",
+    palette: data.palette?.source && data.palette.source === imageUrl(data) ? data.palette.colors : [],
+  };
+}
+
+function checkinOpen(data, now = Date.now()) {
+  const start = millis(data.startsAt) || 0;
+  const end = millis(data.endsAt) || start;
+  return now >= start - CHECKIN_OPENS_MS && now <= end + CHECKIN_CLOSES_MS;
 }
 
 // How it stands for the caller: whether they signed up and how many did.
@@ -387,10 +434,11 @@ function build(getAdminApp) {
     const [profile, doc] = await Promise.all([requireProfile(getAdminApp, request), ref.get()]);
     const data = doc.data();
     const editor = data ? canEdit(profile, data) : false;
-    if (!data || (data.kind === "institution" && data.institutionId !== profile.institutionId) || (data.status !== "published" && !editor)) {
+    if (!visibleTo(data, profile, editor)) {
       throw new HttpsError("not-found", "Ese evento ya no está disponible.");
     }
-    const extra = { canEdit: editor };
+    const mine = (await ref.collection("reactions").doc(profile.uid).get()).data()?.emojis || [];
+    const extra = { canEdit: editor, emojis: EMOJIS };
     // The cover's colors are read when the event is saved; events saved
     // before that get them here, once.
     const cover = imageUrl(data);
@@ -406,7 +454,17 @@ function build(getAdminApp) {
         extra.signups = signups.docs.map(item => ({ name: item.data().name, courseId: item.data().courseId || "", createdAt: millis(item.data().createdAt) }));
       }
     }
-    return eventOut(doc, extra);
+    if (data.kind === "institution") {
+      if (editor) {
+        const checkins = await ref.collection("checkins").orderBy("at", "desc").limit(500).get();
+        extra.checkins = checkins.docs.map(item => ({ name: item.data().name, courseId: item.data().courseId || "", at: millis(item.data().at) }));
+        extra.canCheckIn = checkinOpen(data);
+      } else {
+        extra.checkedIn = (await ref.collection("checkins").doc(profile.uid).get()).exists;
+      }
+    }
+    const out = eventOut(doc, extra);
+    return { ...out, reactions: withMine(out.reactions, mine) };
   });
 
   const saveEvent = onCall({ invoker: "public" }, async (request) => {
@@ -533,8 +591,8 @@ function build(getAdminApp) {
     const data = (await ref.get()).data();
     if (!data) return { ok: true };
     if (!canEdit(profile, data)) throw new HttpsError("permission-denied", "No puedes eliminar este evento.");
-    const signups = await ref.collection("signups").get();
-    await Promise.all(signups.docs.map(doc => doc.ref.delete()));
+    const children = await Promise.all(["signups", "reactions", "checkins"].map(name => ref.collection(name).get()));
+    await Promise.all(children.flatMap(snapshot => snapshot.docs).map(doc => doc.ref.delete()));
     const bucket = getStorage(getAdminApp()).bucket(BUCKET);
     const files = [data.imagePath, ...(data.gallery || []).map(item => item.path)].filter(Boolean);
     await Promise.all(files.map(path => bucket.file(path).delete({ ignoreNotFound: true })));
@@ -576,6 +634,63 @@ function build(getAdminApp) {
       return true;
     });
     return { signedUp, ...(await withSignups(ref, profile.uid)) };
+  });
+
+  // Adds or takes back one of the caller's reactions to an event.
+  const toggleEventReaction = onCall({ invoker: "public" }, async (request) => {
+    const profile = await requireProfile(getAdminApp, request);
+    const id = eventId(request.data?.id);
+    const emoji = request.data?.emoji;
+    if (!id || !EMOJIS.includes(emoji)) throw new HttpsError("invalid-argument", "Esa reacción no existe.");
+    const db = calendarDb(getAdminApp);
+    const ref = db.collection(COLLECTION).doc(id);
+    return db.runTransaction(async (tx) => {
+      const event = (await tx.get(ref)).data();
+      if (!event || event.status !== "published" || !visibleTo(event, profile, false)) throw new HttpsError("not-found", "Ese evento ya no está disponible.");
+      const mineRef = ref.collection("reactions").doc(profile.uid);
+      const current = (await tx.get(mineRef)).data()?.emojis || [];
+      const had = current.includes(emoji);
+      const emojis = had ? current.filter(item => item !== emoji) : [...current, emoji];
+      const count = Math.max(0, (event.reactions?.[emoji] || 0) + (had ? -1 : 1));
+      tx.update(ref, new FieldPath("reactions", emoji), count);
+      if (emojis.length) tx.set(mineRef, { emojis, updatedAt: FieldValue.serverTimestamp() });
+      else tx.delete(mineRef);
+      return { emoji, count, mine: !had };
+    });
+  });
+
+  // An organizer scans an attendee's HN-QR at the door. Only people of the
+  // event's institution count; scanning someone twice is harmless.
+  const checkInEventAttendee = onCall({ invoker: "public" }, async (request) => {
+    const profile = await requireProfile(getAdminApp, request);
+    const id = eventId(request.data?.id);
+    if (!id) throw new HttpsError("invalid-argument", "Falta el evento.");
+    const ref = calendarDb(getAdminApp).collection(COLLECTION).doc(id);
+    const event = (await ref.get()).data();
+    if (!event || event.kind !== "institution" || !canEdit(profile, event)) {
+      throw new HttpsError("permission-denied", "Solo quienes organizan el evento pasan lista.");
+    }
+    if (!checkinOpen(event)) throw new HttpsError("failed-precondition", "La lista se abre 3 horas antes del evento y se cierra un día después.");
+
+    const uid = await readIdQr(getAdminApp, request.data?.qr);
+    const person = (await identityDb(getAdminApp).collection("users").doc(uid).get()).data();
+    if (!person || person.institutionId !== event.institutionId) {
+      throw new HttpsError("failed-precondition", "Esa persona no es de tu institución.");
+    }
+    const name = await displayName(getAdminApp, { ...person, uid });
+    const checkinRef = ref.collection("checkins").doc(uid);
+    const [previous, signup] = await Promise.all([checkinRef.get(), ref.collection("signups").doc(uid).get()]);
+    if (!previous.exists) {
+      await checkinRef.set({ uid, name, courseId: person.courseId || "", at: FieldValue.serverTimestamp(), byUid: profile.uid });
+    }
+    const count = (await ref.collection("checkins").count().get()).data().count;
+    return {
+      name,
+      courseId: person.courseId || "",
+      already: previous.exists,
+      signedUp: event.signupMode === "none" ? null : signup.exists,
+      count,
+    };
   });
 
   // Panel HNT: reads a ticketing page and returns a draft for the form.
@@ -623,7 +738,7 @@ function build(getAdminApp) {
     return { ...fields, ticketUrl, sourceName, sourceUrl: url.toString(), typeLabel: typeLabel || "", warnings, testOnly };
   });
 
-  return { listEvents, getEvent, saveEvent, deleteEvent, toggleEventSignup, importEventFromUrl };
+  return { listEvents, getEvent, saveEvent, deleteEvent, toggleEventSignup, toggleEventReaction, checkInEventAttendee, importEventFromUrl };
 }
 
-module.exports = { build, readEventPage };
+module.exports = { build, readEventPage, eventSummary };

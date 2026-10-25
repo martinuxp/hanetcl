@@ -3,7 +3,7 @@
 // This file is automatically picked by the Metro bundler on web (.web.tsx).
 
 import React from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, type ScrollViewInstance } from 'react-native';
 
 // Minimal interface matching what calendar.tsx uses
 interface PagerViewProps {
@@ -16,7 +16,7 @@ interface PagerViewProps {
 
 const PagerViewWeb = React.forwardRef<any, PagerViewProps>(
   ({ style, initialPage = 0, onPageSelected, children }, ref) => {
-    const scrollRef = React.useRef<ScrollView>(null);
+    const scrollRef = React.useRef<ScrollViewInstance>(null);
     const childrenArray = React.Children.toArray(children);
     const [width, setWidth] = React.useState(0);
 

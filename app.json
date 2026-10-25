@@ -60,7 +60,15 @@
         "expo-image-picker",
         {
           "photosPermission": "HaNet usa tus fotos para que puedas entregar tareas y cambiar tu foto de perfil.",
-          "cameraPermission": "HaNet usa la cámara para que fotografíes tus tareas y las entregues en ClassHall."
+          "cameraPermission": "HaNet usa la cámara para que fotografíes tus tareas y para escanear el HN-QR al pasar lista en los eventos."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "HaNet usa la cámara para que fotografíes tus tareas y para escanear el HN-QR al pasar lista en los eventos.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [
@@ -88,6 +96,22 @@
             }
           }
         ]
+      ],
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.art.muxp.hanetcl",
+          "widgets": [
+            {
+              "name": "HaNetHoy",
+              "displayName": "HaNet: tu día",
+              "description": "La clase de ahora, la que sigue y tu próxima prueba.",
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium", "accessoryRectangular"]
+              }
+            }
+          ]
+        }
       ],
       [
         "./plugins/with-ios-alternate-icons",

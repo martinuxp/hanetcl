@@ -2,13 +2,15 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { useEventBar } from '@/components/events/event-bar-store';
 import { markdownToPlain } from '@/components/feed/feed-markdown';
 import { FeedPostView, SpaceTile } from '@/components/feed/feed-ui';
+import { StoryShareSheet, storyShareAvailable } from '@/components/share/story-share';
+import type { StoryItem } from '@/components/share/story-share';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { REPORT_REASONS, deleteFeedPost, listFeed, reportFeedPost, setFeedPostPinned, spaceGroup, toggleFeedReaction } from '@/services/feed-service';
+import { REPORT_REASONS, canShareAsStory, deleteFeedPost, listFeed, reportFeedPost, setFeedPostPinned, spaceGroup, toggleFeedReaction, voteFeedPoll } from '@/services/feed-service';
 import type { Feed, FeedPost } from '@/services/feed-service';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -24,6 +26,7 @@ type Dialog =
   | { kind: 'more'; post: FeedPost }
   | { kind: 'delete'; post: FeedPost }
   | { kind: 'report'; post: FeedPost }
+  | { kind: 'share'; post: FeedPost }
   | null;
 
 export default function FeedScreen() {
@@ -45,6 +48,8 @@ export default function FeedScreen() {
   const [busy, setBusy] = useState<{ id: string; emoji: string } | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [working, setWorking] = useState(false);
+  const [voting, setVoting] = useState<string | null>(null);
+  const [story, setStory] = useState<StoryItem | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
@@ -112,7 +117,28 @@ export default function FeedScreen() {
     }
   };
 
+  const vote = async (post: FeedPost, option: string) => {
+    if (voting) return;
+    setVoting(post.id);
+    setNotice(null);
+    try {
+      const poll = await voteFeedPoll(post.id, option);
+      updatePost(post.id, item => ({ ...item, poll }));
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (voteError) {
+      setNotice(describeAuthError(voteError, 'No pudimos guardar tu voto. Inténtalo nuevamente.'));
+    } finally {
+      setVoting(null);
+    }
+  };
+
+  // The school's and the CEE's posts can also go out as a story image.
   const share = (post: FeedPost) => {
+    if (storyShareAvailable && canShareAsStory(post)) setDialog({ kind: 'share', post });
+    else shareText(post);
+  };
+
+  const shareText = (post: FeedPost) => {
     void Share.share({ message: post.body ? `${post.space.name}: ${markdownToPlain(post.body)}` : post.space.name }).catch(() => undefined);
   };
 
@@ -210,13 +236,16 @@ export default function FeedScreen() {
             width={contentWidth}
             now={now}
             busyEmoji={busy?.id === item.id ? busy.emoji : null}
+            votingPoll={voting === item.id}
             onReact={emoji => void react(item, emoji)}
+            onVote={option => void vote(item, option)}
+            onOpenEvent={eventId => router.push({ pathname: '/event-detail', params: { id: eventId } })}
             onMore={() => setDialog({ kind: 'more', post: item })}
             onShare={() => share(item)}
           />
         )}
         ListHeaderComponent={header}
-        ListEmptyComponent={empty}
+        ListEmptyComponent={empty ?? undefined}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -261,6 +290,21 @@ export default function FeedScreen() {
           <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
+
+      <HanetDialog
+        visible={dialog?.kind === 'share'}
+        onRequestClose={() => setDialog(null)}
+        dismissOnBackdrop
+        title="Compartir publicación"
+      >
+        <View style={styles.dialogButtons}>
+          <HanetButton label="Como historia" variant="primary" onPress={() => { if (current) setStory({ kind: 'post', post: current }); setDialog(null); }} />
+          <HanetButton label="Como texto" variant="surface" onPress={() => { if (current) shareText(current); setDialog(null); }} />
+          <HanetButton label="Cancelar" variant="surface" onPress={() => setDialog(null)} />
+        </View>
+      </HanetDialog>
+
+      <StoryShareSheet item={story} onClose={() => setStory(null)} />
 
       <HanetDialog
         visible={dialog?.kind === 'delete'}

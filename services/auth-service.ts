@@ -128,6 +128,7 @@ export type MyProfile = {
   avatarSeed: string | null;
   /** The ClassHall notifications switch (on unless turned off). */
   classhallNotifications: boolean;
+  morningNotifications: boolean;
 };
 
 export function getMyProfile() {

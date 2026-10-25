@@ -25,6 +25,33 @@ export type FeedAudience =
 
 export type FeedReaction = { emoji: string; count: number; mine: boolean };
 
+/** An event of HaNet Eventos shared in a post; `missing` once it was taken down. */
+export type FeedEvent =
+  | {
+    id: string;
+    kind: 'regional' | 'institution';
+    title: string;
+    startsAt: number;
+    endsAt: number | null;
+    imageUrl: string | null;
+    venueName: string;
+    city: string;
+    palette: string[];
+    missing?: undefined;
+  }
+  | { id: string; missing: true };
+
+/** A poll as this person sees it: counts are null until they may see them. */
+export type FeedPoll = {
+  options: { id: string; text: string; count: number | null }[];
+  total: number | null;
+  closesAt: number | null;
+  closed: boolean;
+  /** "live": results show after voting; "closed": only when it closes. */
+  results: 'live' | 'closed';
+  voted: boolean;
+};
+
 export type FeedPost = {
   id: string;
   space: FeedSpace;
@@ -36,6 +63,8 @@ export type FeedPost = {
   createdAt: number | null;
   edited: boolean;
   reactions: FeedReaction[];
+  event: FeedEvent | null;
+  poll: FeedPoll | null;
   canEdit: boolean;
   canPin: boolean;
 };
@@ -49,12 +78,23 @@ export type Feed = {
   tags: string[];
   emojis: string[];
   institutionName: string;
+  /** The Espacios where this person may run a poll ("school", "cee", "hanet"). */
+  pollSpaces: string[];
 };
 
 /** Images per post and tags per post, as functions/feed.js allows. */
 export const MAX_FEED_IMAGES = 6;
 export const MAX_FEED_TAGS = 3;
 export const MAX_FEED_BODY = 2000;
+/** Options per poll, as functions/feed.js allows. */
+export const MIN_POLL_OPTIONS = 2;
+export const MAX_POLL_OPTIONS = 6;
+export const MAX_POLL_OPTION = 80;
+
+/** Espacios whose posts can be shared as a story: the school's and the CEE's, not a course's. */
+export function canShareAsStory(post: FeedPost) {
+  return ['school', 'cee'].includes(spaceGroup(post.space.key));
+}
 
 export const EMOJI_NAMES: Record<string, string> = {
   '👍': 'Me gusta',
@@ -102,6 +142,9 @@ export type FeedPostInput = {
   uploadPaths?: string[];
   audience?: FeedAudience;
   pinned?: boolean;
+  /** Only when creating: an event to share, or a poll. */
+  eventId?: string;
+  poll?: { options: string[]; closesAt: number; results: 'live' | 'closed' };
 };
 
 export async function saveFeedPost(input: FeedPostInput) {
@@ -116,6 +159,27 @@ export async function deleteFeedPost(id: string) {
 export async function toggleFeedReaction(id: string, emoji: string) {
   const result = await httpsCallable<{ id: string; emoji: string }, FeedReaction>(functions, 'toggleFeedReaction')({ id, emoji });
   return result.data;
+}
+
+/** One anonymous vote; it cannot be changed afterwards. */
+export async function voteFeedPoll(id: string, option: string) {
+  const result = await httpsCallable<{ id: string; option: string }, FeedPoll>(functions, 'voteFeedPoll')({ id, option });
+  return result.data;
+}
+
+/** "Cierra en 3 días", "Cierra hoy a las 18:00" or "Cerró". */
+export function pollClosing(poll: FeedPoll, now = Date.now()) {
+  if (poll.closed || !poll.closesAt || poll.closesAt <= now) return 'Votación cerrada';
+  const hours = (poll.closesAt - now) / 3_600_000;
+  const date = new Date(poll.closesAt);
+  const time = `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (hours < 1) return `Cierra en ${Math.max(1, Math.round(hours * 60))} min`;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((new Date(poll.closesAt).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000);
+  if (days === 0) return `Cierra hoy a las ${time}`;
+  if (days === 1) return `Cierra mañana a las ${time}`;
+  return `Cierra en ${days} días`;
 }
 
 export async function setFeedPostPinned(id: string, pinned: boolean) {

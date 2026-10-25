@@ -9,7 +9,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 import * as Haptics from 'expo-haptics';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
-import { Keyboard, LayoutChangeEvent, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, LayoutChangeEvent, Platform, Pressable, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -173,7 +173,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   const TabBarSurface: React.ComponentType<any> = useLiquidGlass ? GlassView : BlurView;
 
   const open = !!search?.open;
-  const input = React.useRef<TextInput>(null);
+  const input = React.useRef<TextInputInstance>(null);
   const [barWidth, setBarWidth] = React.useState(0);
   const [centerFrame, setCenterFrame] = React.useState({ x: 0, width: 0 });
   const morph = useSharedValue(open ? 1 : 0);

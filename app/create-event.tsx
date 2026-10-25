@@ -1,7 +1,7 @@
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors } from '@/constants/design-tokens';
 import React, { useRef, useState } from 'react';
-import { StyleSheet, View, ScrollView, Platform, TextInput, Pressable, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, View, ScrollView, Platform, TextInput, Pressable, KeyboardAvoidingView, type ScrollViewInstance } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -49,7 +49,7 @@ function CreateEventScreen() {
   const [description, setDescription] = useState((params.description as string) || '');
   const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : nextRoundedTime());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   // Older events may carry another name for the same subject; the form shows the shared one.
   const [subject, setSubject] = useState(() => (params.subject ? subjectName(params.subject as string) : ''));
   const [eventType, setEventType] = useState((params.type as string) || '');

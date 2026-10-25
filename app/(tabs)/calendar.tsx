@@ -1,6 +1,6 @@
 import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, useWindowDimensions, type ScrollViewInstance, type ViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -61,7 +61,7 @@ export default function CalendarScreen() {
   const [selectedPageIndex, setSelectedPageIndex] = useState(todayIndex);
   const pagerRef = useRef<PagerView>(null);
   // Web has no PagerView; the day pages live in a horizontal ScrollView.
-  const webPagerRef = useRef<ScrollView>(null);
+  const webPagerRef = useRef<ScrollViewInstance>(null);
   const { user, initializing } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -88,7 +88,7 @@ export default function CalendarScreen() {
   // `origin` is the tapped point inside the body, where the zoom is anchored.
   const [zoom, setZoom] = useState<{ direction: 'in' | 'out'; origin: [number, number] } | null>(null);
   const zoomMotion = !zoom ? undefined : reduceMotion ? CROSSFADE : zoom.direction === 'out' ? ZOOM_OUT : ZOOM_IN;
-  const bodyRef = useRef<View>(null);
+  const bodyRef = useRef<ViewInstance>(null);
   const bodyFrame = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   // Null right after a zoom (nothing slides). The arrows nudge the new month in
@@ -409,11 +409,18 @@ export default function CalendarScreen() {
               <ThemedText accessibilityRole="header" style={styles.headerTitle}>{currentDayInfo.fullDate}</ThemedText>
               <CustomIcon name="calendar" size={16} color={AppColors.textSecondary} />
             </Pressable>
-            {!isTodaySelected && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
-                <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
-              </Pressable>
-            )}
+            <View style={styles.headerLinks}>
+              {!isTodaySelected && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+                </Pressable>
+              )}
+              {!!user && (
+                <Pressable accessibilityRole="button" accessibilityLabel="Ver el horario del curso" hitSlop={10} onPress={() => router.push('/schedule')} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>Horario</ThemedText>
+                </Pressable>
+              )}
+            </View>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
             <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />

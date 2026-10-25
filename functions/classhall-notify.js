@@ -218,4 +218,4 @@ function build(getAdminApp) {
   return { registerPushToken, unregisterPushToken, adminSendTestPush };
 }
 
-module.exports = { build, notifyHall, hallStudentUids };
+module.exports = { build, notifyHall, hallStudentUids, sendPush };

@@ -60,9 +60,18 @@ export type HnEvent = {
   signupMode: SignupMode;
   capacity: number | null;
   authorName: string;
+  /** The feed's closed set of reactions; `mine` is only known on the detail. */
+  reactions: { emoji: string; count: number; mine: boolean }[];
+  /** The emojis one can react with (on the detail). */
+  emojis?: string[];
   signupCount?: number;
   signedUp?: boolean;
   canEdit?: boolean;
+  /** Organizers: who arrived (scanned at the door), and whether the door is open now. */
+  checkins?: { name: string; courseId: string; at: number | null }[];
+  canCheckIn?: boolean;
+  /** Attendees: whether they were scanned at the door. */
+  checkedIn?: boolean;
   /** Who signed up, for the organizers of an event with a list. */
   signups?: { name: string; courseId: string; createdAt: number | null }[];
 };
@@ -98,7 +107,7 @@ export async function getEvent(id: string) {
   return event;
 }
 
-export type EventInput = Partial<Omit<HnEvent, 'signupCount' | 'signedUp' | 'canEdit' | 'signups'>> & {
+export type EventInput = Partial<Omit<HnEvent, 'signupCount' | 'signedUp' | 'canEdit' | 'signups' | 'reactions' | 'emojis' | 'checkins' | 'canCheckIn' | 'checkedIn'>> & {
   kind: EventKind;
   title: string;
   startsAt: number;
@@ -121,6 +130,19 @@ export async function deleteEvent(id: string) {
 
 export async function toggleEventSignup(id: string) {
   const result = await httpsCallable<{ id: string }, { signedUp: boolean; signupCount: number }>(functions, 'toggleEventSignup')({ id });
+  return result.data;
+}
+
+export async function toggleEventReaction(id: string, emoji: string) {
+  const result = await httpsCallable<{ id: string; emoji: string }, { emoji: string; count: number; mine: boolean }>(functions, 'toggleEventReaction')({ id, emoji });
+  return result.data;
+}
+
+export type CheckIn = { name: string; courseId: string; already: boolean; signedUp: boolean | null; count: number };
+
+/** An organizer checks someone in with the HN-QR they scanned. */
+export async function checkInEventAttendee(id: string, qr: string) {
+  const result = await httpsCallable<{ id: string; qr: string }, CheckIn>(functions, 'checkInEventAttendee')({ id, qr });
   return result.data;
 }
 

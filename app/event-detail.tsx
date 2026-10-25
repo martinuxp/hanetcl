@@ -2,14 +2,16 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { EventDetailSkeleton } from '@/components/skeletons';
 import { eventBar } from '@/components/events/event-bar-store';
 import { EventGlow } from '@/components/events/event-glow';
+import { ReactionChips, ReactionPicker } from '@/components/feed/feed-ui';
+import { StoryShareSheet, storyShareAvailable } from '@/components/share/story-share';
 import { EVENTS_DISCLAIMER, HNE_ICONS, priceLabel } from '@/components/events/event-ui';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
-import { describeAuthError, useSession } from '@/services/auth-service';
-import { JORNADA_LABELS, deleteEvent, eventSoon, eventWhen, getEvent, getLoadedEvent, toggleEventSignup } from '@/services/events-service';
+import { describeAuthError, useRole, useSession } from '@/services/auth-service';
+import { JORNADA_LABELS, deleteEvent, eventSoon, eventWhen, getEvent, getLoadedEvent, toggleEventReaction, toggleEventSignup } from '@/services/events-service';
 import type { HnEvent } from '@/services/events-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -17,7 +19,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function openLink(url: string) {
@@ -28,6 +30,9 @@ function openMaps(event: HnEvent) {
   const query = encodeURIComponent([event.venueName, event.address, event.city].filter(Boolean).join(', '));
   void Linking.openURL(Platform.OS === 'ios' ? `https://maps.apple.com/?q=${query}` : `https://www.google.com/maps/search/?api=1&query=${query}`);
 }
+
+// Roles with an Espacio in the feed (functions/feed.js).
+const FEED_PUBLISHERS = ['Admin', 'CEE', 'Directiva', 'HNT'];
 
 function shareEvent(event: HnEvent) {
   const link = event.ticketUrl || event.sourceUrl;
@@ -47,7 +52,7 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const insets = useSafeAreaInsets();
 
   const [loadedEvent, setEvent] = useState<HnEvent | null>(() => (id ? getLoadedEvent(id) : null));
@@ -59,6 +64,11 @@ export default function EventDetailScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [now] = useState(() => Date.now());
+  const role = useRole();
+  const [sharing, setSharing] = useState(false);
+  const [story, setStory] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const [busyEmoji, setBusyEmoji] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -95,6 +105,36 @@ export default function EventDetailScreen() {
       setActionError(describeAuthError(signupError, 'No pudimos guardar tu inscripción.'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const react = async (emoji: string) => {
+    if (!event || busyEmoji) return;
+    setPicker(false);
+    setBusyEmoji(emoji);
+    setActionError(null);
+    const before = event.reactions ?? [];
+    const order = (list: HnEvent['reactions']) => (event.emojis ?? []).map(item => list.find(reaction => reaction.emoji === item)).filter((reaction): reaction is HnEvent['reactions'][number] => !!reaction && reaction.count > 0);
+    const had = before.find(reaction => reaction.emoji === emoji);
+    // Shows the change at once and settles on what the backend counted.
+    const guess = had
+      ? before.map(reaction => (reaction.emoji === emoji ? { ...reaction, count: reaction.count + (reaction.mine ? -1 : 1), mine: !reaction.mine } : reaction))
+      : [...before, { emoji, count: 1, mine: true }];
+    setEvent(current => current && { ...current, reactions: order(guess) });
+    if (Platform.OS !== 'web') void Haptics.selectionAsync();
+    try {
+      const result = await toggleEventReaction(event.id, emoji);
+      setEvent(current => current && {
+        ...current,
+        reactions: order((current.reactions ?? []).some(reaction => reaction.emoji === emoji)
+          ? (current.reactions ?? []).map(reaction => (reaction.emoji === emoji ? result : reaction))
+          : [...(current.reactions ?? []), result]),
+      });
+    } catch (reactError) {
+      setEvent(current => current && { ...current, reactions: before });
+      setActionError(describeAuthError(reactError, 'No pudimos guardar tu reacción.'));
+    } finally {
+      setBusyEmoji(null);
     }
   };
 
@@ -135,6 +175,8 @@ export default function EventDetailScreen() {
   const wikipedia = /wikipedia/i.test(event.editorial?.sourceName ?? '') || /wikipedia\.org/.test(event.editorial?.sourceUrl ?? '');
   const hasPlace = !!event.venueName || !!event.address;
   const full = !!event.capacity && (event.signupCount ?? 0) >= event.capacity && !event.signedUp;
+  const canPostToFeed = !!role && FEED_PUBLISHERS.includes(role) && event.status === 'published';
+  const reactions = event.reactions ?? [];
 
   return (
     <View style={styles.container}>
@@ -196,6 +238,19 @@ export default function EventDetailScreen() {
             </ThemedText>
           </View>
         )}
+        {institution && event.checkedIn && <ThemedText style={styles.checkedIn}>Tu llegada quedó registrada</ThemedText>}
+        {institution && event.canEdit && event.canCheckIn && (
+          <HanetButton label="Pasar lista con HN-QR" variant="primary" onPress={() => router.push({ pathname: '/event-checkin', params: { id: event.id } })} style={styles.wide} />
+        )}
+
+        {!!event.emojis?.length && event.status === 'published' && (
+          <View style={styles.reactionsBlock}>
+            <View style={styles.reactions}>
+              <ReactionChips reactions={reactions} busyEmoji={busyEmoji} open={picker} onToggleOpen={() => setPicker(value => !value)} onReact={emoji => void react(emoji)} />
+            </View>
+            {picker && <ReactionPicker emojis={event.emojis} reactions={reactions} busyEmoji={busyEmoji} onReact={emoji => void react(emoji)} />}
+          </View>
+        )}
         {!!actionError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</ThemedText>}
 
         {event.gallery.length > 0 && (
@@ -209,7 +264,7 @@ export default function EventDetailScreen() {
         )}
 
         <View style={styles.options}>
-          <Pressable accessibilityRole="button" onPress={() => shareEvent(event)} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
+          <Pressable accessibilityRole="button" onPress={() => (storyShareAvailable || canPostToFeed ? setSharing(true) : shareEvent(event))} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
             <Image source={HNE_ICONS.arrowUpRight} style={styles.icon18} contentFit="contain" tintColor={AppColors.textPrimary} />
             <ThemedText style={styles.optionLabel}>Compartir</ThemedText>
           </Pressable>
@@ -273,6 +328,21 @@ export default function EventDetailScreen() {
           </>
         )}
 
+        {!!event.checkins && (
+          <>
+            <View style={styles.divider} />
+            <View style={styles.editorial}>
+              <ThemedText style={styles.editorialTitle}>Llegaron ({event.checkins.length})</ThemedText>
+              <ThemedText style={styles.sectionNote}>Escaneados en la entrada. Solo lo ven quienes organizan.</ThemedText>
+              {event.checkins.length === 0
+                ? <ThemedText style={styles.body}>{event.canCheckIn ? 'Todavía no escaneas a nadie.' : 'La lista se abre 3 horas antes del evento.'}</ThemedText>
+                : event.checkins.map((person, index) => (
+                  <ThemedText key={index} style={styles.body}>{index + 1}. {person.name}{person.courseId ? ` · ${person.courseId}` : ''}</ThemedText>
+                ))}
+            </View>
+          </>
+        )}
+
         {event.canEdit && (
           <View style={styles.editRow}>
             <HanetButton label="Editar" variant="surface" onPress={() => router.push({ pathname: '/event-form', params: { kind: event.kind, id: event.id } })} style={dialogStyles.action} />
@@ -285,6 +355,17 @@ export default function EventDetailScreen() {
         </Pressable>
         <ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>
       </ScrollView>
+
+      <HanetDialog visible={sharing} onRequestClose={() => setSharing(false)} dismissOnBackdrop title="Compartir evento">
+        <View style={styles.shareButtons}>
+          {storyShareAvailable && <HanetButton label="Como historia" variant="primary" onPress={() => { setSharing(false); setStory(true); }} />}
+          {canPostToFeed && <HanetButton label="En el Feed" variant="surface" onPress={() => { setSharing(false); router.push({ pathname: '/feed-post', params: { eventId: event.id } }); }} />}
+          <HanetButton label="Enviar link" variant="surface" onPress={() => { setSharing(false); shareEvent(event); }} />
+          <HanetButton label="Cancelar" variant="surface" onPress={() => setSharing(false)} />
+        </View>
+      </HanetDialog>
+
+      <StoryShareSheet item={story ? { kind: 'event', event } : null} onClose={() => setStory(false)} />
 
       <HanetDialog
         visible={confirmDelete}
@@ -611,6 +692,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: AppColors.textPrimary,
+  },
+  reactionsBlock: {
+    alignSelf: 'stretch',
+    gap: AppSpacing.sm,
+  },
+  reactions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: AppSpacing.xs,
+  },
+  checkedIn: {
+    overflow: 'hidden',
+    paddingHorizontal: AppSpacing.lg,
+    paddingVertical: 6,
+    borderRadius: AppRadii.pill,
+    backgroundColor: 'rgba(0, 200, 179, 0.18)',
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.accentMint,
+  },
+  shareButtons: {
+    gap: AppSpacing.sm,
   },
   editRow: {
     alignSelf: 'stretch',

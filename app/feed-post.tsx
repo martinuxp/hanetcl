@@ -1,3 +1,4 @@
+import { FeedEventCard } from '@/components/feed/feed-attachments';
 import { FeedMarkdown } from '@/components/feed/feed-markdown';
 import { SpaceAvatar } from '@/components/feed/feed-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +15,9 @@ import {
   MAX_FEED_BODY,
   MAX_FEED_IMAGES,
   MAX_FEED_TAGS,
+  MAX_POLL_OPTION,
+  MAX_POLL_OPTIONS,
+  MIN_POLL_OPTIONS,
   audienceLabel,
   getLoadedFeed,
   listFeed,
@@ -22,7 +26,10 @@ import {
   spaceGroup,
   uploadFeedImage,
 } from '@/services/feed-service';
-import type { Feed, FeedAudience, FeedPost } from '@/services/feed-service';
+import type { Feed, FeedAudience, FeedEvent, FeedPost } from '@/services/feed-service';
+import { getEvent, getLoadedEvent } from '@/services/events-service';
+import type { HnEvent } from '@/services/events-service';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,6 +48,34 @@ const AUDIENCES: { value: FeedAudience; label: string }[] = [
   { value: { kind: 'jornada', jornada: 'tarde' }, label: AUDIENCE_LABELS.tarde },
 ];
 
+type PollDraft = { options: string[]; days: number; results: 'live' | 'closed' };
+
+const POLL_LENGTHS = [
+  { days: 1, label: '1 día' },
+  { days: 3, label: '3 días' },
+  { days: 7, label: '1 semana' },
+  { days: 14, label: '2 semanas' },
+];
+
+function asFeedEvent(event: HnEvent): FeedEvent {
+  return {
+    id: event.id,
+    kind: event.kind,
+    title: event.title,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+    imageUrl: event.imageUrl,
+    venueName: event.venueName,
+    city: event.city,
+    palette: event.palette,
+  };
+}
+
+/** When a poll that runs `days` from now closes. */
+function closingAt(days: number) {
+  return Date.now() + days * 86_400_000;
+}
+
 function sameAudience(a: FeedAudience, b: FeedAudience) {
   return audienceLabel(a) === audienceLabel(b) && a.kind === b.kind;
 }
@@ -48,8 +83,15 @@ function sameAudience(a: FeedAudience, b: FeedAudience) {
 function FeedPostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, eventId } = useLocalSearchParams<{ id?: string; eventId?: string }>();
   const role = useRole();
+
+  // An event shared from its page ("Compartir en el Feed").
+  const [sharedEvent, setSharedEvent] = useState<HnEvent | null>(() => (eventId && !id ? getLoadedEvent(eventId) : null));
+  useEffect(() => {
+    if (!eventId || id || sharedEvent) return;
+    getEvent(eventId).then(setSharedEvent).catch(() => undefined);
+  }, [eventId, id, sharedEvent]);
 
   const [feed, setFeed] = useState<Feed | null>(() => getLoadedFeed());
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -68,7 +110,9 @@ function FeedPostScreen() {
   const [pinned, setPinned] = useState<boolean | null>(null);
 
   // Until something is touched, the form shows the post being edited (or a blank one).
-  const space = original?.space ?? feed?.publishAs.find(item => item.key === spaceKey) ?? feed?.publishAs[0] ?? null;
+  // HaNet's Espacio reaches every school: it only shares events of the city.
+  const publishAs = (feed?.publishAs ?? []).filter(item => !(sharedEvent?.kind === 'institution' && item.key === 'hanet'));
+  const space = original?.space ?? publishAs.find(item => item.key === spaceKey) ?? publishAs[0] ?? null;
   const currentBody = body ?? original?.body ?? '';
   const currentTags = tags ?? original?.tags ?? [];
   const currentPictures = pictures ?? (original?.images ?? []).map(url => ({ kind: 'kept', url }) as Picture);
@@ -76,16 +120,24 @@ function FeedPostScreen() {
   const currentPinned = pinned ?? original?.pinned ?? false;
   const canPin = original ? original.canPin : role === 'HNT' || (role === 'Admin' && !!space && space.key !== 'hanet');
   const isSchool = !!space && spaceGroup(space.key) === 'school';
+  const [poll, setPoll] = useState<PollDraft | null>(null);
+  const canPoll = !original && !!space && (feed?.pollSpaces ?? []).includes(spaceGroup(space.key));
+  const pollOptions = poll ? poll.options.map(option => option.trim()).filter(Boolean) : [];
+  const pollReady = !poll || (pollOptions.length >= MIN_POLL_OPTIONS && new Set(pollOptions.map(option => option.toLocaleLowerCase('es'))).size === pollOptions.length && currentBody.trim().length > 0);
+  const attachedEvent = original?.event ?? (sharedEvent ? asFeedEvent(sharedEvent) : null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Where the cursor is, so the format buttons wrap what is selected.
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [preview, setPreview] = useState(false);
-  const [dialog, setDialog] = useState<'space' | 'audience' | 'tags' | null>(null);
+  const [dialog, setDialog] = useState<'space' | 'audience' | 'tags' | 'pollLength' | null>(null);
 
-  const dirty = body !== null || tags !== null || pictures !== null || audience !== null || pinned !== null || spaceKey !== null;
-  const ready = !!space && (currentBody.trim().length > 0 || currentPictures.length > 0) && (!original || dirty);
+  const dirty = body !== null || tags !== null || pictures !== null || audience !== null || pinned !== null || spaceKey !== null || poll !== null;
+  const ready = !!space
+    && (currentBody.trim().length > 0 || currentPictures.length > 0 || (!original && !!sharedEvent) || !!original?.poll || !!original?.event)
+    && pollReady
+    && (!original || dirty);
 
   const addPictures = async (source: 'camera' | 'library') => {
     setError(null);
@@ -148,6 +200,10 @@ function FeedPostScreen() {
         uploadPaths,
         audience: isSchool ? currentAudience : undefined,
         pinned: canPin ? currentPinned : undefined,
+        eventId: !original && sharedEvent ? sharedEvent.id : undefined,
+        poll: !original && poll && canPoll
+          ? { options: pollOptions, closesAt: closingAt(poll.days), results: poll.results }
+          : undefined,
       });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
@@ -171,6 +227,8 @@ function FeedPostScreen() {
   const options = [
     isSchool && { key: 'audience', label: 'Le llega a', value: audienceLabel(currentAudience), onPress: () => setDialog('audience') },
     { key: 'tags', label: 'Tags', value: currentTags.length ? currentTags.map(tag => `#${tag}`).join(' ') : 'Sin tags', onPress: () => setDialog('tags') },
+    !!poll && { key: 'pollLength', label: 'La votación dura', value: POLL_LENGTHS.find(item => item.days === poll.days)?.label ?? `${poll.days} días`, onPress: () => setDialog('pollLength') },
+    !!poll && { key: 'pollResults', label: 'Resultados', value: poll.results === 'live' ? 'Al votar' : 'Al cerrar', onPress: () => setPoll({ ...poll, results: poll.results === 'live' ? 'closed' : 'live' }) },
     canPin && { key: 'pin', label: 'Fijar arriba', value: currentPinned ? 'Sí' : 'No', onPress: () => setPinned(!currentPinned) },
   ].filter((option): option is { key: string; label: string; value: string; onPress: () => void } => !!option);
 
@@ -217,10 +275,10 @@ function FeedPostScreen() {
       </View>
 
       <Pressable
-        accessibilityRole={!original && feed.publishAs.length > 1 ? 'button' : undefined}
+        accessibilityRole={!original && publishAs.length > 1 ? 'button' : undefined}
         accessibilityLabel={`Publicas como ${space.name}`}
-        accessibilityHint={!original && feed.publishAs.length > 1 ? 'Elegir otro Espacio' : undefined}
-        disabled={!!original || feed.publishAs.length < 2 || submitting}
+        accessibilityHint={!original && publishAs.length > 1 ? 'Elegir otro Espacio' : undefined}
+        disabled={!!original || publishAs.length < 2 || submitting}
         onPress={() => setDialog('space')}
         style={({ pressed }) => [styles.author, pressed && AppPressed]}
       >
@@ -228,10 +286,10 @@ function FeedPostScreen() {
         <View style={styles.authorText}>
           <ThemedText numberOfLines={1} style={styles.authorName}>{space.name}</ThemedText>
           <ThemedText numberOfLines={1} style={styles.authorHint}>
-            {original ? 'Editando una publicación' : feed.publishAs.length > 1 ? 'Toca para elegir otro Espacio' : space.official ? 'Publicas como el Espacio oficial' : `Publicas como ${space.kind.toLocaleLowerCase('es')}`}
+            {original ? 'Editando una publicación' : publishAs.length > 1 ? 'Toca para elegir otro Espacio' : space.official ? 'Publicas como el Espacio oficial' : `Publicas como ${space.kind.toLocaleLowerCase('es')}`}
           </ThemedText>
         </View>
-        {!original && feed.publishAs.length > 1 && <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />}
+        {!original && publishAs.length > 1 && <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />}
       </Pressable>
 
       {preview ? (
@@ -244,7 +302,7 @@ function FeedPostScreen() {
         value={currentBody}
         onChangeText={text => { setBody(text); setError(null); }}
         onSelectionChange={event => setSelection(event.nativeEvent.selection)}
-        placeholder={spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : '¿Qué quieres contarle a tu liceo?'}
+        placeholder={poll ? 'Escribe la pregunta de la votación' : spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : '¿Qué quieres contarle a tu liceo?'}
         placeholderTextColor="rgba(221, 221, 226, 0.4)"
         multiline
         maxLength={MAX_FEED_BODY}
@@ -301,6 +359,55 @@ function FeedPostScreen() {
         </ScrollView>
       )}
 
+      {!!attachedEvent && <FeedEventCard event={attachedEvent} />}
+
+      {!!original?.poll && <ThemedText style={styles.hint}>La votación no se puede cambiar una vez publicada.</ThemedText>}
+
+      {!!poll && (
+        <View style={styles.pollEditor}>
+          <View style={styles.pollHeader}>
+            <ThemedText style={styles.pollTitle}>Votación anónima</ThemedText>
+            <Pressable accessibilityRole="button" accessibilityLabel="Quitar la votación" disabled={submitting} hitSlop={8} onPress={() => setPoll(null)} style={({ pressed }) => pressed && AppPressed}>
+              <ThemedText style={styles.pollRemove}>Quitar</ThemedText>
+            </Pressable>
+          </View>
+          {poll.options.map((option, index) => (
+            <View key={index} style={styles.pollRow}>
+              <TextInput
+                accessibilityLabel={`Opción ${index + 1}`}
+                value={option}
+                onChangeText={value => setPoll({ ...poll, options: poll.options.map((item, position) => (position === index ? value : item)) })}
+                placeholder={`Opción ${index + 1}`}
+                placeholderTextColor="rgba(221, 221, 226, 0.4)"
+                maxLength={MAX_POLL_OPTION}
+                editable={!submitting}
+                selectionColor={AppColors.accent}
+                style={styles.pollInput}
+              />
+              {poll.options.length > MIN_POLL_OPTIONS && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quitar la opción ${index + 1}`}
+                  disabled={submitting}
+                  hitSlop={6}
+                  onPress={() => setPoll({ ...poll, options: poll.options.filter((_, position) => position !== index) })}
+                  style={({ pressed }) => [styles.removeOption, pressed && AppPressed]}
+                >
+                  <CustomIcon name="close" size={14} color={AppColors.textPrimary} />
+                </Pressable>
+              )}
+            </View>
+          ))}
+          {poll.options.length < MAX_POLL_OPTIONS && (
+            <Pressable accessibilityRole="button" disabled={submitting} onPress={() => setPoll({ ...poll, options: [...poll.options, ''] })} style={({ pressed }) => [styles.addOption, pressed && AppPressed]}>
+              <CustomIcon name="plus" size={18} color={AppColors.textSecondary} />
+              <ThemedText style={styles.addOptionText}>Agregar opción</ThemedText>
+            </Pressable>
+          )}
+          <ThemedText style={styles.pollNote}>Nadie puede ver qué votó cada persona, ni el liceo ni HaNet. Cada cuenta vota una vez y no puede cambiar su voto.</ThemedText>
+        </View>
+      )}
+
       <View style={styles.tools}>
         <Pressable accessibilityRole="button" accessibilityLabel="Elegir imágenes de la galería" disabled={submitting || currentPictures.length >= MAX_FEED_IMAGES} onPress={() => void addPictures('library')} style={({ pressed }) => [styles.tool, currentPictures.length >= MAX_FEED_IMAGES && styles.toolDisabled, pressed && AppPressed]}>
           <CustomIcon name="image" size={26} color={AppColors.textPrimary} />
@@ -313,6 +420,18 @@ function FeedPostScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Elegir tags" disabled={submitting} onPress={() => setDialog('tags')} style={({ pressed }) => [styles.tool, pressed && AppPressed]}>
           <CustomIcon name="tag" size={24} color={AppColors.textPrimary} />
         </Pressable>
+        {canPoll && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={poll ? 'Quitar la votación' : 'Agregar una votación'}
+            accessibilityState={{ selected: !!poll }}
+            disabled={submitting}
+            onPress={() => setPoll(poll ? null : { options: ['', ''], days: 3, results: 'live' })}
+            style={({ pressed }) => [styles.tool, !!poll && styles.toolOn, pressed && AppPressed]}
+          >
+            <Ionicons name="stats-chart-outline" size={22} color={poll ? AppColors.controlOnActive : AppColors.textPrimary} />
+          </Pressable>
+        )}
         <ThemedText style={styles.toolsHint}>Hasta {MAX_FEED_IMAGES} imágenes</ThemedText>
       </View>
 
@@ -329,7 +448,7 @@ function FeedPostScreen() {
 
       <HanetDialog visible={dialog === 'space'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="¿En qué Espacio publicas?">
         <View style={styles.dialogButtons}>
-          {feed.publishAs.map(item => (
+          {publishAs.map(item => (
             <HanetButton key={item.key} label={item.name} variant={item.key === space.key ? 'primary' : 'surface'} onPress={() => { setSpaceKey(item.key); setDialog(null); }} />
           ))}
         </View>
@@ -339,6 +458,14 @@ function FeedPostScreen() {
         <View style={styles.dialogButtons}>
           {AUDIENCES.map(item => (
             <HanetButton key={item.label} label={item.label} variant={sameAudience(item.value, currentAudience) ? 'primary' : 'surface'} onPress={() => { setAudience(item.value); setDialog(null); }} />
+          ))}
+        </View>
+      </HanetDialog>
+
+      <HanetDialog visible={dialog === 'pollLength'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="¿Cuánto dura la votación?" body="Al cerrar, todos ven los resultados.">
+        <View style={styles.dialogButtons}>
+          {POLL_LENGTHS.map(item => (
+            <HanetButton key={item.days} label={item.label} variant={poll?.days === item.days ? 'primary' : 'surface'} onPress={() => { if (poll) setPoll({ ...poll, days: item.days }); setDialog(null); }} />
           ))}
         </View>
       </HanetDialog>
@@ -552,6 +679,78 @@ const styles = StyleSheet.create({
   },
   toolDisabled: {
     opacity: 0.4,
+  },
+  toolOn: {
+    backgroundColor: AppColors.controlActive,
+  },
+  pollEditor: {
+    gap: AppSpacing.sm,
+    marginHorizontal: AppSpacing.lg,
+    padding: AppSpacing.lg,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+  },
+  pollHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pollTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: AppColors.textPrimary,
+  },
+  pollRemove: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  pollRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+  },
+  pollInput: {
+    flex: 1,
+    height: 46,
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.canvas,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    color: AppColors.textPrimary,
+    outlineStyle: 'none' as never,
+  },
+  removeOption: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  addOption: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: AppSpacing.sm,
+  },
+  addOptionText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  pollNote: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textSecondary,
   },
   toolsHint: {
     flex: 1,

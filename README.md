@@ -18,7 +18,7 @@ Está en **beta**. Varias secciones del inicio (ClassHall, Wallet, Feed y comuni
 
 ## Tecnología
 
-- **App:** Expo SDK 57, React Native 0.86, Expo Router, Reanimated 4. Corre en iOS, Android y web.
+- **App:** Expo SDK 58, React Native 0.88, Expo Router, Reanimated 4. Corre en iOS, Android y web.
 - **Backend:** Firebase, proyecto `hanet-edu`: Authentication, Cloud Functions (Node 22), Firestore, Storage y Hosting.
 - **Correos:** Resend, desde el dominio `hanet.muxp.art`.
 

@@ -6,7 +6,9 @@ import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constant
 import { APP_ICONS, canChangeAppIcon, currentAppIcon, setAppIcon } from '@/services/app-icon';
 import type { AppIconId } from '@/services/app-icon';
 import { describeAuthError, getMyProfile, useSession } from '@/services/auth-service';
-import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveClasshallNotifications } from '@/services/push-service';
+import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
+import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveClasshallNotifications, saveMorningNotifications } from '@/services/push-service';
+import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -35,6 +37,14 @@ export default function SettingsScreen() {
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const support = pushSupport();
+  // The 7:00 summary (saved with the account) and the evaluation reminders (this phone only).
+  const [morningOn, setMorningOn] = useState(true);
+  const [examsOn, setExamsOn] = useState(true);
+  const [savingDay, setSavingDay] = useState(false);
+
+  useEffect(() => {
+    void examRemindersEnabled().then(setExamsOn);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -44,6 +54,7 @@ export default function SettingsScreen() {
         const profile = await getMyProfile();
         if (!active) return;
         setClasshallOn(profile.classhallNotifications !== false);
+        setMorningOn(profile.morningNotifications !== false);
         setPermission(await pushPermission());
       } catch (error) {
         if (active) setNotificationsError(describeAuthError(error, 'No pudimos cargar tus ajustes. Revisa tu conexión.'));
@@ -86,6 +97,36 @@ export default function SettingsScreen() {
       setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
     } finally {
       setSavingNotifications(false);
+    }
+  };
+
+  const chooseMorning = async (on: boolean) => {
+    if (savingDay || on === morningOn) return;
+    setNotificationsError(null);
+    setSavingDay(true);
+    setMorningOn(on);
+    try {
+      await saveMorningNotifications(on);
+      if (on && permission === 'undetermined') setPermission(await enablePush());
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setMorningOn(!on);
+      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+    } finally {
+      setSavingDay(false);
+    }
+  };
+
+  const chooseExams = async (on: boolean) => {
+    if (savingDay || on === examsOn) return;
+    setSavingDay(true);
+    setExamsOn(on);
+    try {
+      if (on && permission === 'undetermined') setPermission(await enablePush());
+      await setExamRemindersEnabled(on);
+      if (Platform.OS !== 'web') void Haptics.selectionAsync();
+    } finally {
+      setSavingDay(false);
     }
   };
 
@@ -163,6 +204,31 @@ export default function SettingsScreen() {
           {support === 'supported' && classhallOn && permission === 'undetermined' && (
             <HanetButton label="Permitir en este teléfono" variant="surface" onPress={() => void enablePush().then(setPermission)} />
           )}
+        </Section>
+
+        <Section title="Tu día y tus pruebas" plain>
+          <HanetChoice
+            label="Resumen de las 7:00"
+            options={[{ value: 'on', label: 'Activado' }, { value: 'off', label: 'Desactivado' }]}
+            value={morningOn ? 'on' : 'off'}
+            onChange={value => void chooseMorning(value === 'on')}
+            disabled={savingDay || loadingNotifications}
+          />
+          <ThemedText style={styles.note}>Los días de clases, a las 7:00: tus pruebas y entregas del día y con qué asignatura entras.</ThemedText>
+          <HanetChoice
+            label="Avisos de pruebas"
+            options={[{ value: 'on', label: 'Activados' }, { value: 'off', label: 'Desactivados' }]}
+            value={examsOn ? 'on' : 'off'}
+            onChange={value => void chooseExams(value === 'on')}
+            disabled={savingDay || support === 'web'}
+          />
+          <ThemedText style={styles.note}>
+            {support === 'web'
+              ? 'Los avisos llegan a la app del teléfono, no a la web.'
+              : widgetsAvailable
+                ? '24 y 4 horas antes de cada prueba del Calendario, con una cuenta regresiva en la pantalla bloqueada y la Dynamic Island. Se guardan en este teléfono.'
+                : '24 y 4 horas antes de cada prueba del Calendario. Se guardan en este teléfono.'}
+          </ThemedText>
         </Section>
 
         <Section title="Cuenta">

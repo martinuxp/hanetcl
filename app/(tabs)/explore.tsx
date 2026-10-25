@@ -5,6 +5,7 @@ import { ProfileSkeleton } from '@/components/skeletons';
 import { getNameFont } from '@/constants/name-fonts';
 import { useNameFonts } from '@/hooks/use-name-fonts';
 import { getProfilePhotoUrl } from '@/services/profile-service';
+import { idQrValue, loadIdKey, msToNextCode } from '@/services/hanet-id-service';
 import { Blobatar } from '@blobatar/react-native';
 import { describeAuthError, getMyProfile, getOnboardingStep, routeForStep, useSession } from '@/services/auth-service';
 import type { MyProfile } from '@/services/auth-service';
@@ -12,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
@@ -55,6 +56,8 @@ export default function ProfileScreen() {
   const [photoCheckedUid, setPhotoCheckedUid] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const fontsReady = useNameFonts();
+  // The HN-QR's value changes every 30 seconds while it is on screen.
+  const [qrValue, setQrValue] = useState<string | null>(null);
 
   // What the phone kept shows until this visit's load answers.
   const keptProfile = useCached<MyProfile>(user ? 'profile' : null);
@@ -83,6 +86,25 @@ export default function ProfileScreen() {
       return () => { active = false; };
     }, [user])
   );
+
+  const qrHandle = profile?.username ?? keptProfile?.username ?? user?.uid ?? null;
+  useEffect(() => {
+    if (!showQr || !user || !qrHandle) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      const key = await loadIdKey(user.uid);
+      const value = await idQrValue(qrHandle, key);
+      if (!active) return;
+      setQrValue(value);
+      timer = setTimeout(() => void tick(), msToNextCode() + 50);
+    };
+    void tick();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [qrHandle, showQr, user]);
 
   const skeleton = (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -160,7 +182,7 @@ export default function ProfileScreen() {
           {showQr ? (
             <Animated.View key="qr" entering={swap} style={styles.qrWrap} accessible accessibilityLabel={`Código QR de tu HaNet ID${handle ? `, ${handle}` : ''}`}>
               <QRCode
-                value={`hanet://id/${current.username ?? user.uid}`}
+                value={qrValue ?? `hanet://id/${current.username ?? user.uid}`}
                 size={236}
                 color={AppColors.surface}
                 backgroundColor="transparent"
