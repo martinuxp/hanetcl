@@ -1,3 +1,4 @@
+import { useSecretTaps, VersionEasterEgg } from '@/components/settings/version-easter-egg';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChoice } from '@/components/ui/hanet-select';
@@ -12,7 +13,7 @@ import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -89,6 +90,8 @@ export default function SettingsScreen() {
   };
 
   const version = Constants.expoConfig?.version;
+  const [eggOpen, setEggOpen] = useState(false);
+  const tapVersion = useSecretTaps(useCallback(() => setEggOpen(true), []));
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -168,7 +171,7 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Acerca de HaNet">
-          {!!version && <Row icon="information-circle-outline" label="Versión" detail={`${version} beta`} />}
+          {!!version && <Row icon="information-circle-outline" label="Versión" detail={`${version} beta`} onTap={tapVersion} />}
           <Row icon="chatbubble-ellipses-outline" label="Contacto" detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
           <Row icon="document-text-outline" label="Licencias de código abierto" detail="Las bibliotecas con que está hecha HaNet" onPress={() => router.push('/licenses')} />
         </Section>
@@ -180,6 +183,7 @@ export default function SettingsScreen() {
           onPress={() => void signOut()}
         />
       </ScrollView>
+      {!!version && <VersionEasterEgg visible={eggOpen} version={version} onClose={() => setEggOpen(false)} />}
     </SafeAreaView>
   );
 }
@@ -194,7 +198,8 @@ function Section({ title, plain = false, children }: { title: string; plain?: bo
   );
 }
 
-function Row({ icon, label, detail, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; detail?: string; onPress?: () => void }) {
+// `onTap` listens without looking tappable (no chevron, no press dip): for the version's secret.
+function Row({ icon, label, detail, onPress, onTap }: { icon: keyof typeof Ionicons.glyphMap; label: string; detail?: string; onPress?: () => void; onTap?: () => void }) {
   const content = (
     <>
       <View style={styles.rowBadge}>
@@ -207,6 +212,7 @@ function Row({ icon, label, detail, onPress }: { icon: keyof typeof Ionicons.gly
       {!!onPress && <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />}
     </>
   );
+  if (onTap) return <Pressable style={styles.row} accessibilityLabel={detail ? `${label}: ${detail}` : label} onPress={onTap}>{content}</Pressable>;
   if (!onPress) return <View style={styles.row} accessible accessibilityLabel={detail ? `${label}: ${detail}` : label}>{content}</View>;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={detail} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
