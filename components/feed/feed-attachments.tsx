@@ -7,6 +7,7 @@ import type { FeedEvent, FeedPoll } from '@/services/feed-service';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 // What a post can carry besides text and images: an event of HaNet Eventos
 // (a card that opens it) and an anonymous poll.
@@ -51,6 +52,8 @@ export function FeedEventCard({ event, onPress }: { event: FeedEvent; onPress?: 
  */
 export function FeedPollView({ poll, now, busy, onVote }: { poll: FeedPoll; now: number; busy: boolean; onVote: (option: string) => void }) {
   const [chosen, setChosen] = useState<string | null>(null);
+  // The bars fade in after voting, instead of replacing the options at once.
+  const reducedMotion = useReducedMotion();
   const open = !poll.closed && !!poll.closesAt && poll.closesAt > now;
   const canVote = open && !poll.voted;
   const showsResults = poll.total !== null;
@@ -77,8 +80,9 @@ export function FeedPollView({ poll, now, busy, onVote }: { poll: FeedPoll; now:
           );
         }
         return (
-          <View
-            key={option.id}
+          <Animated.View
+            key={`${option.id}-result`}
+            entering={reducedMotion ? undefined : FadeIn.duration(120)}
             accessible
             accessibilityLabel={showsResults ? `${option.text}: ${Math.round(share * 100)} %` : option.text}
             style={styles.result}
@@ -86,7 +90,7 @@ export function FeedPollView({ poll, now, busy, onVote }: { poll: FeedPoll; now:
             {showsResults && <View style={[styles.bar, leading && styles.barLeading, { width: `${Math.max(share * 100, 2)}%` }]} />}
             <ThemedText style={[styles.optionText, leading && styles.optionLeading]}>{option.text}</ThemedText>
             {showsResults && <ThemedText style={[styles.percent, leading && styles.optionLeading]}>{Math.round(share * 100)} %</ThemedText>}
-          </View>
+          </Animated.View>
         );
       })}
 

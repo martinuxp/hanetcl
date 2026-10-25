@@ -158,3 +158,64 @@ async function activityTests(): Promise<Record<string, string>> {
 function activityProps(event: CalendarEvent, now: Date) {
   return { id: event.id, subject: subjectOf(event), title: event.title, startsAt: event.startDate.getTime(), when: whenText(event, now) };
 }
+
+// Sistema HaNet UI (Panel HNT): the same notification and Live Activity with
+// an example test, to check how they look without waiting for a real one.
+
+const PREVIEW_ID = 'preview-exam';
+
+/** The 24 h or 4 h reminder, a few seconds from now. False without permission. */
+export async function previewExamReminder(hours: 24 | 4) {
+  const module = notifications();
+  if (!module) return false;
+  let { status } = await module.getPermissionsAsync();
+  if (status !== 'granted') ({ status } = await module.requestPermissionsAsync());
+  if (status !== 'granted') return false;
+  await ensureChannel(module);
+  const startsAt = new Date(Date.now() + hours * 3_600_000);
+  await module.scheduleNotificationAsync({
+    identifier: `${PREVIEW_ID}-${hours}h`,
+    content: {
+      title: hours === 24 ? 'Mañana: prueba de Matemática' : 'En 4 horas: prueba de Matemática',
+      body: `Ejemplo · Funciones cuadráticas · ${clock(startsAt)} · Sala 12`,
+      sound: 'default',
+      ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}),
+    },
+    trigger: { type: module.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}) },
+  });
+  return true;
+}
+
+/** A Live Activity for an example test in 4 hours; null where they do not exist. */
+export function previewExamActivity() {
+  const factory = examActivities();
+  if (!factory) return null;
+  const startsAt = Date.now() + 4 * 3_600_000;
+  const instance = factory.start(
+    { id: PREVIEW_ID, subject: 'Matemática', title: 'Ejemplo · Funciones cuadráticas', startsAt, when: `Hoy, ${clock(new Date(startsAt))} · Sala 12` },
+    undefined,
+    new Date(startsAt + LIVE_LINGER_MS),
+  );
+  return () => void instance.end('immediate');
+}
+
+/** The 7:00 summary as it arrives, a few seconds from now (the real one comes from the server). */
+export async function previewMorningSummary() {
+  const module = notifications();
+  if (!module) return false;
+  let { status } = await module.getPermissionsAsync();
+  if (status !== 'granted') ({ status } = await module.requestPermissionsAsync());
+  if (status !== 'granted') return false;
+  await ensureChannel(module);
+  await module.scheduleNotificationAsync({
+    identifier: 'preview-morning',
+    content: {
+      title: 'Hoy tienes una prueba · lunes (ejemplo)',
+      body: 'Prueba: Matemática a las 10:15 · Entras a las 08:00 con Lenguaje',
+      sound: 'default',
+      ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}),
+    },
+    trigger: { type: module.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}) },
+  });
+  return true;
+}

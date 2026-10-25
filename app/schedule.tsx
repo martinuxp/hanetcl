@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { NowNextCard } from '@/components/schedule/now-next-card';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -169,24 +170,7 @@ export default function ScheduleScreen() {
 
         {!!schedule?.courseId && (
           <>
-            {!edited && (current || next) && (
-              <View style={styles.nowCard} accessible accessibilityLabel={[current ? `Ahora: ${current.subject} hasta las ${current.end}` : null, next ? `Después: ${next.subject} a las ${next.start}` : null].filter(Boolean).join('. ')}>
-                {!!current && (
-                  <View style={styles.nowRow}>
-                    <ThemedText style={styles.nowLabel}>Ahora</ThemedText>
-                    <ThemedText style={styles.nowSubject}>{current.subject}</ThemedText>
-                    <ThemedText style={styles.nowMeta}>Hasta las {current.end}{current.room ? ` · ${current.room}` : ''}</ThemedText>
-                  </View>
-                )}
-                {!!next && (
-                  <View style={styles.nowRow}>
-                    <ThemedText style={[styles.nowLabel, styles.nextLabel]}>Después</ThemedText>
-                    <ThemedText style={styles.nextSubject}>{next.subject}</ThemedText>
-                    <ThemedText style={styles.nowMeta}>{next.start}{next.room ? ` · ${next.room}` : ''}</ThemedText>
-                  </View>
-                )}
-              </View>
-            )}
+            {!edited && <NowNextCard current={current} next={next} />}
 
             <View style={styles.days} accessibilityRole="tablist">
               {days.map(item => (
@@ -360,46 +344,6 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_400Regular',
     fontSize: 15,
     lineHeight: 22,
-    color: AppColors.textSecondary,
-  },
-  nowCard: {
-    gap: AppSpacing.md,
-    padding: AppSpacing.lg,
-    borderRadius: AppRadii.lg,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.surface,
-  },
-  nowRow: {
-    gap: 2,
-  },
-  nowLabel: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    color: AppColors.accent,
-  },
-  nextLabel: {
-    color: AppColors.textSecondary,
-  },
-  nowSubject: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: -0.8,
-    color: AppColors.textPrimary,
-  },
-  nextSubject: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 18,
-    lineHeight: 24,
-    color: AppColors.textPrimary,
-  },
-  nowMeta: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 14,
-    lineHeight: 20,
     color: AppColors.textSecondary,
   },
   days: {

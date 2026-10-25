@@ -1,23 +1,21 @@
+import { CheckInResultCard } from '@/components/events/checkin-result';
+import type { CheckInResult } from '@/components/events/checkin-result';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { checkInEventAttendee, getLoadedEvent } from '@/services/events-service';
-import type { CheckIn } from '@/services/events-service';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Pasar lista: the organizer of an institution event scans each attendee's
 // HN-QR at the door (functions/events.js checks the code, which changes every
 // 30 seconds, so a screenshot does not work). Only organizers get here.
-
-type Result = { kind: 'ok'; checkIn: CheckIn } | { kind: 'error'; message: string };
 
 // The same QR stays in front of the camera for a moment: it is read once.
 const SAME_QR_MS = 4000;
@@ -27,11 +25,10 @@ export default function EventCheckinScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const event = id ? getLoadedEvent(id) : null;
   const [permission, requestPermission] = useCameraPermissions();
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<CheckInResult | null>(null);
   const [count, setCount] = useState<number | null>(event?.checkins?.length ?? null);
   const busy = useRef(false);
   const last = useRef<{ value: string; at: number } | null>(null);
-  const reducedMotion = useReducedMotion();
 
   const scanned = async (value: string) => {
     if (!id || busy.current) return;
@@ -101,19 +98,7 @@ export default function EventCheckinScreen() {
 
         <View style={styles.bottom}>
           {result ? (
-            <Animated.View key={result.kind === 'ok' ? `${result.checkIn.name}-${result.checkIn.count}` : result.message} entering={reducedMotion ? undefined : FadeIn.duration(120)} style={[styles.card, result.kind === 'error' && styles.cardError]} accessibilityLiveRegion="assertive">
-              {result.kind === 'ok' ? (
-                <>
-                  <ThemedText style={styles.cardTitle}>{result.checkIn.already ? 'Ya estaba registrado' : '¡Llegó!'}</ThemedText>
-                  <ThemedText style={styles.cardName}>{result.checkIn.name}</ThemedText>
-                  <ThemedText style={styles.cardText}>
-                    {[result.checkIn.courseId, result.checkIn.signedUp === false ? 'No estaba inscrito' : result.checkIn.signedUp ? 'Inscrito' : null].filter(Boolean).join(' · ')}
-                  </ThemedText>
-                </>
-              ) : (
-                <ThemedText style={styles.cardText}>{result.message}</ThemedText>
-              )}
-            </Animated.View>
+            <CheckInResultCard result={result} />
           ) : (
             <ThemedText style={styles.hint}>Pídele a cada persona que abra Perfil → Mi HN-QR.</ThemedText>
           )}
@@ -214,35 +199,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: AppColors.textPrimary,
-  },
-  card: {
-    gap: 2,
-    padding: AppSpacing.lg,
-    borderRadius: AppRadii.lg,
-    borderCurve: 'continuous',
-    backgroundColor: AppColors.canvas,
-    borderWidth: 2,
-    borderColor: AppColors.accentMint,
-  },
-  cardError: {
-    borderColor: AppColors.accent,
-  },
-  cardTitle: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 14,
-    lineHeight: 20,
-    color: AppColors.accentMint,
-  },
-  cardName: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 22,
-    lineHeight: 28,
-    color: AppColors.textPrimary,
-  },
-  cardText: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 15,
-    lineHeight: 21,
-    color: AppColors.textSecondary,
   },
 });
