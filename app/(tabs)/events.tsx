@@ -233,7 +233,7 @@ export default function EventsScreen() {
           />
         )}
         ListHeaderComponent={header}
-        ListEmptyComponent={empty}
+        ListEmptyComponent={empty ?? undefined}
         ListFooterComponent={<ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>}
         ItemSeparatorComponent={() => <View style={{ height: AppSpacing.lg }} />}
         contentContainerStyle={styles.content}

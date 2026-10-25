@@ -4,7 +4,7 @@ import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SPRING_SMOOTH } from '@/constants/motion';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import type { TextInputProps } from 'react-native';
+import type { TextInputInstance, TextInputProps } from 'react-native';
 
 type FieldProps = TextInputProps & {
   label: string;
@@ -16,7 +16,7 @@ type FieldProps = TextInputProps & {
 };
 
 /** Filled input with its label inside, as in the HaNet ID forms. */
-export const HanetField = forwardRef<TextInput, FieldProps>(function HanetField(
+export const HanetField = forwardRef<TextInputInstance, FieldProps>(function HanetField(
   { label, leading, trailing, invalid, style, onFocus, onBlur, ...inputProps },
   ref,
 ) {

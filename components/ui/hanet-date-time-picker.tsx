@@ -6,7 +6,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
+import type { NativeScrollEvent, ScrollViewInstance, NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -197,7 +197,7 @@ type WheelProps = {
 // Snapping is done by hand once scrolling settles so it behaves the same on
 // web, where ScrollView has no snapToInterval.
 function Wheel({ label, values, selectedIndex, onSelect }: WheelProps) {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef(selectedIndex);
 

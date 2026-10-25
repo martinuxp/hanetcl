@@ -9,7 +9,7 @@ import type { FeedPost } from '@/services/feed-service';
 import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, StyleSheet, View, useWindowDimensions, type ViewInstance } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
@@ -122,7 +122,7 @@ function PostStory({ post, onReady }: { post: FeedPost; onReady: () => void }) {
 /** The preview sheet; `item` null keeps it closed. */
 export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onClose: () => void }) {
   const { width, height } = useWindowDimensions();
-  const card = useRef<View>(null);
+  const card = useRef<ViewInstance>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +163,7 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
   };
 
   return (
-    <Modal visible={!!item} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !busy && onClose()}>
+    <Modal visible={!!item} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!busy) onClose(); }}>
       <View style={styles.overlay}>
         {!!item && (
           <View style={{ width: STORY_WIDTH * scale, height: STORY_HEIGHT * scale }}>

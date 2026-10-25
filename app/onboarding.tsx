@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import React, { useRef } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Kept honest: the network is just starting (CLAUDE.md, no invented figures).
@@ -48,7 +48,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const pagerRef = useRef<PagerView>(null);
-  const webPagerRef = useRef<ScrollView>(null);
+  const webPagerRef = useRef<ScrollViewInstance>(null);
   // Page position as a continuous value (0 → 1 while swiping to the second).
   const position = useSharedValue(0);
   // Shorter phones get a smaller headline so six lines still fit the card.

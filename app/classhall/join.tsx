@@ -9,7 +9,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LOGO = require('@/assets/images/ClassHall.svg');
@@ -26,7 +26,7 @@ type Status =
 function JoinHallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
 
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<Status>({ kind: 'typing' });

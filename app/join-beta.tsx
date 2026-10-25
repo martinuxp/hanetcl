@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ICONS = {
@@ -27,7 +27,7 @@ function cleanWord(text: string) {
 export default function JoinBetaScreen() {
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
-  const inputs = useRef<(TextInput | null)[]>([]);
+  const inputs = useRef<(TextInputInstance | null)[]>([]);
 
   const [words, setWords] = useState<string[]>(EMPTY_WORDS);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
