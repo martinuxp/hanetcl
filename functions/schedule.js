@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
+const { subjectKey } = require("./subjects");
 
 // The course's weekly timetable (Horario) and the morning summary.
 //
@@ -188,12 +189,25 @@ function build(getAdminApp) {
         : null,
     ]);
     const data = doc?.data();
-    // On their own timetable, the electivos and dominios this person is in.
-    const halls = request.data?.courseId ? null : await classhallDb(getAdminApp).collection("halls")
-      .where("memberUids", "array-contains", profile.uid).get();
+    const hallsDb = classhallDb(getAdminApp).collection("halls");
+    const [halls, courseHalls] = await Promise.all([
+      // On their own timetable, the electivos and dominios this person is in.
+      request.data?.courseId ? null : hallsDb.where("memberUids", "array-contains", profile.uid).get(),
+      // Each plan común block opens the course's Hall of that subject.
+      courseId ? hallsDb.where("institutionId", "==", profile.institutionId).where("courseId", "==", courseId).get() : null,
+    ]);
+    const hallOf = new Map();
+    for (const hall of courseHalls?.docs || []) {
+      const hallData = hall.data();
+      const key = hallData.subjectId || subjectKey(hallData.subject);
+      if ((hallData.plan || "comun") === "comun" && !hallOf.has(key)) hallOf.set(key, hall.id);
+    }
     return {
       courseId,
-      blocks: data?.blocks || [],
+      blocks: (data?.blocks || []).map(block => {
+        const hallId = block.kind === "break" ? null : hallOf.get(subjectKey(block.subject));
+        return hallId ? { ...block, hallId } : block;
+      }),
       hallBlocks: halls ? halls.docs.filter(hall => HALL_PLANS.includes(hall.data().plan)).flatMap(hallBlocksOut) : [],
       updatedAt: data?.updatedAt?.toMillis?.() ?? null,
       canEdit: !!courseId && canEdit(profile, courseId),

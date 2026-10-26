@@ -175,7 +175,8 @@ export default function ScheduleScreen() {
                   const index = blocks.indexOf(block);
                   const live = !edited && isToday && current?.id === block.id;
                   const pause = isBreak(block);
-                  const hallId = block.kind === 'hall' ? block.hallId : undefined;
+                  // Every class opens its Hall: electivos and dominios, and the plan común ones that have one.
+                  const hallId = block.hallId;
                   return (
                     <Pressable
                       key={`${block.id}-${index}`}
@@ -195,9 +196,9 @@ export default function ScheduleScreen() {
                       <View style={[styles.blockBar, pause && styles.blockBarBreak, live && styles.blockBarLive]} />
                       <View style={styles.blockText}>
                         <ThemedText style={[styles.blockSubject, pause && styles.blockSubjectBreak]}>{block.subject}</ThemedText>
-                        {(!!block.room || !!hallId) && (
+                        {(!!block.room || block.kind === 'hall') && (
                           <ThemedText style={styles.blockRoom}>
-                            {[hallId ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ')}
+                            {[block.kind === 'hall' ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ')}
                           </ThemedText>
                         )}
                       </View>

@@ -55,8 +55,11 @@ function Byline({ name, date, seed }: { name: string; date: string; seed?: strin
   );
 }
 
-/** An electivo's or dominio's own days and hours, which its students get in their Horario. */
-function HallSchedule({ hallId, subject, blocks, canEdit, onSaved }: { hallId: string; subject: string; blocks: ScheduleBlock[]; canEdit: boolean; onSaved: (blocks: ScheduleBlock[]) => void }) {
+/**
+ * The Hall's days and hours. An electivo or dominio keeps its own, which its
+ * teacher edits; a plan común Hall shows its subject's blocks of the course.
+ */
+function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }: { hallId: string; subject: string; blocks: ScheduleBlock[]; canEdit: boolean; fromCourse: boolean; onSaved: (blocks: ScheduleBlock[]) => void }) {
   // The block open in the editor: its position, or null for a new one.
   const [open, setOpen] = useState<number | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
@@ -80,9 +83,10 @@ function HallSchedule({ hallId, subject, blocks, canEdit, onSaved }: { hallId: s
   return (
     <View style={styles.scheduleCard}>
       <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
+      {fromCourse && sorted.length > 0 && <ThemedText style={styles.sectionHint}>Viene del Horario del curso.</ThemedText>}
       {sorted.length === 0 && (
         <ThemedText style={styles.sectionHint}>
-          {canEdit ? 'Agrega los días y horas de este Hall: aparecen en el Horario de cada estudiante que está dentro.' : 'Tu docente todavía no carga los días y horas.'}
+          {fromCourse ? 'Todavía no está en el Horario del curso.' : canEdit ? 'Agrega los días y horas de este Hall: aparecen en el Horario de cada estudiante que está dentro.' : 'Tu docente todavía no carga los días y horas.'}
         </ThemedText>
       )}
       {sorted.map(({ block, index }) => {
@@ -421,12 +425,13 @@ export default function HallScreen() {
               />
             </View>
 
-            {hall.plan !== 'comun' && (isTeacher || !!hall.blocks?.length) && (
+            {(isTeacher || !!hall.blocks?.length) && (
               <HallSchedule
                 hallId={hall.id}
                 subject={hall.subject}
                 blocks={(hall.blocks ?? []).map(block => ({ ...block, subject: hall.subject }))}
-                canEdit={isTeacher}
+                canEdit={isTeacher && hall.plan !== 'comun'}
+                fromCourse={hall.plan === 'comun'}
                 onSaved={blocks => detail && setDetail({ ...detail, hall: { ...hall, blocks } })}
               />
             )}

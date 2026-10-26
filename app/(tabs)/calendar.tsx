@@ -25,7 +25,10 @@ import {
   CalendarEvent,
 } from '@/services/ical-service';
 import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
-import { subjectName } from '@/constants/subjects';
+import { sameSubject, subjectName } from '@/constants/subjects';
+import { useCached } from '@/services/cache';
+import { blocksOn, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
+import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -181,6 +184,10 @@ export default function CalendarScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const hasEventsRef = useRef(false);
+  // The timetable goes under each day: classes with what is due in them.
+  const keptSchedule = useCached<CourseSchedule>(user ? 'schedule:mine' : null);
+  const [schedule, setSchedule] = useState<CourseSchedule | null>(null);
+  const week = myWeek(schedule ?? keptSchedule);
 
   const loadEvents = useCallback(async (silent = false) => {
     if (initializing) return;
@@ -209,6 +216,7 @@ export default function CalendarScreen() {
           }
         }
         await claims;
+        getCourseSchedule().then(setSchedule).catch(() => undefined);
         const events = await fetchCalendarEvents(courseId);
         setAllEvents(events);
         setLastUpdated(new Date());
@@ -590,6 +598,7 @@ export default function CalendarScreen() {
                   <DailyTimeline
                     isAdmin={canAddEvents}
                     events={getEventsForDate(allEvents, date)}
+                    blocks={blocksOn(week, scheduleDay(date))}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     lastUpdated={lastUpdated}
@@ -619,6 +628,7 @@ export default function CalendarScreen() {
                   <DailyTimeline
                     isAdmin={canAddEvents}
                     events={getEventsForDate(allEvents, date)}
+                    blocks={blocksOn(week, scheduleDay(date))}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                     lastUpdated={lastUpdated}
@@ -636,8 +646,37 @@ export default function CalendarScreen() {
   );
 }
 
-function DailyTimeline({ isAdmin, events, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[], refreshing: boolean, onRefresh: () => void, lastUpdated: Date | null }) {
-  if (events.length === 0) {
+type TimelineItem =
+  | { kind: 'event'; minute: number; event: CalendarEvent }
+  | { kind: 'block'; minute: number; block: ScheduleBlock; events: CalendarEvent[] };
+
+// Kept events come back from storage with their dates as text.
+function minuteOf(event: CalendarEvent) {
+  const start = new Date(event.startDate);
+  return start.getHours() * 60 + start.getMinutes();
+}
+
+/** A day's classes and events in one run: what is due in a class goes inside its block. */
+function dayItems(events: CalendarEvent[], blocks: ScheduleBlock[]): TimelineItem[] {
+  const classes = blocks.filter(block => !isBreak(block));
+  const inside = new Map<string, CalendarEvent[]>();
+  const loose: CalendarEvent[] = [];
+  for (const event of events) {
+    const minute = minuteOf(event);
+    const same = event.subject ? classes.filter(block => sameSubject(block.subject, event.subject)) : [];
+    // The block it falls in, or else the first class of that subject that day.
+    const block = same.find(item => minutesOf(item.start) <= minute && minute < minutesOf(item.end)) ?? same[0];
+    if (block) inside.set(block.id, [...(inside.get(block.id) ?? []), event]);
+    else loose.push(event);
+  }
+  return [
+    ...blocks.map(block => ({ kind: 'block' as const, minute: minutesOf(block.start), block, events: inside.get(block.id) ?? [] })),
+    ...loose.map(event => ({ kind: 'event' as const, minute: minuteOf(event), event })),
+  ].sort((a, b) => a.minute - b.minute || (a.kind === 'event' ? -1 : 1));
+}
+
+function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[]; blocks: ScheduleBlock[]; refreshing: boolean; onRefresh: () => void; lastUpdated: Date | null }) {
+  if (events.length === 0 && blocks.length === 0) {
     return (
       <ScrollView
         contentContainerStyle={[styles.timelineScroll, styles.emptyContainer]}
@@ -658,31 +697,35 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh, lastUpdated }: 
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} />}
     >
-      {events.map((event, index) => (
-        <View key={event.id} style={styles.timelineRow}>
+      {dayItems(events, blocks).map((item, index) => (
+        <View key={item.kind === 'event' ? item.event.id : `block-${item.block.id}`} style={[styles.timelineRow, item.kind === 'block' && isBreak(item.block) && styles.timelineRowBreak]}>
           <View style={styles.timeColumn}>
-            <View style={[styles.timeBadge, index === 0 && styles.timeBadgeSolid]}>
+            <View style={[styles.timeBadge, index === 0 && styles.timeBadgeSolid, item.kind === 'block' && isBreak(item.block) && styles.timeBadgeGhost]}>
               <ThemedText style={[styles.timeText, index === 0 && { color: AppColors.textSecondary }]}>
-                {formatTime(new Date(event.startDate))}
+                {item.kind === 'event' ? formatTime(new Date(item.event.startDate)) : item.block.start}
               </ThemedText>
             </View>
           </View>
           <View style={styles.eventColumn}>
-            <ClassCard
-              id={event.id}
-              title={event.title}
-              time={`${formatTime(new Date(event.startDate))} - ${formatTime(new Date(event.endDate))}`}
-              desc={event.description}
-              isAdmin={isAdmin} // Now correctly receiving isAdmin which includes canAddEvents
-              writer={event.writer}
-              verified={event.verified}
-              verifier={event.verifier}
-              subject={event.subject}
-              eventType={event.eventType}
-              outstanding={event.outstanding}
-              cancelled={event.cancelled}
-              fullEvent={event}
-            />
+            {item.kind === 'block' ? (
+              <BlockCard block={item.block} events={item.events} isAdmin={isAdmin} />
+            ) : (
+              <ClassCard
+                id={item.event.id}
+                title={item.event.title}
+                time={`${formatTime(new Date(item.event.startDate))} - ${formatTime(new Date(item.event.endDate))}`}
+                desc={item.event.description}
+                isAdmin={isAdmin}
+                writer={item.event.writer}
+                verified={item.event.verified}
+                verifier={item.event.verifier}
+                subject={item.event.subject}
+                eventType={item.event.eventType}
+                outstanding={item.event.outstanding}
+                cancelled={item.event.cancelled}
+                fullEvent={item.event}
+              />
+            )}
           </View>
         </View>
       ))}
@@ -694,6 +737,48 @@ function DailyTimeline({ isAdmin, events, refreshing, onRefresh, lastUpdated }: 
       {/* Extra bottom padding for BottomBar */}
       <View style={{ height: 120 }} />
     </ScrollView>
+  );
+}
+
+/** A class of the timetable, with the evaluations and tasks it has that day. */
+function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: CalendarEvent[]; isAdmin: boolean }) {
+  const router = useRouter();
+  if (isBreak(block)) {
+    return <ThemedText style={styles.breakText}>{block.subject} · hasta las {block.end}</ThemedText>;
+  }
+  const meta = [`${block.start} – ${block.end}`, block.kind === 'hall' ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ');
+  const hallId = block.hallId;
+  return (
+    <View style={styles.blockCard}>
+      <Pressable
+        accessibilityRole={hallId ? 'button' : undefined}
+        accessibilityLabel={`${block.subject}, ${meta}`}
+        accessibilityHint={hallId ? 'Abre la clase en ClassHall' : undefined}
+        disabled={!hallId}
+        onPress={() => router.push({ pathname: '/classhall/hall', params: { id: hallId } })}
+        style={({ pressed }) => [styles.blockHeader, pressed && { opacity: 0.75 }]}
+      >
+        <View style={styles.blockHeaderText}>
+          <ThemedText style={styles.blockSubject} numberOfLines={2}>{block.subject}</ThemedText>
+          <ThemedText style={styles.blockMeta}>{meta}</ThemedText>
+        </View>
+        {!!hallId && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
+      </Pressable>
+      {events.map(event => (
+        <Pressable
+          key={event.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${event.eventType ?? 'Evento'}: ${event.title}${event.cancelled ? ', cancelado' : ''}`}
+          accessibilityHint="Abre el detalle"
+          onPress={() => router.push({ pathname: '/event-info', params: { id: event.id, canEdit: isAdmin ? '1' : '0' } })}
+          style={({ pressed }) => [styles.blockEvent, event.outstanding && styles.blockEventOutstanding, pressed && { opacity: 0.75 }]}
+        >
+          <ThemedText style={styles.blockEventType}>{(event.eventType || 'Evento').split(/[.\s]/)[0]}</ThemedText>
+          <ThemedText style={[styles.blockEventTitle, event.cancelled && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{event.title}</ThemedText>
+          <CustomIcon name="chevron-right" size={16} color={AppColors.textSecondary} />
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -991,6 +1076,70 @@ const styles = StyleSheet.create({
   timelineRow: {
     flexDirection: 'row',
     marginBottom: 16,
+  },
+  timelineRowBreak: {
+    alignItems: 'center',
+    opacity: 0.7,
+  },
+  breakText: {
+    color: AppColors.textSecondary,
+    fontSize: 13,
+    fontFamily: 'DMSans_500Medium',
+    marginBottom: 6,
+  },
+  blockCard: {
+    gap: 8,
+    padding: 16,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: AppColors.surface,
+  },
+  blockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  blockHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  blockSubject: {
+    color: AppColors.textPrimary,
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: 'DMSans_700Bold',
+  },
+  blockMeta: {
+    color: AppColors.textSecondary,
+    fontSize: 13,
+    fontFamily: 'DMSans_500Medium',
+    fontVariant: ['tabular-nums'],
+  },
+  blockEvent: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: AppColors.surface,
+  },
+  blockEventOutstanding: {
+    backgroundColor: AppColors.primary,
+  },
+  blockEventType: {
+    color: AppColors.accent,
+    fontSize: 12,
+    fontFamily: 'DMSans_700Bold',
+    textTransform: 'uppercase',
+  },
+  blockEventTitle: {
+    flex: 1,
+    color: AppColors.textPrimary,
+    fontSize: 14,
+    fontFamily: 'DMSans_500Medium',
   },
   timeColumn: {
     width: 60,

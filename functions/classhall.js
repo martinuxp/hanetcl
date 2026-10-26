@@ -636,6 +636,13 @@ function build(getAdminApp) {
       .slice(0, MAX_COURSE_EVENTS);
     const hall = hallOut({ id: hallRef.id, data: () => data }, profile);
     if (isTeacher && hall.plan === "comun") hall.memberCount = await courseSize(getAdminApp, data);
+    // A plan común Hall's hours are its subject's blocks in the course's Horario.
+    if (hall.plan === "comun") {
+      const schedule = await calendarDb(getAdminApp).collection("courseSchedules").doc(`${data.institutionId}__${data.courseId}`).get();
+      hall.blocks = (schedule.data()?.blocks || [])
+        .filter(block => block.kind !== "break" && subjectKey(block.subject) === key)
+        .map(({ id, day, start, end, room }) => ({ id, day, start, end, room }));
+    }
     hall.teacherAvatarSeed = teacherAvatarSeed;
     return {
       hall,
