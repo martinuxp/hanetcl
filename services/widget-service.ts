@@ -1,6 +1,6 @@
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
-import { blocksOn, minutesOf, scheduleDay } from './schedule-service';
+import { blocksOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
 import type { ScheduleBlock } from './schedule-service';
 import type { HomeWidgetProps } from '@/widgets/home-widget';
 import type { ExamActivityProps } from '@/widgets/exam-activity';
@@ -55,18 +55,18 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
   const minute = at.getHours() * 60 + at.getMinutes();
   const current = today.find(block => minutesOf(block.start) <= minute && minute < minutesOf(block.end));
   if (current) return { label: 'Ahora', subject: current.subject, detail: `Hasta las ${current.end}${current.room ? ` · ${current.room}` : ''}`, exam };
-  const next = today.find(block => minutesOf(block.start) > minute);
+  const next = today.find(block => !isBreak(block) && minutesOf(block.start) > minute);
   if (next) return { label: 'Después', subject: next.subject, detail: `${next.start}${next.room ? ` · ${next.room}` : ''}`, exam };
   // The day is over: the first block of the next school day.
   for (let offset = 1; offset <= 7; offset += 1) {
     const day = new Date(at);
     day.setDate(day.getDate() + offset);
-    const first = blocksOn(blocks, scheduleDay(day))[0];
+    const first = blocksOn(blocks, scheduleDay(day)).find(block => !isBreak(block));
     if (first) {
       return { label: offset === 1 ? 'Mañana' : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: `Entras a las ${first.start}`, exam };
     }
   }
-  return { label: 'Hoy', subject: blocks.length ? 'Sin clases' : 'Sin horario', detail: blocks.length ? 'Disfruta el día' : 'Tu curso aún no carga su horario', exam };
+  return { label: 'Hoy', subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? 'Disfruta el día' : 'Tu curso aún no carga su horario', exam };
 }
 
 function publish() {

@@ -2,7 +2,7 @@ import type { User } from 'firebase/auth';
 import { claimedCourse } from './auth-service';
 import { syncExamReminders } from './exam-reminders';
 import { fetchCalendarEvents, restoreCalendarEvents } from './ical-service';
-import { getCourseSchedule, restoreCourseSchedule } from './schedule-service';
+import { getCourseSchedule, myWeek, restoreCourseSchedule } from './schedule-service';
 import { syncHomeWidget } from './widget-service';
 
 // Opening HaNet (and coming back to it) brings the phone's own copies up to
@@ -23,10 +23,10 @@ export async function refreshDayWidgets(user: User) {
     if (!courseId) return;
     const [keptEvents, keptSchedule] = await Promise.all([restoreCalendarEvents(courseId), restoreCourseSchedule()]);
     if (keptEvents) void syncExamReminders(keptEvents);
-    if (keptSchedule) syncHomeWidget(keptSchedule.blocks);
+    if (keptSchedule) syncHomeWidget(myWeek(keptSchedule));
     const [events, schedule] = await Promise.allSettled([fetchCalendarEvents(courseId), getCourseSchedule()]);
     if (events.status === 'fulfilled') void syncExamReminders(events.value);
-    if (schedule.status === 'fulfilled') syncHomeWidget(schedule.value.blocks);
+    if (schedule.status === 'fulfilled') syncHomeWidget(myWeek(schedule.value));
   } catch (error) {
     console.warn('refreshDayWidgets', error instanceof Error ? error.message : error);
   }

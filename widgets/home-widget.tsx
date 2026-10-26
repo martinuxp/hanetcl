@@ -28,13 +28,20 @@ const HomeWidget = (props: HomeWidgetProps, environment: WidgetEnvironment) => {
   const primary = '#F9F9FA';
   const secondary = '#DDDDE2';
   const small = environment.widgetFamily === 'systemSmall';
+  // Until the app hands it a timeline (or when it cannot: a build without the
+  // App Group), the widget shows how to fill it instead of an empty box.
+  const empty = !props?.subject;
+  const label = empty ? 'Tu día' : props.label;
+  const subject = empty ? 'Abre HaNet' : props.subject;
+  const detail = empty ? 'Para ver tu horario aquí' : props.detail;
+  const exam = empty ? '' : props.exam;
 
   if (environment.widgetFamily === 'accessoryRectangular') {
     return (
       <VStack alignment="leading" spacing={1} modifiers={[widgetURL('hanetcl://schedule')]}>
-        <Text modifiers={[font({ size: 12, weight: 'semibold' })]}>{props.label}</Text>
-        <Text modifiers={[font({ size: 15, weight: 'bold' }), lineLimit(1)]}>{props.subject}</Text>
-        <Text modifiers={[font({ size: 12 }), lineLimit(1)]}>{props.exam || props.detail}</Text>
+        <Text modifiers={[font({ size: 12, weight: 'semibold' })]}>{label}</Text>
+        <Text modifiers={[font({ size: 15, weight: 'bold' }), lineLimit(1)]}>{subject}</Text>
+        <Text modifiers={[font({ size: 12 }), lineLimit(1)]}>{exam || detail}</Text>
       </VStack>
     );
   }
@@ -42,15 +49,15 @@ const HomeWidget = (props: HomeWidgetProps, environment: WidgetEnvironment) => {
   return (
     <VStack alignment="leading" spacing={4} modifiers={[padding({ all: small ? 2 : 4 }), containerBackground(canvas, 'widget'), widgetURL('hanetcl://schedule')]}>
       <HStack>
-        <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(accent)]}>{props.label}</Text>
+        <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(accent)]}>{label}</Text>
         <Spacer />
         <Text modifiers={[font({ size: 12, weight: 'medium' }), foregroundStyle(secondary)]}>HaNet</Text>
       </HStack>
-      <Text modifiers={[font({ size: small ? 20 : 24, weight: 'bold' }), foregroundStyle(primary), lineLimit(2)]}>{props.subject}</Text>
-      <Text modifiers={[font({ size: 13, weight: 'medium' }), foregroundStyle(secondary), lineLimit(1)]}>{props.detail}</Text>
+      <Text modifiers={[font({ size: small ? 20 : 24, weight: 'bold' }), foregroundStyle(primary), lineLimit(2)]}>{subject}</Text>
+      <Text modifiers={[font({ size: 13, weight: 'medium' }), foregroundStyle(secondary), lineLimit(1)]}>{detail}</Text>
       <Spacer />
-      {props.exam ? (
-        <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(accent), lineLimit(2)]}>{props.exam}</Text>
+      {exam ? (
+        <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(accent), lineLimit(2)]}>{exam}</Text>
       ) : null}
     </VStack>
   );

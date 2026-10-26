@@ -2,6 +2,11 @@ name: Build LiveContainer IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      app_group:
+        description: "App Group del certificado que firma la app (para el widget y la Live Activity). Vacío = group.art.muxp.hanetcl."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -36,6 +41,8 @@ jobs:
         run: npm ci --include=dev
 
       - name: Generate the native iOS project
+        env:
+          HANET_APP_GROUP: ${{ github.event.inputs.app_group }}
         run: npx expo prebuild --platform ios --no-install
 
       - name: Install CocoaPods dependencies

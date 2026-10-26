@@ -7,6 +7,8 @@ import { describeAuthError, useSession } from '@/services/auth-service';
 import { hallThemeImage, listMyHalls } from '@/services/classhall-service';
 import { dismissPushPrompt, enablePush, pushPermission, pushSupport, wasPushPromptDismissed } from '@/services/push-service';
 import type { Hall } from '@/services/classhall-service';
+import { SCHEDULE_DAYS, blocksOn, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
+import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -23,7 +25,23 @@ function evaluationNotice(date: number) {
   return `Tienes una evaluación programada en ${days} días`;
 }
 
-function HallCard({ hall, onOpen }: { hall: Hall; onOpen: () => void }) {
+/** "Hoy 10:00 · Sala 12", "Mar 08:00": the class's next block from now. */
+function nextBlockLine(blocks: Pick<ScheduleBlock, 'day' | 'start' | 'room'>[], now = new Date()) {
+  const minute = now.getHours() * 60 + now.getMinutes();
+  for (let offset = 0; offset < 7; offset += 1) {
+    const date = new Date(now);
+    date.setDate(date.getDate() + offset);
+    const day = scheduleDay(date);
+    const next = blocksOn(blocks as ScheduleBlock[], day).find(block => offset > 0 || minutesOf(block.start) > minute);
+    if (next) {
+      const when = offset === 0 ? 'Hoy' : offset === 1 ? 'Mañana' : SCHEDULE_DAYS.find(item => item.day === day)?.name.slice(0, 3) ?? '';
+      return [`${when} ${next.start}`, next.room || null].filter(Boolean).join(' · ');
+    }
+  }
+  return null;
+}
+
+function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next: string | null }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -55,7 +73,7 @@ function HallCard({ hall, onOpen }: { hall: Hall; onOpen: () => void }) {
         <View style={styles.cardShade} />
         <View style={styles.cardText}>
           <ThemedText numberOfLines={1} style={styles.cardSubject}>{hall.subject}</ThemedText>
-          <ThemedText numberOfLines={1} style={styles.cardCourse}>{hall.courseId}</ThemedText>
+          <ThemedText numberOfLines={1} style={styles.cardCourse}>{hall.plan === 'comun' ? hall.courseId : hall.plan === 'dominio' ? 'Dominio' : 'Electivo'}{next ? ` · ${next}` : ''}</ThemedText>
           <ThemedText numberOfLines={1} style={styles.cardTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
         </View>
       </Pressable>
@@ -99,6 +117,12 @@ export default function ClassHallScreen() {
   // What the phone kept shows until this visit's load answers.
   const kept = useCached<{ halls: Hall[]; canCreate: boolean }>(user ? 'halls' : null);
   const halls = loadedHalls ?? kept?.halls ?? null;
+  // Each card says when the class meets next: an electivo's own blocks, or the course's Horario.
+  const week = myWeek(useCached<CourseSchedule>(user ? 'schedule:mine' : null));
+  const nextOf = (hall: Hall) => nextBlockLine(hall.blocks?.length ? hall.blocks : week.filter(block => block.hallId === hall.id));
+  const courseHalls = halls?.filter(hall => hall.plan === 'comun') ?? [];
+  const joinedHalls = halls?.filter(hall => hall.plan !== 'comun') ?? [];
+  const open = (hall: Hall) => router.push({ pathname: '/classhall/hall', params: { id: hall.id } });
   const canCreate = loadedCanCreate ?? kept?.canCreate ?? false;
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -220,15 +244,17 @@ export default function ClassHallScreen() {
             <ThemedText style={styles.noticeTitle}>Todavía no tienes clases</ThemedText>
             <ThemedText style={styles.noticeText}>
               {canCreate
-                ? 'Crea un Hall para tu asignatura. Si es de plan común, todo el curso entra solo.'
-                : 'Las asignaturas de tu curso aparecen aquí solas cuando tus profesores crean su Hall. Para un electivo o dominio, usa el código en "Unirse a un Hall".'}
+                ? 'Crea un Hall para tu asignatura. Si es para todo el curso, todos entran solos.'
+                : 'Las clases de tu curso aparecen aquí solas cuando tus profesores crean su Hall. Para un electivo o dominio, usa el código en "Unirse a un Hall".'}
             </ThemedText>
           </View>
         )}
 
-        {halls?.map(hall => (
-          <HallCard key={hall.id} hall={hall} onOpen={() => router.push({ pathname: '/classhall/hall', params: { id: hall.id } })} />
-        ))}
+        {/* The course's classes first, then the ones joined with a code. */}
+        {courseHalls.length > 0 && joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>Tu curso</ThemedText>}
+        {courseHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
+        {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>Electivos y dominios</ThemedText>}
+        {joinedHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -397,6 +423,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.6,
     color: AppColors.textPrimary,
+  },
+  groupLabel: {
+    marginTop: AppSpacing.sm,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    color: AppColors.textSecondary,
   },
   cardCourse: {
     fontFamily: 'DMSans_500Medium',

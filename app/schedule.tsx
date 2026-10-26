@@ -1,35 +1,29 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { BlockEditor } from '@/components/schedule/block-editor';
+import type { BlockKind } from '@/components/schedule/block-editor';
 import { NowNextCard } from '@/components/schedule/now-next-card';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
+import { HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { HanetSelect } from '@/components/ui/hanet-select';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { useCached } from '@/services/cache';
-import { SCHEDULE_DAYS, blocksOn, getCourseSchedule, minutesOf, nowAndNext, saveCourseSchedule, scheduleDay } from '@/services/schedule-service';
+import { SCHEDULE_DAYS, blocksOn, getCourseSchedule, isBreak, myWeek, nowAndNext, saveCourseSchedule, scheduleDay } from '@/services/schedule-service';
 import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 import { syncHomeWidget } from '@/services/widget-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Horario: the course's week, block by block, with what is on now. The
-// course's Directiva, the administration and HNT edit it.
-
-const TIME = /^([01]?\d|2[0-3]):[0-5]\d$/;
-
-type Draft = { index: number | null; day: number; start: string; end: string; subject: string; room: string };
-
-function pad(time: string) {
-  const [hours, minutes] = time.trim().split(':');
-  return `${hours.padStart(2, '0')}:${minutes}`;
-}
+// course's Directiva, the administration and HNT edit it. Each student also
+// sees the blocks of their electivos and dominios, which their Halls set.
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -46,8 +40,8 @@ export default function ScheduleScreen() {
 
   // Editing: a copy of the blocks until "Guardar".
   const [edited, setEdited] = useState<ScheduleBlock[] | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [draftError, setDraftError] = useState<string | null>(null);
+  // The block open in the editor: its position in `blocks`, or null for a new one.
+  const [draft, setDraft] = useState<{ index: number | null; kind: BlockKind } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -55,7 +49,7 @@ export default function ScheduleScreen() {
       const result = await getCourseSchedule(courseId);
       setLoaded(result);
       setError(null);
-      if (!courseId) void syncHomeWidget(result.blocks);
+      if (!courseId) void syncHomeWidget(myWeek(result));
     } catch (loadError) {
       setError(describeAuthError(loadError, 'No pudimos cargar el horario.'));
     }
@@ -66,9 +60,10 @@ export default function ScheduleScreen() {
   }, [load, user]));
 
   const blocks = edited ?? schedule?.blocks ?? [];
-  const dayBlocks = blocksOn(blocks, day);
+  // While editing, only the course's own blocks; otherwise the whole week.
+  const dayBlocks = blocksOn(edited ? blocks : myWeek(schedule), day);
   const isToday = day === scheduleDay(now);
-  const { current, next } = nowAndNext(schedule?.blocks ?? [], now);
+  const { current, next } = nowAndNext(myWeek(schedule), now);
   const days = SCHEDULE_DAYS.filter(item => item.day < 6 || edited || blocks.some(block => block.day === 6));
 
   const save = async () => {
@@ -80,7 +75,7 @@ export default function ScheduleScreen() {
       setLoaded({ ...schedule, blocks: saved });
       setEdited(null);
       allowLeave();
-      if (!courseId) void syncHomeWidget(saved);
+      if (!courseId) void syncHomeWidget(myWeek({ blocks: saved, hallBlocks: schedule.hallBlocks }));
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (saveError) {
       setError(describeAuthError(saveError, 'No pudimos guardar el horario.'));
@@ -98,31 +93,9 @@ export default function ScheduleScreen() {
     message: 'El horario quedará como estaba.',
   });
 
-  const openDraft = (block: ScheduleBlock | null, index: number | null) => {
-    setDraftError(null);
-    const previous = dayBlocks[dayBlocks.length - 1];
-    setDraft(block
-      ? { index, day: block.day, start: block.start, end: block.end, subject: block.subject, room: block.room }
-      : { index: null, day, start: previous?.end ?? '08:00', end: '', subject: '', room: previous?.room ?? '' });
-  };
-
-  const commitDraft = () => {
+  const saveDraft = (block: ScheduleBlock) => {
     if (!draft) return;
-    const start = draft.start.trim();
-    const end = draft.end.trim();
-    if (!TIME.test(start) || !TIME.test(end)) return setDraftError('Escribe las horas como 08:00.');
-    if (minutesOf(pad(end)) <= minutesOf(pad(start))) return setDraftError('El bloque tiene que terminar después de empezar.');
-    if (!draft.subject.trim()) return setDraftError('Escribe la asignatura.');
-    const block: ScheduleBlock = {
-      id: draft.index !== null ? blocks[draft.index].id : `b${Date.now().toString(36)}`,
-      day: draft.day,
-      start: pad(start),
-      end: pad(end),
-      subject: draft.subject.trim(),
-      room: draft.room.trim(),
-    };
-    const nextBlocks = draft.index !== null ? blocks.map((item, position) => (position === draft.index ? block : item)) : [...blocks, block];
-    setEdited(nextBlocks);
+    setEdited(draft.index !== null ? blocks.map((item, position) => (position === draft.index ? block : item)) : [...blocks, block]);
     setDraft(null);
   };
 
@@ -201,26 +174,35 @@ export default function ScheduleScreen() {
                 {dayBlocks.map(block => {
                   const index = blocks.indexOf(block);
                   const live = !edited && isToday && current?.id === block.id;
+                  const pause = isBreak(block);
+                  // Every class opens its Hall: electivos and dominios, and the plan común ones that have one.
+                  const hallId = block.hallId;
                   return (
                     <Pressable
                       key={`${block.id}-${index}`}
-                      accessibilityRole={edited ? 'button' : undefined}
+                      accessibilityRole={edited || hallId ? 'button' : undefined}
                       accessibilityLabel={`${block.start} a ${block.end}, ${block.subject}${block.room ? `, ${block.room}` : ''}${live ? ', ahora' : ''}`}
-                      accessibilityHint={edited ? 'Editar el bloque' : undefined}
-                      disabled={!edited}
-                      onPress={() => openDraft(block, index)}
-                      style={({ pressed }) => [styles.block, live && styles.blockLive, pressed && AppPressed]}
+                      accessibilityHint={edited ? 'Editar el bloque' : hallId ? 'Abrir el Hall' : undefined}
+                      disabled={!edited && !hallId}
+                      onPress={() => (edited
+                        ? setDraft({ index, kind: pause ? 'break' : 'class' })
+                        : router.push({ pathname: '/classhall/hall', params: { id: hallId } }))}
+                      style={({ pressed }) => [styles.block, pause && styles.blockBreak, live && styles.blockLive, pressed && AppPressed]}
                     >
                       <View style={styles.blockTime}>
                         <ThemedText style={styles.blockStart}>{block.start}</ThemedText>
                         <ThemedText style={styles.blockEnd}>{block.end}</ThemedText>
                       </View>
-                      <View style={[styles.blockBar, live && styles.blockBarLive]} />
+                      <View style={[styles.blockBar, pause && styles.blockBarBreak, live && styles.blockBarLive]} />
                       <View style={styles.blockText}>
-                        <ThemedText style={styles.blockSubject}>{block.subject}</ThemedText>
-                        {!!block.room && <ThemedText style={styles.blockRoom}>{block.room}</ThemedText>}
+                        <ThemedText style={[styles.blockSubject, pause && styles.blockSubjectBreak]}>{block.subject}</ThemedText>
+                        {(!!block.room || block.kind === 'hall') && (
+                          <ThemedText style={styles.blockRoom}>
+                            {[block.kind === 'hall' ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ')}
+                          </ThemedText>
+                        )}
                       </View>
-                      {edited && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
+                      {(edited || !!hallId) && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
                     </Pressable>
                   );
                 })}
@@ -230,7 +212,10 @@ export default function ScheduleScreen() {
             {schedule.canEdit && (
               edited ? (
                 <View style={styles.editActions}>
-                  <HanetButton label="Agregar bloque" variant="surface" disabled={saving} onPress={() => openDraft(null, null)} />
+                  <HanetDialogActions>
+                    <HanetButton label="Agregar clase" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'class' })} style={dialogStyles.action} />
+                    <HanetButton label="Agregar recreo" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'break' })} style={dialogStyles.action} />
+                  </HanetDialogActions>
                   <HanetDialogActions>
                     <HanetButton label="Descartar" variant="surface" disabled={saving} onPress={() => setEdited(null)} style={dialogStyles.action} />
                     <HanetButton label={saving ? 'Guardando…' : 'Guardar'} variant="accent" disabled={saving} onPress={() => void save()} style={dialogStyles.action} />
@@ -240,43 +225,22 @@ export default function ScheduleScreen() {
                 <HanetButton label="Editar horario" variant="surface" onPress={() => setEdited(schedule.blocks)} style={styles.editButton} />
               )
             )}
-            <ThemedText style={styles.note}>Por ahora es el horario del plan común. Los electivos y dominios llegan después.</ThemedText>
+            <ThemedText style={styles.note}>Los electivos y dominios los agrega cada Hall: aparecen en el horario de quienes están en él.</ThemedText>
           </>
         )}
       </ScrollView>
 
-      <HanetDialog visible={!!draft} onRequestClose={() => setDraft(null)} title={draft?.index !== null ? 'Editar bloque' : 'Nuevo bloque'}>
-        {!!draft && (
-          <View style={styles.form}>
-            <View style={styles.formDays}>
-              {SCHEDULE_DAYS.map(item => (
-                <Pressable
-                  key={item.day}
-                  accessibilityRole="radio"
-                  accessibilityLabel={item.name}
-                  accessibilityState={{ checked: draft.day === item.day }}
-                  onPress={() => setDraft({ ...draft, day: item.day })}
-                  style={({ pressed }) => [styles.formDay, draft.day === item.day && styles.daySelected, pressed && AppPressed]}
-                >
-                  <ThemedText style={[styles.dayText, draft.day === item.day && styles.dayTextSelected]}>{item.short}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
-            <TextInput accessibilityLabel="Asignatura" value={draft.subject} onChangeText={subject => setDraft({ ...draft, subject })} placeholder="Asignatura" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={40} style={styles.input} selectionColor={AppColors.accent} />
-            <View style={styles.formRow}>
-              <TextInput accessibilityLabel="Empieza" value={draft.start} onChangeText={start => setDraft({ ...draft, start })} placeholder="08:00" placeholderTextColor="rgba(221, 221, 226, 0.4)" keyboardType="numbers-and-punctuation" maxLength={5} style={[styles.input, styles.inputHalf]} selectionColor={AppColors.accent} />
-              <TextInput accessibilityLabel="Termina" value={draft.end} onChangeText={end => setDraft({ ...draft, end })} placeholder="09:30" placeholderTextColor="rgba(221, 221, 226, 0.4)" keyboardType="numbers-and-punctuation" maxLength={5} style={[styles.input, styles.inputHalf]} selectionColor={AppColors.accent} />
-            </View>
-            <TextInput accessibilityLabel="Sala (opcional)" value={draft.room} onChangeText={room => setDraft({ ...draft, room })} placeholder="Sala (opcional)" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={20} style={styles.input} selectionColor={AppColors.accent} />
-            {!!draftError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{draftError}</ThemedText>}
-            <HanetDialogActions>
-              <HanetButton label="Cancelar" variant="surface" onPress={() => setDraft(null)} style={dialogStyles.action} />
-              <HanetButton label="Listo" onPress={commitDraft} style={dialogStyles.action} />
-            </HanetDialogActions>
-            {draft.index !== null && <HanetButton label="Quitar bloque" variant="surface" onPress={removeDraft} />}
-          </View>
-        )}
-      </HanetDialog>
+      {!!draft && (
+        <BlockEditor
+          block={draft.index !== null ? blocks[draft.index] : null}
+          day={day}
+          kind={draft.kind}
+          others={blocks.filter((_, position) => position !== draft.index)}
+          onSave={saveDraft}
+          onRemove={removeDraft}
+          onClose={() => setDraft(null)}
+        />
+      )}
       {guardDialog}
     </SafeAreaView>
   );
@@ -428,6 +392,22 @@ const styles = StyleSheet.create({
     borderRadius: AppRadii.pill,
     backgroundColor: AppColors.surfaceMuted,
   },
+  blockBreak: {
+    minHeight: 44,
+    paddingVertical: AppSpacing.sm,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: AppColors.surfaceMuted,
+  },
+  blockBarBreak: {
+    backgroundColor: 'transparent',
+  },
+  blockSubjectBreak: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    color: AppColors.textSecondary,
+  },
   blockBarLive: {
     backgroundColor: AppColors.accent,
   },
@@ -461,37 +441,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: AppColors.textSecondary,
     opacity: 0.8,
-  },
-  form: {
-    gap: AppSpacing.sm,
-  },
-  formDays: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  formDay: {
-    flex: 1,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  formRow: {
-    flexDirection: 'row',
-    gap: AppSpacing.sm,
-  },
-  input: {
-    height: 48,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.canvas,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 16,
-    color: AppColors.textPrimary,
-    outlineStyle: 'none' as never,
-  },
-  inputHalf: {
-    flex: 1,
   },
 });

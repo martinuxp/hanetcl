@@ -172,6 +172,19 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
   );
 }
 
+/** Just the hour and minute wheels, for a time of day as minutes since midnight. */
+export function HanetTimeWheels({ minutes, onChange, label = 'Hora' }: { minutes: number; onChange: (minutes: number) => void; label?: string }) {
+  const hours = Math.floor(minutes / 60) % 24;
+  const minuteIndex = Math.round((minutes % 60) / MINUTE_STEP) % MINUTES.length;
+  return (
+    <View style={styles.timeControls} accessibilityLabel={label}>
+      <Wheel label={`${label}: hora`} values={HOURS} selectedIndex={hours} onSelect={index => onChange(HOURS[index] * 60 + MINUTES[minuteIndex])} />
+      <ThemedText style={styles.timeColon}>:</ThemedText>
+      <Wheel label={`${label}: minutos`} values={MINUTES} selectedIndex={minuteIndex} onSelect={index => onChange(hours * 60 + MINUTES[index])} />
+    </View>
+  );
+}
+
 function RoundButton({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) {
   return (
     <Pressable
