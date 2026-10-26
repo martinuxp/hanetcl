@@ -1,56 +1,29 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { BlockEditor } from '@/components/schedule/block-editor';
+import type { BlockKind } from '@/components/schedule/block-editor';
 import { NowNextCard } from '@/components/schedule/now-next-card';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetTimeWheels } from '@/components/ui/hanet-date-time-picker';
-import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
-import { HanetChoice, HanetSelect } from '@/components/ui/hanet-select';
+import { HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
+import { HanetSelect } from '@/components/ui/hanet-select';
 import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
-import { SUBJECTS, findSubject } from '@/constants/subjects';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { useCached } from '@/services/cache';
-import { SCHEDULE_DAYS, blocksOn, getCourseSchedule, isBreak, minutesOf, nowAndNext, saveCourseSchedule, scheduleDay, timeOf } from '@/services/schedule-service';
+import { SCHEDULE_DAYS, blocksOn, getCourseSchedule, isBreak, myWeek, nowAndNext, saveCourseSchedule, scheduleDay } from '@/services/schedule-service';
 import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 import { syncHomeWidget } from '@/services/widget-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Horario: the course's week, block by block, with what is on now. The
-// course's Directiva, the administration and HNT edit it.
-
-type Kind = 'class' | 'break';
-
-// Block lengths as chips; "Otra" opens the wheels for the end.
-const DURATIONS: Record<Kind, number[]> = { class: [45, 90, 120, 180], break: [15, 30, 45, 60] };
-const BREAK_NAMES = ['Recreo', 'Almuerzo'];
-// The Horario is the plan común, so its catalog subjects.
-const SCHEDULE_SUBJECTS = SUBJECTS.filter(subject => subject.plans.includes('comun'));
-
-type Draft = {
-  index: number | null;
-  day: number;
-  kind: Kind;
-  /** Minutes since midnight. */
-  start: number;
-  /** One of DURATIONS, or null for an end picked on the wheels. */
-  duration: number | null;
-  end: number;
-  /** A catalog subject's name, or null for one written by hand. */
-  subject: string | null;
-  customSubject: string;
-  breakName: string;
-  room: string;
-};
-
-function normalize(text: string) {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
+// course's Directiva, the administration and HNT edit it. Each student also
+// sees the blocks of their electivos and dominios, which their Halls set.
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -67,12 +40,8 @@ export default function ScheduleScreen() {
 
   // Editing: a copy of the blocks until "Guardar".
   const [edited, setEdited] = useState<ScheduleBlock[] | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [draftError, setDraftError] = useState<string | null>(null);
-  // The subject list, shown in place of the block's form.
-  const [picking, setPicking] = useState(false);
-  const [query, setQuery] = useState('');
-  const { height } = useWindowDimensions();
+  // The block open in the editor: its position in `blocks`, or null for a new one.
+  const [draft, setDraft] = useState<{ index: number | null; kind: BlockKind } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -80,7 +49,7 @@ export default function ScheduleScreen() {
       const result = await getCourseSchedule(courseId);
       setLoaded(result);
       setError(null);
-      if (!courseId) void syncHomeWidget(result.blocks);
+      if (!courseId) void syncHomeWidget(myWeek(result));
     } catch (loadError) {
       setError(describeAuthError(loadError, 'No pudimos cargar el horario.'));
     }
@@ -91,9 +60,10 @@ export default function ScheduleScreen() {
   }, [load, user]));
 
   const blocks = edited ?? schedule?.blocks ?? [];
-  const dayBlocks = blocksOn(blocks, day);
+  // While editing, only the course's own blocks; otherwise the whole week.
+  const dayBlocks = blocksOn(edited ? blocks : myWeek(schedule), day);
   const isToday = day === scheduleDay(now);
-  const { current, next } = nowAndNext(schedule?.blocks ?? [], now);
+  const { current, next } = nowAndNext(myWeek(schedule), now);
   const days = SCHEDULE_DAYS.filter(item => item.day < 6 || edited || blocks.some(block => block.day === 6));
 
   const save = async () => {
@@ -105,7 +75,7 @@ export default function ScheduleScreen() {
       setLoaded({ ...schedule, blocks: saved });
       setEdited(null);
       allowLeave();
-      if (!courseId) void syncHomeWidget(saved);
+      if (!courseId) void syncHomeWidget(myWeek({ blocks: saved, hallBlocks: schedule.hallBlocks }));
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (saveError) {
       setError(describeAuthError(saveError, 'No pudimos guardar el horario.'));
@@ -123,66 +93,9 @@ export default function ScheduleScreen() {
     message: 'El horario quedará como estaba.',
   });
 
-  const openDraft = (block: ScheduleBlock | null, index: number | null, kind: Kind = 'class') => {
-    setDraftError(null);
-    setPicking(false);
-    if (block) {
-      const start = minutesOf(block.start);
-      const end = minutesOf(block.end);
-      const blockKind: Kind = isBreak(block) ? 'break' : 'class';
-      const known = findSubject(block.subject);
-      setDraft({
-        index,
-        day: block.day,
-        kind: blockKind,
-        start,
-        duration: DURATIONS[blockKind].includes(end - start) ? end - start : null,
-        end,
-        subject: blockKind === 'class' && known ? known.name : null,
-        customSubject: blockKind === 'class' && !known ? block.subject : '',
-        breakName: blockKind === 'break' ? block.subject : BREAK_NAMES[0],
-        room: block.room,
-      });
-      return;
-    }
-    // A new block starts when the day's last one ends.
-    const previous = dayBlocks[dayBlocks.length - 1];
-    const start = previous ? minutesOf(previous.end) : 8 * 60;
-    const duration = DURATIONS[kind][0];
-    const lastClass = [...dayBlocks].reverse().find(item => !isBreak(item));
-    setDraft({ index: null, day, kind, start, duration, end: start + duration, subject: null, customSubject: '', breakName: BREAK_NAMES[0], room: lastClass?.room ?? '' });
-  };
-
-  const draftEnd = draft ? (draft.duration !== null ? draft.start + draft.duration : draft.end) : 0;
-
-  const setKind = (kind: Kind) => {
-    if (!draft || draft.kind === kind) return;
-    const duration = DURATIONS[kind][0];
-    setDraft({ ...draft, kind, duration, end: draft.start + duration });
-  };
-
-  const commitDraft = () => {
+  const saveDraft = (block: ScheduleBlock) => {
     if (!draft) return;
-    const end = draftEnd;
-    if (end <= draft.start) return setDraftError('El bloque tiene que terminar después de empezar.');
-    if (end > 24 * 60) return setDraftError('El bloque tiene que terminar antes de medianoche.');
-    const subject = draft.kind === 'break' ? draft.breakName : (draft.subject ?? draft.customSubject.trim());
-    if (!subject) return setDraftError('Elige la asignatura.');
-    const clash = blocksOn(blocks, draft.day).find(item => (
-      blocks.indexOf(item) !== draft.index && minutesOf(item.start) < end && draft.start < minutesOf(item.end)
-    ));
-    if (clash) return setDraftError(`Choca con ${clash.subject} (${clash.start} – ${clash.end}).`);
-    const block: ScheduleBlock = {
-      id: draft.index !== null ? blocks[draft.index].id : `b${Date.now().toString(36)}`,
-      day: draft.day,
-      start: timeOf(draft.start),
-      end: timeOf(end),
-      subject,
-      room: draft.kind === 'break' ? '' : draft.room.trim(),
-      ...(draft.kind === 'break' ? { kind: 'break' as const } : {}),
-    };
-    const nextBlocks = draft.index !== null ? blocks.map((item, position) => (position === draft.index ? block : item)) : [...blocks, block];
-    setEdited(nextBlocks);
+    setEdited(draft.index !== null ? blocks.map((item, position) => (position === draft.index ? block : item)) : [...blocks, block]);
     setDraft(null);
   };
 
@@ -262,14 +175,17 @@ export default function ScheduleScreen() {
                   const index = blocks.indexOf(block);
                   const live = !edited && isToday && current?.id === block.id;
                   const pause = isBreak(block);
+                  const hallId = block.kind === 'hall' ? block.hallId : undefined;
                   return (
                     <Pressable
                       key={`${block.id}-${index}`}
-                      accessibilityRole={edited ? 'button' : undefined}
+                      accessibilityRole={edited || hallId ? 'button' : undefined}
                       accessibilityLabel={`${block.start} a ${block.end}, ${block.subject}${block.room ? `, ${block.room}` : ''}${live ? ', ahora' : ''}`}
-                      accessibilityHint={edited ? 'Editar el bloque' : undefined}
-                      disabled={!edited}
-                      onPress={() => openDraft(block, index)}
+                      accessibilityHint={edited ? 'Editar el bloque' : hallId ? 'Abrir el Hall' : undefined}
+                      disabled={!edited && !hallId}
+                      onPress={() => (edited
+                        ? setDraft({ index, kind: pause ? 'break' : 'class' })
+                        : router.push({ pathname: '/classhall/hall', params: { id: hallId } }))}
                       style={({ pressed }) => [styles.block, pause && styles.blockBreak, live && styles.blockLive, pressed && AppPressed]}
                     >
                       <View style={styles.blockTime}>
@@ -279,9 +195,13 @@ export default function ScheduleScreen() {
                       <View style={[styles.blockBar, pause && styles.blockBarBreak, live && styles.blockBarLive]} />
                       <View style={styles.blockText}>
                         <ThemedText style={[styles.blockSubject, pause && styles.blockSubjectBreak]}>{block.subject}</ThemedText>
-                        {!!block.room && <ThemedText style={styles.blockRoom}>{block.room}</ThemedText>}
+                        {(!!block.room || !!hallId) && (
+                          <ThemedText style={styles.blockRoom}>
+                            {[hallId ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ')}
+                          </ThemedText>
+                        )}
                       </View>
-                      {edited && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
+                      {(edited || !!hallId) && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
                     </Pressable>
                   );
                 })}
@@ -292,8 +212,8 @@ export default function ScheduleScreen() {
               edited ? (
                 <View style={styles.editActions}>
                   <HanetDialogActions>
-                    <HanetButton label="Agregar clase" variant="surface" disabled={saving} onPress={() => openDraft(null, null, 'class')} style={dialogStyles.action} />
-                    <HanetButton label="Agregar recreo" variant="surface" disabled={saving} onPress={() => openDraft(null, null, 'break')} style={dialogStyles.action} />
+                    <HanetButton label="Agregar clase" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'class' })} style={dialogStyles.action} />
+                    <HanetButton label="Agregar recreo" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'break' })} style={dialogStyles.action} />
                   </HanetDialogActions>
                   <HanetDialogActions>
                     <HanetButton label="Descartar" variant="surface" disabled={saving} onPress={() => setEdited(null)} style={dialogStyles.action} />
@@ -304,149 +224,22 @@ export default function ScheduleScreen() {
                 <HanetButton label="Editar horario" variant="surface" onPress={() => setEdited(schedule.blocks)} style={styles.editButton} />
               )
             )}
-            <ThemedText style={styles.note}>Por ahora es el horario del plan común. Los electivos y dominios llegan después.</ThemedText>
+            <ThemedText style={styles.note}>Los electivos y dominios los agrega cada Hall: aparecen en el horario de quienes están en él.</ThemedText>
           </>
         )}
       </ScrollView>
 
-      <HanetDialog
-        visible={!!draft}
-        onRequestClose={() => (picking ? setPicking(false) : setDraft(null))}
-        title={picking ? 'Asignatura' : draft?.index !== null ? (draft?.kind === 'break' ? 'Editar recreo' : 'Editar clase') : (draft?.kind === 'break' ? 'Nuevo recreo' : 'Nueva clase')}
-      >
-        {!!draft && picking && (
-          <View style={styles.form}>
-            <TextInput
-              accessibilityLabel="Buscar asignatura"
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Buscar"
-              placeholderTextColor="rgba(221, 221, 226, 0.4)"
-              autoCorrect={false}
-              style={styles.input}
-              selectionColor={AppColors.accent}
-            />
-            <ScrollView style={{ maxHeight: height * 0.45 }} contentContainerStyle={styles.subjectList} keyboardShouldPersistTaps="handled">
-              {SCHEDULE_SUBJECTS
-                .filter(subject => !query.trim() || [subject.name, ...subject.aliases].some(name => normalize(name).includes(normalize(query.trim()))))
-                .map(subject => {
-                  const selected = draft.subject === subject.name;
-                  return (
-                    <Pressable
-                      key={subject.id}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      onPress={() => {
-                        if (Platform.OS !== 'web') void Haptics.selectionAsync();
-                        setDraft({ ...draft, subject: subject.name, customSubject: '' });
-                        setPicking(false);
-                      }}
-                      style={({ pressed }) => [styles.subjectOption, selected && styles.daySelected, pressed && AppPressed]}
-                    >
-                      <ThemedText style={[styles.subjectText, selected && styles.dayTextSelected]}>{subject.name}</ThemedText>
-                      {selected && <CustomIcon name="check-circle" size={20} color={AppColors.controlOnActive} />}
-                    </Pressable>
-                  );
-                })}
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ selected: draft.subject === null && !!draft.customSubject }}
-                onPress={() => { setDraft({ ...draft, subject: null, customSubject: draft.customSubject || query.trim() }); setPicking(false); }}
-                style={({ pressed }) => [styles.subjectOption, pressed && AppPressed]}
-              >
-                <ThemedText style={[styles.subjectText, styles.subjectOther]}>Otra asignatura…</ThemedText>
-              </Pressable>
-            </ScrollView>
-            <HanetButton label="Volver" variant="surface" onPress={() => setPicking(false)} />
-          </View>
-        )}
-        {!!draft && !picking && (
-          <ScrollView style={{ maxHeight: height * 0.7 }} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <View style={styles.formDays}>
-              {SCHEDULE_DAYS.map(item => (
-                <Pressable
-                  key={item.day}
-                  accessibilityRole="radio"
-                  accessibilityLabel={item.name}
-                  accessibilityState={{ checked: draft.day === item.day }}
-                  onPress={() => setDraft({ ...draft, day: item.day })}
-                  style={({ pressed }) => [styles.formDay, draft.day === item.day && styles.daySelected, pressed && AppPressed]}
-                >
-                  <ThemedText style={[styles.dayText, draft.day === item.day && styles.dayTextSelected]}>{item.short}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
-            <HanetChoice
-              label="Tipo de bloque"
-              options={[{ value: 'class', label: 'Clase' }, { value: 'break', label: 'Recreo' }]}
-              value={draft.kind}
-              onChange={value => setKind(value as Kind)}
-            />
-
-            {draft.kind === 'class' ? (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Asignatura: ${draft.subject ?? (draft.customSubject || 'sin elegir')}`}
-                  accessibilityHint="Abre la lista de asignaturas"
-                  onPress={() => { setQuery(''); setPicking(true); }}
-                  style={({ pressed }) => [styles.field, pressed && AppPressed]}
-                >
-                  <ThemedText numberOfLines={1} style={[styles.fieldText, !draft.subject && !draft.customSubject && styles.fieldPlaceholder]}>
-                    {draft.subject ?? (draft.customSubject ? 'Otra asignatura' : 'Elegir asignatura')}
-                  </ThemedText>
-                  <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />
-                </Pressable>
-                {draft.subject === null && (
-                  <TextInput accessibilityLabel="Nombre de la asignatura" value={draft.customSubject} onChangeText={customSubject => setDraft({ ...draft, customSubject })} placeholder="Nombre de la asignatura" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={40} style={styles.input} selectionColor={AppColors.accent} />
-                )}
-              </>
-            ) : (
-              <HanetChoice
-                label="Nombre del recreo"
-                options={BREAK_NAMES.map(name => ({ value: name, label: name }))}
-                value={draft.breakName}
-                onChange={breakName => setDraft({ ...draft, breakName })}
-              />
-            )}
-
-            <View style={styles.timeRow}>
-              <ThemedText style={styles.fieldLabel}>Empieza</ThemedText>
-              <HanetTimeWheels label="Empieza" minutes={draft.start} onChange={start => setDraft({ ...draft, start })} />
-            </View>
-
-            <ThemedText style={styles.fieldLabel}>Duración</ThemedText>
-            <HanetChoice
-              label="Duración"
-              options={[...DURATIONS[draft.kind].map(minutes => ({ value: String(minutes), label: `${minutes} min` })), { value: 'other', label: 'Otra' }]}
-              value={draft.duration === null ? 'other' : String(draft.duration)}
-              onChange={value => setDraft(value === 'other'
-                ? { ...draft, duration: null, end: draftEnd }
-                : { ...draft, duration: Number(value) })}
-            />
-            {draft.duration === null && (
-              <View style={styles.timeRow}>
-                <ThemedText style={styles.fieldLabel}>Termina</ThemedText>
-                <HanetTimeWheels label="Termina" minutes={draft.end} onChange={end => setDraft({ ...draft, end })} />
-              </View>
-            )}
-            <ThemedText style={styles.range} accessibilityLiveRegion="polite">
-              {timeOf(draft.start)} – {draftEnd < 24 * 60 ? timeOf(draftEnd) : '…'}
-              {draftEnd > draft.start ? ` · ${draftEnd - draft.start} min` : ''}
-            </ThemedText>
-
-            {draft.kind === 'class' && (
-              <TextInput accessibilityLabel="Sala (opcional)" value={draft.room} onChangeText={room => setDraft({ ...draft, room })} placeholder="Sala (opcional)" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={20} style={styles.input} selectionColor={AppColors.accent} />
-            )}
-            {!!draftError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{draftError}</ThemedText>}
-            <HanetDialogActions>
-              <HanetButton label="Cancelar" variant="surface" onPress={() => setDraft(null)} style={dialogStyles.action} />
-              <HanetButton label="Listo" onPress={commitDraft} style={dialogStyles.action} />
-            </HanetDialogActions>
-            {draft.index !== null && <HanetButton label={draft.kind === 'break' ? 'Quitar recreo' : 'Quitar clase'} variant="surface" onPress={removeDraft} />}
-          </ScrollView>
-        )}
-      </HanetDialog>
+      {!!draft && (
+        <BlockEditor
+          block={draft.index !== null ? blocks[draft.index] : null}
+          day={day}
+          kind={draft.kind}
+          others={blocks.filter((_, position) => position !== draft.index)}
+          onSave={saveDraft}
+          onRemove={removeDraft}
+          onClose={() => setDraft(null)}
+        />
+      )}
       {guardDialog}
     </SafeAreaView>
   );
@@ -647,90 +440,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: AppColors.textSecondary,
     opacity: 0.8,
-  },
-  form: {
-    gap: AppSpacing.sm,
-  },
-  formDays: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  formDay: {
-    flex: 1,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  fieldLabel: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 15,
-    lineHeight: 20,
-    color: AppColors.textPrimary,
-  },
-  range: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    color: AppColors.textSecondary,
-    fontVariant: ['tabular-nums'],
-  },
-  field: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.md,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.canvas,
-  },
-  fieldText: {
-    flex: 1,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    color: AppColors.textPrimary,
-  },
-  fieldPlaceholder: {
-    color: AppColors.textSecondary,
-    opacity: 0.6,
-  },
-  subjectList: {
-    gap: 6,
-  },
-  subjectOption: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.md,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  subjectText: {
-    flex: 1,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    color: AppColors.textPrimary,
-  },
-  subjectOther: {
-    color: AppColors.textSecondary,
-  },
-  input: {
-    height: 48,
-    paddingHorizontal: AppSpacing.lg,
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.canvas,
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 16,
-    color: AppColors.textPrimary,
-    outlineStyle: 'none' as never,
   },
 });

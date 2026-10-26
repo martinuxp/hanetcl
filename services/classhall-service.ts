@@ -7,6 +7,7 @@ import { ref, uploadBytes } from 'firebase/storage';
 import { cached } from './cache';
 import { auth, functions, storage } from './firebase';
 import type { HallPlan } from '@/constants/subjects';
+import type { ScheduleBlock } from './schedule-service';
 
 export const HALL_CODE_LENGTH = 6;
 
@@ -24,6 +25,8 @@ export type Hall = {
   memberCount: number | null;
   /** The teacher's blobatar seed (getHall only). */
   teacherAvatarSeed?: string | null;
+  /** Electivos and dominios: the Hall's own timetable blocks (subject is the Hall's). */
+  blocks?: Omit<ScheduleBlock, 'subject'>[];
   /** The next evaluation still to come, for the card's notice. */
   nextEvaluation?: { title: string; date: number } | null;
 };

@@ -10,7 +10,10 @@ const { sendPush } = require("./classhall-notify");
 //     institutionId, courseId, blocks [{ id, day 1-6 (lunes-sábado),
 //     start "HH:MM", end "HH:MM", subject, room, kind? "break" (recreo) }],
 //     updatedAt, updatedBy
-// Only the plan común: electivos and dominios mix courses and are not here yet.
+// Only the plan común. Electivos and dominios mix courses, so each of their
+// Halls keeps its own blocks (halls/{hallId}.blocks in hn-classhall, edited by
+// its teacher or the administration with saveHallSchedule) and every student
+// gets them added to their course's week.
 //
 // It is edited by the course's Directiva, the school's administration and HNT;
 // everyone in the course reads it.
@@ -23,6 +26,8 @@ const COLLECTION = "courseSchedules";
 const EDIT_ROLES = ["Directiva", "Admin", "HNT"];
 const ANY_COURSE_ROLES = ["Admin", "HNT"];
 const MAX_BLOCKS = 80;
+const MAX_HALL_BLOCKS = 12;
+const HALL_PLANS = ["electivo", "dominio"];
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TIME_ZONE = "America/Santiago";
 const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -31,6 +36,10 @@ const ANDROID_CHANNEL = "agenda";
 
 function calendarDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-calendar");
+}
+
+function classhallDb(getAdminApp) {
+  return getFirestore(getAdminApp(), "hn-classhall");
 }
 
 function identityDb(getAdminApp) {
@@ -99,6 +108,19 @@ function cleanBlocks(input) {
   }).sort((a, b) => a.day - b.day || minutes(a.start) - minutes(b.start));
 }
 
+/** A Hall's blocks as the timetable shows them: its subject, marked with the Hall. */
+function hallBlocksOut(doc) {
+  const data = doc.data();
+  return (Array.isArray(data.blocks) ? data.blocks : []).map(block => ({
+    ...block,
+    id: `${doc.id}-${block.id}`,
+    subject: data.subject,
+    kind: "hall",
+    hallId: doc.id,
+    plan: data.plan,
+  }));
+}
+
 /** Chile's date parts for a moment: weekday (0 = domingo), and the day as text. */
 function chileDay(ms) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -134,7 +156,8 @@ function truncate(value, max) {
 /** The morning notification for a course, or null when its day is empty. */
 function morningMessage(blocks, events, now) {
   const { weekday } = chileDay(now);
-  const today = blocks.filter(block => block.day === weekday && block.kind !== "break");
+  const today = blocks.filter(block => block.day === weekday && block.kind !== "break")
+    .sort((a, b) => minutes(a.start) - minutes(b.start));
   const live = events.filter(event => event.cancelled !== true && !String(event.title || "").toUpperCase().includes("CANCELADA"));
   const evaluations = live.filter(event => String(event.type || "").toLocaleLowerCase("es").startsWith("evaluación"));
   const tasks = live.filter(event => String(event.type || "").toLocaleLowerCase("es") === "tarea");
@@ -165,9 +188,13 @@ function build(getAdminApp) {
         : null,
     ]);
     const data = doc?.data();
+    // On their own timetable, the electivos and dominios this person is in.
+    const halls = request.data?.courseId ? null : await classhallDb(getAdminApp).collection("halls")
+      .where("memberUids", "array-contains", profile.uid).get();
     return {
       courseId,
       blocks: data?.blocks || [],
+      hallBlocks: halls ? halls.docs.filter(hall => HALL_PLANS.includes(hall.data().plan)).flatMap(hallBlocksOut) : [],
       updatedAt: data?.updatedAt?.toMillis?.() ?? null,
       canEdit: !!courseId && canEdit(profile, courseId),
       courses: roster ? [...new Set(roster.docs.map(item => item.data().curso).filter(validCourse))].sort((a, b) => a.localeCompare(b, "es")) : [],
@@ -189,6 +216,26 @@ function build(getAdminApp) {
     return { courseId, blocks };
   });
 
+  // The blocks of an electivo or dominio Hall: its teacher, or the
+  // administration of its institution, sets them.
+  const saveHallSchedule = onCall({ invoker: "public" }, async (request) => {
+    const profile = await requireProfile(getAdminApp, request);
+    const hallId = typeof request.data?.hallId === "string" ? request.data.hallId : "";
+    if (!hallId || hallId.includes("/")) throw new HttpsError("invalid-argument", "Falta el Hall.");
+    const hallRef = classhallDb(getAdminApp).collection("halls").doc(hallId);
+    const hall = (await hallRef.get()).data();
+    if (!hall) throw new HttpsError("not-found", "No encontramos ese Hall.");
+    const admin = profile.role === "HNT" || (profile.role === "Admin" && hall.institutionId === profile.institutionId);
+    if (hall.teacherUid !== profile.uid && !admin) throw new HttpsError("permission-denied", "Solo su docente o la administración editan el horario del Hall.");
+    if (!HALL_PLANS.includes(hall.plan)) throw new HttpsError("failed-precondition", "Un Hall de plan común va en el horario del curso.");
+    const input = Array.isArray(request.data?.blocks) ? request.data.blocks : [];
+    if (input.length > MAX_HALL_BLOCKS) throw new HttpsError("invalid-argument", `Un Hall lleva hasta ${MAX_HALL_BLOCKS} bloques.`);
+    const blocks = cleanBlocks(input.map(block => ({ ...block, subject: hall.subject, kind: undefined })))
+      .map(({ id, day, start, end, room }) => ({ id, day, start, end, room }));
+    await hallRef.update({ blocks, updatedAt: FieldValue.serverTimestamp() });
+    return { blocks };
+  });
+
   const sendMorningSummary = onSchedule({ schedule: "0 7 * * 1-5", timeZone: TIME_ZONE, memory: "512MiB", timeoutSeconds: 300 }, async () => {
     const now = Date.now();
     const identity = identityDb(getAdminApp);
@@ -206,6 +253,18 @@ function build(getAdminApp) {
       courses.get(key).uids.push(doc.id);
     }
 
+    // Electivos and dominios with blocks, by student.
+    const hallDocs = await classhallDb(getAdminApp).collection("halls").where("plan", "in", HALL_PLANS).get();
+    const hallsOf = new Map();
+    for (const doc of hallDocs.docs) {
+      const blocks = hallBlocksOut(doc);
+      if (!blocks.length) continue;
+      for (const uid of doc.data().memberUids || []) {
+        if (!hallsOf.has(uid)) hallsOf.set(uid, []);
+        hallsOf.get(uid).push({ id: doc.id, blocks });
+      }
+    }
+
     let sent = 0;
     for (const [key, { courseId, uids }] of courses) {
       try {
@@ -216,18 +275,30 @@ function build(getAdminApp) {
             .where("startDate", "<", Timestamp.fromMillis(end))
             .get(),
         ]);
-        const message = morningMessage(scheduleDoc.data()?.blocks || [], events.docs.map(doc => doc.data()), now);
-        if (!message) continue;
+        const courseBlocks = scheduleDoc.data()?.blocks || [];
+        const dayEvents = events.docs.map(doc => doc.data());
         const accounts = await identity.getAll(...uids.map(uid => identity.collection("accounts").doc(uid)));
         const wanted = uids.filter((uid, index) => accounts[index].data()?.notifications?.morning !== false);
-        const tokens = [];
-        for (let index = 0; index < wanted.length; index += 30) {
-          const snapshot = await identity.collection("pushTokens").where("uid", "in", wanted.slice(index, index + 30)).get();
-          for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
+        // Students in the same electivos and dominios get the same message.
+        const groups = new Map();
+        for (const uid of wanted) {
+          const halls = hallsOf.get(uid) || [];
+          const group = halls.map(hall => hall.id).sort().join(",");
+          if (!groups.has(group)) groups.set(group, { blocks: halls.flatMap(hall => hall.blocks), uids: [] });
+          groups.get(group).uids.push(uid);
         }
-        if (!tokens.length) continue;
-        await sendPush(getAdminApp, tokens, message);
-        sent += tokens.length;
+        for (const group of groups.values()) {
+          const message = morningMessage([...courseBlocks, ...group.blocks], dayEvents, now);
+          if (!message) continue;
+          const tokens = [];
+          for (let index = 0; index < group.uids.length; index += 30) {
+            const snapshot = await identity.collection("pushTokens").where("uid", "in", group.uids.slice(index, index + 30)).get();
+            for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
+          }
+          if (!tokens.length) continue;
+          await sendPush(getAdminApp, tokens, message);
+          sent += tokens.length;
+        }
       } catch (error) {
         console.error("sendMorningSummary", key, error.message);
       }
@@ -235,7 +306,7 @@ function build(getAdminApp) {
     console.log("sendMorningSummary", { courses: courses.size, sent });
   });
 
-  return { getCourseSchedule, saveCourseSchedule, sendMorningSummary };
+  return { getCourseSchedule, saveCourseSchedule, saveHallSchedule, sendMorningSummary };
 }
 
 module.exports = { build, morningMessage, chileDayRange };

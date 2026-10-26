@@ -1,4 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
+import { BlockEditor } from '@/components/schedule/block-editor';
 import { HallSkeleton } from '@/components/skeletons';
 import { DocumentTile, HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,8 @@ import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { DocumentError, deleteHallAnnouncement, deleteHallDocument, getHall, getLoadedHall, pickHallDocument, uploadHallDocument, verifyCalendarEvent } from '@/services/classhall-service';
 import type { HallAnnouncement, HallCourseEvent, HallDetail, HallDocument, HallEvaluation } from '@/services/classhall-service';
+import { SCHEDULE_DAYS, minutesOf, saveHallSchedule } from '@/services/schedule-service';
+import type { ScheduleBlock } from '@/services/schedule-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -48,6 +51,71 @@ function Byline({ name, date, seed }: { name: string; date: string; seed?: strin
         </View>
         <ThemedText style={styles.date}>{date}</ThemedText>
       </View>
+    </View>
+  );
+}
+
+/** An electivo's or dominio's own days and hours, which its students get in their Horario. */
+function HallSchedule({ hallId, subject, blocks, canEdit, onSaved }: { hallId: string; subject: string; blocks: ScheduleBlock[]; canEdit: boolean; onSaved: (blocks: ScheduleBlock[]) => void }) {
+  // The block open in the editor: its position, or null for a new one.
+  const [open, setOpen] = useState<number | null | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sorted = blocks.map((block, index) => ({ block, index })).sort((a, b) => a.block.day - b.block.day || minutesOf(a.block.start) - minutesOf(b.block.start));
+
+  const save = async (next: ScheduleBlock[]) => {
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved((await saveHallSchedule(hallId, next)).map(block => ({ ...block, subject })));
+      setOpen(undefined);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (saveError) {
+      setError(describeAuthError(saveError, 'No pudimos guardar el horario del Hall.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={styles.scheduleCard}>
+      <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
+      {sorted.length === 0 && (
+        <ThemedText style={styles.sectionHint}>
+          {canEdit ? 'Agrega los días y horas de este Hall: aparecen en el Horario de cada estudiante que está dentro.' : 'Tu docente todavía no carga los días y horas.'}
+        </ThemedText>
+      )}
+      {sorted.map(({ block, index }) => {
+        const dayName = SCHEDULE_DAYS.find(item => item.day === block.day)?.name ?? '';
+        return (
+          <Pressable
+            key={block.id}
+            accessibilityRole={canEdit ? 'button' : undefined}
+            accessibilityLabel={`${dayName}, ${block.start} a ${block.end}${block.room ? `, ${block.room}` : ''}`}
+            accessibilityHint={canEdit ? 'Editar el bloque' : undefined}
+            disabled={!canEdit}
+            onPress={() => setOpen(index)}
+            style={({ pressed }) => [styles.scheduleRow, pressed && AppPressed]}
+          >
+            <ThemedText style={styles.scheduleDay}>{dayName}</ThemedText>
+            <ThemedText style={styles.scheduleTime}>{block.start} – {block.end}{block.room ? ` · ${block.room}` : ''}</ThemedText>
+          </Pressable>
+        );
+      })}
+      {canEdit && <HallPill label="Agregar bloque" onPress={() => setOpen(null)} />}
+      {open !== undefined && (
+        <BlockEditor
+          block={open !== null ? blocks[open] : null}
+          day={1}
+          others={blocks.filter((_, position) => position !== open)}
+          hallSubject={subject}
+          saving={saving}
+          error={error}
+          onSave={block => void save(open !== null ? blocks.map((item, position) => (position === open ? block : item)) : [...blocks, block])}
+          onRemove={() => void save(blocks.filter((_, position) => position !== open))}
+          onClose={() => { setError(null); setOpen(undefined); }}
+        />
+      )}
     </View>
   );
 }
@@ -353,6 +421,16 @@ export default function HallScreen() {
               />
             </View>
 
+            {hall.plan !== 'comun' && (isTeacher || !!hall.blocks?.length) && (
+              <HallSchedule
+                hallId={hall.id}
+                subject={hall.subject}
+                blocks={(hall.blocks ?? []).map(block => ({ ...block, subject: hall.subject }))}
+                canEdit={isTeacher}
+                onSaved={blocks => detail && setDetail({ ...detail, hall: { ...hall, blocks } })}
+              />
+            )}
+
             <View style={styles.divider} />
 
             <HanetSegmented options={TABS} value={tab} onChange={setTab} accessibilityLabel="Secciones del Hall" background={AppColors.surface} />
@@ -563,6 +641,33 @@ const styles = StyleSheet.create({
   },
   summaryNext: {
     flex: 221,
+  },
+  scheduleCard: {
+    gap: AppSpacing.sm,
+    padding: AppSpacing.lg,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+  },
+  scheduleRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AppSpacing.md,
+  },
+  scheduleDay: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
+  },
+  scheduleTime: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   divider: {
     height: StyleSheet.hairlineWidth,

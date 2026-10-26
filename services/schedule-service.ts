@@ -2,8 +2,9 @@ import { httpsCallable } from 'firebase/functions';
 import { cached, restoreCached } from './cache';
 import { functions } from './firebase';
 
-// The course's weekly timetable (functions/schedule.js). Plan común only;
-// electivos and dominios are not in it yet.
+// The course's weekly timetable (functions/schedule.js): the plan común,
+// plus the blocks of the electivos and dominios each student is in, which
+// every Hall keeps on its own.
 
 export type ScheduleBlock = {
   id: string;
@@ -14,13 +15,18 @@ export type ScheduleBlock = {
   end: string;
   subject: string;
   room: string;
-  /** A recreo or almuerzo between classes; a class when missing. */
-  kind?: 'class' | 'break';
+  /** A recreo or almuerzo between classes, or an electivo/dominio Hall; a class when missing. */
+  kind?: 'class' | 'break' | 'hall';
+  /** For a Hall's block. */
+  hallId?: string;
+  plan?: 'electivo' | 'dominio';
 };
 
 export type CourseSchedule = {
   courseId: string | null;
   blocks: ScheduleBlock[];
+  /** On one's own timetable: blocks of the electivos and dominios one is in. */
+  hallBlocks?: ScheduleBlock[];
   updatedAt: number | null;
   canEdit: boolean;
   /** For the administration: the courses it can pick. */
@@ -71,6 +77,16 @@ export function scheduleDay(date: Date) {
 
 export function blocksOn(blocks: ScheduleBlock[], day: number) {
   return blocks.filter(block => block.day === day).sort((a, b) => minutesOf(a.start) - minutesOf(b.start));
+}
+
+/** The week as a student lives it: the course's blocks and their Halls'. */
+export function myWeek(schedule: Pick<CourseSchedule, 'blocks' | 'hallBlocks'> | null | undefined) {
+  return [...(schedule?.blocks ?? []), ...(schedule?.hallBlocks ?? [])];
+}
+
+export async function saveHallSchedule(hallId: string, blocks: ScheduleBlock[]) {
+  const result = await httpsCallable<{ hallId: string; blocks: ScheduleBlock[] }, { blocks: ScheduleBlock[] }>(functions, 'saveHallSchedule')({ hallId, blocks });
+  return result.data.blocks;
 }
 
 export const isBreak = (block: ScheduleBlock) => block.kind === 'break';

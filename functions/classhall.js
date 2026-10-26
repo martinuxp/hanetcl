@@ -331,6 +331,8 @@ function hallOut(doc, profile, extra = {}) {
     // Only whoever teaches the Hall can read its code and size.
     code: isTeacher ? data.code : null,
     memberCount: isTeacher ? (data.memberUids || []).length : null,
+    // Electivos and dominios keep their own timetable blocks (functions/schedule.js).
+    blocks: Array.isArray(data.blocks) ? data.blocks : [],
     ...extra,
   };
 }
