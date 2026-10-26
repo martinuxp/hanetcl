@@ -14,6 +14,14 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 - Este repositorio es público. Nunca subir secretos, nóminas ni datos de estudiantes. `.secrets/` está fuera de git a propósito.
 - `hanet.cl` no es del usuario: no usar direcciones de ese dominio. Contacto: `muxp@muxp.art`. Correos salen desde `hanet.muxp.art`.
 
+## Versiones
+
+- Desde 2026-10-26 la app va en **v0.1.0-beta** y **cada PR sube la versión**. El check `Version bump` (`.github/workflows/version-check.yml`) falla si un PR no la sube.
+- Cómo: `npm run version:bump` (patch, lo normal: 0.1.0 → 0.1.1), `npm run version:bump -- minor` cuando el PR trae un módulo nuevo o un cambio grande (0.1.3 → 0.2.0), `major` solo para salir de beta (1.0.0 = estable, sin "-beta"). Después escribir qué cambió en `constants/changelog.json`, que es lo que muestra Configuraciones → Novedades: frases cortas para estudiantes y profes, no detalles técnicos. Comprobar con `npm run version:check`.
+- `app.json` guarda el número nativo (`version: "0.1.0"`, solo dígitos, porque iOS y Android no aceptan "-beta") y la etapa aparte (`extra.releaseStage: "beta"`). La app lo muestra como "v0.1.0-beta" con `constants/app-version.ts`; no leer `Constants.expoConfig.version` directo. `package.json` lleva el mismo par como semver (`0.1.0-beta`). Build number y versionCode los maneja EAS (`appVersionSource: remote`).
+- `runtimeVersion` usa la política `appVersion`: un build nativo solo recibe updates de su misma versión. Expo Go no cambia (usa `exposdk:<sdk>`).
+- Si dos PRs abiertos suben a la misma versión, el que se mezcla segundo sube otra vez antes de mezclar.
+
 ## Diseño
 
 - El diseño vive en Figma (archivo `16jIXkcIKhFJPnM38A7qUF`). Leerlo con el conector de Figma, no con capturas del navegador.

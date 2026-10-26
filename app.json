@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -128,6 +128,7 @@
       "reactCompiler": true
     },
     "extra": {
+      "releaseStage": "beta",
       "router": {},
       "eas": {
         "projectId": "e886d8e0-3ad3-4978-bbaa-1c310b001d28"

@@ -1,14 +1,16 @@
 {
   "name": "hanetcl",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "0.1.0-beta",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "version:bump": "node ./scripts/version.js bump",
+    "version:check": "node ./scripts/version.js check"
   },
   "dependencies": {
     "@blobatar/react-native": "2.7.0",
