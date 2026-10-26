@@ -14,6 +14,8 @@ export type ScheduleBlock = {
   end: string;
   subject: string;
   room: string;
+  /** A recreo or almuerzo between classes; a class when missing. */
+  kind?: 'class' | 'break';
 };
 
 export type CourseSchedule = {
@@ -57,6 +59,11 @@ export function minutesOf(time: string) {
   return hours * 60 + minutes;
 }
 
+/** 510 → "08:30". */
+export function timeOf(minutes: number) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
 /** "lunes" = 1 … "sábado" = 6, and 7 for Sunday (no classes). */
 export function scheduleDay(date: Date) {
   return date.getDay() === 0 ? 7 : date.getDay();
@@ -66,12 +73,14 @@ export function blocksOn(blocks: ScheduleBlock[], day: number) {
   return blocks.filter(block => block.day === day).sort((a, b) => minutesOf(a.start) - minutesOf(b.start));
 }
 
-/** The block going on now and the one after it, today. */
+export const isBreak = (block: ScheduleBlock) => block.kind === 'break';
+
+/** The block going on now (a recreo too) and the next class, today. */
 export function nowAndNext(blocks: ScheduleBlock[], now = new Date()) {
   const today = blocksOn(blocks, scheduleDay(now));
   const minute = now.getHours() * 60 + now.getMinutes();
   const current = today.find(block => minutesOf(block.start) <= minute && minute < minutesOf(block.end)) ?? null;
-  const next = today.find(block => minutesOf(block.start) > minute) ?? null;
+  const next = today.find(block => !isBreak(block) && minutesOf(block.start) > minute) ?? null;
   return { current, next };
 }
 

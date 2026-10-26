@@ -8,7 +8,8 @@ const { sendPush } = require("./classhall-notify");
 // In hn-calendar, closed to the app (only these functions read and write):
 //   courseSchedules/{institutionId}__{courseId}
 //     institutionId, courseId, blocks [{ id, day 1-6 (lunes-sábado),
-//     start "HH:MM", end "HH:MM", subject, room }], updatedAt, updatedBy
+//     start "HH:MM", end "HH:MM", subject, room, kind? "break" (recreo) }],
+//     updatedAt, updatedBy
 // Only the plan común: electivos and dominios mix courses and are not here yet.
 //
 // It is edited by the course's Directiva, the school's administration and HNT;
@@ -85,13 +86,16 @@ function cleanBlocks(input) {
     const day = Number(block?.day);
     const start = typeof block?.start === "string" ? block.start : "";
     const end = typeof block?.end === "string" ? block.end : "";
-    const subject = text(block?.subject, 40);
+    const isBreak = block?.kind === "break";
+    const subject = text(block?.subject, 40) || (isBreak ? "Recreo" : "");
     if (!Number.isInteger(day) || day < 1 || day > 6) throw new HttpsError("invalid-argument", "Un bloque tiene un día que no existe.");
     if (!TIME.test(start) || !TIME.test(end) || minutes(end) <= minutes(start)) {
       throw new HttpsError("invalid-argument", "Cada bloque termina después de empezar.");
     }
     if (!subject) throw new HttpsError("invalid-argument", "Cada bloque necesita su asignatura.");
-    return { id: text(block?.id, 24) || `b${index + 1}`, day, start, end, subject, room: text(block?.room, 20) };
+    const id = text(block?.id, 24) || `b${index + 1}`;
+    if (isBreak) return { id, day, start, end, subject, room: "", kind: "break" };
+    return { id, day, start, end, subject, room: text(block?.room, 20) };
   }).sort((a, b) => a.day - b.day || minutes(a.start) - minutes(b.start));
 }
 
@@ -130,7 +134,7 @@ function truncate(value, max) {
 /** The morning notification for a course, or null when its day is empty. */
 function morningMessage(blocks, events, now) {
   const { weekday } = chileDay(now);
-  const today = blocks.filter(block => block.day === weekday);
+  const today = blocks.filter(block => block.day === weekday && block.kind !== "break");
   const live = events.filter(event => event.cancelled !== true && !String(event.title || "").toUpperCase().includes("CANCELADA"));
   const evaluations = live.filter(event => String(event.type || "").toLocaleLowerCase("es").startsWith("evaluación"));
   const tasks = live.filter(event => String(event.type || "").toLocaleLowerCase("es") === "tarea");
