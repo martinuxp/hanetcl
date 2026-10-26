@@ -1,0 +1,19 @@
+{
+  "releases": [
+    {
+      "version": "0.1.0-beta",
+      "date": "2026-10-26",
+      "title": "Primera versión con número",
+      "items": [
+        "Calendar muestra el horario del día con las pruebas dentro de cada clase. Toca un bloque para abrir su Hall.",
+        "Editor de horario: eliges la asignatura, la duración y los recreos, y avisa si dos bloques chocan.",
+        "ClassHall separa tu curso de tus electivos y dominios.",
+        "Feed y Comunidad: publicaciones de tu liceo y de HaNet, con reacciones, encuestas anónimas e historias.",
+        "Asistencia a eventos con HN-QR, que cambia cada 30 segundos.",
+        "Avisos 24 y 4 horas antes de cada prueba, con cuenta regresiva en la pantalla bloqueada.",
+        "Configuraciones: íconos alternativos, avisos de ClassHall, cuenta y este registro de novedades.",
+        "La app carga más rápido: guarda datos en el teléfono mientras llegan los nuevos."
+      ]
+    }
+  ]
+}

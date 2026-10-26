@@ -50,15 +50,15 @@ export function useSecretTaps(onUnlock: () => void) {
 }
 
 /** The HaNet logo spinning over its version. Tap anywhere to close. */
-export function VersionEasterEgg({ visible, version, onClose }: { visible: boolean; version: string; onClose: () => void }) {
+export function VersionEasterEgg({ visible, version, stage, onClose }: { visible: boolean; version: string; stage: string; onClose: () => void }) {
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      {visible && <EggScene version={version} onClose={onClose} />}
+      {visible && <EggScene version={version} stage={stage} onClose={onClose} />}
     </Modal>
   );
 }
 
-function EggScene({ version, onClose }: { version: string; onClose: () => void }) {
+function EggScene({ version, stage, onClose }: { version: string; stage: string; onClose: () => void }) {
   const reduceMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   const closing = useRef(false);
@@ -122,7 +122,7 @@ function EggScene({ version, onClose }: { version: string; onClose: () => void }
     <Animated.View style={[styles.scene, sceneStyle]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`HaNet versión ${version}. Toca para cerrar.`}
+        accessibilityLabel={`HaNet versión ${version}${stage ? ` ${stage}` : ''}. Toca para cerrar.`}
         onPress={close}
         style={styles.fill}
       >
@@ -135,7 +135,7 @@ function EggScene({ version, onClose }: { version: string; onClose: () => void }
             >
               {version}
             </ThemedText>
-            <ThemedText style={styles.backBeta}>BETA</ThemedText>
+            {!!stage && <ThemedText style={styles.backBeta}>{stage.toUpperCase()}</ThemedText>}
           </Animated.View>
 
           <Animated.View pointerEvents="none" style={[styles.glow, glowStyle]}>

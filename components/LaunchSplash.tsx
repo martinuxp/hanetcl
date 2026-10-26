@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
+import { APP_VERSION_LABEL } from '@/constants/app-version';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
-import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -14,7 +14,6 @@ const FIRST_LAUNCH_MS = 900;
 const RETURNING_MS = 300;
 const EXIT_MS = 280;
 
-const VERSION = `V${Constants.expoConfig?.version ?? '1.0.0'}`;
 
 const ASSETS = {
   logotype: require('@/assets/onboarding/logotype.svg'),
@@ -63,11 +62,11 @@ export function LaunchSplash({ ready, quick = false }: { ready: boolean; quick?:
   return (
     <Animated.View
       accessible
-      accessibilityLabel={`HaNet ${VERSION}, cargando`}
+      accessibilityLabel={`HaNet ${APP_VERSION_LABEL}, cargando`}
       style={[styles.root, { paddingTop: insets.top + AppSpacing.xl, paddingBottom: insets.bottom + AppSpacing.md }, style]}
     >
       <View style={styles.header}>
-        <ThemedText style={styles.version}>{`HaNet\n${VERSION}`}</ThemedText>
+        <ThemedText style={styles.version}>{`HaNet\n${APP_VERSION_LABEL}`}</ThemedText>
         <Image source={ASSETS.logotype} style={styles.logotype} contentFit="contain" />
       </View>
       <View style={styles.wordCard} onLayout={event => setCardWidth(event.nativeEvent.layout.width)}>

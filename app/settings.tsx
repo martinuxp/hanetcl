@@ -2,6 +2,7 @@ import { useSecretTaps, VersionEasterEgg } from '@/components/settings/version-e
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChoice } from '@/components/ui/hanet-select';
+import { APP_RELEASE_STAGE, APP_VERSION, APP_VERSION_LABEL } from '@/constants/app-version';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { APP_ICONS, canChangeAppIcon, currentAppIcon, setAppIcon } from '@/services/app-icon';
 import type { AppIconId } from '@/services/app-icon';
@@ -11,7 +12,6 @@ import { enablePush, openNotificationSettings, pushPermission, pushSupport, save
 import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -130,7 +130,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const version = Constants.expoConfig?.version;
   const [eggOpen, setEggOpen] = useState(false);
   const tapVersion = useSecretTaps(useCallback(() => setEggOpen(true), []));
 
@@ -237,7 +236,8 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Acerca de HaNet">
-          {!!version && <Row icon="information-circle-outline" label="Versión" detail={`${version} beta`} onTap={tapVersion} />}
+          <Row icon="information-circle-outline" label="Versión" detail={APP_VERSION_LABEL} onTap={tapVersion} />
+          <Row icon="sparkles-outline" label="Novedades" detail={`Qué cambió en ${APP_VERSION_LABEL}`} onPress={() => router.push('/whats-new')} />
           <Row icon="chatbubble-ellipses-outline" label="Contacto" detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
           <Row icon="document-text-outline" label="Licencias de código abierto" detail="Las bibliotecas con que está hecha HaNet" onPress={() => router.push('/licenses')} />
         </Section>
@@ -249,7 +249,7 @@ export default function SettingsScreen() {
           onPress={() => void signOut()}
         />
       </ScrollView>
-      {!!version && <VersionEasterEgg visible={eggOpen} version={version} onClose={() => setEggOpen(false)} />}
+      <VersionEasterEgg visible={eggOpen} version={APP_VERSION} stage={APP_RELEASE_STAGE} onClose={() => setEggOpen(false)} />
     </SafeAreaView>
   );
 }
