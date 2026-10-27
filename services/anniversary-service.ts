@@ -141,6 +141,11 @@ export function saveAnniversary(input: AnniversaryInput) {
   return call('saveAnniversary', input);
 }
 
+/** Borra the current anniversary whole: alianzas, activities and points. */
+export function deleteAnniversary() {
+  return call('saveAnniversary', { delete: true });
+}
+
 export async function listAnniversaryCourses() {
   return (await httpsCallable<void, { courses: string[] }>(functions, 'listAnniversaryCourses')()).data.courses;
 }

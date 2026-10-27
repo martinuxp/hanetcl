@@ -439,10 +439,25 @@ function build(getAdminApp) {
   });
 
   // Creates or edits the anniversary: its name, dates, alianzas and courses,
-  // and the switches (hidden score, finished).
+  // and the switches (hidden score, finished). With `delete`, borra the
+  // current one whole: alianzas, activities, deadlines and every entry.
   const saveAnniversary = onCall({ invoker: "public" }, async (request) => {
     const profile = await requireOrganizer(getAdminApp, request);
     const data = request.data || {};
+    if (data.delete === true) {
+      const ref = await requireCurrent(getAdminApp, profile);
+      const db = calendarDb(getAdminApp);
+      const entries = await ref.collection(ENTRIES).get();
+      for (let start = 0; start < entries.docs.length; start += 400) {
+        const batch = db.batch();
+        for (const entry of entries.docs.slice(start, start + 400)) batch.delete(entry.ref);
+        await batch.commit();
+      }
+      await ref.delete();
+      const next = await currentRef(getAdminApp, profile.institutionId);
+      return next ? respond(next, profile) : { anniversary: null, canOrganize: canOrganize(profile) };
+    }
+
     const title = text(data.title, 80);
     if (!title) throw new HttpsError("invalid-argument", "Ponle nombre al aniversario.");
     const startsAt = timeIn(data.startsAt);
@@ -461,7 +476,12 @@ function build(getAdminApp) {
       ? ref
       : calendarDb(getAdminApp).collection(COLLECTION).doc(`${profile.institutionId}__${year}`);
 
+    // Filled by the transaction when alianzas are borradas.
+    let removedIds = [];
+    const replaced = new Map();
     await calendarDb(getAdminApp).runTransaction(async (tx) => {
+      replaced.clear();
+      removedIds = [];
       const doc = await tx.get(target);
       const current = doc.exists ? doc.data() : null;
       const before = new Map((current?.alliances || []).map(alliance => [alliance.id, alliance]));
@@ -490,6 +510,27 @@ function build(getAdminApp) {
         };
       });
 
+      // An alianza left out is borrada: its points go, and so does its place
+      // in the results (the ones below move up a place).
+      const kept = new Set(alliances.map(alliance => alliance.id));
+      const removed = [...before.keys()].filter(id => !kept.has(id));
+      let activities = current?.activities || [];
+      if (removed.length) {
+        activities = activities.map(activity => {
+          if (Array.isArray(activity.result) && activity.result.some(id => removed.includes(id))) {
+            const order = activity.result.filter(id => kept.has(id));
+            replaced.set(activity.id, { activity, order });
+            return { ...activity, result: order.length ? order : null };
+          }
+          if (activity.result && !Array.isArray(activity.result) && removed.some(id => id in activity.result)) {
+            const result = Object.fromEntries(Object.entries(activity.result).filter(([id]) => kept.has(id)));
+            return { ...activity, result };
+          }
+          return activity;
+        });
+        removedIds = removed;
+      }
+
       const fields = {
         institutionId: profile.institutionId,
         year,
@@ -504,12 +545,36 @@ function build(getAdminApp) {
         updatedBy: profile.uid,
       };
       if (current) {
-        tx.update(target, fields);
+        tx.update(target, { ...fields, ...(removed.length ? { activities } : {}) });
       } else {
         tx.set(target, { ...fields, activities: [], deadlines: [], createdAt: FieldValue.serverTimestamp() });
       }
     });
-    return respond(target, profile);
+
+    if (!removedIds.length) return respond(target, profile);
+    const writes = [];
+    const gone = await target.collection(ENTRIES).where("allianceId", "in", removedIds).get();
+    for (const entry of gone.docs) writes.push(batch => batch.delete(entry.ref));
+    // A podium result is given again with the places that are left, keeping
+    // the time it was first put.
+    for (const [activityId, { activity, order }] of replaced) {
+      const old = await target.collection(ENTRIES).where("activityId", "==", activityId).get();
+      const at = old.docs.map(entry => entry.data().createdAt).find(Boolean) || FieldValue.serverTimestamp();
+      for (const entry of old.docs) if (!removedIds.includes(entry.data().allianceId)) writes.push(batch => batch.delete(entry.ref));
+      order.forEach((allianceId, place) => {
+        const points = (activity.points || [])[place] || 0;
+        if (!points) return;
+        const entry = { kind: "result", activityId, allianceId, points, reason: activity.name, createdBy: profile.uid, createdAt: at };
+        writes.push(batch => batch.set(target.collection(ENTRIES).doc(), entry));
+      });
+    }
+    const db = calendarDb(getAdminApp);
+    for (let start = 0; start < writes.length; start += 400) {
+      const batch = db.batch();
+      for (const write of writes.slice(start, start + 400)) write(batch);
+      await batch.commit();
+    }
+    return respond(target, profile, { rescored: true });
   });
 
   // Adds, edits or deletes an activity. Deleting one takes its points away.

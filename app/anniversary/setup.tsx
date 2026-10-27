@@ -3,13 +3,15 @@ import { ALLIANCE_COLORS, ALLIANCE_COLOR_ORDER } from '@/components/anniversary/
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
+import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError } from '@/services/auth-service';
-import { listAnniversaryCourses, peekAnniversary, saveAnniversary } from '@/services/anniversary-service';
+import { deleteAnniversary, listAnniversaryCourses, peekAnniversary, saveAnniversary } from '@/services/anniversary-service';
 import type { AllianceColor, AllianceInput, AnniversaryInput } from '@/services/anniversary-service';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -69,6 +71,9 @@ function SetupScreen() {
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The alianza (by its place in the form) asked to be borrada, or the whole anniversary.
+  const [removing, setRemoving] = useState<number | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -123,6 +128,33 @@ function SetupScreen() {
     }
   };
 
+  // A new alianza goes at once; a saved one asks first, because saving
+  // borra its points too.
+  const askRemove = (index: number) => {
+    if (form.alliances.length > 2 && !form.alliances[index].id) removeAlliance(index);
+    else setRemoving(index);
+  };
+  const removeAlliance = (index: number) => {
+    update({ alliances: form.alliances.filter((_, i) => i !== index) });
+    setRemoving(null);
+  };
+
+  const removeAll = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await deleteAnniversary();
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      allowLeave();
+      setDeletingAll(false);
+      router.back();
+    } catch (deleteError) {
+      setDeletingAll(false);
+      setError(describeAuthError(deleteError, 'No pudimos borrar el aniversario. Inténtalo nuevamente.'));
+      setSubmitting(false);
+    }
+  };
+
   const label = editing ? 'Guardar cambios' : 'Armar el aniversario';
   const { allowLeave, dialog } = useUnsavedChangesGuard({ dirty: dirty && !submitting, onSave: submit, saveLabel: label, canSave: ready });
   const unassigned = (courses ?? []).filter(courseId => !form.alliances.some(alliance => alliance.courseIds.includes(courseId)));
@@ -151,17 +183,16 @@ function SetupScreen() {
         <View key={alliance.id ?? `new-${index}`} style={local.alliance}>
           <View style={local.allianceHead}>
             <ThemedText style={styles.label}>Alianza {index + 1}</ThemedText>
-            {form.alliances.length > 2 && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Quitar la alianza ${index + 1}`}
-                disabled={submitting}
-                onPress={() => update({ alliances: form.alliances.filter((_, i) => i !== index) })}
-                style={({ pressed }) => [local.remove, pressed && styles.pressed]}
-              >
-                <ThemedText style={local.removeText}>Quitar</ThemedText>
-              </Pressable>
-            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Borrar la alianza ${alliance.name.trim() || index + 1}`}
+              disabled={submitting}
+              onPress={() => askRemove(index)}
+              style={({ pressed }) => [local.remove, pressed && styles.pressed]}
+            >
+              <Ionicons name="trash-outline" size={15} color={AppColors.textSecondary} />
+              <ThemedText style={local.removeText}>Borrar</ThemedText>
+            </Pressable>
           </View>
           <TextField label="Nombre" value={alliance.name} onChange={name => updateAlliance(index, { name })} placeholder="80s" maxLength={40} disabled={submitting} />
           <TextField label="Temática" optional value={alliance.theme} onChange={theme => updateAlliance(index, { theme })} placeholder="Los años 80" maxLength={60} disabled={submitting} />
@@ -288,6 +319,43 @@ function SetupScreen() {
       )}
 
       <SheetActions label={label} busyLabel="Guardando…" ready={ready && (dirty || !editing)} busy={submitting} onSubmit={submit} error={error} />
+      {editing && <HanetButton label="Borrar el aniversario" variant="surface" disabled={submitting} onPress={() => setDeletingAll(true)} />}
+
+      {removing !== null && form.alliances.length <= 2 ? (
+        <HanetDialog
+          visible
+          onRequestClose={() => setRemoving(null)}
+          title="Se necesitan dos alianzas"
+          body="Agrega otra antes de borrar esta. Si quieres empezar de cero, borra el aniversario completo al final."
+        >
+          <HanetDialogActions>
+            <HanetButton label="Entendido" variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
+          </HanetDialogActions>
+        </HanetDialog>
+      ) : (
+        <HanetDialog
+          visible={removing !== null}
+          onRequestClose={() => setRemoving(null)}
+          title={`¿Borrar ${removing !== null && form.alliances[removing]?.name.trim() ? form.alliances[removing].name.trim() : 'la alianza'}?`}
+          body="Al guardar se van sus puntos y sus jefes, sale de los resultados (las de abajo suben un lugar) y sus cursos quedan sin alianza."
+        >
+          <HanetDialogActions>
+            <HanetButton label="Cancelar" variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
+            <HanetButton label="Borrar" variant="accent" onPress={() => removing !== null && removeAlliance(removing)} style={dialogStyles.action} />
+          </HanetDialogActions>
+        </HanetDialog>
+      )}
+      <HanetDialog
+        visible={deletingAll}
+        onRequestClose={() => setDeletingAll(false)}
+        title="¿Borrar el aniversario?"
+        body="Se borran las alianzas, las actividades, los plazos y todos los puntos. Los avisos quedan en el Feed. No se puede deshacer."
+      >
+        <HanetDialogActions>
+          <HanetButton label="Cancelar" variant="surface" onPress={() => setDeletingAll(false)} style={dialogStyles.action} />
+          <HanetButton label={submitting ? 'Borrando…' : 'Borrar'} variant="accent" disabled={submitting} onPress={removeAll} style={dialogStyles.action} />
+        </HanetDialogActions>
+      </HanetDialog>
       {dialog}
     </SheetBody>
   );
@@ -308,7 +376,9 @@ const local = StyleSheet.create({
   },
   remove: {
     minHeight: AppTouch.minimum - 8,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: AppSpacing.md,
     borderRadius: AppRadii.pill,
     backgroundColor: AppColors.surface,
