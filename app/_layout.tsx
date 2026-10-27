@@ -194,6 +194,14 @@ export default function RootLayout() {
             <Stack.Screen name="licenses" options={{ headerShown: false }} />
             <Stack.Screen name="whats-new" options={{ headerShown: false }} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/index" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/setup" options={sheetOptions([1.0])} />
+            <Stack.Screen name="anniversary/activity" options={sheetOptions([1.0])} />
+            <Stack.Screen name="anniversary/result" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="anniversary/points" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="anniversary/deadline" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="anniversary/flash" options={sheetOptions([1.0])} />
+            <Stack.Screen name="anniversary/leads" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="classhall/create" options={sheetOptions([0.75, 1.0])} />

@@ -8,7 +8,7 @@ import { APP_ICONS, canChangeAppIcon, currentAppIcon, setAppIcon } from '@/servi
 import type { AppIconId } from '@/services/app-icon';
 import { describeAuthError, getMyProfile, useSession } from '@/services/auth-service';
 import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
-import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveClasshallNotifications, saveMorningNotifications } from '@/services/push-service';
+import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveMorningNotifications } from '@/services/push-service';
 import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +40,7 @@ export default function SettingsScreen() {
   // The 7:00 summary (saved with the account) and the evaluation reminders (this phone only).
   const [morningOn, setMorningOn] = useState(true);
   const [examsOn, setExamsOn] = useState(true);
+  const [anniversaryOn, setAnniversaryOn] = useState(true);
   const [savingDay, setSavingDay] = useState(false);
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
         if (!active) return;
         setClasshallOn(profile.classhallNotifications !== false);
         setMorningOn(profile.morningNotifications !== false);
+        setAnniversaryOn(profile.anniversaryNotifications !== false);
         setPermission(await pushPermission());
       } catch (error) {
         if (active) setNotificationsError(describeAuthError(error, 'No pudimos cargar tus ajustes. Revisa tu conexión.'));
@@ -111,6 +113,23 @@ export default function SettingsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setMorningOn(!on);
+      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+    } finally {
+      setSavingDay(false);
+    }
+  };
+
+  const chooseAnniversary = async (on: boolean) => {
+    if (savingDay || on === anniversaryOn) return;
+    setNotificationsError(null);
+    setSavingDay(true);
+    setAnniversaryOn(on);
+    try {
+      await saveAnniversaryNotifications(on);
+      if (on && permission === 'undetermined') setPermission(await enablePush());
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setAnniversaryOn(!on);
       setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
     } finally {
       setSavingDay(false);
@@ -228,6 +247,14 @@ export default function SettingsScreen() {
                 ? '24 y 4 horas antes de cada prueba del Calendario, con una cuenta regresiva en la pantalla bloqueada y la Dynamic Island. Se guardan en este teléfono.'
                 : '24 y 4 horas antes de cada prueba del Calendario. Se guardan en este teléfono.'}
           </ThemedText>
+          <HanetChoice
+            label="Aniversario"
+            options={[{ value: 'on', label: 'Activado' }, { value: 'off', label: 'Desactivado' }]}
+            value={anniversaryOn ? 'on' : 'off'}
+            onChange={value => void chooseAnniversary(value === 'on')}
+            disabled={savingDay || loadingNotifications}
+          />
+          <ThemedText style={styles.note}>Las pruebas flash y los plazos de tu alianza, cuando el CEE los manda.</ThemedText>
         </Section>
 
         <Section title="Cuenta">

@@ -129,6 +129,8 @@ export type MyProfile = {
   /** The ClassHall notifications switch (on unless turned off). */
   classhallNotifications: boolean;
   morningNotifications: boolean;
+  /** The anniversary's flash tests and deadlines (on unless turned off). */
+  anniversaryNotifications?: boolean;
 };
 
 export function getMyProfile() {

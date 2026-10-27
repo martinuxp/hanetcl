@@ -73,6 +73,14 @@ export function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   return promise;
 }
 
+/** Keeps an answer that a change returned, as if it had just been loaded. */
+export function putCached<T>(key: string, value: T) {
+  const uid = currentUid();
+  if (!uid) return;
+  memory.set(key, { uid, value });
+  AsyncStorage.setItem(storageKey(uid, key), JSON.stringify(value)).catch(() => undefined);
+}
+
 /** Forgets an answer that a change made stale (a deleted Hall, for example). */
 export function dropCached(key: string) {
   memory.delete(key);

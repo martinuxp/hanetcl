@@ -118,7 +118,7 @@ export function listenToNotificationTaps(open: (url: string) => void) {
   const handle = (data: unknown) => {
     const url = (data as { url?: unknown } | undefined)?.url;
     // Only HaNet's own screens: ClassHall, the timetable and the Calendar's events.
-    if (typeof url === 'string' && /^\/(classhall\/(hall|task)\?[A-Za-z0-9_=&-]+|schedule|calendar|event-info\?[A-Za-z0-9_=&%-]+)$/.test(url)) open(url);
+    if (typeof url === 'string' && /^\/(classhall\/(hall|task)\?[A-Za-z0-9_=&-]+|schedule|calendar|anniversary|event-info\?[A-Za-z0-9_=&%-]+)$/.test(url)) open(url);
   };
   void module.getLastNotificationResponseAsync().then(response => {
     if (response) handle(response.notification.request.content.data);
@@ -151,6 +151,11 @@ export async function dismissPushPrompt() {
 /** The 7:00 summary's switch, saved with the account. */
 export async function saveMorningNotifications(on: boolean) {
   await httpsCallable(functions, 'updateMyProfile')({ morningNotifications: on });
+}
+
+/** The anniversary's switch (flash tests and deadlines), saved with the account. */
+export async function saveAnniversaryNotifications(on: boolean) {
+  await httpsCallable(functions, 'updateMyProfile')({ anniversaryNotifications: on });
 }
 
 /** The ClassHall notifications switch, saved with the account. */

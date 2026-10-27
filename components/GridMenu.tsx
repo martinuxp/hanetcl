@@ -11,10 +11,12 @@ import type { NextCalendarItem } from '@/hooks/use-home-highlights';
 // Premium Native Animated Icons
 import { SparklesIcon } from '@/assets/animated-icons/sparks';
 import { GraduationCapIcon } from '@/assets/animated-icons/graduation-cap';
-import { HandCoinsIcon } from '@/assets/animated-icons/hand-coins';
 import { MessageCircleIcon } from '@/assets/animated-icons/message-circle';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
-import { Square2StackIcon } from '@/assets/animated-icons/tasks';
+import { HammerIcon, TrophyIcon } from '@/assets/animated-icons/trophy';
+import { allianceColor } from '@/components/anniversary/anniversary-ui';
+import { daysTo, formatPoints, phaseOf, ranking, todaysActivities } from '@/services/anniversary-service';
+import type { AnniversaryState } from '@/services/anniversary-service';
 
 type SideBadge = { main: string; sub: string; label: string; onPress: () => void };
 
@@ -109,6 +111,42 @@ function PromoStrip({ event }: { event: HnEvent }) {
   );
 }
 
+// The Aniversario tile's band: the countdown before it starts, who leads (or
+// what happens today) during it, and the winner once it ends. Its color is
+// the leader's, or one's own alianza's.
+function anniversaryBand(state: AnniversaryState | null | undefined, now: number) {
+  const anniversary = state?.anniversary;
+  if (!anniversary) return null;
+  const mine = anniversary.alliances.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
+  const [leader] = ranking(anniversary);
+  const scored = !!leader && leader.total !== null && leader.total > 0;
+  const phase = phaseOf(anniversary, now);
+  if (phase === 'before') {
+    const days = daysTo(anniversary.startsAt, now);
+    const when = days <= 0 ? '¡Empieza hoy!' : days === 1 ? 'Empieza mañana' : `Faltan ${days} días`;
+    return { text: mine ? `${when} · ${mine.name}` : when, alliance: mine };
+  }
+  if (phase === 'after') {
+    return scored ? { text: `🏆 Ganó ${leader.name}`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
+  }
+  if (scored) return { text: `${leader.name} lidera · ${formatPoints(leader.total ?? 0)}`, alliance: leader };
+  const [next] = todaysActivities(anniversary, now).filter(activity => (activity.startsAt ?? 0) >= now - 60 * 60 * 1000);
+  if (next?.startsAt) {
+    const date = new Date(next.startsAt);
+    return { text: `Hoy ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} · ${next.name}`, alliance: mine };
+  }
+  return { text: '¡Estamos de aniversario!', alliance: mine };
+}
+
+function AnniversaryStrip({ text, alliance }: NonNullable<ReturnType<typeof anniversaryBand>>) {
+  const color = alliance ? allianceColor(alliance) : null;
+  return (
+    <View style={[styles.anniversaryStrip, color && { backgroundColor: color.fill }]}>
+      <ThemedText numberOfLines={1} style={[styles.anniversaryStripText, color && { color: color.ink }]}>{text}</ThemedText>
+    </View>
+  );
+}
+
 // Figma "Alerta (próximo evento evaluación)": how many days to the course's
 // next evaluation, or to whatever comes next when there is none.
 function calendarBadge(item: NextCalendarItem, open: () => void): SideBadge {
@@ -125,10 +163,13 @@ function calendarBadge(item: NextCalendarItem, open: () => void): SideBadge {
 type GridMenuProps = {
   nextCalendarItem?: NextCalendarItem | null;
   promotedEvent?: HnEvent | null;
+  anniversary?: AnniversaryState | null;
 };
 
-export default function GridMenu({ nextCalendarItem, promotedEvent }: GridMenuProps) {
+export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary }: GridMenuProps) {
   const router = useRouter();
+  const [now] = React.useState(() => Date.now());
+  const band = anniversaryBand(anniversary, now);
   const openCalendarItem = (item: NextCalendarItem) => router.push({ pathname: '/event-info', params: { id: item.event.id, canEdit: '0' } });
   return (
     <View style={styles.container}>
@@ -148,8 +189,8 @@ export default function GridMenu({ nextCalendarItem, promotedEvent }: GridMenuPr
           href="/classhall"
         />
         <GridItem
-          title="HaNet Wallet"
-          IconComponent={HandCoinsIcon}
+          title="En construcción"
+          IconComponent={HammerIcon}
           height={82}
           iconSize={26}
         />
@@ -174,10 +215,11 @@ export default function GridMenu({ nextCalendarItem, promotedEvent }: GridMenuPr
           iconSize={26}
         />
         <GridItem
-          title="Calificaciones y asistencias"
-          IconComponent={Square2StackIcon}
+          title="Aniversario"
+          IconComponent={TrophyIcon}
           height={133}
-          badgeText="¡Pronto disponible!"
+          href="/anniversary"
+          topStrip={band ? <AnniversaryStrip {...band} /> : null}
           iconSize={28}
         />
       </View>
@@ -285,6 +327,25 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_500Medium',
     color: AppColors.textPrimary,
     opacity: 0.7,
+  },
+  /* Aniversario band */
+  anniversaryStrip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 37,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  anniversaryStripText: {
+    fontSize: 13,
+    lineHeight: 16,
+    letterSpacing: -0.3,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.textPrimary,
   },
   /* Promo strip (Eventos) */
   promoStrip: {

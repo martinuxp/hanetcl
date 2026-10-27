@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.2.0-beta",
+      "date": "2026-10-27",
+      "title": "Aniversario",
+      "items": [
+        "Nuevo Aniversario en el inicio: tu alianza, el marcador en vivo, lo que pasa hoy y los plazos.",
+        "Cada punto queda en \"Movimientos de puntos\" con su motivo, también los descuentos.",
+        "El CEE arma las alianzas por curso, carga las actividades típicas con sus puntajes y pone los resultados por lugar.",
+        "Pruebas flash: le llegan al tiro a los jefes de alianza (o a toda la alianza).",
+        "Los avisos del aniversario se apagan en Configuraciones."
+      ]
+    },
+    {
       "version": "0.1.2-beta",
       "date": "2026-10-27",
       "title": "",
