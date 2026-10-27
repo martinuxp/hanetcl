@@ -32,7 +32,10 @@ type IconProps = SvgProps & {
     | 'more'
     | 'share'
     | 'smile-plus'
-    | 'pin';
+    | 'pin'
+    | 'view-day'
+    | 'view-week'
+    | 'view-year';
   size?: number;
   color?: string;
 }
@@ -232,6 +235,29 @@ export function CustomIcon({ name, size = 24, color = AppColors.textPrimary, ...
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
           <Path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'view-day':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Rect x="4" y="4" width="16" height="16" rx="4" stroke={color} strokeWidth={1.5} />
+          <Path d="M4 9h16M8.5 13h7M8.5 16.5h4" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'view-week':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Rect x="4" y="4" width="16" height="16" rx="4" stroke={color} strokeWidth={1.5} />
+          <Path d="M4 9h16M9.33 9v11M14.67 9v11" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'view-year':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+          <Rect x="4" y="4" width="7" height="7" rx="2" stroke={color} strokeWidth={1.5} />
+          <Rect x="13" y="4" width="7" height="7" rx="2" stroke={color} strokeWidth={1.5} />
+          <Rect x="4" y="13" width="7" height="7" rx="2" stroke={color} strokeWidth={1.5} />
+          <Rect x="13" y="13" width="7" height="7" rx="2" stroke={color} strokeWidth={1.5} />
         </Svg>
       );
     default:
