@@ -269,6 +269,13 @@ export function phaseOf(anniversary: Anniversary, now = Date.now()): Anniversary
   return now > anniversary.endsAt ? 'after' : 'during';
 }
 
+/** Which day of the anniversary it is (1 on the first), and how many it lasts. */
+export function anniversaryDay(anniversary: Anniversary, now = Date.now()) {
+  const day = 1 - daysTo(anniversary.startsAt, now);
+  const total = 1 + Math.round((new Date(anniversary.endsAt).setHours(0, 0, 0, 0) - new Date(anniversary.startsAt).setHours(0, 0, 0, 0)) / 86_400_000);
+  return { day, total };
+}
+
 /** What happens today, sooner first (activities with a time). */
 export function todaysActivities(anniversary: Anniversary, now = Date.now()) {
   return anniversary.activities

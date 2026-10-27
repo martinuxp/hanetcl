@@ -15,18 +15,18 @@ import { Skeleton, SkeletonGroup } from '@/components/ui/skeleton';
 import { AppColors, AppDisplay, AppFlexFonts, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { CrownIcon } from '@/assets/animated-icons/crown';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { addPresetActivities, daysTo, deleteScoreEntry, formatPoints, getAnniversary, phaseOf, standings, todaysActivities, useAnniversaryState } from '@/services/anniversary-service';
+import { hasSeenWelcome } from '@/services/anniversary-welcome';
+import { addPresetActivities, anniversaryDay, daysTo, deleteScoreEntry, formatPoints, getAnniversary, phaseOf, standings, todaysActivities, useAnniversaryState } from '@/services/anniversary-service';
 import type { Alliance, Anniversary, AnniversaryActivity, ScoreEntry } from '@/services/anniversary-service';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // The countdown number grows in weight on a narrow cut, so it stays a number.
 const NUMBER_STEPS = ['GoogleSansFlex_300Light_ExtraCondensed', 'GoogleSansFlex_500Medium_Condensed', AppFlexFonts.numbers] as const;
 
-const DAY_MS = 86_400_000;
 // The page shows a few of each; the rest is one tap away.
 const FEATURED = 3;
 const MOVES_SHOWN = 4;
@@ -58,8 +58,7 @@ function countdownOf(anniversary: Anniversary, now: number) {
     return { number: String(days), label: days === 1 ? 'día para\nempezar' : 'días para\nempezar' };
   }
   if (phase === 'during') {
-    const day = 1 - daysTo(anniversary.startsAt, now);
-    const total = 1 + Math.round((new Date(anniversary.endsAt).setHours(0, 0, 0, 0) - new Date(anniversary.startsAt).setHours(0, 0, 0, 0)) / DAY_MS);
+    const { day, total } = anniversaryDay(anniversary, now);
     return { number: String(day), label: `de ${total} días\n¡de aniversario!` };
   }
   return null;
@@ -148,6 +147,17 @@ export default function AnniversaryScreen() {
 
   const anniversary = state?.anniversary ?? null;
   const organizer = !!state?.canOrganize;
+
+  // The first visit of the week (before it ends) opens the welcome, once per device.
+  const welcomed = useRef<string | null>(null);
+  const welcomeId = anniversary && phaseOf(anniversary, now) !== 'after' ? anniversary.id : null;
+  useEffect(() => {
+    if (!welcomeId || welcomed.current === welcomeId) return;
+    welcomed.current = welcomeId;
+    let active = true;
+    hasSeenWelcome(welcomeId).then(seen => { if (active && !seen) router.push('/anniversary/welcome'); });
+    return () => { active = false; };
+  }, [router, welcomeId]);
   const openActivity = (id: string) => router.push({ pathname: '/anniversary/detail', params: { id } });
 
   const loadPresets = async () => {
@@ -382,6 +392,10 @@ export default function AnniversaryScreen() {
         {!!anniversary.rulesUrl && (
           <HanetButton label="Leer las bases" variant="surface" onPress={() => void Linking.openURL(anniversary.rulesUrl)} />
         )}
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={() => router.push('/anniversary/welcome')} style={({ pressed }) => [styles.replay, pressed && AppPressed]}>
+          <Ionicons name="sparkles-outline" size={16} color={AppColors.textSecondary} />
+          <ThemedText style={styles.replayText}>Ver la bienvenida otra vez</ThemedText>
+        </Pressable>
 
         {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
       </>
@@ -600,6 +614,18 @@ const styles = StyleSheet.create({
     ...AppType.callout,
     fontFamily: 'DMSans_700Bold',
     color: AppColors.errorText,
+  },
+  replay: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.xs,
+    minHeight: 44,
+    paddingHorizontal: AppSpacing.md,
+  },
+  replayText: {
+    ...AppType.callout,
+    color: AppColors.textSecondary,
   },
   dialogButton: {
     flex: 1,

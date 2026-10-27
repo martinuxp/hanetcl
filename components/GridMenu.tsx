@@ -15,7 +15,9 @@ import { MessageCircleIcon } from '@/assets/animated-icons/message-circle';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
 import { HammerIcon, TrophyIcon } from '@/assets/animated-icons/trophy';
 import { allianceColor } from '@/components/anniversary/anniversary-ui';
-import { daysTo, formatPoints, phaseOf, ranking, todaysActivities } from '@/services/anniversary-service';
+import { CelebrationTile } from '@/components/anniversary/celebration-tile';
+import { anniversaryDay, daysTo, formatPoints, phaseOf, ranking, todaysActivities } from '@/services/anniversary-service';
+import { useWelcomeSeen } from '@/services/anniversary-welcome';
 import type { AnniversaryState } from '@/services/anniversary-service';
 
 type SideBadge = { main: string; sub: string; label: string; onPress: () => void };
@@ -177,6 +179,10 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
   const router = useRouter();
   const [now] = React.useState(() => Date.now());
   const band = anniversaryBand(anniversary, now);
+  // Once it has started, until this device opens it, the tile celebrates.
+  const running = anniversary?.anniversary && phaseOf(anniversary.anniversary, now) === 'during' ? anniversary.anniversary : null;
+  const welcomeSeen = useWelcomeSeen(running?.id);
+  const celebrate = running && welcomeSeen === false ? running : null;
   const openCalendarItem = (item: NextCalendarItem) => router.push({ pathname: '/event-info', params: { id: item.event.id, canEdit: '0' } });
   return (
     <View style={styles.container}>
@@ -221,14 +227,22 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
           href="/calendar"
           iconSize={26}
         />
-        <GridItem
-          title="Aniversario"
-          IconComponent={TrophyIcon}
-          height={133}
-          href="/anniversary"
-          topStrip={band ? <AnniversaryStrip {...band} /> : null}
-          iconSize={28}
-        />
+        {celebrate ? (
+          <CelebrationTile
+            anniversary={celebrate}
+            day={(({ day, total }) => `Día ${day} de ${total}`)(anniversaryDay(celebrate, now))}
+            height={133}
+          />
+        ) : (
+          <GridItem
+            title="Aniversario"
+            IconComponent={TrophyIcon}
+            height={133}
+            href="/anniversary"
+            topStrip={band ? <AnniversaryStrip {...band} /> : null}
+            iconSize={28}
+          />
+        )}
       </View>
     </View>
   );
