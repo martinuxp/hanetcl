@@ -21,6 +21,8 @@ const { sendPush } = require("./classhall-notify");
 //     activities [{ id, name, group, startsAt, place, mode, points, flash,
 //       text, result, resultAt }],
 //     deadlines [{ id, title, dueAt, audience, remindedDay, remindedSoon }],
+//     score { totals { allianceId: points }, recent [latest entries] } — the
+//       sum of entries, kept here so a visit reads one document (rescore)
 //     createdAt, updatedAt, updatedBy
 //   anniversaries/{id}/entries/{entryId}
 //     kind "result" | "adjust", activityId, allianceId, points, reason,
@@ -48,6 +50,7 @@ const MAX_ACTIVITIES = 80;
 const MAX_DEADLINES = 40;
 const MAX_LEADS = 4;
 const MAX_POINTS = 1000000;
+const MAX_RECENT = 150;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SOON_MS = 2 * 60 * 60 * 1000;
 const TIME_ZONE = "America/Santiago";
@@ -211,17 +214,13 @@ function activityOut(activity) {
   };
 }
 
-function anniversaryOut(id, data, entries, viewer) {
+function anniversaryOut(id, data, viewer) {
   const organizer = canOrganize(viewer);
   const mine = allianceOf(data, viewer.courseId);
   const isLead = (data.alliances || []).some(alliance => (alliance.leadUids || []).includes(viewer.uid));
   const hidden = !!data.scoreHidden && !organizer;
-
-  const totals = {};
-  for (const alliance of data.alliances || []) totals[alliance.id] = 0;
-  for (const entry of entries) {
-    if (entry.allianceId in totals) totals[entry.allianceId] += entry.points || 0;
-  }
+  const totals = data.score?.totals || {};
+  const recent = data.score?.recent || [];
 
   const alliances = (data.alliances || []).map(alliance => ({
     id: alliance.id,
@@ -232,7 +231,7 @@ function anniversaryOut(id, data, entries, viewer) {
     // Organizers see who leads each alianza; the leads only learn that they do.
     leadCount: (alliance.leadUids || []).length,
     ...(organizer ? { leadUids: alliance.leadUids || [] } : {}),
-    total: hidden ? null : totals[alliance.id],
+    total: hidden ? null : totals[alliance.id] || 0,
   }));
 
   // While the score is hidden, places are still shown, but no points.
@@ -249,19 +248,7 @@ function anniversaryOut(id, data, entries, viewer) {
     .filter(deadline => organizer || deadline.audience === "all" || isLead)
     .map(deadline => ({ id: deadline.id, title: deadline.title, dueAt: millis(deadline.dueAt), audience: deadline.audience }));
 
-  const history = hidden ? [] : entries
-    .filter(entry => entry.kind === "adjust" || organizer)
-    .map(entry => ({
-      id: entry.id,
-      kind: entry.kind,
-      activityId: entry.activityId || null,
-      allianceId: entry.allianceId,
-      points: entry.points,
-      reason: entry.reason || "",
-      createdAt: millis(entry.createdAt),
-    }))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-    .slice(0, 200);
+  const history = hidden ? [] : recent.filter(entry => entry.kind === "adjust" || organizer);
 
   return {
     id,
@@ -281,14 +268,35 @@ function anniversaryOut(id, data, entries, viewer) {
   };
 }
 
-async function readEntries(ref) {
+// The score is kept on the anniversary itself (totals and the latest
+// movements), so opening the page reads one document and not the whole
+// record. Every change to the entries sums them again.
+async function rescore(ref) {
   const snapshot = await ref.collection(ENTRIES).get();
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const totals = {};
+  const recent = [];
+  for (const doc of snapshot.docs) {
+    const entry = doc.data();
+    totals[entry.allianceId] = (totals[entry.allianceId] || 0) + (entry.points || 0);
+    recent.push({
+      id: doc.id,
+      kind: entry.kind,
+      activityId: entry.activityId || null,
+      allianceId: entry.allianceId,
+      points: entry.points,
+      reason: entry.reason || "",
+      // A just-written entry has no server time yet in this read.
+      createdAt: millis(entry.createdAt) || Date.now(),
+    });
+  }
+  recent.sort((a, b) => b.createdAt - a.createdAt);
+  await ref.update({ score: { totals, recent: recent.slice(0, MAX_RECENT) } });
 }
 
-async function respond(ref, viewer) {
-  const [doc, entries] = await Promise.all([ref.get(), readEntries(ref)]);
-  return { anniversary: anniversaryOut(doc.id, doc.data(), entries, viewer), canOrganize: canOrganize(viewer) };
+async function respond(ref, viewer, { rescored = false } = {}) {
+  if (rescored) await rescore(ref);
+  const doc = await ref.get();
+  return { anniversary: anniversaryOut(doc.id, doc.data(), viewer), canOrganize: canOrganize(viewer) };
 }
 
 // The uids of the students in these courses.
@@ -481,7 +489,7 @@ function build(getAdminApp) {
         tx.update(ref, { activities: (doc.data().activities || []).filter(activity => activity.id !== id), updatedAt: FieldValue.serverTimestamp() });
         for (const entry of entries.docs) tx.delete(entry.ref);
       });
-      return respond(ref, profile);
+      return respond(ref, profile, { rescored: true });
     }
 
     let staleEntries = null;
@@ -503,7 +511,7 @@ function build(getAdminApp) {
       const entries = await ref.collection(ENTRIES).where("activityId", "==", staleEntries).get();
       await Promise.all(entries.docs.map(entry => entry.ref.delete()));
     }
-    return respond(ref, profile);
+    return respond(ref, profile, { rescored: !!staleEntries });
   });
 
   // "Cargar actividades típicas": adds the presets the anniversary lacks.
@@ -579,7 +587,7 @@ function build(getAdminApp) {
       next[index] = { ...activity, result, resultAt: result ? Timestamp.now() : null };
       tx.update(ref, { activities: next, updatedAt: FieldValue.serverTimestamp() });
     });
-    return respond(ref, profile);
+    return respond(ref, profile, { rescored: true });
   });
 
   // An addition or deduction with its reason, or deleting one made by mistake.
@@ -593,7 +601,7 @@ function build(getAdminApp) {
       const entry = id ? await ref.collection(ENTRIES).doc(id).get() : null;
       if (!entry?.exists || entry.data().kind !== "adjust") throw new HttpsError("not-found", "Ese movimiento no se puede borrar.");
       await entry.ref.delete();
-      return respond(ref, profile);
+      return respond(ref, profile, { rescored: true });
     }
 
     const anniversary = (await ref.get()).data();
@@ -614,7 +622,7 @@ function build(getAdminApp) {
       createdBy: profile.uid,
       createdAt: FieldValue.serverTimestamp(),
     });
-    return respond(ref, profile);
+    return respond(ref, profile, { rescored: true });
   });
 
   // Adds, edits or deletes a deadline. Its reminders go out a day and two
