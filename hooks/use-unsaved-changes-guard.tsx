@@ -1,7 +1,6 @@
-import { useNavigation } from 'expo-router';
-// expo-router bundles its own React Navigation; this is the copy its stack
-// listens to (it also stops the iOS sheet from being swiped away).
-import { usePreventRemove } from 'expo-router/build/react-navigation/core/usePreventRemove';
+// expo-router's own copy, the one its stack listens to (it also stops the
+// iOS sheet from being swiped away).
+import { usePreventRemove } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -31,9 +30,12 @@ type Options = {
  * and call `allowLeave()` right before leaving on purpose.
  */
 export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', canSave = true, title = '¿Descartar los cambios?', message = 'Lo que escribiste todavía no se ha guardado.' }: Options) {
-  const navigation = useNavigation();
   const sheet = useSheetGuard();
-  const leaving = useRef(false);
+  // Set when leaving on purpose (saved or discarded), so nothing holds it
+  // back; a screen that stays open (Horario) guards again once it is clean.
+  const [released, setReleased] = useState(false);
+  if (released && !dirty) setReleased(false);
+  const guarded = dirty && !released;
   // What "Descartar" does once chosen; the dialog is open while it is set.
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
 
@@ -44,9 +46,9 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
   const setSheetBlocked = sheet?.setBlocked;
   useEffect(() => {
     if (!setSheetBlocked) return;
-    setSheetBlocked(dirty);
+    setSheetBlocked(guarded);
     return () => setSheetBlocked(false);
-  }, [dirty, setSheetBlocked]);
+  }, [guarded, setSheetBlocked]);
 
   const attempts = sheet?.blockedAttempts ?? 0;
   const handledAttempts = useRef(0);
@@ -56,14 +58,19 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
     ask(sheet.close);
   });
 
-  usePreventRemove(dirty, ({ data }) => {
-    if (leaving.current) {
-      navigation.dispatch(data.action);
-      return;
-    }
+  // Dispatching the held-back action again is blocked for as long as the
+  // prevention is on, which looped forever and left the sheet stuck. `repeat`
+  // turns it off first and then goes on with that action.
+  const disablePrevention = usePreventRemove(guarded, ({ repeat }) => {
     // On Android the sheet slides away first and then leaves.
-    ask(() => (sheet ? sheet.close() : navigation.dispatch(data.action)));
+    ask(() => (sheet ? sheet.close() : repeat()));
   });
+
+  const release = () => {
+    setReleased(true);
+    disablePrevention();
+    sheet?.setBlocked(false);
+  };
 
   const keepEditing = () => setPendingDiscard(null);
 
@@ -84,7 +91,7 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
         onPress={() => {
           const discard = pendingDiscard;
           setPendingDiscard(null);
-          leaving.current = true;
+          release();
           // The dialog is its own modal on top of the sheet: let it finish
           // closing before the sheet goes, or iOS can refuse the dismissal.
           setTimeout(() => discard?.(), DIALOG_CLOSE_MS);
@@ -96,9 +103,6 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
 
   return {
     dialog,
-    allowLeave: () => {
-      leaving.current = true;
-      sheet?.setBlocked(false);
-    },
+    allowLeave: release,
   };
 }

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.1.1-beta",
+      "date": "2026-10-26",
+      "title": "",
+      "items": [
+        "Ya puedes descartar una publicación, evento, Hall o tarea a medio hacer: \"Descartar\" cierra la hoja en vez de dejarte atrapado."
+      ]
+    },
+    {
       "version": "0.1.0-beta",
       "date": "2026-10-26",
       "title": "Primera versión con número",
