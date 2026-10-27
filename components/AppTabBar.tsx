@@ -284,6 +284,10 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   const panelBlurProps = useAnimatedProps(() => ({
     intensity: interpolate(fade.value, [0, 1], [28, 0], Extrapolation.CLAMP),
   }));
+  // Back/home and profile ride out to the open card's edges with it.
+  const controlsRowStyle = useAnimatedStyle(() => ({
+    width: (hasPanel ? interpolate(reveal.value, [0, 1], [barWidth, panelWidth]) : barWidth) - 2,
+  }));
   const dividerStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
@@ -342,7 +346,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           </View>
         )}
         {panel && <Animated.View pointerEvents="none" style={[styles.panelDivider, dividerStyle]} />}
-        <View style={[styles.controlsRow, { width: barWidth - 2 }]}>
+        <Animated.View style={[styles.controlsRow, controlsRowStyle]}>
         <Animated.View style={[styles.controlsLayer, controlsStyle]} pointerEvents={open ? 'none' : 'auto'}>
         <Animated.View
           key={controlsKey}
@@ -402,7 +406,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
             </Pressable>
           </Animated.View>
         )}
-        </View>
+        </Animated.View>
       </TabBarSurface>
       </Animated.View>
     </Animated.View>
@@ -528,7 +532,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.3)',
     elevation: 8,
   },
-  // Keeps the bar's own width while the card around it widens for a panel.
+  // As wide as the card: an open panel spreads the controls to its edges.
   controlsRow: {
     height: BAR_HEIGHT - 2,
     flexDirection: 'row',
