@@ -1,15 +1,18 @@
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors } from '@/constants/design-tokens';
+import { SPRING_SMOOTH } from '@/constants/motion';
 import { eventBar, useEventBar } from '@/components/events/event-bar-store';
 import { useEventOptions } from '@/components/events/event-options';
+import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
+import { CalendarViewMenu, CalendarViewPill } from '@/components/calendar/view-menu';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
-import { Keyboard, LayoutChangeEvent, Platform, Pressable, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
+import { BackHandler, Keyboard, LayoutChangeEvent, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -18,6 +21,7 @@ import Animated, {
   LinearTransition,
   interpolate,
   interpolateColor,
+  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -151,6 +155,26 @@ function useKeyboardLift(active: boolean) {
   return height;
 }
 
+/**
+ * A panel that grows out of the bar: the same glass card widens and rises to
+ * the panel's measured height, so the menu reads as the bar itself opening
+ * rather than a popup laid over it.
+ */
+type BarPanel = {
+  open: boolean;
+  /** Names the panel for "Cerrar …" on the backdrop. */
+  label: string;
+  onClose: () => void;
+  content: React.ReactNode;
+};
+
+const BAR_HEIGHT = 64;
+const BAR_MAX_WIDTH = 330;
+const PANEL_MAX_WIDTH = 380;
+// Response ~0.35 s with damping ratio 0.82: the card settles with a hint of give.
+const PANEL_SPRING_OPEN = { stiffness: 320, damping: 29, mass: 1 };
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
 type AppTabBarProps = {
   /** Given on screens reached from another one: the left slot becomes "Volver". */
   onBack?: () => void;
@@ -163,10 +187,12 @@ type AppTabBarProps = {
   controlsKey?: string;
   /** Replaces `center` with a search pill that expands over the whole bar. */
   search?: BarSearch;
+  /** A panel the center pill opens, growing out of the bar. */
+  panel?: BarPanel;
 };
 
 /** The one floating bar of the app: back or home, the section's action, profile. */
-export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main', search }: AppTabBarProps) {
+export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main', search, panel }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
@@ -174,7 +200,10 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
   const open = !!search?.open;
   const input = React.useRef<TextInputInstance>(null);
-  const [barWidth, setBarWidth] = React.useState(0);
+  const { width: windowWidth } = useWindowDimensions();
+  // The bar is 90 % of the screen up to a cap; an open panel takes a little more.
+  const barWidth = Math.min(windowWidth * 0.9, BAR_MAX_WIDTH);
+  const panelWidth = Math.max(barWidth, Math.min(windowWidth - 24, PANEL_MAX_WIDTH));
   const [centerFrame, setCenterFrame] = React.useState({ x: 0, width: 0 });
   const morph = useSharedValue(open ? 1 : 0);
   const keyboard = useKeyboardLift(open);
@@ -210,6 +239,54 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   }));
   const fieldStyle = useAnimatedStyle(() => ({ opacity: interpolate(morph.value, [0.35, 0.8], [0, 1], Extrapolation.CLAMP) }));
 
+  // The panel: `reveal` carries the card's size and the content's travel,
+  // `fade` the content's and backdrop's opacity. With reduced motion the card
+  // takes its size at once and only the fade runs.
+  const panelOpen = !!panel?.open;
+  const [panelHeight, setPanelHeight] = React.useState(0);
+  const reveal = useSharedValue(0);
+  const fade = useSharedValue(0);
+  React.useEffect(() => {
+    const target = panelOpen ? 1 : 0;
+    reveal.value = reduceMotion ? target : withSpring(target, panelOpen ? PANEL_SPRING_OPEN : SPRING_SMOOTH);
+    fade.value = withTiming(target, { duration: panelOpen ? 240 : 150, easing: Easing.out(Easing.cubic) });
+  }, [fade, panelOpen, reduceMotion, reveal]);
+
+  const onClosePanel = panel?.onClose;
+  React.useEffect(() => {
+    if (!panelOpen || !onClosePanel) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClosePanel();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onClosePanel, panelOpen]);
+
+  // Only plain values go into the worklets; `panel` carries React elements.
+  const hasPanel = !!panel;
+  const cardStyle = useAnimatedStyle(() => {
+    if (!hasPanel) return { width: barWidth, height: BAR_HEIGHT };
+    return {
+      width: interpolate(reveal.value, [0, 1], [barWidth, panelWidth]),
+      height: BAR_HEIGHT + Math.max(0, reveal.value) * panelHeight,
+    };
+  });
+  // Centered on the card while it widens, so the content opens from the middle.
+  const panelStyle = useAnimatedStyle(() => ({
+    left: (interpolate(reveal.value, [0, 1], [barWidth, panelWidth]) - panelWidth) / 2,
+    opacity: interpolate(fade.value, [0.2, 1], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      { translateY: interpolate(reveal.value, [0, 1], [18, 0]) },
+      { scale: interpolate(reveal.value, [0, 1], [0.96, 1]) },
+    ],
+  }));
+  // The content comes into focus as it arrives.
+  const panelBlurProps = useAnimatedProps(() => ({
+    intensity: interpolate(fade.value, [0, 1], [28, 0], Extrapolation.CLAMP),
+  }));
+  const dividerStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+
   const searchPill = search ? (
     <Pressable
       accessibilityRole="button"
@@ -226,11 +303,18 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   ) : null;
 
   return (
+    <>
+    {panel && (
+      <Animated.View pointerEvents={panelOpen ? 'auto' : 'none'} style={[styles.backdrop, backdropStyle]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Cerrar ${panel.label}`} onPress={panel.onClose} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+    )}
     <Animated.View
       entering={reduceMotion ? undefined : FadeIn.duration(180)}
       exiting={reduceMotion ? undefined : FadeOut.duration(120)}
       style={[styles.tabBarWrapper, search ? liftStyle : { bottom: restingBottom }]}
     >
+      <Animated.View style={[styles.tabBarCard, cardStyle]}>
       <TabBarSurface
         {...(useLiquidGlass
           ? { colorScheme: 'dark', glassEffectStyle: 'regular', isInteractive: true }
@@ -240,8 +324,25 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
               ...(Platform.OS === 'android' ? { blurMethod: 'dimezisBlurView' } : {}),
             })}
         style={styles.tabBarContainer}
-        onLayout={(event: LayoutChangeEvent) => setBarWidth(event.nativeEvent.layout.width)}
       >
+        {panel && (
+          <View style={styles.panelArea} pointerEvents={panelOpen ? 'box-none' : 'none'} accessibilityElementsHidden={!panelOpen} importantForAccessibility={panelOpen ? 'auto' : 'no-hide-descendants'}>
+            <Animated.View
+              style={[styles.panelLayer, { width: panelWidth - 2 }, panelStyle]}
+              onLayout={(event: LayoutChangeEvent) => {
+                const height = Math.ceil(event.nativeEvent.layout.height);
+                if (height > 0 && height !== panelHeight) setPanelHeight(height);
+              }}
+            >
+              {panel.content}
+            </Animated.View>
+            {Platform.OS === 'ios' && !reduceMotion && (
+              <AnimatedBlurView pointerEvents="none" tint="systemUltraThinMaterialDark" animatedProps={panelBlurProps} style={StyleSheet.absoluteFill} />
+            )}
+          </View>
+        )}
+        {panel && <Animated.View pointerEvents="none" style={[styles.panelDivider, dividerStyle]} />}
+        <View style={[styles.controlsRow, { width: barWidth - 2 }]}>
         <Animated.View style={[styles.controlsLayer, controlsStyle]} pointerEvents={open ? 'none' : 'auto'}>
         <Animated.View
           key={controlsKey}
@@ -301,8 +402,11 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
             </Pressable>
           </Animated.View>
         )}
+        </View>
       </TabBarSurface>
+      </Animated.View>
     </Animated.View>
+    </>
   );
 }
 
@@ -324,6 +428,7 @@ export function GlobalTabBar() {
   const role = useRole();
   const bar = useEventBar();
   const options = useEventOptions(bar.actions);
+  const calendar = useCalendarBar();
 
   // The search belongs to the screen it was opened on: changing screen closes it.
   const searchRoute = React.useRef(pathname);
@@ -331,6 +436,11 @@ export function GlobalTabBar() {
     if (searchRoute.current !== pathname && (bar.searchOpen || bar.query)) eventBar.closeSearch();
     searchRoute.current = pathname;
   }, [bar.query, bar.searchOpen, pathname]);
+
+  // The Calendar's menu belongs to the Calendar too.
+  React.useEffect(() => {
+    if (pathname !== '/calendar') calendarBar.closeMenu();
+  }, [pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
 
@@ -363,18 +473,9 @@ export function GlobalTabBar() {
         <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>Opciones</ThemedText>
       </Pressable>
     );
-  } else if (pathname === '/calendar' && canAddEvents) {
-    center = (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Crear evento"
-        style={({ pressed }) => [styles.centerPill, styles.createPill, pressed && styles.motionPressPressed]}
-        onPress={() => router.navigate('/create-event')}
-      >
-        <CustomIcon name="calendar" size={18} color={AppColors.textOnLight} />
-        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>Crear</ThemedText>
-      </Pressable>
-    );
+  } else if (pathname === '/calendar') {
+    // Names the view on screen; the menu to change it grows out of the bar.
+    center = <CalendarViewPill view={calendar.view} open={calendar.menuOpen} onPress={calendarBar.toggleMenu} />;
   }
 
   return (
@@ -388,6 +489,9 @@ export function GlobalTabBar() {
       controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' || pathname === '/feed' || pathname === '/event-detail' ? pathname : 'screen'}
       search={SEARCH_PLACEHOLDERS[pathname]
         ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
+        : undefined}
+      panel={pathname === '/calendar'
+        ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
         : undefined}
     />
     {options.dialog}
@@ -405,15 +509,16 @@ const styles = StyleSheet.create({
     elevation: 20,
     pointerEvents: 'box-none',
   },
-  tabBarContainer: {
-    width: '90%',
-    maxWidth: 330,
-    height: 64,
+  // Sized by the bar (and its panel, when open); the surface fills it.
+  tabBarCard: {
     borderRadius: 32,
-    flexDirection: 'row',
+  },
+  tabBarContainer: {
+    flex: 1,
+    borderRadius: 32,
+    borderCurve: 'continuous',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    justifyContent: 'flex-end',
     overflow: 'hidden',
     // The BlurView/GlassView owns the translucent material. A fill here would
     // flatten the fallback into an opaque dark surface.
@@ -422,6 +527,35 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
     boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.3)',
     elevation: 8,
+  },
+  // Keeps the bar's own width while the card around it widens for a panel.
+  controlsRow: {
+    height: BAR_HEIGHT - 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  panelArea: {
+    alignSelf: 'stretch',
+    flex: 1,
+    overflow: 'hidden',
+  },
+  panelLayer: {
+    position: 'absolute',
+    top: 0,
+  },
+  panelDivider: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: BAR_HEIGHT - 2,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 998,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   tabControls: {
     width: '100%',
@@ -449,9 +583,6 @@ const styles = StyleSheet.create({
   },
   searchPill: {
     width: 118,
-  },
-  createPill: {
-    width: 100,
   },
   optionsPill: {
     width: 124,

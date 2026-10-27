@@ -1,8 +1,10 @@
 import { subjectName } from '@/constants/subjects';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
-import { formatTime } from '@/services/ical-service';
+import { formatTime, getEventsForDate } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
+import { isBreak } from '@/services/schedule-service';
+import type { ScheduleBlock } from '@/services/schedule-service';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -127,6 +129,82 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
           );
         })}
       </View>
+    </ScrollView>
+  );
+}
+
+type WeekViewProps = {
+  /** Monday to Sunday. */
+  days: Date[];
+  events: CalendarEvent[];
+  /** The timetable's blocks for a date. */
+  blocksOn: (date: Date) => ScheduleBlock[];
+  selectedDate: Date;
+  bottomInset: number;
+  onPickDay: (date: Date, from: ScreenPoint) => void;
+  onOpenEvent: (event: CalendarEvent) => void;
+};
+
+/**
+ * The week at a glance: each school day with its events and how many classes
+ * it has. Saturday and Sunday show up only when something falls on them.
+ */
+export function WeekView({ days, events, blocksOn, selectedDate, bottomInset, onPickDay, onOpenEvent }: WeekViewProps) {
+  const today = new Date();
+  const rows = days
+    .map((date, index) => ({ date, index, events: getEventsForDate(events, date), classes: blocksOn(date).filter(block => !isBreak(block)) }))
+    .filter(row => row.index < 5 || row.events.length > 0);
+
+  return (
+    <ScrollView contentContainerStyle={[styles.scroll, styles.week, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
+      {rows.map(row => {
+        const isToday = isSameDay(row.date, today);
+        const selected = isSameDay(row.date, selectedDate);
+        const classes = row.classes.length === 0
+          ? null
+          : `${row.classes.length === 1 ? '1 clase' : `${row.classes.length} clases`} · ${row.classes[0].start} a ${row.classes[row.classes.length - 1].end}`;
+        return (
+          <View key={dayKey(row.date)} style={styles.weekRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${WEEKDAY_NAMES[row.index]} ${row.date.getDate()}${isToday ? ', hoy' : ''}, ${row.events.length === 0 ? 'sin eventos' : row.events.length === 1 ? '1 evento' : `${row.events.length} eventos`}`}
+              accessibilityHint="Abre ese día"
+              accessibilityState={{ selected }}
+              onPress={event => onPickDay(row.date, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
+              style={({ pressed }) => [styles.weekDate, isToday && styles.dayToday, selected && styles.daySelected, pressed && styles.pressed]}
+            >
+              <ThemedText style={[styles.agendaWeekday, selected && styles.onActive]}>{WEEKDAY_SHORT[row.index]}</ThemedText>
+              <ThemedText style={[styles.agendaDay, selected && styles.onActive]}>{row.date.getDate()}</ThemedText>
+            </Pressable>
+            <View style={styles.weekItems}>
+              {!!classes && <ThemedText style={styles.weekClasses}>{classes}</ThemedText>}
+              {row.events.length === 0 ? (
+                <ThemedText style={styles.weekEmpty}>Sin eventos</ThemedText>
+              ) : (
+                row.events.map(event => {
+                  const start = new Date(event.startDate);
+                  const end = new Date(event.endDate);
+                  return (
+                    <Pressable
+                      key={event.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${event.title}, ${formatTime(start)}${event.cancelled ? ', cancelado' : ''}`}
+                      accessibilityHint="Abre el detalle del evento"
+                      onPress={() => onOpenEvent(event)}
+                      style={({ pressed }) => [styles.weekEvent, event.cancelled && styles.agendaRowCancelled, pressed && styles.pressed]}
+                    >
+                      <ThemedText numberOfLines={2} style={[styles.agendaEvent, event.cancelled && styles.cancelledText]}>{event.title}</ThemedText>
+                      <ThemedText style={styles.agendaMeta}>
+                        {formatTime(start)} - {formatTime(end)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? ' · Cancelado' : ''}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -289,6 +367,47 @@ const styles = StyleSheet.create({
     ...AppType.footnote,
     color: AppColors.textSecondary,
     opacity: 0.8,
+  },
+  week: {
+    gap: AppSpacing.md,
+    paddingTop: AppSpacing.xs,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: AppSpacing.md,
+  },
+  weekDate: {
+    width: 52,
+    minHeight: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+  },
+  weekItems: {
+    flex: 1,
+    gap: AppSpacing.sm,
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  weekClasses: {
+    ...AppType.caption,
+    color: AppColors.textSecondary,
+    opacity: 0.8,
+  },
+  weekEmpty: {
+    ...AppType.footnote,
+    color: AppColors.textSecondary,
+    opacity: 0.6,
+  },
+  weekEvent: {
+    gap: 2,
+    padding: AppSpacing.md,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
   },
   yearGrid: {
     flexDirection: 'row',

@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.1.2-beta",
+      "date": "2026-10-27",
+      "title": "",
+      "items": [
+        "Calendar: toca el botón del centro de la barra para cambiar entre Día, Semana, Mes, Año y Horario. Arriba te muestra la clase de ahora.",
+        "Nueva vista Semana: cada día con sus eventos y cuántas clases tiene.",
+        "El Horario ahora vive dentro del Calendar.",
+        "\"Crear evento\" se movió a ese mismo menú."
+      ]
+    },
+    {
       "version": "0.1.1-beta",
       "date": "2026-10-26",
       "title": "",
