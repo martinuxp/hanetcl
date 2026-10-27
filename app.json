@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -107,7 +107,11 @@
               "displayName": "HaNet: tu día",
               "description": "La clase de ahora, la que sigue y tu próxima prueba.",
               "ios": {
-                "supportedFamilies": ["systemSmall", "systemMedium", "accessoryRectangular"],
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryRectangular"
+                ],
                 "initialLayout": "widgets/home-widget.tsx"
               }
             }
