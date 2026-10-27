@@ -1,4 +1,4 @@
-import { AppColors, AppType } from '@/constants/design-tokens';
+import { AppColors, AppFlexFonts, AppType } from '@/constants/design-tokens';
 import React from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
@@ -127,7 +127,7 @@ function anniversaryBand(state: AnniversaryState | null | undefined, now: number
     return { text: mine ? `${when} · ${mine.name}` : when, alliance: mine };
   }
   if (phase === 'after') {
-    return scored ? { text: `🏆 Ganó ${leader.name}`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
+    return scored ? { text: `¡Ganó ${leader.name}!`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
   }
   if (scored) return { text: `${leader.name} lidera · ${formatPoints(leader.total ?? 0)}`, alliance: leader };
   const [next] = todaysActivities(anniversary, now).filter(activity => (activity.startsAt ?? 0) >= now - 60 * 60 * 1000);
@@ -138,11 +138,18 @@ function anniversaryBand(state: AnniversaryState | null | undefined, now: number
   return { text: '¡Estamos de aniversario!', alliance: mine };
 }
 
+// Tilted and sliding like the Eventos strip, in Google Sans Flex.
 function AnniversaryStrip({ text, alliance }: NonNullable<ReturnType<typeof anniversaryBand>>) {
   const color = alliance ? allianceColor(alliance) : null;
+  const ink = color?.ink ?? AppColors.textPrimary;
+  const main = `${text.toLocaleUpperCase('es')} -`;
   return (
-    <View style={[styles.anniversaryStrip, color && { backgroundColor: color.fill }]}>
-      <ThemedText numberOfLines={1} style={[styles.anniversaryStripText, color && { color: color.ink }]}>{text}</ThemedText>
+    <View style={[styles.promoStrip, color && { backgroundColor: color.fill }]}>
+      <View style={styles.promoTilt}>
+        <MarqueeLine text={main} top={-6} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.numbers} />
+        <MarqueeLine text={main} top={10} color={ink} opacity={1} duration={14000} fontFamily={AppFlexFonts.numbers} />
+        <MarqueeLine text={main} top={26} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.numbers} />
+      </View>
     </View>
   );
 }
@@ -329,24 +336,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   /* Aniversario band */
-  anniversaryStrip: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 37,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    backgroundColor: AppColors.surfaceMuted,
-  },
-  anniversaryStripText: {
-    fontSize: 13,
-    lineHeight: 16,
-    letterSpacing: -0.3,
-    fontFamily: 'DMSans_700Bold',
-    color: AppColors.textPrimary,
-  },
   /* Promo strip (Eventos) */
   promoStrip: {
     position: 'absolute',

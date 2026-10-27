@@ -24,7 +24,7 @@ export function priceLabel(event: Pick<HnEvent, 'isFree' | 'priceFrom'>) {
 }
 
 // One diagonal line of the banner, sliding sideways forever.
-export function MarqueeLine({ text, top, color, opacity, duration, reverse }: { text: string; top: number; color: string; opacity: number; duration: number; reverse?: boolean }) {
+export function MarqueeLine({ text, top, color, opacity, duration, reverse, fontFamily }: { text: string; top: number; color: string; opacity: number; duration: number; reverse?: boolean; fontFamily?: string }) {
   const reduceMotion = useReducedMotion();
   const shift = useSharedValue(0);
   const copyWidth = useSharedValue(0);
@@ -41,7 +41,7 @@ export function MarqueeLine({ text, top, color, opacity, duration, reverse }: { 
           key={index}
           numberOfLines={1}
           onLayout={index === 0 ? event => { copyWidth.value = event.nativeEvent.layout.width; } : undefined}
-          style={[styles.marqueeText, { color, opacity }]}
+          style={[styles.marqueeText, { color, opacity }, !!fontFamily && { fontFamily }]}
         >
           {`${text}   `}
         </ThemedText>
@@ -50,21 +50,41 @@ export function MarqueeLine({ text, top, color, opacity, duration, reverse }: { 
   );
 }
 
+/**
+ * The tilted strip of sliding lines: `main` in the middle in `ink`, `secondary`
+ * between them, faded. Events use it pink for what comes soonest; the
+ * Aniversario in the alianza's color for what happens today.
+ */
+export function MarqueeBanner({ main, secondary, label, fill = AppColors.accent, ink = AppColors.textPrimary, fontFamily }: {
+  main: string;
+  secondary: string;
+  label: string;
+  fill?: string;
+  ink?: string;
+  fontFamily?: string;
+}) {
+  return (
+    <View accessible accessibilityLabel={label} style={[styles.marquee, { backgroundColor: fill }]}>
+      <View style={styles.marqueeTilt}>
+        <MarqueeLine text={main} top={-12} color={AppColors.textOnLight} opacity={0.3} duration={16000} fontFamily={fontFamily} />
+        <MarqueeLine text={secondary} top={2} color={AppColors.textOnLight} opacity={0.5} duration={20000} reverse fontFamily={fontFamily} />
+        <MarqueeLine text={main} top={14} color={ink} opacity={1} duration={14000} fontFamily={fontFamily} />
+        <MarqueeLine text={secondary} top={28} color={AppColors.textOnLight} opacity={0.5} duration={20000} reverse fontFamily={fontFamily} />
+        <MarqueeLine text={main} top={42} color={AppColors.textOnLight} opacity={0.3} duration={16000} fontFamily={fontFamily} />
+      </View>
+    </View>
+  );
+}
+
 /** The pink strip under the title for what comes soonest ("¡Mañana! - Candelabro - …"). */
 export function EventsMarquee({ event, now }: { event: HnEvent; now: number }) {
   const when = eventSoon(event.startsAt, now)?.split(',')[0] ?? '';
-  const main = `¡${when}! - ${event.title} -`;
-  const place = `${event.venueName || event.city} -`;
   return (
-    <View accessible accessibilityLabel={`${when}: ${event.title}, ${event.venueName}`} style={styles.marquee}>
-      <View style={styles.marqueeTilt}>
-        <MarqueeLine text={main} top={-12} color={AppColors.textOnLight} opacity={0.3} duration={16000} />
-        <MarqueeLine text={place} top={2} color={AppColors.textOnLight} opacity={0.5} duration={20000} reverse />
-        <MarqueeLine text={main} top={14} color={AppColors.textPrimary} opacity={1} duration={14000} />
-        <MarqueeLine text={place} top={28} color={AppColors.textOnLight} opacity={0.5} duration={20000} reverse />
-        <MarqueeLine text={main} top={42} color={AppColors.textOnLight} opacity={0.3} duration={16000} />
-      </View>
-    </View>
+    <MarqueeBanner
+      main={`¡${when}! - ${event.title} -`}
+      secondary={`${event.venueName || event.city} -`}
+      label={`${when}: ${event.title}, ${event.venueName}`}
+    />
   );
 }
 
@@ -190,6 +210,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   marqueeText: {
+    flexShrink: 0,
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 17,

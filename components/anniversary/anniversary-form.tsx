@@ -3,7 +3,7 @@ import { hallFormStyles as styles } from '@/components/classhall/hall-form';
 import { allianceColor, placeLabel } from '@/components/anniversary/anniversary-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
-import { AppColors, AppRadii, AppSpacing, AppTouch, AppType } from '@/constants/design-tokens';
+import { AppColors, AppDisplay, AppRadii, AppSpacing, AppTouch, AppType } from '@/constants/design-tokens';
 import type { Alliance } from '@/services/anniversary-service';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -21,7 +21,7 @@ export const AUDIENCE_OPTIONS = [
 ];
 
 /** The sheet's scrolling body, with its title and lead. */
-export function SheetBody({ title, lead, children }: { title: string; lead?: string; children: React.ReactNode }) {
+export function SheetBody({ title, lead, icon, children }: { title: string; lead?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <ScrollView
@@ -29,7 +29,10 @@ export function SheetBody({ title, lead, children }: { title: string; lead?: str
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{title}</ThemedText>
+      <View style={local.titleRow}>
+        {icon}
+        <ThemedText accessibilityRole="header" style={[styles.title, local.title]}>{title}</ThemedText>
+      </View>
       {!!lead && <ThemedText style={styles.lead}>{lead}</ThemedText>}
       {children}
     </ScrollView>
@@ -68,9 +71,11 @@ export function TextField({ label, optional, value, onChange, placeholder, multi
   multiline?: boolean;
   maxLength?: number;
   disabled?: boolean;
-  keyboardType?: 'default' | 'number-pad' | 'url';
+  keyboardType?: 'default' | 'number-pad' | 'url' | 'email-address';
   autoFocus?: boolean;
 }) {
+  // Links and handles go as typed.
+  const literal = keyboardType === 'url' || keyboardType === 'email-address';
   return (
     <View style={styles.field}>
       <ThemedText style={styles.label}>{label}{optional && <ThemedText style={styles.optional}> (opcional)</ThemedText>}</ThemedText>
@@ -84,8 +89,8 @@ export function TextField({ label, optional, value, onChange, placeholder, multi
         maxLength={maxLength}
         editable={!disabled}
         keyboardType={keyboardType}
-        autoCapitalize={keyboardType === 'url' ? 'none' : 'sentences'}
-        autoCorrect={keyboardType !== 'url'}
+        autoCapitalize={literal ? 'none' : 'sentences'}
+        autoCorrect={!literal}
         autoFocus={autoFocus}
         selectionColor={AppColors.accent}
         style={[styles.input, multiline && local.multiline]}
@@ -192,7 +197,7 @@ export function AlliancePicker({ alliances, value, onChange, disabled }: { allia
             ]}
           >
             <View style={[local.swatch, { backgroundColor: color.fill }]} />
-            <ThemedText numberOfLines={1} style={[local.allianceText, selected && { color: color.ink }]}>{alliance.name}</ThemedText>
+            <ThemedText numberOfLines={1} style={[local.allianceText, selected && { color: color.ink }]}>{alliance.emoji ? `${alliance.emoji} ${alliance.name}` : alliance.name}</ThemedText>
           </Pressable>
         );
       })}
@@ -201,6 +206,15 @@ export function AlliancePicker({ alliances, value, onChange, disabled }: { allia
 }
 
 const local = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+  },
+  title: {
+    flexShrink: 1,
+    ...AppDisplay.title,
+  },
   multiline: {
     minHeight: 120,
     paddingTop: AppSpacing.lg,

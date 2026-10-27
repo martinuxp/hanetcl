@@ -112,6 +112,14 @@ export default function RootLayout() {
     // Italics of the feed's Markdown.
     DMSans_400Regular_Italic,
     DMSans_700Bold_Italic,
+    // Google Sans Flex cuts for the Aniversario (see AppFlexFonts).
+    GoogleSansFlex_300Light_ExtraCondensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_300Light_ExtraCondensed.ttf'),
+    GoogleSansFlex_500Medium_Condensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_500Medium_Condensed.ttf'),
+    GoogleSansFlex_700Bold: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_700Bold.ttf'),
+    GoogleSansFlex_700Bold_SemiExpanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_700Bold_SemiExpanded.ttf'),
+    GoogleSansFlex_800ExtraBold_Expanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_800ExtraBold_Expanded.ttf'),
+    GoogleSansFlex_900Black_Condensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_900Black_Condensed.ttf'),
+    GoogleSansFlex_900Black_ExtraExpanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_900Black_ExtraExpanded.ttf'),
   });
 
   // The native splash only covers the font load; HaNet's own splash takes
@@ -197,6 +205,7 @@ export default function RootLayout() {
             <Stack.Screen name="anniversary/index" options={{ headerShown: false }} />
             <Stack.Screen name="anniversary/setup" options={sheetOptions([1.0])} />
             <Stack.Screen name="anniversary/activity" options={sheetOptions([1.0])} />
+            <Stack.Screen name="anniversary/detail" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="anniversary/result" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="anniversary/points" options={sheetOptions([0.75, 1.0])} />
             <Stack.Screen name="anniversary/deadline" options={sheetOptions([0.75, 1.0])} />

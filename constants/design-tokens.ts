@@ -73,5 +73,34 @@ export const AppType = {
   caption: { fontFamily: 'DMSans_500Medium', fontSize: 12, lineHeight: 16, letterSpacing: 0 },
 } as const;
 
+/**
+ * Google Sans Flex, for big expressive text (the Aniversario's titles and
+ * scores). React Native can't move a variable font's axes, so these are
+ * fixed cuts: `ramp` goes from narrow and light to wide and black, and
+ * `FlexText` steps through it to animate weight and width together.
+ */
+export const AppFlexFonts = {
+  ramp: [
+    'GoogleSansFlex_300Light_ExtraCondensed',
+    'GoogleSansFlex_500Medium_Condensed',
+    'GoogleSansFlex_700Bold',
+    'GoogleSansFlex_800ExtraBold_Expanded',
+    'GoogleSansFlex_900Black_ExtraExpanded',
+  ],
+  wide: 'GoogleSansFlex_900Black_ExtraExpanded',
+  numbers: 'GoogleSansFlex_900Black_Condensed',
+  name: 'GoogleSansFlex_700Bold_SemiExpanded',
+} as const;
+
+/** Display sizes in Google Sans Flex. Wide cuts need less negative tracking. */
+export const AppDisplay = {
+  hero: { fontFamily: AppFlexFonts.wide, fontSize: 40, lineHeight: 42, letterSpacing: -1.2 },
+  title: { fontFamily: AppFlexFonts.wide, fontSize: 24, lineHeight: 28, letterSpacing: -0.6 },
+  section: { fontFamily: AppFlexFonts.name, fontSize: 20, lineHeight: 24, letterSpacing: -0.4 },
+  name: { fontFamily: AppFlexFonts.name, fontSize: 17, lineHeight: 21, letterSpacing: -0.3 },
+  number: { fontFamily: AppFlexFonts.numbers, fontSize: 56, lineHeight: 58, letterSpacing: -1.5 },
+  score: { fontFamily: AppFlexFonts.numbers, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
+} as const;
+
 /** Press feedback shared by every tappable surface: a light dip and press-in. */
 export const AppPressed = { opacity: 0.84, transform: [{ scale: 0.97 }] } as const;

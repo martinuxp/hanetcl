@@ -18,6 +18,12 @@ export type Alliance = {
   name: string;
   theme: string;
   color: AllianceColor;
+  /** Its mascot: one emoji, or empty. */
+  emoji: string;
+  /** Its motto ("lema"), or empty. */
+  motto: string;
+  /** Instagram handle without the @, or empty. */
+  instagram: string;
   courseIds: string[];
   leadCount: number;
   /** Only for organizers. */
@@ -119,7 +125,7 @@ export function useAnniversaryState(initial?: AnniversaryState) {
   return state;
 }
 
-export type AllianceInput = { id?: string; name: string; theme: string; color: AllianceColor; courseIds: string[] };
+export type AllianceInput = { id?: string; name: string; theme: string; color: AllianceColor; emoji: string; motto: string; instagram: string; courseIds: string[] };
 
 export type AnniversaryInput = {
   title: string;
@@ -206,6 +212,39 @@ export function ranking(anniversary: Anniversary) {
   return [...anniversary.alliances].sort((a, b) => (
     a.total !== null && b.total !== null ? b.total - a.total || a.name.localeCompare(b.name, 'es') : a.name.localeCompare(b.name, 'es')
   ));
+}
+
+export type Standing = Alliance & {
+  place: number;
+  /** Points added in the last 24 hours (from the visible history). */
+  today: number;
+  /** Places gained (+) or lost (−) in those 24 hours. */
+  moved: number;
+};
+
+/**
+ * The ranking with how it changed in the last day: the totals minus what the
+ * history added since then give yesterday's order. Empty moves while hidden.
+ */
+export function standings(anniversary: Anniversary, now = Date.now()): Standing[] {
+  const rows = ranking(anniversary);
+  const hidden = rows.some(alliance => alliance.total === null);
+  const today = new Map<string, number>();
+  if (!hidden) {
+    for (const entry of anniversary.history) {
+      if (entry.createdAt && now - entry.createdAt < 86_400_000) today.set(entry.allianceId, (today.get(entry.allianceId) ?? 0) + entry.points);
+    }
+  }
+  const before = [...rows]
+    .map(alliance => ({ id: alliance.id, name: alliance.name, total: (alliance.total ?? 0) - (today.get(alliance.id) ?? 0) }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'))
+    .map(alliance => alliance.id);
+  return rows.map((alliance, place) => ({
+    ...alliance,
+    place,
+    today: today.get(alliance.id) ?? 0,
+    moved: hidden || !today.size ? 0 : before.indexOf(alliance.id) - place,
+  }));
 }
 
 /** "145.500" */

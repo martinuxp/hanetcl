@@ -16,18 +16,18 @@ const FRAME_HEIGHT = 520;
 // Room past the page's edges, so pulling it beyond them (iOS bounce) keeps the light.
 const OVERSCROLL = 600;
 
-type Rgb = [number, number, number];
+export type Rgb = [number, number, number];
 
-function toRgb(hex: string): Rgb {
+export function toRgb(hex: string): Rgb {
   const value = parseInt(hex.replace('#', '').slice(0, 6), 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-function toHex(rgb: Rgb) {
+export function toHex(rgb: Rgb) {
   return `#${rgb.map(channel => Math.round(Math.min(255, Math.max(0, channel))).toString(16).padStart(2, '0')).join('')}`;
 }
 
-function toHsl([red, green, blue]: Rgb) {
+export function toHsl([red, green, blue]: Rgb) {
   const [r, g, b] = [red / 255, green / 255, blue / 255];
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -39,7 +39,7 @@ function toHsl([red, green, blue]: Rgb) {
   return { h: h * 60, s, l };
 }
 
-function fromHsl(h: number, s: number, l: number): Rgb {
+export function fromHsl(h: number, s: number, l: number): Rgb {
   const k = (n: number) => (n + h / 30) % 12;
   const a = s * Math.min(l, 1 - l);
   const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));

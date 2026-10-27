@@ -1,3 +1,4 @@
+import { BoltIcon } from '@/assets/animated-icons/crown';
 import { AUDIENCE_OPTIONS, PointsFields, SheetActions, SheetBody, TextField, formStyles as styles } from '@/components/anniversary/anniversary-form';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -60,7 +61,7 @@ function FlashScreen() {
   });
 
   return (
-    <SheetBody title="⚡ Prueba flash" lead="Llega al tiro como notificación. Después pones el orden en que la cumplieron.">
+    <SheetBody title="Prueba flash" icon={<BoltIcon size={26} color={AppColors.accentYellow} animated />} lead="Llega al tiro como notificación. Después pones el orden en que la cumplieron.">
       <TextField label="Nombre" value={name} onChange={value => { setName(value); setError(null); }} placeholder="Traigan un paraguas amarillo" disabled={submitting} autoFocus />
       <TextField label="Qué hay que hacer" value={text} onChange={value => { setText(value); setError(null); }} placeholder="La primera alianza que llegue a la sala del CEE con un paraguas amarillo gana." multiline maxLength={500} disabled={submitting} />
       <PointsFields label="Puntos por lugar" points={points} count={places} onChange={setPoints} disabled={submitting} />

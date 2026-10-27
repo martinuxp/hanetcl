@@ -17,7 +17,8 @@ const { sendPush } = require("./classhall-notify");
 // In hn-calendar, closed to the app (only these functions read and write):
 //   anniversaries/{institutionId__year}
 //     institutionId, year, title, startsAt, endsAt, rulesUrl, scoreHidden,
-//     finished, alliances [{ id, name, theme, color, courseIds, leadUids }],
+//     finished, alliances [{ id, name, theme, color, emoji, motto,
+//       instagram, courseIds, leadUids }],
 //     activities [{ id, name, group, startsAt, place, mode, points, flash,
 //       text, result, resultAt }],
 //     deadlines [{ id, title, dueAt, audience, remindedDay, remindedSoon }],
@@ -41,6 +42,9 @@ const ORGANIZER_ROLES = ["CEE", "Admin", "HNT"];
 const STAFF_ROLES = ["Profesor", "Admin", "HNT"];
 // Alliance colors are names; the app maps them to its palette.
 const COLORS = ["rosa", "rojo", "naranjo", "amarillo", "verde", "celeste", "azul", "morado", "blanco", "negro"];
+// An alianza's mascot is one emoji (the app uses icons everywhere else).
+const EMOJI = /^(?=.*\p{Extended_Pictographic})[\p{Extended_Pictographic}\p{Emoji_Component}\uFE0F\u200D]{1,16}$/u;
+const INSTAGRAM = /^[A-Za-z0-9._]{1,30}$/;
 const GROUPS = ["previas", "deportes", "velada", "show", "flash", "otras"];
 const MODES = ["podium", "manual"];
 const AUDIENCES = ["leads", "all"];
@@ -150,6 +154,18 @@ function whenText(ms) {
   return `${day.replace(",", "")}, ${time}`;
 }
 
+function emojiIn(value) {
+  const emoji = typeof value === "string" ? value.trim() : "";
+  return EMOJI.test(emoji) ? emoji : "";
+}
+
+// "@alianza.80s" or a profile link, kept as the bare handle.
+function instagramIn(value) {
+  if (typeof value !== "string") return "";
+  const handle = value.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/[/?#].*$/, "");
+  return INSTAGRAM.test(handle) ? handle : "";
+}
+
 async function requireProfile(getAdminApp, request) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
   const snapshot = await identityDb(getAdminApp).collection("users").doc(request.auth.uid).get();
@@ -227,6 +243,9 @@ function anniversaryOut(id, data, viewer) {
     name: alliance.name,
     theme: alliance.theme || "",
     color: alliance.color,
+    emoji: alliance.emoji || "",
+    motto: alliance.motto || "",
+    instagram: alliance.instagram || "",
     courseIds: alliance.courseIds || [],
     // Organizers see who leads each alianza; the leads only learn that they do.
     leadCount: (alliance.leadUids || []).length,
@@ -446,6 +465,9 @@ function build(getAdminApp) {
           name,
           theme: text(item?.theme, 60),
           color,
+          emoji: emojiIn(item?.emoji),
+          motto: text(item?.motto, 80),
+          instagram: instagramIn(item?.instagram),
           courseIds,
           leadUids: existing?.leadUids || [],
         };
@@ -686,7 +708,7 @@ function build(getAdminApp) {
     });
     const anniversary = (await ref.get()).data();
     const sent = await notify(getAdminApp, await audienceUids(getAdminApp, anniversary, audience), {
-      title: `⚡ Prueba flash · ${activity.name}`,
+      title: `Prueba flash: ${activity.name}`,
       body: activity.text.length > 170 ? `${activity.text.slice(0, 169).trimEnd()}…` : activity.text,
     });
     return { ...(await respond(ref, profile)), sent };

@@ -13,13 +13,20 @@ import type { AllianceColor, AllianceInput, AnniversaryInput } from '@/services/
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const MAX_ALLIANCES = 8;
 const DEFAULT_COLORS: AllianceColor[] = ['rosa', 'azul', 'verde', 'amarillo', 'morado', 'naranjo', 'celeste', 'rojo'];
+// Mascots to pick from; any other emoji can be typed.
+const MASCOTS = ['🦁', '🐺', '🐯', '🦅', '🐉', '🦈', '🐍', '🦊', '🐻', '🐼', '🦄', '🐸', '🐝', '🦋', '🔥', '⚡', '🌊', '🌙', '☀️', '⭐', '👑', '💎', '🚀', '🎸', '🎭', '👾', '🍀', '🌹'];
 
 function blankAlliance(index: number): AllianceInput {
-  return { name: '', theme: '', color: DEFAULT_COLORS[index % DEFAULT_COLORS.length], courseIds: [] };
+  return { name: '', theme: '', color: DEFAULT_COLORS[index % DEFAULT_COLORS.length], emoji: '', motto: '', instagram: '', courseIds: [] };
+}
+
+/** An emoji typed by hand: no letters or digits (the server checks the rest). */
+function looksLikeEmoji(value: string) {
+  return !!value && !/[\p{L}\p{N}\s]/u.test(value);
 }
 
 function initialForm(): AnniversaryInput {
@@ -32,7 +39,7 @@ function initialForm(): AnniversaryInput {
       rulesUrl: current.rulesUrl,
       scoreHidden: current.scoreHidden,
       finished: current.finished,
-      alliances: current.alliances.map(({ id, name, theme, color, courseIds }) => ({ id, name, theme, color, courseIds })),
+      alliances: current.alliances.map(({ id, name, theme, color, emoji, motto, instagram, courseIds }) => ({ id, name, theme, color, emoji, motto, instagram, courseIds })),
     };
   }
   const start = new Date();
@@ -94,14 +101,19 @@ function SetupScreen() {
   const ready = form.title.trim().length > 0
     && form.endsAt > form.startsAt
     && form.alliances.length >= 2
-    && form.alliances.every(alliance => alliance.name.trim().length > 0);
+    && form.alliances.every(alliance => alliance.name.trim().length > 0 && (!alliance.emoji || looksLikeEmoji(alliance.emoji)));
 
   const submit = async () => {
     if (!ready || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      await saveAnniversary({ ...form, title: form.title.trim(), rulesUrl: form.rulesUrl.trim() });
+      await saveAnniversary({
+        ...form,
+        title: form.title.trim(),
+        rulesUrl: form.rulesUrl.trim(),
+        alliances: form.alliances.map(alliance => ({ ...alliance, emoji: alliance.emoji.trim(), motto: alliance.motto.trim(), instagram: alliance.instagram.trim() })),
+      });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
       router.back();
@@ -153,6 +165,51 @@ function SetupScreen() {
           </View>
           <TextField label="Nombre" value={alliance.name} onChange={name => updateAlliance(index, { name })} placeholder="80s" maxLength={40} disabled={submitting} />
           <TextField label="Temática" optional value={alliance.theme} onChange={theme => updateAlliance(index, { theme })} placeholder="Los años 80" maxLength={60} disabled={submitting} />
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>Mascota <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+            <View accessibilityRole="radiogroup" style={local.mascots}>
+              {MASCOTS.map(emoji => {
+                const selected = alliance.emoji === emoji;
+                return (
+                  <Pressable
+                    key={emoji}
+                    accessibilityRole="radio"
+                    accessibilityLabel={emoji}
+                    accessibilityState={{ selected }}
+                    disabled={submitting}
+                    onPress={() => updateAlliance(index, { emoji: selected ? '' : emoji })}
+                    style={({ pressed }) => [local.mascot, selected && local.mascotSelected, pressed && styles.pressed]}
+                  >
+                    <ThemedText maxFontSizeMultiplier={1} style={local.mascotText}>{emoji}</ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              accessibilityLabel={`Otra mascota para la alianza ${index + 1}`}
+              value={MASCOTS.includes(alliance.emoji) ? '' : alliance.emoji}
+              onChangeText={emoji => updateAlliance(index, { emoji })}
+              placeholder="O escribe otro emoji"
+              placeholderTextColor={AppColors.surfaceMuted}
+              maxLength={16}
+              editable={!submitting}
+              autoCorrect={false}
+              selectionColor={AppColors.accent}
+              style={styles.input}
+            />
+            {!!alliance.emoji && !looksLikeEmoji(alliance.emoji) && <ThemedText style={styles.hint}>La mascota es un solo emoji, sin letras.</ThemedText>}
+          </View>
+          <TextField label="Lema" optional value={alliance.motto} onChange={motto => updateAlliance(index, { motto })} placeholder="¡Nadie nos para!" maxLength={80} disabled={submitting} />
+          <TextField
+            label="Instagram de la alianza"
+            optional
+            value={alliance.instagram}
+            onChange={instagram => updateAlliance(index, { instagram })}
+            placeholder="@alianza80s"
+            keyboardType="email-address"
+            maxLength={80}
+            disabled={submitting}
+          />
           <View style={styles.field}>
             <ThemedText style={styles.label}>Color</ThemedText>
             <View accessibilityRole="radiogroup" style={local.colors}>
@@ -284,6 +341,28 @@ const local = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: AppColors.surfaceMuted,
+  },
+  mascots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: AppSpacing.xs,
+  },
+  mascot: {
+    width: AppTouch.minimum,
+    height: AppTouch.minimum,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: AppTouch.minimum / 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  mascotSelected: {
+    borderColor: AppColors.textPrimary,
+    backgroundColor: AppColors.surface,
+  },
+  mascotText: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   courses: {
     flexDirection: 'row',

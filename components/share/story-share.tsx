@@ -1,11 +1,14 @@
+import { AllianceBadge, allianceColor } from '@/components/anniversary/anniversary-ui';
 import { SpaceAvatar, OfficialSeal } from '@/components/feed/feed-ui';
 import { markdownToPlain } from '@/components/feed/feed-markdown';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { AppColors, AppDisplay, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { JORNADA_LABELS, eventWhen } from '@/services/events-service';
 import type { HnEvent } from '@/services/events-service';
 import type { FeedPost } from '@/services/feed-service';
+import { formatPoints, phaseOf, ranking } from '@/services/anniversary-service';
+import type { Anniversary } from '@/services/anniversary-service';
 import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,13 +16,13 @@ import { Modal, Platform, StyleSheet, View, useWindowDimensions, type ViewInstan
 import { captureRef } from 'react-native-view-shot';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
-// "Compartir como historia": an event, or a post of the school's or the
-// CEE's Espacio, drawn as a 9:16 image ready for Instagram or WhatsApp
-// stories. The sheet shows it first; "Compartir" captures that same card
-// (360×640 points, 1080×1920 pixels on a 3x phone) and opens the system's
-// share sheet. Not on the web, where there is nothing to share it to.
+// "Compartir como historia": an event, a post of the school's or the CEE's
+// Espacio, or the Aniversario's score (only while it is shown), drawn as a
+// 9:16 image ready for Instagram or WhatsApp stories. The sheet shows it
+// first; "Compartir" captures that same card (360×640 points, 1080×1920
+// pixels on a 3x phone) and opens the system's share sheet. Not on the web, where there is nothing to share it to.
 
-export type StoryItem = { kind: 'event'; event: HnEvent } | { kind: 'post'; post: FeedPost };
+export type StoryItem = { kind: 'event'; event: HnEvent } | { kind: 'post'; post: FeedPost } | { kind: 'anniversary'; anniversary: Anniversary };
 
 const STORY_WIDTH = 360;
 const STORY_HEIGHT = 640;
@@ -119,6 +122,34 @@ function PostStory({ post, onReady }: { post: FeedPost; onReady: () => void }) {
   );
 }
 
+function AnniversaryStory({ anniversary, onReady }: { anniversary: Anniversary; onReady: () => void }) {
+  useEffect(() => { onReady(); }, [onReady]);
+  const rows = ranking(anniversary).slice(0, 6);
+  const [winner] = rows;
+  const finished = phaseOf(anniversary) === 'after';
+  return (
+    <>
+      <Glow colors={rows.slice(0, 2).map(alliance => allianceColor(alliance).fill)} />
+      <Brand label="Aniversario" />
+      <View style={styles.middle}>
+        <ThemedText maxFontSizeMultiplier={1} style={styles.kicker}>{finished ? '¡Ganó!' : 'Así va el marcador'}</ThemedText>
+        <ThemedText maxFontSizeMultiplier={1} numberOfLines={2} style={styles.anniversaryTitle}>{finished && winner ? winner.name : anniversary.title}</ThemedText>
+        <View style={styles.standings}>
+          {rows.map((alliance, place) => (
+            <View key={alliance.id} style={styles.standing}>
+              <ThemedText maxFontSizeMultiplier={1} style={styles.standingPlace}>{place + 1}</ThemedText>
+              <AllianceBadge alliance={alliance} size={34} />
+              <ThemedText maxFontSizeMultiplier={1} numberOfLines={1} style={styles.standingName}>{alliance.name}</ThemedText>
+              <ThemedText maxFontSizeMultiplier={1} style={styles.standingPoints}>{formatPoints(alliance.total ?? 0)}</ThemedText>
+            </View>
+          ))}
+        </View>
+      </View>
+      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>Míralo en la app HaNet</ThemedText>
+    </>
+  );
+}
+
 /** The preview sheet; `item` null keeps it closed. */
 export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onClose: () => void }) {
   const { width, height } = useWindowDimensions();
@@ -128,7 +159,7 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
   const [error, setError] = useState<string | null>(null);
 
   // A new card starts over (the object itself is rebuilt on every render).
-  const itemKey = item ? `${item.kind}:${item.kind === 'event' ? item.event.id : item.post.id}` : null;
+  const itemKey = item ? `${item.kind}:${item.kind === 'event' ? item.event.id : item.kind === 'post' ? item.post.id : item.anniversary.id}` : null;
   const [shownKey, setShownKey] = useState(itemKey);
   if (shownKey !== itemKey) {
     setShownKey(itemKey);
@@ -169,7 +200,11 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
           <View style={{ width: STORY_WIDTH * scale, height: STORY_HEIGHT * scale }}>
             <View style={{ width: STORY_WIDTH, height: STORY_HEIGHT, transform: [{ scale }], transformOrigin: 'top left' }}>
               <View ref={card} collapsable={false} style={styles.story} accessible accessibilityLabel="Vista previa de la historia">
-                {item.kind === 'event' ? <EventStory event={item.event} onReady={markReady} /> : <PostStory post={item.post} onReady={markReady} />}
+                {item.kind === 'event'
+                  ? <EventStory event={item.event} onReady={markReady} />
+                  : item.kind === 'post'
+                    ? <PostStory post={item.post} onReady={markReady} />
+                    : <AnniversaryStory anniversary={item.anniversary} onReady={markReady} />}
               </View>
             </View>
           </View>
@@ -252,6 +287,41 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 36,
     letterSpacing: -1.3,
+    color: AppColors.textPrimary,
+  },
+  anniversaryTitle: {
+    ...AppDisplay.title,
+    fontSize: 34,
+    lineHeight: 38,
+    color: AppColors.textPrimary,
+  },
+  standings: {
+    gap: AppSpacing.sm,
+    marginTop: AppSpacing.sm,
+  },
+  standing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    padding: AppSpacing.sm,
+    borderRadius: AppRadii.md,
+    backgroundColor: 'rgba(40, 40, 41, 0.55)',
+  },
+  standingPlace: {
+    width: 22,
+    textAlign: 'center',
+    ...AppDisplay.score,
+    fontSize: 22,
+    color: AppColors.textPrimary,
+  },
+  standingName: {
+    flex: 1,
+    ...AppDisplay.name,
+    color: AppColors.textPrimary,
+  },
+  standingPoints: {
+    ...AppDisplay.score,
+    fontSize: 20,
     color: AppColors.textPrimary,
   },
   eventWhen: {
