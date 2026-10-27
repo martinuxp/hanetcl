@@ -10,6 +10,7 @@ import { AppColors, AppPressed, AppRadii, AppSpacing, AppTouch } from '@/constan
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { describeAuthError, useRole } from '@/services/auth-service';
 import {
+  ANNIVERSARY_TAG,
   AUDIENCE_LABELS,
   FeedImageError,
   MAX_FEED_BODY,
@@ -20,6 +21,7 @@ import {
   MIN_POLL_OPTIONS,
   audienceLabel,
   getLoadedFeed,
+  getLoadedPost,
   listFeed,
   pickFeedImages,
   saveFeedPost,
@@ -83,7 +85,8 @@ function sameAudience(a: FeedAudience, b: FeedAudience) {
 function FeedPostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id, eventId } = useLocalSearchParams<{ id?: string; eventId?: string }>();
+  // `tag` starts a new post with it (the Aniversario's "Publicar aviso").
+  const { id, eventId, tag } = useLocalSearchParams<{ id?: string; eventId?: string; tag?: string }>();
   const role = useRole();
 
   // An event shared from its page ("Compartir en el Feed").
@@ -95,7 +98,7 @@ function FeedPostScreen() {
 
   const [feed, setFeed] = useState<Feed | null>(() => getLoadedFeed());
   const [loadError, setLoadError] = useState<string | null>(null);
-  const original = useMemo<FeedPost | null>(() => (id ? feed?.posts.find(post => post.id === id) ?? null : null), [feed, id]);
+  const original = useMemo<FeedPost | null>(() => (id && feed ? feed.posts.find(post => post.id === id) ?? getLoadedPost(id) : null), [feed, id]);
 
   useEffect(() => {
     if (feed) return;
@@ -108,18 +111,23 @@ function FeedPostScreen() {
   const [pictures, setPictures] = useState<Picture[] | null>(null);
   const [audience, setAudience] = useState<FeedAudience | null>(null);
   const [pinned, setPinned] = useState<boolean | null>(null);
+  const [notify, setNotify] = useState<boolean | null>(null);
 
   // Until something is touched, the form shows the post being edited (or a blank one).
   // HaNet's Espacio reaches every school: it only shares events of the city.
   const publishAs = (feed?.publishAs ?? []).filter(item => !(sharedEvent?.kind === 'institution' && item.key === 'hanet'));
   const space = original?.space ?? publishAs.find(item => item.key === spaceKey) ?? publishAs[0] ?? null;
   const currentBody = body ?? original?.body ?? '';
-  const currentTags = tags ?? original?.tags ?? [];
+  const startTag = !original && tag && feed?.tags.includes(tag) ? tag : null;
+  const currentTags = tags ?? original?.tags ?? (startTag ? [startTag] : []);
   const currentPictures = pictures ?? (original?.images ?? []).map(url => ({ kind: 'kept', url }) as Picture);
   const currentAudience = audience ?? original?.audience ?? { kind: 'all' };
   const currentPinned = pinned ?? original?.pinned ?? false;
   const canPin = original ? original.canPin : role === 'HNT' || (role === 'Admin' && !!space && space.key !== 'hanet');
   const isSchool = !!space && spaceGroup(space.key) === 'school';
+  // A new aviso of the anniversary, from the school or the CEE, can also go out as a push.
+  const canNotify = !original && currentTags.includes(ANNIVERSARY_TAG) && !!space && ['school', 'cee'].includes(spaceGroup(space.key));
+  const currentNotify = notify ?? startTag === ANNIVERSARY_TAG;
   const [poll, setPoll] = useState<PollDraft | null>(null);
   const canPoll = !original && !!space && (feed?.pollSpaces ?? []).includes(spaceGroup(space.key));
   const pollOptions = poll ? poll.options.map(option => option.trim()).filter(Boolean) : [];
@@ -133,7 +141,7 @@ function FeedPostScreen() {
   const [preview, setPreview] = useState(false);
   const [dialog, setDialog] = useState<'space' | 'audience' | 'tags' | 'pollLength' | null>(null);
 
-  const dirty = body !== null || tags !== null || pictures !== null || audience !== null || pinned !== null || spaceKey !== null || poll !== null;
+  const dirty = body !== null || tags !== null || pictures !== null || audience !== null || pinned !== null || spaceKey !== null || poll !== null || notify !== null;
   const ready = !!space
     && (currentBody.trim().length > 0 || currentPictures.length > 0 || (!original && !!sharedEvent) || !!original?.poll || !!original?.event)
     && pollReady
@@ -204,6 +212,7 @@ function FeedPostScreen() {
         poll: !original && poll && canPoll
           ? { options: pollOptions, closesAt: closingAt(poll.days), results: poll.results }
           : undefined,
+        notify: canNotify && currentNotify ? true : undefined,
       });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
@@ -230,6 +239,7 @@ function FeedPostScreen() {
     !!poll && { key: 'pollLength', label: 'La votación dura', value: POLL_LENGTHS.find(item => item.days === poll.days)?.label ?? `${poll.days} días`, onPress: () => setDialog('pollLength') },
     !!poll && { key: 'pollResults', label: 'Resultados', value: poll.results === 'live' ? 'Al votar' : 'Al cerrar', onPress: () => setPoll({ ...poll, results: poll.results === 'live' ? 'closed' : 'live' }) },
     canPin && { key: 'pin', label: 'Fijar arriba', value: currentPinned ? 'Sí' : 'No', onPress: () => setPinned(!currentPinned) },
+    canNotify && { key: 'notify', label: 'Avisar a las alianzas', value: currentNotify ? 'Con notificación' : 'Sin notificación', onPress: () => setNotify(!currentNotify) },
   ].filter((option): option is { key: string; label: string; value: string; onPress: () => void } => !!option);
 
   const top = (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.lg;
@@ -302,7 +312,7 @@ function FeedPostScreen() {
         value={currentBody}
         onChangeText={text => { setBody(text); setError(null); }}
         onSelectionChange={event => setSelection(event.nativeEvent.selection)}
-        placeholder={poll ? 'Escribe la pregunta de la votación' : spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : '¿Qué quieres contarle a tu liceo?'}
+        placeholder={poll ? 'Escribe la pregunta de la votación' : spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : startTag === ANNIVERSARY_TAG ? '¿Qué quieres avisarle a las alianzas?' : '¿Qué quieres contarle a tu liceo?'}
         placeholderTextColor="rgba(221, 221, 226, 0.4)"
         multiline
         maxLength={MAX_FEED_BODY}

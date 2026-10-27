@@ -343,26 +343,43 @@ async function audienceUids(getAdminApp, data, audience) {
   return (await studentsOf(getAdminApp, data.institutionId, courseIds)).map(person => person.uid);
 }
 
-// Those who turned the anniversary's notifications off are left out.
-async function notify(getAdminApp, uids, message) {
+// Those who turned the anniversary's notifications off are left out, and so
+// is anyone `keep` (given the account) turns away.
+async function notify(getAdminApp, uids, message, { url = "/anniversary", keep = () => true } = {}) {
   try {
     const unique = [...new Set(uids)];
     if (!unique.length) return 0;
     const db = identityDb(getAdminApp);
     const accounts = await db.getAll(...unique.map(uid => db.collection("accounts").doc(uid)));
-    const wanted = unique.filter((uid, index) => accounts[index].data()?.notifications?.anniversary !== false);
+    const wanted = unique.filter((uid, index) => {
+      const account = accounts[index].data() || {};
+      return account.notifications?.anniversary !== false && keep(account);
+    });
     const tokens = [];
     for (let start = 0; start < wanted.length; start += 30) {
       const snapshot = await db.collection("pushTokens").where("uid", "in", wanted.slice(start, start + 30)).get();
       for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
     }
     if (!tokens.length) return 0;
-    await sendPush(getAdminApp, tokens, { ...message, data: { url: "/anniversary" } });
+    await sendPush(getAdminApp, tokens, { ...message, data: { url } });
     return tokens.length;
   } catch (error) {
     console.error("anniversary notify", error.message);
     return 0;
   }
+}
+
+// An aviso of the CEE or the school tagged #Aniversario (functions/feed.js):
+// a push to the students of the alianzas it reaches, by jornada or course
+// as the post says. Nothing happens without an anniversary armed.
+async function announceToAlliances(getAdminApp, institutionId, audience, message) {
+  const ref = await currentRef(getAdminApp, institutionId);
+  if (!ref) return 0;
+  const data = (await ref.get()).data() || {};
+  let people = await studentsOf(getAdminApp, institutionId, (data.alliances || []).flatMap(alliance => alliance.courseIds || []));
+  if (audience?.kind === "courses") people = people.filter(person => (audience.courseIds || []).includes(person.courseId));
+  const keep = audience?.kind === "jornada" ? account => !account.jornada || account.jornada === audience.jornada : undefined;
+  return notify(getAdminApp, people.map(person => person.uid), message, { url: "/anniversary/notices", keep });
 }
 
 function pointsListIn(value) {
@@ -805,4 +822,4 @@ function build(getAdminApp) {
   };
 }
 
-module.exports = { build, PRESETS, COLORS };
+module.exports = { build, announceToAlliances, PRESETS, COLORS };

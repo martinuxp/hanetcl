@@ -334,50 +334,82 @@ export function resultSummary(anniversary: Anniversary, activity: AnniversaryAct
   return [];
 }
 
-/** A row of the activities list: its group's icon, name, when, and who won. */
-export function ActivityRow({ anniversary, activity, onPress }: { anniversary: Anniversary; activity: AnniversaryActivity; onPress: () => void }) {
+/** What a row says under the name: who won, or when and where it is. */
+function activityLine(anniversary: Anniversary, activity: AnniversaryActivity) {
   const summary = resultSummary(anniversary, activity);
+  const [first] = summary;
+  if (first) {
+    if (first.place >= 0) return { text: `Ganó ${first.alliance.name}`, winner: first.alliance };
+    return { text: `${first.alliance.name} ${signedPoints(first.points ?? 0)}${summary.length > 1 ? ` y ${summary.length - 1} más` : ''}`, winner: first.alliance };
+  }
   const when = activity.startsAt ? shortWhen(activity.startsAt) : null;
-  const detail = [when, activity.place].filter(Boolean).join(' · ');
-  const winner = summary[0]?.alliance;
+  return { text: [when, activity.place].filter(Boolean).join(' · ') || 'Sin fecha todavía', winner: null };
+}
+
+/**
+ * Activities as one grouped list (as iOS Settings): an icon, the name, and
+ * one line with the result or when it is. The winner's mascot closes the row.
+ */
+export function ActivityList({ anniversary, activities, onOpen, footer }: {
+  anniversary: Anniversary;
+  activities: AnniversaryActivity[];
+  onOpen: (id: string) => void;
+  /** A last row, like "Ver todas". */
+  footer?: { label: string; onPress: () => void };
+}) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityHint="Ver la actividad"
-      onPress={onPress}
-      style={({ pressed }) => [styles.activity, pressed && AppPressed]}
-    >
-      {winner && <View style={[styles.activityStripe, { backgroundColor: allianceColor(winner).fill }]} />}
-      <View style={[styles.groupTile, activity.flash && styles.groupTileFlash]}>
-        <GroupIcon group={activity.group} color={activity.flash ? AppColors.textOnLight : AppColors.textPrimary} animated={activity.flash && !summary.length} />
-      </View>
-      <View style={styles.activityText}>
-        <ThemedText numberOfLines={2} style={styles.activityName}>{activity.name}</ThemedText>
-        {!!detail && <ThemedText numberOfLines={1} style={styles.activityDetail}>{detail}</ThemedText>}
-        {summary.length ? (
-          <View style={styles.activityResult}>
-            {summary.slice(0, 3).map(item => (
-              <View key={item.alliance.id} style={styles.resultItem}>
-                {item.place >= 0 ? <PlaceMark place={item.place} size={14} /> : <ThemedText style={styles.resultPoints}>{signedPoints(item.points ?? 0)}</ThemedText>}
-                <AllianceBadge alliance={item.alliance} size={20} />
+    <View style={styles.list}>
+      {activities.map((activity, index) => {
+        const line = activityLine(anniversary, activity);
+        return (
+          <Pressable
+            key={activity.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${activity.name}. ${line.text}`}
+            accessibilityHint="Ver la actividad"
+            onPress={() => onOpen(activity.id)}
+            style={({ pressed }) => [styles.listRow, pressed && styles.listRowPressed]}
+          >
+            <View style={[styles.groupTile, activity.flash && styles.groupTileFlash]}>
+              <GroupIcon group={activity.group} size={18} color={activity.flash ? AppColors.textOnLight : AppColors.textPrimary} animated={activity.flash && !line.winner} />
+            </View>
+            <View style={[styles.listText, index > 0 && styles.listDivider]}>
+              <View style={styles.listLabels}>
+                <ThemedText numberOfLines={1} style={styles.activityName}>{activity.name}</ThemedText>
+                <ThemedText numberOfLines={1} style={[styles.activityDetail, !!line.winner && styles.activityWon]}>{line.text}</ThemedText>
               </View>
-            ))}
+              {line.winner && <AllianceBadge alliance={line.winner} size={28} />}
+              <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
+            </View>
+          </Pressable>
+        );
+      })}
+      {footer && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={footer.onPress}
+          style={({ pressed }) => [styles.listRow, pressed && styles.listRowPressed]}
+        >
+          <View style={[styles.listText, activities.length > 0 && styles.listDivider, styles.footerRow]}>
+            <ThemedText style={styles.footerText}>{footer.label}</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
           </View>
-        ) : (
-          <ThemedText style={styles.pending}>Sin resultado todavía</ThemedText>
-        )}
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />
-    </Pressable>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
-/** Title of a block of the page. */
-export function SectionTitle({ title, detail }: { title: string; detail?: string }) {
+/** Title of a block of the page, with a detail or a link on its right. */
+export function SectionTitle({ title, detail, action }: { title: string; detail?: string; action?: { label: string; onPress: () => void } }) {
   return (
     <View style={styles.sectionTitle}>
       <ThemedText accessibilityRole="header" style={styles.sectionText}>{title}</ThemedText>
-      {!!detail && <ThemedText style={styles.sectionDetail}>{detail}</ThemedText>}
+      {action ? (
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={action.onPress} style={({ pressed }) => pressed && AppPressed}>
+          <ThemedText style={styles.sectionAction}>{action.label}</ThemedText>
+        </Pressable>
+      ) : !!detail && <ThemedText style={styles.sectionDetail}>{detail}</ThemedText>}
     </View>
   );
 }
@@ -629,39 +661,59 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: AppRadii.pill,
   },
-  activity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.md,
+  list: {
     overflow: 'hidden',
-    padding: AppSpacing.md,
-    paddingLeft: AppSpacing.md + 4,
-    borderRadius: AppRadii.md,
+    borderRadius: AppRadii.lg,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
   },
-  activityStripe: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    paddingLeft: AppSpacing.lg,
+  },
+  listRowPressed: {
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  // The divider starts after the icon, as in a grouped list.
+  listDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: AppColors.surfaceMuted,
+  },
+  listText: {
+    flex: 1,
+    minHeight: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.sm,
+    paddingVertical: AppSpacing.sm,
+    paddingRight: AppSpacing.md,
+  },
+  listLabels: {
+    flex: 1,
+    gap: 1,
+  },
+  footerRow: {
+    minHeight: 50,
+  },
+  footerText: {
+    flex: 1,
+    ...AppType.callout,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.textPrimary,
   },
   groupTile: {
-    width: 44,
-    height: 44,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: AppRadii.md,
+    borderRadius: 10,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surfaceMuted,
   },
   groupTileFlash: {
     backgroundColor: MEDALS[0],
-  },
-  activityText: {
-    flex: 1,
-    gap: 2,
   },
   activityName: {
     ...AppType.headline,
@@ -671,26 +723,9 @@ const styles = StyleSheet.create({
     ...AppType.footnote,
     color: AppColors.textSecondary,
   },
-  activityResult: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: AppSpacing.md,
-    marginTop: AppSpacing.xs,
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  resultPoints: {
-    ...AppType.caption,
-    fontFamily: 'DMSans_700Bold',
-    color: AppColors.textSecondary,
-  },
-  pending: {
-    marginTop: AppSpacing.xs,
-    ...AppType.caption,
-    color: AppColors.textSecondary,
+  activityWon: {
+    fontFamily: 'DMSans_500Medium',
+    color: AppColors.textPrimary,
   },
   sectionTitle: {
     flexDirection: 'row',
@@ -706,5 +741,10 @@ const styles = StyleSheet.create({
   sectionDetail: {
     ...AppType.footnote,
     color: AppColors.textSecondary,
+  },
+  sectionAction: {
+    ...AppType.callout,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.textPrimary,
   },
 });

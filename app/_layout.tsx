@@ -203,6 +203,8 @@ export default function RootLayout() {
             <Stack.Screen name="whats-new" options={{ headerShown: false }} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
             <Stack.Screen name="anniversary/index" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/activities" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/notices" options={{ headerShown: false }} />
             <Stack.Screen name="anniversary/setup" options={sheetOptions([1.0])} />
             <Stack.Screen name="anniversary/activity" options={sheetOptions([1.0])} />
             <Stack.Screen name="anniversary/detail" options={sheetOptions([0.75, 1.0])} />

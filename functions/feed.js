@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const { eventSummary } = require("./events");
+const { announceToAlliances } = require("./anniversary");
 
 // Feed y Comunidad: announcements published by Espacios (group accounts),
 // never by a person. Students only read and react; there are no comments and
@@ -31,6 +32,10 @@ const { eventSummary } = require("./events");
 //   feedReports/{postId_uid}             a report for the panel's moderation
 // Who wrote a post is kept for moderation only; the app shows the Espacio.
 //
+// The Aniversario's avisos are posts tagged #Aniversario: listFeed({ tag })
+// lists only those, and a new one of the school or the CEE can go out as a
+// push to the alianzas' students (saveFeedPost({ notify: true })).
+//
 // The module is per institution (institutions/{id}.modules). An institution
 // without that list yet keeps the feed on, so the pilot works before the
 // panel can switch modules; one with the list and without "feed" has it off.
@@ -48,6 +53,12 @@ const PIN_ROLES = ["Admin", "HNT"];
 const EMOJIS = ["👍", "❤️", "😂", "🎉", "😮", "🔥", "👏"];
 const DEFAULT_TAGS = ["Avisos", "Actividades", "Aniversario", "Becas", "Deportes", "Pruebas", "Salud"];
 const MAX_TAGS = 3;
+// The Aniversario's avisos are posts with this tag (app/anniversary/notices).
+// An institution with the alliances module always has it, whatever its list.
+const ANNIVERSARY_TAG = "Aniversario";
+const ALLIANCES_MODULE = "alliances";
+// Espacios whose #Aniversario posts can go out as a push to the alianzas.
+const ANNOUNCE_SPACES = ["school", "cee"];
 const MAX_IMAGES = 6;
 const MAX_BODY = 2000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -78,6 +89,16 @@ function identityDb(getAdminApp) {
 
 function text(value, max) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
+}
+
+// The post's Markdown as one line of plain text, for a notification.
+function plainText(markdown) {
+  return markdown
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/(\*\*|__|\*|_|~~|`)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function paragraph(value, max) {
@@ -130,9 +151,14 @@ function pollsOn(institution) {
   return !Array.isArray(institution?.modules) || institution.modules.includes(POLLS_MODULE);
 }
 
+function alliancesOn(institution) {
+  return !Array.isArray(institution?.modules) || institution.modules.includes(ALLIANCES_MODULE);
+}
+
 function tagsOf(institution) {
   const custom = Array.isArray(institution?.feed?.tags) ? institution.feed.tags.map(tag => text(tag, 24)).filter(Boolean) : [];
-  return custom.length ? custom : DEFAULT_TAGS;
+  const tags = custom.length ? custom : DEFAULT_TAGS;
+  return alliancesOn(institution) && !tags.includes(ANNIVERSARY_TAG) ? [...tags, ANNIVERSARY_TAG] : tags;
 }
 
 /** How an Espacio shows in the app. The panel can rename the school's and the CEE's. */
@@ -280,8 +306,10 @@ function build(getAdminApp) {
     ]);
     const account = accountSnap.data() || {};
     const jornada = ["manana", "tarde"].includes(account.jornada) ? account.jornada : null;
+    // Only the posts with one tag, like the Aniversario's avisos.
+    const tag = text(request.data?.tag, 24);
 
-    const docs = snapshot.docs.filter(doc => reaches(doc.data(), profile, jornada));
+    const docs = snapshot.docs.filter(doc => reaches(doc.data(), profile, jornada) && (!tag || (doc.data().tags || []).includes(tag)));
     // Pinned posts of the school first, then the newest.
     const ordered = [...docs.filter(doc => doc.data().pinned === true), ...docs.filter(doc => doc.data().pinned !== true)].slice(0, PAGE_SIZE);
 
@@ -387,6 +415,14 @@ function build(getAdminApp) {
         authorRole: profile.role,
         createdAt: FieldValue.serverTimestamp(),
       });
+      // "Avisar a las alianzas": an aviso of the anniversary also goes out as a push.
+      if (input.notify === true && tags.includes(ANNIVERSARY_TAG) && ANNOUNCE_SPACES.includes(space) && alliancesOn(institution)) {
+        const plain = plainText(body);
+        await announceToAlliances(getAdminApp, profile.institutionId, fields.audience, {
+          title: spaceOut(space, institution).name,
+          body: plain.length > 140 ? `${plain.slice(0, 139).trimEnd()}…` : plain || "Hay un aviso nuevo del aniversario.",
+        });
+      }
     }
     return { id: ref.id };
   });

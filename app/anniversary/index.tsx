@@ -1,23 +1,22 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
-import { HALL_ICONS, TopBarButton } from '@/components/classhall/hall-ui';
-import { ActivityRow, AllianceBadge, AllianceCard, GroupIcon, LeaderCard, Scoreboard, SectionTitle, allianceColor, allianceFills, dayText, shortWhen, signedPoints, timeText } from '@/components/anniversary/anniversary-ui';
+import { ActivityList, AllianceBadge, AllianceCard, LeaderCard, Scoreboard, SectionTitle, allianceColor, allianceFills, dayText, shortWhen, signedPoints, timeText } from '@/components/anniversary/anniversary-ui';
 import { Confetti } from '@/components/anniversary/confetti';
 import { FlexText } from '@/components/anniversary/flex-text';
 import { GradientCard } from '@/components/anniversary/gradient-card';
+import { NoticesPreview } from '@/components/anniversary/notices-preview';
 import { EventGlow } from '@/components/events/event-glow';
 import { MarqueeBanner } from '@/components/events/event-ui';
 import { StoryShareSheet, storyShareAvailable } from '@/components/share/story-share';
 import type { StoryItem } from '@/components/share/story-share';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetChip } from '@/components/ui/hanet-chip';
 import { HanetDialog, HanetDialogActions } from '@/components/ui/hanet-dialog';
 import { Skeleton, SkeletonGroup } from '@/components/ui/skeleton';
 import { AppColors, AppDisplay, AppFlexFonts, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
-import { BoltIcon, CrownIcon } from '@/assets/animated-icons/crown';
+import { CrownIcon } from '@/assets/animated-icons/crown';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { ACTIVITY_GROUPS, addPresetActivities, daysTo, deleteScoreEntry, formatPoints, getAnniversary, phaseOf, standings, todaysActivities, useAnniversaryState } from '@/services/anniversary-service';
-import type { Alliance, Anniversary, ScoreEntry } from '@/services/anniversary-service';
+import { addPresetActivities, daysTo, deleteScoreEntry, formatPoints, getAnniversary, phaseOf, standings, todaysActivities, useAnniversaryState } from '@/services/anniversary-service';
+import type { Alliance, Anniversary, AnniversaryActivity, ScoreEntry } from '@/services/anniversary-service';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -28,6 +27,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const NUMBER_STEPS = ['GoogleSansFlex_300Light_ExtraCondensed', 'GoogleSansFlex_500Medium_Condensed', AppFlexFonts.numbers] as const;
 
 const DAY_MS = 86_400_000;
+// The page shows a few of each; the rest is one tap away.
+const FEATURED = 3;
+const MOVES_SHOWN = 4;
+
+/**
+ * The few activities the page shows: today's, else the next ones, else the
+ * latest results. The whole list lives in app/anniversary/activities.tsx.
+ */
+function featuredOf(anniversary: Anniversary, now: number): { title: string; list: AnniversaryActivity[] } {
+  const today = todaysActivities(anniversary, now);
+  if (today.length) return { title: 'Hoy', list: today.slice(0, FEATURED + 2) };
+  const next = anniversary.activities
+    .filter(activity => activity.startsAt !== null && activity.startsAt > now)
+    .sort((a, b) => (a.startsAt ?? 0) - (b.startsAt ?? 0));
+  if (next.length) return { title: 'Lo que viene', list: next.slice(0, FEATURED) };
+  const done = anniversary.activities
+    .filter(activity => activity.resultAt !== null)
+    .sort((a, b) => (b.resultAt ?? 0) - (a.resultAt ?? 0));
+  if (done.length) return { title: 'Últimos resultados', list: done.slice(0, FEATURED) };
+  return { title: 'Actividades', list: anniversary.activities.slice(0, FEATURED) };
+}
 
 /** The big line under the title: days to go, the day it is, or nothing once it ended. */
 function countdownOf(anniversary: Anniversary, now: number) {
@@ -109,6 +129,7 @@ export default function AnniversaryScreen() {
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<ScoreEntry | null>(null);
   const [story, setStory] = useState<StoryItem | null>(null);
+  const [allMoves, setAllMoves] = useState(false);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -125,7 +146,6 @@ export default function AnniversaryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, attempt]));
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const anniversary = state?.anniversary ?? null;
   const organizer = !!state?.canOrganize;
   const openActivity = (id: string) => router.push({ pathname: '/anniversary/detail', params: { id } });
@@ -194,7 +214,7 @@ export default function AnniversaryScreen() {
     const rows = standings(anniversary, now);
     const mine = anniversary.alliances.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
     const myStanding = rows.find(alliance => alliance.id === mine?.id);
-    const today = todaysActivities(anniversary, now);
+    const featured = featuredOf(anniversary, now);
     const byId = new Map(anniversary.alliances.map(alliance => [alliance.id, alliance]));
     const activityName = new Map(anniversary.activities.map(activity => [activity.id, activity.name]));
     const upcomingDeadlines = anniversary.deadlines.filter(deadline => deadline.dueAt >= now);
@@ -226,20 +246,6 @@ export default function AnniversaryScreen() {
 
         {mine && <AllianceCard alliance={mine} standing={myStanding} mine lead={anniversary.isLead} />}
 
-        {organizer && (
-          <View style={styles.tools}>
-            <ThemedText style={styles.toolsTitle}>Organizar</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.toolsRow}>
-              <HanetChip label="Prueba flash" icon={<BoltIcon size={16} color={AppColors.textPrimary} animated />} onPress={() => router.push('/anniversary/flash')} />
-              <HanetChip label="Sumar o descontar" icon={<Ionicons name="swap-vertical" size={16} color={AppColors.textPrimary} />} onPress={() => router.push('/anniversary/points')} />
-              <HanetChip label="Actividad" icon={<Ionicons name="add" size={16} color={AppColors.textPrimary} />} onPress={() => router.push('/anniversary/activity')} />
-              <HanetChip label="Plazo" icon={<Ionicons name="alarm-outline" size={16} color={AppColors.textPrimary} />} onPress={() => router.push('/anniversary/deadline')} />
-              <HanetChip label="Jefes de alianza" icon={<CrownIcon size={16} color={AppColors.textPrimary} />} onPress={() => router.push('/anniversary/leads')} />
-              <HanetChip label="Alianzas y fechas" icon={<Ionicons name="color-palette-outline" size={16} color={AppColors.textPrimary} />} onPress={() => router.push('/anniversary/setup')} />
-            </ScrollView>
-          </View>
-        )}
-
         <SectionTitle title="Marcador" detail={hidden && organizer ? 'Oculto para los demás' : undefined} />
         {phase !== 'after' && scored && <LeaderCard anniversary={anniversary} now={now} />}
         <Scoreboard anniversary={anniversary} now={now} />
@@ -247,12 +253,7 @@ export default function AnniversaryScreen() {
           <HanetButton label="Compartir el marcador" variant="surface" onPress={share} />
         )}
 
-        {today.length > 0 && (
-          <>
-            <SectionTitle title="Hoy" />
-            {today.map(activity => <ActivityRow key={activity.id} anniversary={anniversary} activity={activity} onPress={() => openActivity(activity.id)} />)}
-          </>
-        )}
+        <NoticesPreview now={now} />
 
         {upcomingDeadlines.length > 0 && (
           <>
@@ -287,35 +288,32 @@ export default function AnniversaryScreen() {
           </>
         )}
 
-        {anniversary.activities.length === 0 && organizer && (
-          <View style={styles.card}>
-            <ThemedText style={styles.lineTitle}>Todavía no hay actividades</ThemedText>
-            <ThemedText style={styles.lineDetail}>Carga las típicas de un aniversario (bailes, velada, show, alianza solidaria…) con sus puntajes. Después las editas o borras.</ThemedText>
-            <View style={styles.cardActions}>
-              <HanetButton label={busy ? 'Cargando…' : 'Cargar actividades típicas'} variant="accent" disabled={busy} onPress={loadPresets} />
-              <HanetButton label="Crear una" variant="surface" onPress={() => router.push('/anniversary/activity')} />
-            </View>
-          </View>
-        )}
-
-        {ACTIVITY_GROUPS.map(group => {
-          const list = anniversary.activities
-            .filter(activity => activity.group === group.value)
-            .sort((a, b) => (a.startsAt ?? Number.MAX_SAFE_INTEGER) - (b.startsAt ?? Number.MAX_SAFE_INTEGER));
-          if (!list.length) return null;
-          return (
-            <View key={group.value} style={styles.group}>
-              <View style={styles.groupTitle}>
-                <GroupIcon group={group.value} size={20} color={AppColors.textSecondary} />
-                <SectionTitle title={group.label} />
+        {anniversary.activities.length === 0 ? (
+          organizer && (
+            <>
+              <SectionTitle title="Actividades" />
+              <View style={styles.card}>
+                <ThemedText style={styles.lineTitle}>Todavía no hay actividades</ThemedText>
+                <ThemedText style={styles.lineDetail}>Carga las típicas de un aniversario (bailes, velada, show, alianza solidaria…) con sus puntajes. Después las editas o borras.</ThemedText>
+                <View style={styles.cardActions}>
+                  <HanetButton label={busy ? 'Cargando…' : 'Cargar actividades típicas'} variant="accent" disabled={busy} onPress={loadPresets} />
+                  <HanetButton label="Crear una" variant="surface" onPress={() => router.push('/anniversary/activity')} />
+                </View>
               </View>
-              {list.map(activity => <ActivityRow key={activity.id} anniversary={anniversary} activity={activity} onPress={() => openActivity(activity.id)} />)}
-            </View>
-          );
-        })}
-
-        {anniversary.activities.length > 0 && organizer && (
-          <HanetButton label={busy ? 'Cargando…' : 'Agregar las actividades típicas que falten'} variant="surface" disabled={busy} onPress={loadPresets} />
+            </>
+          )
+        ) : (
+          <>
+            <SectionTitle title={featured.title} />
+            <ActivityList
+              anniversary={anniversary}
+              activities={featured.list}
+              onOpen={openActivity}
+              footer={anniversary.activities.length > featured.list.length
+                ? { label: `Todas las actividades (${anniversary.activities.length})`, onPress: () => router.push('/anniversary/activities') }
+                : undefined}
+            />
+          </>
         )}
 
         {anniversary.alliances.length > 0 && (
@@ -339,7 +337,7 @@ export default function AnniversaryScreen() {
           <>
             <SectionTitle title="Movimientos de puntos" />
             <View style={styles.card}>
-              {anniversary.history.map((entry, index) => {
+              {(allMoves ? anniversary.history : anniversary.history.slice(0, MOVES_SHOWN)).map((entry, index) => {
                 const alliance = byId.get(entry.allianceId);
                 const reason = entry.kind === 'result' ? (activityName.get(entry.activityId ?? '') ?? entry.reason) : entry.reason;
                 return (
@@ -357,7 +355,7 @@ export default function AnniversaryScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={`Borrar el movimiento: ${reason}`}
                         onPress={() => setRemoving(entry)}
-                        hitSlop={8}
+                        hitSlop={6}
                         style={({ pressed }) => [styles.remove, pressed && AppPressed]}
                       >
                         <Ionicons name="trash-outline" size={16} color={AppColors.textPrimary} />
@@ -366,6 +364,17 @@ export default function AnniversaryScreen() {
                   </View>
                 );
               })}
+              {anniversary.history.length > MOVES_SHOWN && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: allMoves }}
+                  onPress={() => setAllMoves(value => !value)}
+                  style={({ pressed }) => [styles.moreRow, styles.lineBorder, pressed && AppPressed]}
+                >
+                  <ThemedText style={styles.moreText}>{allMoves ? 'Ver menos' : `Ver los ${anniversary.history.length} movimientos`}</ThemedText>
+                  <Ionicons name={allMoves ? 'chevron-up' : 'chevron-down'} size={16} color={AppColors.textSecondary} />
+                </Pressable>
+              )}
             </View>
           </>
         )}
@@ -387,11 +396,8 @@ export default function AnniversaryScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + AppSpacing.xl }]} showsVerticalScrollIndicator={false}>
         {!!anniversary && <EventGlow position="top" colors={glow} />}
-        <View style={styles.topBar}>
-          <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={back} />
-        </View>
         {content()}
       </ScrollView>
       <HanetDialog
@@ -422,11 +428,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: AppSpacing.lg,
     paddingBottom: TAB_BAR_CLEARANCE + AppSpacing.xl,
     gap: AppSpacing.md,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: AppSpacing.md,
   },
   skeleton: {
     gap: AppSpacing.lg,
@@ -493,19 +494,8 @@ const styles = StyleSheet.create({
     ...AppDisplay.score,
     color: AppColors.textPrimary,
   },
-  tools: {
-    gap: AppSpacing.sm,
-  },
-  toolsTitle: {
-    ...AppType.caption,
-    color: AppColors.textSecondary,
-  },
   bleed: {
     marginHorizontal: -AppSpacing.lg,
-  },
-  toolsRow: {
-    gap: AppSpacing.sm,
-    paddingHorizontal: AppSpacing.lg,
   },
   alliances: {
     gap: AppSpacing.md,
@@ -513,14 +503,6 @@ const styles = StyleSheet.create({
   },
   allianceCard: {
     width: 260,
-  },
-  group: {
-    gap: AppSpacing.md,
-  },
-  groupTitle: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: AppSpacing.sm,
   },
   card: {
     gap: AppSpacing.md,
@@ -586,6 +568,17 @@ const styles = StyleSheet.create({
   },
   negative: {
     color: AppColors.errorText,
+  },
+  moreRow: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  moreText: {
+    ...AppType.callout,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.textPrimary,
   },
   remove: {
     width: 32,
