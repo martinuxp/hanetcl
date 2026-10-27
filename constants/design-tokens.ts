@@ -89,6 +89,8 @@ export const AppFlexFonts = {
   ],
   wide: 'GoogleSansFlex_900Black_ExtraExpanded',
   numbers: 'GoogleSansFlex_900Black_Condensed',
+  /** Normal width, for running text like the strips. */
+  bold: 'GoogleSansFlex_700Bold',
   name: 'GoogleSansFlex_700Bold_SemiExpanded',
 } as const;
 

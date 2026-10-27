@@ -146,9 +146,9 @@ function AnniversaryStrip({ text, alliance }: NonNullable<ReturnType<typeof anni
   return (
     <View style={[styles.promoStrip, color && { backgroundColor: color.fill }]}>
       <View style={styles.promoTilt}>
-        <MarqueeLine text={main} top={-6} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.numbers} />
-        <MarqueeLine text={main} top={10} color={ink} opacity={1} duration={14000} fontFamily={AppFlexFonts.numbers} />
-        <MarqueeLine text={main} top={26} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.numbers} />
+        <MarqueeLine text={main} top={-6} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.bold} />
+        <MarqueeLine text={main} top={10} color={ink} opacity={1} duration={14000} fontFamily={AppFlexFonts.bold} />
+        <MarqueeLine text={main} top={26} color={ink} opacity={0.35} duration={20000} reverse fontFamily={AppFlexFonts.bold} />
       </View>
     </View>
   );

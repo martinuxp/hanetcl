@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, LinearGradient, Mask, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 // A card lit from inside by its alianzas' colors, after Apple Sports' team
-// cards: a deep base and soft blobs that drift slowly. The colors are pushed
+// cards: a deep base and soft blobs that drift slowly, under a halftone of
+// dots that fades across it, like print, so it doesn't read as a plain
+// digital gradient. The colors are pushed
 // dark enough for white text, so it always reads the same way. Kept for the
 // cards that carry points or results; the page itself stays dark.
 
@@ -62,6 +64,33 @@ function BlobView({ blob, id, width, height }: { blob: Blob; id: string; width: 
   );
 }
 
+// The halftone: dots on a 45° grid, as print screens them, stronger at the
+// top corner.
+const DOT_STEP = 7;
+const DOT_RADIUS = 1;
+
+function Halftone({ id, width, height }: { id: string; width: number; height: number }) {
+  return (
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <Pattern id={`${id}-dots`} patternUnits="userSpaceOnUse" width={DOT_STEP} height={DOT_STEP}>
+          <Circle cx={DOT_STEP / 4} cy={DOT_STEP / 4} r={DOT_RADIUS} fill={AppColors.textPrimary} />
+          <Circle cx={(DOT_STEP * 3) / 4} cy={(DOT_STEP * 3) / 4} r={DOT_RADIUS} fill={AppColors.textPrimary} />
+        </Pattern>
+        <LinearGradient id={`${id}-fade`} x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={AppColors.textPrimary} stopOpacity={0.32} />
+          <Stop offset="0.55" stopColor={AppColors.textPrimary} stopOpacity={0.12} />
+          <Stop offset="1" stopColor={AppColors.textPrimary} stopOpacity={0.04} />
+        </LinearGradient>
+        <Mask id={`${id}-mask`} maskUnits="userSpaceOnUse" x={0} y={0} width={width} height={height}>
+          <Rect x={0} y={0} width={width} height={height} fill={`url(#${id}-fade)`} />
+        </Mask>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${id}-dots)`} mask={`url(#${id}-mask)`} />
+    </Svg>
+  );
+}
+
 let nextId = 0;
 
 /** `colors` are fills (hex), the first one leads. */
@@ -84,6 +113,7 @@ export function GradientCard({ colors, style, children }: { colors: string[]; st
           {blobs.map((blob, index) => (
             <BlobView key={`${key}-${index}`} blob={blob} id={`${prefix}-${index}`} width={size.width} height={size.height} />
           ))}
+          <Halftone id={`${prefix}-halftone`} width={size.width} height={size.height} />
         </View>
       )}
       {children}

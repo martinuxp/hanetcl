@@ -219,7 +219,7 @@ export default function AnniversaryScreen() {
         </View>
 
         <View style={styles.banner}>
-          <MarqueeBanner {...banner} fontFamily={AppFlexFonts.numbers} />
+          <MarqueeBanner {...banner} fontFamily={AppFlexFonts.bold} />
         </View>
 
         {phase === 'after' && scored && <WinnerCard anniversary={anniversary} now={now} onShare={share} />}
