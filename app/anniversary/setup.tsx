@@ -1,5 +1,5 @@
 import { DateField, SheetActions, SheetBody, TextField, formStyles as styles } from '@/components/anniversary/anniversary-form';
-import { ALLIANCE_COLORS, ALLIANCE_COLOR_ORDER } from '@/components/anniversary/anniversary-ui';
+import { ALLIANCE_COLORS, ALLIANCE_COLOR_ORDER, mascotsOf } from '@/components/anniversary/anniversary-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
@@ -18,12 +18,20 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const MAX_ALLIANCES = 8;
+const MAX_MASCOTS = 3;
 const DEFAULT_COLORS: AllianceColor[] = ['rosa', 'azul', 'verde', 'amarillo', 'morado', 'naranjo', 'celeste', 'rojo'];
 // Mascots to pick from; any other emoji can be typed.
 const MASCOTS = ['🦁', '🐺', '🐯', '🦅', '🐉', '🦈', '🐍', '🦊', '🐻', '🐼', '🦄', '🐸', '🐝', '🦋', '🔥', '⚡', '🌊', '🌙', '☀️', '⭐', '👑', '💎', '🚀', '🎸', '🎭', '👾', '🍀', '🌹'];
 
 function blankAlliance(index: number): AllianceInput {
-  return { name: '', theme: '', color: DEFAULT_COLORS[index % DEFAULT_COLORS.length], emoji: '', motto: '', instagram: '', courseIds: [] };
+  return { name: '', theme: '', color: DEFAULT_COLORS[index % DEFAULT_COLORS.length], color2: '', emoji: '', motto: '', instagram: '', chant: '', artists: '', draw: '', courseIds: [] };
+}
+
+/** Taps a mascot in or out, keeping up to three. */
+function toggleMascot(emoji: string, mascot: string) {
+  const current = mascotsOf({ emoji });
+  if (current.includes(mascot)) return current.filter(item => item !== mascot).join('');
+  return [...current, mascot].slice(-MAX_MASCOTS).join('');
 }
 
 /** An emoji typed by hand: no letters or digits (the server checks the rest). */
@@ -41,7 +49,9 @@ function initialForm(): AnniversaryInput {
       rulesUrl: current.rulesUrl,
       scoreHidden: current.scoreHidden,
       finished: current.finished,
-      alliances: current.alliances.map(({ id, name, theme, color, emoji, motto, instagram, courseIds }) => ({ id, name, theme, color, emoji, motto, instagram, courseIds })),
+      alliances: current.alliances.map(({ id, name, theme, color, color2, emoji, motto, instagram, chant, artists, draw, courseIds }) => (
+        { id, name, theme, color, color2: color2 ?? '', emoji, motto, instagram, chant: chant ?? '', artists: artists ?? '', draw: draw ?? '', courseIds }
+      )),
     };
   }
   const start = new Date();
@@ -74,6 +84,14 @@ function SetupScreen() {
   // The alianza (by its place in the form) asked to be borrada, or the whole anniversary.
   const [removing, setRemoving] = useState<number | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+  // The alianzas (by their place) showing their extra fields.
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const toggleExpanded = (index: number) => setExpanded(current => {
+    const next = new Set(current);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    return next;
+  });
 
   useEffect(() => {
     let active = true;
@@ -117,7 +135,15 @@ function SetupScreen() {
         ...form,
         title: form.title.trim(),
         rulesUrl: form.rulesUrl.trim(),
-        alliances: form.alliances.map(alliance => ({ ...alliance, emoji: alliance.emoji.trim(), motto: alliance.motto.trim(), instagram: alliance.instagram.trim() })),
+        alliances: form.alliances.map(alliance => ({
+          ...alliance,
+          emoji: alliance.emoji.replace(/\s+/g, ''),
+          motto: alliance.motto.trim(),
+          instagram: alliance.instagram.trim(),
+          chant: alliance.chant.trim(),
+          artists: alliance.artists.trim(),
+          draw: alliance.draw.trim(),
+        })),
       });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       allowLeave();
@@ -136,6 +162,7 @@ function SetupScreen() {
   };
   const removeAlliance = (index: number) => {
     update({ alliances: form.alliances.filter((_, i) => i !== index) });
+    setExpanded(new Set());
     setRemoving(null);
   };
 
@@ -197,18 +224,18 @@ function SetupScreen() {
           <TextField label="Nombre" value={alliance.name} onChange={name => updateAlliance(index, { name })} placeholder="80s" maxLength={40} disabled={submitting} />
           <TextField label="Temática" optional value={alliance.theme} onChange={theme => updateAlliance(index, { theme })} placeholder="Los años 80" maxLength={60} disabled={submitting} />
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Mascota <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
-            <View accessibilityRole="radiogroup" style={local.mascots}>
+            <ThemedText style={styles.label}>Mascotas <ThemedText style={styles.optional}>(hasta {MAX_MASCOTS}, opcional)</ThemedText></ThemedText>
+            <View style={local.mascots}>
               {MASCOTS.map(emoji => {
-                const selected = alliance.emoji === emoji;
+                const selected = mascotsOf(alliance).includes(emoji);
                 return (
                   <Pressable
                     key={emoji}
-                    accessibilityRole="radio"
+                    accessibilityRole="checkbox"
                     accessibilityLabel={emoji}
-                    accessibilityState={{ selected }}
+                    accessibilityState={{ checked: selected }}
                     disabled={submitting}
-                    onPress={() => updateAlliance(index, { emoji: selected ? '' : emoji })}
+                    onPress={() => updateAlliance(index, { emoji: toggleMascot(alliance.emoji, emoji) })}
                     style={({ pressed }) => [local.mascot, selected && local.mascotSelected, pressed && styles.pressed]}
                   >
                     <ThemedText maxFontSizeMultiplier={1} style={local.mascotText}>{emoji}</ThemedText>
@@ -217,18 +244,19 @@ function SetupScreen() {
               })}
             </View>
             <TextInput
-              accessibilityLabel={`Otra mascota para la alianza ${index + 1}`}
-              value={MASCOTS.includes(alliance.emoji) ? '' : alliance.emoji}
+              accessibilityLabel={`Mascotas de la alianza ${index + 1}`}
+              value={alliance.emoji}
               onChangeText={emoji => updateAlliance(index, { emoji })}
-              placeholder="O escribe otro emoji"
+              placeholder="O escribe otros emoji"
               placeholderTextColor={AppColors.surfaceMuted}
-              maxLength={16}
+              maxLength={40}
               editable={!submitting}
               autoCorrect={false}
               selectionColor={AppColors.accent}
               style={styles.input}
             />
-            {!!alliance.emoji && !looksLikeEmoji(alliance.emoji) && <ThemedText style={styles.hint}>La mascota es un solo emoji, sin letras.</ThemedText>}
+            {!!alliance.emoji && !looksLikeEmoji(alliance.emoji) && <ThemedText style={styles.hint}>Las mascotas son emoji, sin letras.</ThemedText>}
+            {mascotsOf(alliance).length > MAX_MASCOTS && <ThemedText style={styles.hint}>Se guardan las primeras {MAX_MASCOTS}.</ThemedText>}
           </View>
           <TextField label="Lema" optional value={alliance.motto} onChange={motto => updateAlliance(index, { motto })} placeholder="¡Nadie nos para!" maxLength={80} disabled={submitting} />
           <TextField
@@ -253,7 +281,7 @@ function SetupScreen() {
                     accessibilityLabel={ALLIANCE_COLORS[color].label}
                     accessibilityState={{ selected }}
                     disabled={submitting}
-                    onPress={() => updateAlliance(index, { color })}
+                    onPress={() => updateAlliance(index, { color, color2: alliance.color2 === color ? '' : alliance.color2 })}
                     style={({ pressed }) => [local.colorOuter, selected && local.colorSelected, pressed && styles.pressed]}
                   >
                     <View style={[local.color, { backgroundColor: ALLIANCE_COLORS[color].fill }]} />
@@ -262,6 +290,81 @@ function SetupScreen() {
               })}
             </View>
           </View>
+          <View style={styles.field}>
+            <ThemedText style={styles.label}>Segundo color <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+            <View accessibilityRole="radiogroup" style={local.colors}>
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityLabel="Sin segundo color"
+                accessibilityState={{ selected: !alliance.color2 }}
+                disabled={submitting}
+                onPress={() => updateAlliance(index, { color2: '' })}
+                style={({ pressed }) => [local.colorOuter, !alliance.color2 && local.colorSelected, pressed && styles.pressed]}
+              >
+                <Ionicons name="close" size={20} color={AppColors.textSecondary} />
+              </Pressable>
+              {ALLIANCE_COLOR_ORDER.filter(color => color !== alliance.color).map(color => {
+                const selected = alliance.color2 === color;
+                return (
+                  <Pressable
+                    key={color}
+                    accessibilityRole="radio"
+                    accessibilityLabel={ALLIANCE_COLORS[color].label}
+                    accessibilityState={{ selected }}
+                    disabled={submitting}
+                    onPress={() => updateAlliance(index, { color2: color })}
+                    style={({ pressed }) => [local.colorOuter, selected && local.colorSelected, pressed && styles.pressed]}
+                  >
+                    <View style={[local.color, { backgroundColor: ALLIANCE_COLORS[color].fill }]} />
+                  </Pressable>
+                );
+              })}
+            </View>
+            <ThemedText style={styles.hint}>Como la camiseta de un equipo: sale en sus franjas y tarjetas.</ThemedText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: expanded.has(index) }}
+            onPress={() => toggleExpanded(index)}
+            style={({ pressed }) => [local.more, pressed && styles.pressed]}
+          >
+            <ThemedText style={local.moreText}>Grito, artistas y sorteo</ThemedText>
+            <Ionicons name={expanded.has(index) ? 'chevron-up' : 'chevron-down'} size={16} color={AppColors.textSecondary} />
+          </Pressable>
+          {expanded.has(index) && (
+            <>
+              <TextField
+                label="Grito de barra"
+                optional
+                value={alliance.chant}
+                onChange={chant => updateAlliance(index, { chant })}
+                placeholder={'¡Ochenta, ochenta,\nnadie nos revienta!'}
+                multiline
+                maxLength={400}
+                disabled={submitting}
+              />
+              <TextField
+                label="Artistas que les tocaron"
+                optional
+                value={alliance.artists}
+                onChange={artists => updateAlliance(index, { artists })}
+                placeholder={'Pop: Justin Bieber\nK-pop: Aespa\nReyes: Rihanna'}
+                multiline
+                maxLength={300}
+                disabled={submitting}
+              />
+              <TextField
+                label="Lo que salió en el sorteo"
+                optional
+                value={alliance.draw}
+                onChange={draw => updateAlliance(index, { draw })}
+                placeholder={'Canastas: miércoles de 12 a 13 h\nVelada: sale tercera'}
+                multiline
+                maxLength={300}
+                disabled={submitting}
+              />
+            </>
+          )}
           <View style={styles.field}>
             <ThemedText style={styles.label}>Cursos <ThemedText style={styles.optional}>({alliance.courseIds.length})</ThemedText></ThemedText>
             {courses === null ? (
@@ -438,6 +541,20 @@ const local = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: AppSpacing.sm,
+  },
+  more: {
+    minHeight: AppTouch.minimum,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surface,
+  },
+  moreText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+    color: AppColors.textSecondary,
   },
 });
 

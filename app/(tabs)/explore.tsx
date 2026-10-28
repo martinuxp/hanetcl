@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
+import { homeAnniversary, useAnniversaryState } from '@/services/anniversary-service';
+import type { AnniversaryState } from '@/services/anniversary-service';
+import { allianceColor } from '@/components/anniversary/anniversary-ui';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -56,6 +59,12 @@ export default function ProfileScreen() {
   const [photoCheckedUid, setPhotoCheckedUid] = useState<string | null>(null);
   const reducedMotion = useReducedMotion();
   const fontsReady = useNameFonts();
+  // During alianza week the portrait wears one's alianza's color.
+  const keptAnniversary = useCached<AnniversaryState>(user ? 'anniversary' : null);
+  const festive = homeAnniversary(useAnniversaryState() ?? keptAnniversary);
+  const myAlliance = festive && festive.phase !== 'after'
+    ? festive.anniversary.alliances.find(alliance => alliance.id === festive.anniversary.myAllianceId) ?? null
+    : null;
   // The HN-QR's value changes every 30 seconds while it is on screen.
   const [qrValue, setQrValue] = useState<string | null>(null);
 
@@ -191,7 +200,7 @@ export default function ProfileScreen() {
             </Animated.View>
           ) : (
             // Without a photo, the account's blobatar stands in for the picture.
-            <Animated.View key="portrait" entering={swap} style={styles.portrait} accessible accessibilityLabel={photoUrl ? `Foto de perfil de ${name}` : `Blobatar de ${name}`}>
+            <Animated.View key="portrait" entering={swap} style={[styles.portrait, myAlliance && [styles.portraitAlliance, { borderColor: allianceColor(myAlliance).fill }]]} accessible accessibilityLabel={photoUrl ? `Foto de perfil de ${name}` : `Blobatar de ${name}`}>
               {photoUrl ? (
                 <Image source={{ uri: photoUrl }} style={styles.portraitPhoto} contentFit="cover" transition={150} />
               ) : photoChecked && current.avatarSeed ? (
@@ -298,6 +307,7 @@ const styles = StyleSheet.create({
   identityCard: { minHeight: 570, borderRadius: 30, borderCurve: 'continuous', overflow: 'hidden', backgroundColor: AppColors.surfaceSoft },
   cardMark: { position: 'absolute', right: -18, bottom: -34, width: 190, height: 282, opacity: 0.1 },
   portrait: { height: 356, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, borderCurve: 'continuous', backgroundColor: AppColors.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  portraitAlliance: { borderWidth: 4, borderTopWidth: 0 },
   portraitPhoto: { width: '100%', height: '100%' },
   initials: { color: AppColors.textPrimary, fontFamily: 'DMSans_700Bold', fontSize: 112, lineHeight: 124, letterSpacing: -5 },
   qrWrap: { height: 356, alignItems: 'center', justifyContent: 'center', gap: AppSpacing.md },

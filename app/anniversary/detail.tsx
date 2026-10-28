@@ -2,6 +2,7 @@ import { formStyles } from '@/components/anniversary/anniversary-form';
 import { AllianceBadge, GroupIcon, PlaceMark, allianceColor, resultSummary, shortWhen, signedPoints } from '@/components/anniversary/anniversary-ui';
 import { FlexText } from '@/components/anniversary/flex-text';
 import { GradientCard } from '@/components/anniversary/gradient-card';
+import { SOLIDARITY, isSolidarity } from '@/components/anniversary/solidarity';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { withSheetFrame } from '@/components/ui/sheet-frame';
@@ -79,7 +80,9 @@ function DetailScreen() {
 
       <View style={styles.block}>
         <ThemedText accessibilityRole="header" style={styles.blockTitle}>Puntos</ThemedText>
-        {activity.mode === 'manual' ? (
+        {isSolidarity(activity) ? (
+          <SolidarityInfo />
+        ) : activity.mode === 'manual' ? (
           <ThemedText style={formStyles.hint}>Se ponen a mano según lo que logre cada alianza, como dicen las bases.</ThemedText>
         ) : podium.length === 0 ? (
           <ThemedText style={formStyles.hint}>{hidden ? 'Los puntajes se ven en la premiación.' : 'Esta actividad todavía no tiene puntajes.'}</ThemedText>
@@ -110,7 +113,12 @@ function DetailScreen() {
               <View key={item.alliance.id} style={styles.resultRow}>
                 {item.place >= 0 ? <PlaceMark place={item.place} size={24} /> : <Ionicons name="add-circle-outline" size={22} color={AppColors.textSecondary} />}
                 <AllianceBadge alliance={item.alliance} size={32} />
-                <ThemedText numberOfLines={1} style={styles.resultName}>{item.alliance.name}</ThemedText>
+                <View style={styles.resultText}>
+                  <ThemedText numberOfLines={1} style={styles.resultName}>{item.alliance.name}</ThemedText>
+                  {!!activity.tally?.[item.alliance.id]?.baskets && (
+                    <ThemedText style={styles.resultDetail}>{activity.tally[item.alliance.id].baskets} canastas</ThemedText>
+                  )}
+                </View>
                 {item.points !== null && <ThemedText style={styles.resultPoints}>{signedPoints(item.points)}</ThemedText>}
               </View>
             ))}
@@ -132,6 +140,38 @@ function DetailScreen() {
       )}
       <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />
     </ScrollView>
+  );
+}
+
+/** What the bases ask of the alianza solidaria: the baskets, their contents and the bonus. */
+function SolidarityInfo() {
+  return (
+    <View style={styles.solidarity}>
+      <View style={styles.tiers}>
+        <View style={styles.tier}>
+          <ThemedText style={styles.tierPoints}>{formatPoints(SOLIDARITY.minimumPoints)}</ThemedText>
+          <ThemedText style={styles.tierText}>al llegar a {SOLIDARITY.minimum} canastas</ThemedText>
+        </View>
+        <View style={styles.tier}>
+          <ThemedText style={styles.tierPoints}>+500</ThemedText>
+          <ThemedText style={styles.tierText}>cada una, de la 11 a la 30</ThemedText>
+        </View>
+        <View style={styles.tier}>
+          <ThemedText style={styles.tierPoints}>+200</ThemedText>
+          <ThemedText style={styles.tierText}>cada una desde la 31</ThemedText>
+        </View>
+      </View>
+      <ThemedText style={styles.listTitle}>Cada canasta lleva</ThemedText>
+      <ThemedText style={styles.listText}>{SOLIDARITY.basket.join('\n')}</ThemedText>
+      <ThemedText style={styles.listTitle}>Bonus por cada ítem</ThemedText>
+      {SOLIDARITY.bonus.map(item => (
+        <View key={item.key} style={styles.bonusRow}>
+          <ThemedText style={styles.bonusLabel}>{item.label}</ThemedText>
+          <ThemedText style={styles.bonusPoints}>+{formatPoints(item.points)}</ThemedText>
+        </View>
+      ))}
+      <ThemedText style={formStyles.hint}>Todo sellado, en buen estado y en cajas de cartón abiertas.</ThemedText>
+    </View>
   );
 }
 
@@ -236,8 +276,65 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: AppColors.canvas,
   },
-  resultName: {
+  resultText: {
     flex: 1,
+  },
+  resultDetail: {
+    ...AppType.caption,
+    color: AppColors.textSecondary,
+  },
+  solidarity: {
+    gap: AppSpacing.sm,
+  },
+  tiers: {
+    flexDirection: 'row',
+    gap: AppSpacing.sm,
+  },
+  tier: {
+    flex: 1,
+    gap: 2,
+    padding: AppSpacing.md,
+    borderRadius: AppRadii.md,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.canvas,
+  },
+  tierPoints: {
+    ...AppDisplay.score,
+    fontSize: 22,
+    lineHeight: 26,
+    color: AppColors.textPrimary,
+  },
+  tierText: {
+    ...AppType.caption,
+    color: AppColors.textSecondary,
+  },
+  listTitle: {
+    ...AppType.headline,
+    color: AppColors.textPrimary,
+    marginTop: AppSpacing.sm,
+  },
+  listText: {
+    ...AppType.callout,
+    lineHeight: 24,
+    color: AppColors.textSecondary,
+  },
+  bonusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppSpacing.md,
+  },
+  bonusLabel: {
+    flex: 1,
+    ...AppType.callout,
+    color: AppColors.textSecondary,
+  },
+  bonusPoints: {
+    ...AppType.callout,
+    fontFamily: 'DMSans_700Bold',
+    color: AppColors.textPrimary,
+    fontVariant: ['tabular-nums'],
+  },
+  resultName: {
     ...AppDisplay.name,
     color: AppColors.textPrimary,
   },

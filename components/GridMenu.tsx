@@ -126,10 +126,15 @@ function anniversaryBand(state: AnniversaryState | null | undefined, now: number
   if (phase === 'before') {
     const days = daysTo(anniversary.startsAt, now);
     const when = days <= 0 ? '¡Empieza hoy!' : days === 1 ? 'Empieza mañana' : `Faltan ${days} días`;
-    return { text: mine ? `${when} · ${mine.name}` : when, alliance: mine };
+    return { text: mine ? `${mine.name} - ${when}` : when, alliance: mine };
   }
   if (phase === 'after') {
     return scored ? { text: `¡Ganó ${leader.name}!`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
+  }
+  // The Home's strips already show the score: one's alianza and the time left.
+  if (mine) {
+    const left = daysTo(anniversary.endsAt, now);
+    return { text: `${mine.name} - ${left <= 0 ? '¡Último día!' : left === 1 ? 'Queda 1 día' : `Quedan ${left} días`}`, alliance: mine };
   }
   if (scored) return { text: `${leader.name} lidera · ${formatPoints(leader.total ?? 0)}`, alliance: leader };
   const [next] = todaysActivities(anniversary, now).filter(activity => (activity.startsAt ?? 0) >= now - 60 * 60 * 1000);

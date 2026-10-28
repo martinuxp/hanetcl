@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/design-tokens';
 import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
@@ -15,7 +15,8 @@ import { listFeed } from '@/services/feed-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { useHomeHighlights } from '@/hooks/use-home-highlights';
-import { getAnniversary, useAnniversaryState } from '@/services/anniversary-service';
+import { getAnniversary, homeAnniversary, useAnniversaryState } from '@/services/anniversary-service';
+import { AnniversaryGlow, AnniversaryStandingStrips, AnniversaryTopStrip, anniversaryKicker } from '@/components/anniversary/home-anniversary';
 import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
@@ -133,6 +134,11 @@ export default function HomeScreen() {
     }, [contentLoaded, linked])
   );
 
+  // During alianza week the top of the Home dresses up in the alianzas' colors.
+  const { width } = useWindowDimensions();
+  const festive = linked ? homeAnniversary(anniversary) : null;
+  const openScore = () => router.push('/anniversary/score');
+
   if (!gateOpen) {
     return (
       <View style={styles.container}>
@@ -148,13 +154,21 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <TopHeader />
+        {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} />}
+        <TopHeader transparent={!!festive} />
+        {festive && <AnniversaryTopStrip anniversary={festive.anniversary} phase={festive.phase} onPress={openScore} />}
         {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
         {!!shownInstitution && (
-          <View style={styles.banner}>
-            <InstitutionBanner title={shownInstitution.name} logoUrl={shownInstitution.logoUrl} bannerUrl={shownInstitution.bannerUrl} />
+          <View style={[styles.banner, festive && styles.festiveBanner]}>
+            <InstitutionBanner
+              title={shownInstitution.name}
+              logoUrl={shownInstitution.logoUrl}
+              bannerUrl={shownInstitution.bannerUrl}
+              kicker={festive ? anniversaryKicker(festive.anniversary, festive.phase) : undefined}
+            />
           </View>
         )}
+        {festive && <AnniversaryStandingStrips anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
         <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
 
         {!user && (
@@ -201,6 +215,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 10,
     marginBottom: 24,
+  },
+  festiveBanner: {
+    marginTop: 24,
+    marginBottom: 12,
   },
   uiCatalogButton: {
     marginHorizontal: 16,

@@ -18,12 +18,20 @@ export type Alliance = {
   name: string;
   theme: string;
   color: AllianceColor;
-  /** Its mascot: one emoji, or empty. */
+  /** Its second color, like a team's, or empty. */
+  color2: AllianceColor | '';
+  /** Its mascots: up to three emoji together, or empty. */
   emoji: string;
   /** Its motto ("lema"), or empty. */
   motto: string;
   /** Instagram handle without the @, or empty. */
   instagram: string;
+  /** The cheer of its barra, to learn it. */
+  chant: string;
+  /** The artists the draw gave it. */
+  artists: string;
+  /** Anything else the draw decided: its turn on stage, its delivery time… */
+  draw: string;
   courseIds: string[];
   leadCount: number;
   /** Only for organizers. */
@@ -46,6 +54,8 @@ export type AnniversaryActivity = {
   /** Podium: alliance ids in order. Manual: points per alliance. */
   result: string[] | Record<string, number> | null;
   resultAt: number | null;
+  /** By hand: what the calculator counted for each alianza (baskets, bonus items). */
+  tally: Record<string, Record<string, number>> | null;
 };
 
 export type AnniversaryDeadline = { id: string; title: string; dueAt: number; audience: Audience };
@@ -125,7 +135,20 @@ export function useAnniversaryState(initial?: AnniversaryState) {
   return state;
 }
 
-export type AllianceInput = { id?: string; name: string; theme: string; color: AllianceColor; emoji: string; motto: string; instagram: string; courseIds: string[] };
+export type AllianceInput = {
+  id?: string;
+  name: string;
+  theme: string;
+  color: AllianceColor;
+  color2: AllianceColor | '';
+  emoji: string;
+  motto: string;
+  instagram: string;
+  chant: string;
+  artists: string;
+  draw: string;
+  courseIds: string[];
+};
 
 export type AnniversaryInput = {
   title: string;
@@ -173,8 +196,11 @@ export function addPresetActivities() {
   return call('addAnniversaryPresets', {});
 }
 
-/** Podium: alliance ids, 1° first (an empty list clears it). Manual: points per alliance. */
-export function setActivityResult(activityId: string, result: { order: string[] } | { points: Record<string, number> } | null) {
+/** Podium: alliance ids, 1° first (an empty list clears it). Manual: points per alliance, and what was counted. */
+export function setActivityResult(
+  activityId: string,
+  result: { order: string[] } | { points: Record<string, number>; tally?: Record<string, Record<string, number>> } | null,
+) {
   return call('setAnniversaryResult', { activityId, ...(result ?? {}) });
 }
 
@@ -286,4 +312,56 @@ export function todaysActivities(anniversary: Anniversary, now = Date.now()) {
   return anniversary.activities
     .filter(activity => activity.startsAt !== null && daysTo(activity.startsAt, now) === 0)
     .sort((a, b) => (a.startsAt ?? 0) - (b.startsAt ?? 0));
+}
+
+export type Movement = {
+  id: string;
+  kind: 'result' | 'adjust';
+  allianceId: string;
+  /** Null while the score is hidden (a podium place still shows). */
+  points: number | null;
+  /** The activity's name, or the reason of an addition or deduction. */
+  reason: string;
+  /** Podium place (0 = 1°), or null. */
+  place: number | null;
+  at: number | null;
+};
+
+/**
+ * Every movement of the score, newest first: the additions and deductions of
+ * the history and each activity's result, rebuilt from the activities (the
+ * history only brings those to organizers).
+ */
+export function movements(anniversary: Anniversary): Movement[] {
+  const out: Movement[] = anniversary.history
+    .filter(entry => entry.kind === 'adjust')
+    .map(entry => ({ id: entry.id, kind: 'adjust', allianceId: entry.allianceId, points: entry.points, reason: entry.reason, place: null, at: entry.createdAt }));
+  for (const activity of anniversary.activities) {
+    if (Array.isArray(activity.result)) {
+      activity.result.forEach((allianceId, place) => out.push({
+        id: `${activity.id}-${allianceId}`,
+        kind: 'result',
+        allianceId,
+        points: activity.points.length ? activity.points[place] ?? 0 : null,
+        reason: activity.name,
+        place,
+        at: activity.resultAt,
+      }));
+    } else if (activity.result) {
+      for (const [allianceId, points] of Object.entries(activity.result)) {
+        out.push({ id: `${activity.id}-${allianceId}`, kind: 'result', allianceId, points, reason: activity.name, place: null, at: activity.resultAt });
+      }
+    }
+  }
+  return out.filter(movement => movement.points !== 0).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+}
+
+/** The anniversary while the Home dresses up for it: two weeks before, during, and two days after. */
+export function homeAnniversary(state: AnniversaryState | null | undefined, now = Date.now()) {
+  const anniversary = state?.anniversary;
+  if (!anniversary) return null;
+  const phase = phaseOf(anniversary, now);
+  if (phase === 'before' && anniversary.startsAt - now > 14 * 86_400_000) return null;
+  if (phase === 'after' && now - anniversary.endsAt > 2 * 86_400_000) return null;
+  return { anniversary, phase };
 }

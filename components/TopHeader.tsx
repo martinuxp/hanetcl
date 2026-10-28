@@ -5,11 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
-export default function TopHeader() {
+/** `transparent` lets what is behind show (the anniversary's glow). */
+export default function TopHeader({ transparent }: { transparent?: boolean } = {}) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 12 }, transparent && styles.transparent]}>
       <View style={styles.titleContainer}>
         <ThemedText style={styles.titleText}>HaNet Beta</ThemedText>
         <ThemedText style={styles.superscript}>1</ThemedText>
@@ -31,6 +32,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     backgroundColor: AppColors.textOnLight,
+  },
+  transparent: {
+    backgroundColor: 'transparent',
   },
   titleContainer: {
     flexDirection: 'row',

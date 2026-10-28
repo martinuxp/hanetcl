@@ -34,9 +34,29 @@ export function allianceColor(alliance: Pick<Alliance, 'color'> | null | undefin
   return ALLIANCE_COLORS[alliance?.color ?? 'rosa'] ?? ALLIANCE_COLORS.rosa;
 }
 
+/** The alianza's second color, like a team's, or null. */
+export function allianceSecond(alliance: Pick<Alliance, 'color' | 'color2'> | null | undefined) {
+  return alliance?.color2 && alliance.color2 !== alliance.color ? ALLIANCE_COLORS[alliance.color2] ?? null : null;
+}
+
+/** Its fills, the main one first: for its own gradients. */
+export function allianceOwnFills(alliance: Pick<Alliance, 'color' | 'color2'>) {
+  const second = allianceSecond(alliance);
+  return [allianceColor(alliance).fill, ...(second ? [second.fill] : [])];
+}
+
 /** The fills of a list of alianzas, for gradients and confetti. */
 export function allianceFills(alliances: Pick<Alliance, 'color'>[]) {
   return alliances.map(alliance => allianceColor(alliance).fill);
+}
+
+/** Its mascots, one emoji each (up to three). */
+export function mascotsOf(alliance: Pick<Alliance, 'emoji'> | null | undefined) {
+  if (!alliance?.emoji) return [];
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    return [...new Intl.Segmenter('es', { granularity: 'grapheme' }).segment(alliance.emoji)].map(part => part.segment).filter(part => part.trim());
+  }
+  return Array.from(alliance.emoji).filter(part => part.trim() && part !== '\uFE0F' && part !== '\u200D');
 }
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -99,6 +119,7 @@ export function PlaceMark({ place, size = 22 }: { place: number; size?: number }
 /** A round badge in the alianza's color with its mascot (or its first letter). */
 export function AllianceBadge({ alliance, size = 36 }: { alliance: Pick<Alliance, 'color' | 'emoji' | 'name'>; size?: number }) {
   const color = allianceColor(alliance);
+  const [mascot] = mascotsOf(alliance);
   return (
     <View
       style={[
@@ -109,11 +130,11 @@ export function AllianceBadge({ alliance, size = 36 }: { alliance: Pick<Alliance
     >
       <ThemedText
         maxFontSizeMultiplier={1}
-        style={alliance.emoji
+        style={mascot
           ? { fontSize: size * 0.55, lineHeight: size * 0.72 }
           : [styles.badgeLetter, { color: color.ink, fontSize: size * 0.45, lineHeight: size * 0.6 }]}
       >
-        {alliance.emoji || alliance.name.trim().charAt(0).toLocaleUpperCase('es')}
+        {mascot || alliance.name.trim().charAt(0).toLocaleUpperCase('es')}
       </ThemedText>
     </View>
   );
@@ -170,10 +191,9 @@ export function AllianceCard({ alliance, standing, mine, lead, style }: {
   lead?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const color = allianceColor(alliance);
   const scored = standing && standing.total !== null;
   return (
-    <GradientCard colors={[color.fill]} style={[styles.allianceCard, style]}>
+    <GradientCard colors={allianceOwnFills(alliance)} style={[styles.allianceCard, style]}>
       <View style={styles.allianceTop}>
         <AllianceBadge alliance={alliance} size={52} />
         {scored && (
@@ -197,6 +217,43 @@ export function AllianceCard({ alliance, standing, mine, lead, style }: {
       )}
       {!!alliance.instagram && <InstagramButton handle={alliance.instagram} />}
     </GradientCard>
+  );
+}
+
+/**
+ * What one's own alianza has to know: the cheer of its barra, the artists
+ * and whatever else the draw gave it. Nothing when the CEE left them empty.
+ */
+export function AllianceExtras({ alliance, onWallpaper }: { alliance: Alliance; onWallpaper?: () => void }) {
+  const items = [
+    { key: 'chant', title: 'Grito de barra', icon: 'megaphone-outline' as const, text: alliance.chant },
+    { key: 'artists', title: 'Sus artistas', icon: 'musical-notes-outline' as const, text: alliance.artists },
+    { key: 'draw', title: 'Lo que salió en el sorteo', icon: 'shuffle-outline' as const, text: alliance.draw },
+  ].filter(item => !!item.text?.trim());
+  if (!items.length && !onWallpaper) return null;
+  return (
+    <View style={styles.extras}>
+      {items.map((item, index) => (
+        <View key={item.key} style={[styles.extra, index > 0 && styles.extraBorder]}>
+          <Ionicons name={item.icon} size={18} color={AppColors.textSecondary} />
+          <View style={styles.extraText}>
+            <ThemedText style={styles.extraTitle}>{item.title}</ThemedText>
+            <ThemedText style={[styles.extraBody, item.key === 'chant' && styles.extraChant]}>{item.text}</ThemedText>
+          </View>
+        </View>
+      ))}
+      {onWallpaper && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onWallpaper}
+          style={({ pressed }) => [styles.extra, items.length > 0 && styles.extraBorder, pressed && AppPressed]}
+        >
+          <Ionicons name="phone-portrait-outline" size={18} color={AppColors.textSecondary} />
+          <ThemedText style={[styles.extraTitle, styles.extraAction]}>Fondo de pantalla de tu alianza</ThemedText>
+          <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -476,6 +533,41 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
+    color: AppColors.textPrimary,
+  },
+  extras: {
+    paddingHorizontal: AppSpacing.lg,
+    borderRadius: AppRadii.lg,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
+  },
+  extra: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: AppSpacing.md,
+    paddingVertical: AppSpacing.lg,
+  },
+  extraBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: AppColors.surfaceMuted,
+  },
+  extraText: {
+    flex: 1,
+    gap: 2,
+  },
+  extraTitle: {
+    ...AppType.headline,
+    color: AppColors.textPrimary,
+  },
+  extraAction: {
+    flex: 1,
+  },
+  extraBody: {
+    ...AppType.callout,
+    color: AppColors.textSecondary,
+  },
+  extraChant: {
+    fontFamily: 'DMSans_400Regular_Italic',
     color: AppColors.textPrimary,
   },
   onColorSoft: {
