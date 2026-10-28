@@ -13,6 +13,7 @@ import { GlobalTabBar } from '@/components/AppTabBar';
 import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
 import { AppColors } from '@/constants/design-tokens';
+import { sheetDetents } from '@/constants/sheets';
 import { useSession } from '@/services/auth-service';
 import { useLaunchContentReady } from '@/services/launch-ready';
 import { hasSeenOnboarding, markOnboardingSeen } from '@/services/onboarding';
@@ -75,13 +76,15 @@ const paperTheme = {
 };
 
 // Android's form sheet (react-native-screens 4.26) can open with no height,
-// leaving an invisible sheet that still takes touches, so there these screens
-// are transparent modals that draw their own sheet (see sheet-frame.tsx).
-function sheetOptions(detents: number[]) {
-  if (Platform.OS === 'android') {
-    return { presentation: 'transparentModal', headerShown: false, animation: 'fade' } as const;
+// leaving an invisible sheet that still takes touches, and on the web Expo
+// Router draws a form sheet as a whole new page. On both these screens are
+// transparent modals that draw the HaNet sheet themselves (sheet-frame.tsx),
+// at the same heights the iOS sheet uses.
+function sheetOptions(route: string) {
+  if (Platform.OS === 'ios') {
+    return { presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: sheetDetents(route) } as const;
   }
-  return { presentation: 'formSheet', headerShown: false, sheetGrabberVisible: true, sheetAllowedDetents: detents } as const;
+  return { presentation: 'transparentModal', headerShown: false, animation: Platform.OS === 'web' ? 'none' : 'fade' } as const;
 }
 
 export default function RootLayout() {
@@ -190,14 +193,14 @@ export default function RootLayout() {
             <Stack.Screen name="link-institution" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="hnt-admin" options={{ headerShown: false }} />
             <Stack.Screen name="event-detail" options={{ headerShown: false }} />
-            <Stack.Screen name="event-form" options={sheetOptions([1.0])} />
-            <Stack.Screen name="event-options" options={sheetOptions([0.5])} />
+            <Stack.Screen name="event-form" options={sheetOptions('event-form')} />
+            <Stack.Screen name="event-options" options={sheetOptions('event-options')} />
             <Stack.Screen name="event-checkin" options={{ headerShown: false, animation: 'fade' }} />
             <Stack.Screen name="schedule" options={{ headerShown: false }} />
-            <Stack.Screen name="feed-post" options={sheetOptions([1.0])} />
+            <Stack.Screen name="feed-post" options={sheetOptions('feed-post')} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
-            <Stack.Screen name="create-event" options={sheetOptions([0.5, 1.0])} />
-            <Stack.Screen name="edit-profile" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="create-event" options={sheetOptions('create-event')} />
+            <Stack.Screen name="edit-profile" options={sheetOptions('edit-profile')} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen name="licenses" options={{ headerShown: false }} />
             <Stack.Screen name="whats-new" options={{ headerShown: false }} />
@@ -206,27 +209,27 @@ export default function RootLayout() {
             <Stack.Screen name="anniversary/activities" options={{ headerShown: false }} />
             <Stack.Screen name="anniversary/notices" options={{ headerShown: false }} />
             <Stack.Screen name="anniversary/welcome" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-            <Stack.Screen name="anniversary/setup" options={sheetOptions([1.0])} />
-            <Stack.Screen name="anniversary/activity" options={sheetOptions([1.0])} />
-            <Stack.Screen name="anniversary/detail" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="anniversary/result" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="anniversary/points" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="anniversary/deadline" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="anniversary/flash" options={sheetOptions([1.0])} />
-            <Stack.Screen name="anniversary/leads" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="anniversary/setup" options={sheetOptions('anniversary/setup')} />
+            <Stack.Screen name="anniversary/activity" options={sheetOptions('anniversary/activity')} />
+            <Stack.Screen name="anniversary/detail" options={sheetOptions('anniversary/detail')} />
+            <Stack.Screen name="anniversary/result" options={sheetOptions('anniversary/result')} />
+            <Stack.Screen name="anniversary/points" options={sheetOptions('anniversary/points')} />
+            <Stack.Screen name="anniversary/deadline" options={sheetOptions('anniversary/deadline')} />
+            <Stack.Screen name="anniversary/flash" options={sheetOptions('anniversary/flash')} />
+            <Stack.Screen name="anniversary/leads" options={sheetOptions('anniversary/leads')} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
-            <Stack.Screen name="classhall/join" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="classhall/create" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
+            <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />
             <Stack.Screen name="classhall/hall" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/evaluation" options={{ headerShown: false }} />
-            <Stack.Screen name="classhall/announce" options={sheetOptions([0.75, 1.0])} />
-            <Stack.Screen name="classhall/evaluation-new" options={sheetOptions([0.5])} />
-            <Stack.Screen name="classhall/evaluation-form" options={sheetOptions([1.0])} />
+            <Stack.Screen name="classhall/announce" options={sheetOptions('classhall/announce')} />
+            <Stack.Screen name="classhall/evaluation-new" options={sheetOptions('classhall/evaluation-new')} />
+            <Stack.Screen name="classhall/evaluation-form" options={sheetOptions('classhall/evaluation-form')} />
             <Stack.Screen name="classhall/tasks" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/task" options={{ headerShown: false }} />
-            <Stack.Screen name="classhall/task-form" options={sheetOptions([1.0])} />
-            <Stack.Screen name="classhall/submit" options={sheetOptions([0.85, 1.0])} />
-            <Stack.Screen name="classhall/submission" options={sheetOptions([0.75, 1.0])} />
+            <Stack.Screen name="classhall/task-form" options={sheetOptions('classhall/task-form')} />
+            <Stack.Screen name="classhall/submit" options={sheetOptions('classhall/submit')} />
+            <Stack.Screen name="classhall/submission" options={sheetOptions('classhall/submission')} />
           </Stack>
           <GlobalTabBar />
           </FatalBoundary>
