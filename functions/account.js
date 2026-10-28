@@ -182,7 +182,7 @@ function build(getAdminApp) {
       throw new HttpsError("resource-exhausted", "Demasiados intentos. Pide un código nuevo.");
     }
     if (verdict === "wrong") {
-      throw new HttpsError("invalid-argument", "El código no coincide. Revísalo e inténtalo de nuevo.");
+      throw new HttpsError("invalid-argument", "El código no coincide. Revísalo e inténtalo nuevamente.");
     }
 
     await getAuth(adminApp).updateUser(auth.uid, { emailVerified: true });

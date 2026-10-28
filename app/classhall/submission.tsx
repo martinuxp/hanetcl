@@ -56,7 +56,7 @@ function SubmissionScreen() {
     return (
       <ScrollView style={styles.sheet} contentContainerStyle={[styles.content, { paddingTop: AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}>
         <ThemedText style={styles.title}>Entrega</ThemedText>
-        <ThemedText style={styles.lead}>No encontramos esta entrega. Vuelve a la tarea e inténtalo de nuevo.</ThemedText>
+        <ThemedText style={styles.lead}>No encontramos esta entrega. Vuelve a la tarea e inténtalo nuevamente.</ThemedText>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
           <ThemedText style={styles.cancelText}>Volver</ThemedText>
         </Pressable>
@@ -109,7 +109,7 @@ function SubmissionScreen() {
           selectionColor={AppColors.accent}
           style={[styles.input, styles.multiline]}
         />
-        <ThemedText style={styles.hint}>Solo lo ve este estudiante. HaNet no pone notas.</ThemedText>
+        <ThemedText style={styles.hint}>Solo lo ve este estudiante.</ThemedText>
       </View>
 
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}

@@ -56,7 +56,8 @@ function toCalendarEvent(id: string, data: DocumentData): CalendarEvent {
     verifier: data.verifier,
     verificationRequested: data.verificationRequested === true,
     subject: data.subject,
-    eventType: data.type,
+    // "Off Topic" was renamed "Otro"; older events keep the old value.
+    eventType: data.type === 'Off Topic' ? 'Otro' : data.type,
     outstanding: data.outstanding || false,
     // Older events were cancelled by renaming them.
     cancelled: data.cancelled === true || data.title?.toUpperCase().includes('CANCELADA') || false,

@@ -71,7 +71,7 @@ async function requireProfile(getAdminApp, request) {
 /** The course asked for, if this person may see it; their own by default. */
 function courseFor(profile, requested) {
   if (requested && requested !== profile.courseId) {
-    if (!ANY_COURSE_ROLES.includes(profile.role)) throw new HttpsError("permission-denied", "Solo ves el horario de tu curso.");
+    if (!ANY_COURSE_ROLES.includes(profile.role)) throw new HttpsError("permission-denied", "Solo puedes ver el horario de tu curso.");
     if (!validCourse(requested)) throw new HttpsError("invalid-argument", "Ese curso no es válido.");
     return requested;
   }

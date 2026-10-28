@@ -209,7 +209,7 @@ function EventFormScreen() {
       update({ editorialSummary: found.summary, editorialSourceName: 'Wikipedia', editorialSourceUrl: found.url });
       setWiki({ busy: false, note: `Traído de «${found.title}». Revisa que sea la persona o el lugar correcto.` });
     } catch {
-      setWiki({ busy: false, note: 'Wikipedia no responde. Inténtalo de nuevo.' });
+      setWiki({ busy: false, note: 'Wikipedia no responde. Inténtalo nuevamente.' });
     }
   };
 

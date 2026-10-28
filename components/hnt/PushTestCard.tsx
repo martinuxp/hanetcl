@@ -84,7 +84,7 @@ export function PushTestCard() {
         ? 'Este teléfono tiene permiso para recibir notificaciones.'
         : permission === 'denied'
           ? 'Las notificaciones están bloqueadas en los ajustes de este teléfono.'
-          : 'Este teléfono todavía no da permiso para notificaciones.';
+          : 'Este teléfono todavía no ha dado permiso para notificaciones.';
 
   return (
     <View style={styles.card}>

@@ -250,7 +250,7 @@ function EditProfileScreen() {
             })}
           </View>
           {!!fontError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{fontError}</ThemedText>}
-          <ThemedText style={styles.note}>Se guarda al elegirla y cambia cómo se ve tu nombre en tu perfil.</ThemedText>
+          <ThemedText style={styles.note}>Cambia cómo se ve tu nombre en tu perfil.</ThemedText>
         </View>
 
         <HanetButton label="Listo" onPress={() => router.back()} />

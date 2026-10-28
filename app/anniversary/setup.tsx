@@ -303,7 +303,7 @@ function SetupScreen() {
               onChange={value => update({ scoreHidden: value === 'hidden' })}
               disabled={submitting}
             />
-            <ThemedText style={styles.hint}>Oculto, solo ustedes ven los puntos: sirve para revelar la ganadora en la premiación.</ThemedText>
+            <ThemedText style={styles.hint}>Solo quienes organizan ven los puntos. Así la ganadora se revela en la premiación.</ThemedText>
           </View>
           <View style={styles.field}>
             <ThemedText style={styles.label}>Estado</ThemedText>

@@ -90,7 +90,7 @@ function build(getAdminApp) {
     const db = identityDb(getAdminApp);
     const userRef = db.collection("users").doc(uid);
     if (!(await userRef.get()).exists) {
-      throw new HttpsError("not-found", "Esa persona todavía no vincula su HaNet ID.");
+      throw new HttpsError("not-found", "Esa persona todavía no ha vinculado su HaNet ID.");
     }
 
     await userRef.update({ role, roleUpdatedAt: FieldValue.serverTimestamp(), roleUpdatedBy: caller.uid });
@@ -114,7 +114,7 @@ function build(getAdminApp) {
 
     const userRef = identityDb(getAdminApp).collection("users").doc(uid);
     if (!(await userRef.get()).exists) {
-      throw new HttpsError("not-found", "Esa persona todavía no vincula su HaNet ID.");
+      throw new HttpsError("not-found", "Esa persona todavía no ha vinculado su HaNet ID.");
     }
 
     const auth = getAuth(getAdminApp());

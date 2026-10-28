@@ -57,11 +57,11 @@ function FlashScreen() {
     saveLabel: 'Lanzar',
     canSave: ready,
     title: '¿Descartar la prueba?',
-    message: 'Todavía no la lanzas.',
+    message: 'Todavía no la has lanzado.',
   });
 
   return (
-    <SheetBody title="Prueba flash" icon={<BoltIcon size={26} color={AppColors.accentYellow} animated />} lead="Llega al tiro como notificación. Después pones el orden en que la cumplieron.">
+    <SheetBody title="Prueba flash" icon={<BoltIcon size={26} color={AppColors.accentYellow} animated />} lead="Llega al instante como notificación. Después marcas el orden en que la cumplieron.">
       <TextField label="Nombre" value={name} onChange={value => { setName(value); setError(null); }} placeholder="Traigan un paraguas amarillo" disabled={submitting} autoFocus />
       <TextField label="Qué hay que hacer" value={text} onChange={value => { setText(value); setError(null); }} placeholder="La primera alianza que llegue a la sala del CEE con un paraguas amarillo gana." multiline maxLength={500} disabled={submitting} />
       <PointsFields label="Puntos por lugar" points={points} count={places} onChange={setPoints} disabled={submitting} />

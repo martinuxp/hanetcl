@@ -80,7 +80,7 @@ function DetailScreen() {
       <View style={styles.block}>
         <ThemedText accessibilityRole="header" style={styles.blockTitle}>Puntos</ThemedText>
         {activity.mode === 'manual' ? (
-          <ThemedText style={formStyles.hint}>Se ponen a mano, según lo que cada alianza logre (lo que dicen las bases).</ThemedText>
+          <ThemedText style={formStyles.hint}>Se ponen a mano según lo que logre cada alianza, como dicen las bases.</ThemedText>
         ) : podium.length === 0 ? (
           <ThemedText style={formStyles.hint}>{hidden ? 'Los puntajes se ven en la premiación.' : 'Esta actividad todavía no tiene puntajes.'}</ThemedText>
         ) : (

@@ -86,7 +86,7 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
       {fromCourse && sorted.length > 0 && <ThemedText style={styles.sectionHint}>Viene del Horario del curso.</ThemedText>}
       {sorted.length === 0 && (
         <ThemedText style={styles.sectionHint}>
-          {fromCourse ? 'Todavía no está en el Horario del curso.' : canEdit ? 'Agrega los días y horas de este Hall: aparecen en el Horario de cada estudiante que está dentro.' : 'Tu docente todavía no carga los días y horas.'}
+          {fromCourse ? 'Todavía no está en el Horario del curso.' : canEdit ? 'Agrega los días y horas de este Hall. Aparecen en el Horario de tus estudiantes.' : 'Tu docente todavía no ha cargado los días y horas.'}
         </ThemedText>
       )}
       {sorted.map(({ block, index }) => {

@@ -78,7 +78,7 @@ exports.requestIdentityLink = onCall(async (request) => {
 
   // Keep the response deliberately generic to avoid exposing enrollment data.
   if (!enrollment.exists) {
-    throw new HttpsError("not-found", "No se pudo procesar la solicitud.");
+    throw new HttpsError("not-found", "No pudimos procesar la solicitud.");
   }
 
   const existing = await enrollmentDb
@@ -174,7 +174,7 @@ exports.icalFeed = onRequest(async (req, res) => {
 
     const calendar = ical({
       name: `HaNet Calendar - ${courseId.toUpperCase()}`,
-      description: `Calendario Institucional Oficial (HaNet) para el curso ${courseId}`,
+      description: `Calendar de HaNet del curso ${courseId}`,
       timezone: "America/Santiago",
     });
 
@@ -186,7 +186,8 @@ exports.icalFeed = onRequest(async (req, res) => {
       const start = data.startDate ? data.startDate.toDate() : new Date();
       const end = data.endDate ? data.endDate.toDate() : new Date(start.getTime() + 90 * 60000);
 
-      const typeIndicator = data.type ? `[${data.type}] ` : '';
+      const type = data.type === "Off Topic" ? "Otro" : data.type;
+      const typeIndicator = type ? `[${type}] ` : '';
       const subjectInd = data.subject ? ` (${data.subject})` : '';
       
       calendar.createEvent({
@@ -194,7 +195,7 @@ exports.icalFeed = onRequest(async (req, res) => {
         start: start,
         end: end,
         summary: `${typeIndicator}${data.title}${subjectInd}`,
-        description: data.description || "Evento programado. Administrado por HaNet Institucional.",
+        description: data.description || undefined,
         location: data.location || "Liceo",
         // Apple Calendar support tweaks
         sequence: 0,
@@ -208,6 +209,6 @@ exports.icalFeed = onRequest(async (req, res) => {
 
   } catch (error) {
     console.error("Error al generar Node-iCal:", error);
-    res.status(500).send("Error interno generando el calendario.");
+    res.status(500).send("No pudimos generar el calendario.");
   }
 });

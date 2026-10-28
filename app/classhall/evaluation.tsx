@@ -150,7 +150,7 @@ export default function HallEvaluationScreen() {
                 </View>
 
                 {evaluation.contents.length === 0 ? (
-                  <ThemedText style={styles.empty}>Tu docente todavía no detalla los contenidos de esta evaluación.</ThemedText>
+                  <ThemedText style={styles.empty}>Tu docente todavía no ha agregado los contenidos.</ThemedText>
                 ) : (
                   <>
                     {inline && (
@@ -248,7 +248,7 @@ export default function HallEvaluationScreen() {
             <View style={styles.attribution}>
               <Image source={HALL_ICONS.badge} style={styles.badge} contentFit="contain" />
               <View style={styles.attributionText}>
-                <ThemedText style={styles.attributionLabel}>Info. verificada por un docente:</ThemedText>
+                <ThemedText style={styles.attributionLabel}>Verificado por un docente:</ThemedText>
                 <ThemedText style={styles.attributionName}>{evaluation.authorName}</ThemedText>
               </View>
             </View>

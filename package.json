@@ -1,7 +1,7 @@
 {
   "name": "hanetcl",
   "main": "expo-router/entry",
-  "version": "0.2.0-beta",
+  "version": "0.2.1-beta",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",

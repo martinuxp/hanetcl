@@ -124,16 +124,16 @@ export default function AuthScreen() {
     setError(null);
     setNotice(null);
     if (!email.trim()) {
-      setError('Escribe tu correo para enviarte el enlace de recuperación.');
+      setError('Escribe tu correo para enviarte el link de recuperación.');
       return;
     }
 
     setLoading(true);
     try {
       await resetPassword(email);
-      setNotice('Te enviamos un enlace para restablecer tu contraseña.');
+      setNotice('Te enviamos un link para cambiar tu contraseña.');
     } catch (resetError) {
-      setError(describeAuthError(resetError, 'No pudimos enviar el enlace. Inténtalo nuevamente.'));
+      setError(describeAuthError(resetError, 'No pudimos enviar el link. Inténtalo nuevamente.'));
     } finally {
       setLoading(false);
     }
@@ -265,7 +265,7 @@ export default function AuthScreen() {
             <Animated.View layout={moveLayout}>
             <HanetField
               ref={emailRef}
-              label="Email"
+              label="Correo"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -395,7 +395,7 @@ export default function AuthScreen() {
           {/* Signing in with Google is paused in auth-service, so it says so. */}
           <Animated.View layout={moveLayout} style={styles.quick}>
             <View>
-              <ThemedText style={styles.quickTitle}>Inicia rápidamente</ThemedText>
+              <ThemedText style={styles.quickTitle}>Otras formas de entrar</ThemedText>
               {isSignUp && <ThemedText style={styles.quickNote}>Aceptas los Términos y Condiciones.</ThemedText>}
             </View>
             <View

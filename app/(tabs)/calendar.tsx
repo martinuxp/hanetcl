@@ -241,7 +241,7 @@ export default function CalendarScreen() {
       if (!silent || !hasEventsRef.current) {
         setLoadError((e as { code?: string }).code === 'permission-denied'
           ? 'Tu cuenta no tiene permiso para ver el calendario de este curso.'
-          : 'No pudimos cargar el calendario. Revisa tu conexión e inténtalo de nuevo.');
+          : 'No pudimos cargar el calendario. Revisa tu conexión e inténtalo nuevamente.');
       }
     } finally {
       setLoading(false);
@@ -936,7 +936,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <View style={styles.verifyRow}>
             <CustomIcon name="check-circle" size={18} color={AppColors.success} />
             <View style={styles.verifyTextContainer}>
-              <ThemedText style={styles.verifyLabel}>Info. escrita por un miembro de la directiva:</ThemedText>
+              <ThemedText style={styles.verifyLabel}>Publicado por la directiva:</ThemedText>
               <ThemedText style={styles.verifyName}>{writer}</ThemedText>
             </View>
           </View>
@@ -946,7 +946,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <View style={styles.verifyRow}>
             <CustomIcon name="check-circle" size={18} color={AppColors.info} />
             <View style={styles.verifyTextContainer}>
-              <ThemedText style={styles.verifyLabel}>Info. verificada por un docente:</ThemedText>
+              <ThemedText style={styles.verifyLabel}>Verificado por un docente:</ThemedText>
               <ThemedText style={styles.verifyName}>{verifier}</ThemedText>
             </View>
           </View>

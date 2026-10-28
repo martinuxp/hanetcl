@@ -32,7 +32,7 @@ function EventOptionsScreen() {
       <ThemedText accessibilityRole="header" numberOfLines={2} style={styles.title}>{view === 'coupon' ? 'Cupón HaNet' : actions?.title ?? 'Opciones'}</ThemedText>
 
       {!actions ? (
-        <ThemedText style={styles.lead}>Vuelve al evento e inténtalo de nuevo.</ThemedText>
+        <ThemedText style={styles.lead}>Vuelve al evento e inténtalo nuevamente.</ThemedText>
       ) : view === 'coupon' && actions.coupon ? (
         <>
           <CouponPanel coupon={actions.coupon} />

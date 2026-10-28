@@ -324,7 +324,7 @@ function EvaluationFormScreen() {
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityHint="Sube la T.E. en PDF, Word o foto y llena el formulario"
+          accessibilityHint="Sube la T.E. (PDF, Word o foto) y llenamos el formulario por ti"
           disabled={scanning || submitting}
           onPress={() => void scan()}
           style={({ pressed }) => [local.scanLink, pressed && styles.pressed]}

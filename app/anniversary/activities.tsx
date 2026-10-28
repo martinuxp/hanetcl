@@ -111,7 +111,7 @@ export default function AnniversaryActivities() {
 
             {anniversary && activities.length === 0 && (
               <ThemedText style={styles.emptyText}>
-                {organizer ? 'Todavía no hay actividades. Carga las típicas o crea una.' : 'El CEE todavía no carga las actividades.'}
+                {organizer ? 'Todavía no hay actividades. Carga las típicas o crea una.' : 'El CEE todavía no ha cargado las actividades.'}
               </ThemedText>
             )}
 
