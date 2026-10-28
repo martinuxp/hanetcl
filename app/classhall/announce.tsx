@@ -9,8 +9,9 @@ import type { PickedDocument } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const MAX_LENGTH = 2000;
 
@@ -73,7 +74,7 @@ function AnnounceScreen() {
   });
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -143,7 +144,7 @@ function AnnounceScreen() {
         <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
       </Pressable>
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -14,6 +14,7 @@ import type { HallPlan } from '@/constants/subjects';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 function CreateHallScreen() {
   const router = useRouter();
@@ -108,7 +109,7 @@ function CreateHallScreen() {
   });
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -227,7 +228,7 @@ function CreateHallScreen() {
         <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
       </Pressable>
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

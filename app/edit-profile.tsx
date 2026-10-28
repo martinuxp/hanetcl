@@ -19,8 +19,9 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 function initialsOf(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -152,7 +153,7 @@ function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
+      <KeyboardScroll
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + AppSpacing.lg }]}
       >
@@ -254,7 +255,7 @@ function EditProfileScreen() {
         </View>
 
         <HanetButton label="Listo" onPress={() => router.back()} />
-      </ScrollView>
+      </KeyboardScroll>
     </SafeAreaView>
   );
 }

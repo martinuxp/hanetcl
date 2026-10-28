@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const MAX_FEEDBACK = 1000;
 
@@ -65,7 +66,7 @@ function SubmissionScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -134,7 +135,7 @@ function SubmissionScreen() {
         <ThemedText style={styles.cancelText}>Cerrar</ThemedText>
       </Pressable>
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

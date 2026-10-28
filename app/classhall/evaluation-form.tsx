@@ -15,6 +15,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const MAX_CONTENTS = 12;
 const MAX_SKILLS = 8;
@@ -285,7 +286,7 @@ function EvaluationFormScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -558,7 +559,7 @@ function EvaluationFormScreen() {
         onConfirm={date => { setPicking(false); update({ date: date.getTime() }); }}
       />
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

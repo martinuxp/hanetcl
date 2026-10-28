@@ -12,8 +12,9 @@ import type { PickedDocument } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const MAX_INSTRUCTIONS = 3000;
 
@@ -112,7 +113,7 @@ function TaskFormScreen() {
   const shownFile = file ? file.name : existing && !removeExisting ? existing.name : null;
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -226,7 +227,7 @@ function TaskFormScreen() {
         onConfirm={date => { setPicking(false); update({ dueAt: date.getTime() }); }}
       />
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

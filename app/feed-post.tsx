@@ -38,6 +38,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 // Publishing in the feed, after Substack's compose screen: the Espacio on top,
 // large text, the images as cards and the options as tiles at the bottom.
@@ -264,7 +265,7 @@ function FeedPostScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: top, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -503,7 +504,7 @@ function FeedPostScreen() {
       </HanetDialog>
 
       {guardDialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 
