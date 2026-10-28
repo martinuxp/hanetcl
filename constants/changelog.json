@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.1.3-beta",
+      "date": "2026-10-27",
+      "title": "",
+      "items": [
+        "En Android, las hojas como Opciones del evento o Editar perfil se abren a su altura (media, tres cuartos o completa) y se arrastran entre ellas.",
+        "En la web, crear un evento, editar tu perfil y las demás hojas vuelven a abrirse encima de la pantalla. En el computador salen como una tarjeta al centro y se cierran con Esc."
+      ]
+    },
+    {
       "version": "0.1.2-beta",
       "date": "2026-10-27",
       "title": "",

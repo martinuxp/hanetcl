@@ -41,8 +41,8 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
 
   const ask = (discard: () => void) => setPendingDiscard(() => discard);
 
-  // The Android sheet stays open while there are changes, and each close it
-  // held back is asked about here.
+  // The HaNet sheet (Android, web) stays open while there are changes, and
+  // each close it held back is asked about here.
   const setSheetBlocked = sheet?.setBlocked;
   useEffect(() => {
     if (!setSheetBlocked) return;
@@ -62,7 +62,7 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
   // prevention is on, which looped forever and left the sheet stuck. `repeat`
   // turns it off first and then goes on with that action.
   const disablePrevention = usePreventRemove(guarded, ({ repeat }) => {
-    // On Android the sheet slides away first and then leaves.
+    // The HaNet sheet (Android, web) slides away first and then leaves.
     ask(() => (sheet ? sheet.close() : repeat()));
   });
 
