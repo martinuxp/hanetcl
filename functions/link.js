@@ -191,7 +191,7 @@ function build(getAdminApp) {
       }
       return res.send(page(
         "Confirma tu correo institucional",
-        "Estás a un paso de conectar tu HaNet ID con tu institución.",
+        "Estás a un paso de vincular tu HaNet ID con tu institución.",
         `<form method="post" action="/vincular" style="margin:24px 0 0;">
 <input type="hidden" name="u" value="${escapeHtml(uid)}"><input type="hidden" name="t" value="${escapeHtml(token)}">
 <button type="submit" style="width:100%;height:56px;border:0;border-radius:360px;background:#c7c6cf;color:#282829;font:700 16px 'DM Sans',system-ui,sans-serif;cursor:pointer;">Confirmar que soy yo</button>

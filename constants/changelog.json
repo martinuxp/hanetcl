@@ -1,22 +1,25 @@
 {
   "releases": [
     {
+      "version": "0.2.1-beta",
+      "date": "2026-10-28",
+      "title": "",
+      "items": [
+        "Textos más claros y cortos en toda la app, y también en los correos de HaNet.",
+        "Vincular tu correo institucional ahora se explica con las mismas palabras en cada paso.",
+        "El tipo de evento \"Off Topic\" ahora se llama \"Otro\"."
+      ]
+    },
+    {
       "version": "0.2.0-beta",
       "date": "2026-10-27",
       "title": "Aniversario",
       "items": [
-        "Nuevo Aniversario en el inicio: tu alianza, el marcador en vivo, lo que pasa hoy y los plazos.",
-        "Cuando empieza el aniversario, su botón del inicio se ilumina con los colores de las alianzas, y la primera vez que entras te da la bienvenida: tu alianza, cómo funciona el marcador y qué mirar.",
-        "Cada alianza tiene su color, su mascota, su lema y el link a su Instagram.",
-        "El marcador es una carrera: corona para la que va ganando y flechas cuando una alianza sube o baja.",
-        "Las actividades van en su propia pantalla, ordenadas por tipo. Toca una para ver su podio de puntos y quién ganó.",
-        "Cada punto queda en \"Movimientos de puntos\" con su motivo, también los descuentos.",
-        "El CEE arma las alianzas por curso, carga las actividades típicas con sus puntajes y pone los resultados por lugar.",
-        "Las alianzas se pueden borrar (con sus puntos), y también el aniversario completo para empezar de cero.",
-        "Pruebas flash: le llegan al tiro a los jefes de alianza (o a toda la alianza).",
-        "Avisos del aniversario: el CEE los publica en el Feed con el tag #Aniversario y aparecen en la página, con notificación si quiere.",
-        "Quien organiza tiene todo a mano en el botón \"Organizar\" de la barra.",
-        "Al final, la ganadora con confeti, y el marcador se comparte como historia.",
+        "Nuevo Aniversario en el inicio: tu alianza, el marcador en vivo, las actividades del día y los plazos.",
+        "Cada alianza tiene su color, su mascota, su lema y su Instagram.",
+        "Pruebas flash: llegan al instante a los jefes de alianza o a toda la alianza.",
+        "El CEE organiza todo desde el botón \"Organizar\": alianzas, actividades, resultados, puntos y avisos.",
+        "Al final, la ganadora con confeti y el marcador para compartir como historia.",
         "Los avisos del aniversario se apagan en Configuraciones."
       ]
     },

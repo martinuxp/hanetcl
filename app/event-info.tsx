@@ -159,7 +159,7 @@ export default function EventInfoScreen() {
 
   const getCourseId = async (purpose: string) => {
     if (!user) {
-      Alert.alert('Inicia sesión', `Necesitas una sesión activa para ${purpose}.`);
+      Alert.alert('Inicia sesión', `Inicia sesión para ${purpose}.`);
       return null;
     }
     const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -187,7 +187,7 @@ export default function EventInfoScreen() {
     await Clipboard.setStringAsync(`https://${ICAL_HOST}?courseId=${encodeURIComponent(courseIdState)}`);
     setIcalModalVisible(false);
     setTimeout(() => {
-      Alert.alert('Enlace copiado', 'Pégalo en tu app de calendario.');
+      Alert.alert('Link copiado', 'Pégalo en tu app de calendario.');
     }, 500);
   };
 
@@ -254,7 +254,7 @@ export default function EventInfoScreen() {
       console.error(e);
       setManageError((e as { code?: string }).code === 'permission-denied'
         ? 'Tu cuenta no tiene permiso para cambiar este evento.'
-        : 'No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.');
+        : 'No pudimos guardar el cambio. Revisa tu conexión e inténtalo nuevamente.');
     } finally {
       setManaging(false);
     }
@@ -286,7 +286,7 @@ export default function EventInfoScreen() {
       console.error(e);
       setDeleteError((e as { code?: string }).code === 'permission-denied'
         ? 'Tu cuenta no tiene permiso para eliminar eventos de este curso.'
-        : 'No se pudo eliminar el evento. Revisa tu conexión e inténtalo de nuevo.');
+        : 'No pudimos eliminar el evento. Revisa tu conexión e inténtalo nuevamente.');
       setDeleting(false);
     }
   };
@@ -377,7 +377,7 @@ export default function EventInfoScreen() {
           <View style={styles.attribution}>
             <CustomIcon name="check-circle" size={21} color={AppColors.textSecondary} />
             <View style={styles.attributionText}>
-              <ThemedText style={styles.attributionLabel}>Info. escrita por un miembro de la directiva:</ThemedText>
+              <ThemedText style={styles.attributionLabel}>Publicado por la directiva:</ThemedText>
               <ThemedText style={styles.attributionName}>{event.writer}</ThemedText>
             </View>
           </View>
@@ -391,7 +391,7 @@ export default function EventInfoScreen() {
           <View style={styles.attribution}>
             <Image source={ICONS.verified} style={styles.badge} contentFit="contain" />
             <View style={styles.attributionText}>
-              <ThemedText style={styles.attributionLabel}>Info. verificada por un docente:</ThemedText>
+              <ThemedText style={styles.attributionLabel}>Verificado por un docente:</ThemedText>
               <ThemedText style={styles.attributionName}>{event.verifier}</ThemedText>
             </View>
           </View>
@@ -518,7 +518,7 @@ export default function EventInfoScreen() {
             <View style={styles.modalTextSection}>
               <ThemedText style={styles.modalTitle}>Añadir calendario iCal</ThemedText>
               <ThemedText style={styles.modalSubtitle}>
-                Copia el enlace y agrégalo a Google Calendar, Calendario de Apple u Outlook para ver ahí los eventos de tu curso.
+                Copia el link y agrégalo a Google Calendar, Calendario de Apple u Outlook para ver ahí los eventos de tu curso.
               </ThemedText>
             </View>
             <HanetButton label="Copiar al portapapeles" onPress={copyIcalToClipboard} />

@@ -43,7 +43,7 @@ export default function VerifyEmailScreen() {
     else if (user.emailVerified) router.replace('/(tabs)');
   }, [initializing, router, user]);
 
-  // One code per visit; asking again goes through "Re-enviar".
+  // One code per visit; asking again goes through "Reenviar".
   useEffect(() => {
     if (!user || user.emailVerified || requested.current) return;
     requested.current = true;
@@ -59,7 +59,7 @@ export default function VerifyEmailScreen() {
           return;
         }
         setSecondsLeft(0);
-        setError(describeAuthError(sendError, 'No pudimos enviar el código. Usa "Re-enviar" en un momento.'));
+        setError(describeAuthError(sendError, 'No pudimos enviar el código. Toca «Reenviar» en un momento.'));
       });
   }, [router, user]);
 
@@ -195,7 +195,7 @@ export default function VerifyEmailScreen() {
               style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
             >
               <ThemedText style={[styles.resendText, secondsLeft > 0 && styles.resendWaiting]}>
-                {sending ? 'Enviando…' : secondsLeft > 0 ? `Re-enviar código en ${secondsLeft} s` : 'Re-enviar código de verificación'}
+                {sending ? 'Enviando…' : secondsLeft > 0 ? `Reenviar en ${secondsLeft} s` : 'Reenviar código'}
               </ThemedText>
             </Pressable>
 
@@ -211,7 +211,7 @@ export default function VerifyEmailScreen() {
             </Pressable>
 
             <View style={styles.why}>
-              <ThemedText style={styles.whyTitle}>¿Por qué un código al email?</ThemedText>
+              <ThemedText style={styles.whyTitle}>¿Por qué un código al correo?</ThemedText>
               <ThemedText style={styles.whyText}>
                 Así sabemos que el correo es tuyo.
               </ThemedText>

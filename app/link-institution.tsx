@@ -250,7 +250,7 @@ export default function LinkInstitutionScreen() {
               </ThemedText>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.methodPrimary, pressed && styles.pressed]}>
-                <ThemedText style={styles.methodHint}>(Más rápida)</ThemedText>
+                <ThemedText style={styles.methodHint}>La más rápida</ThemedText>
                 <ThemedText style={styles.methodPrimaryText}>Usar mi correo institucional</ThemedText>
               </Pressable>
 
@@ -274,12 +274,12 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <View>
-                <ThemedText style={styles.eyebrow}>¡Enlacemos tus credenciales!</ThemedText>
-                <ThemedText accessibilityRole="header" style={styles.title}>Conectar HaNet ID</ThemedText>
+                <ThemedText style={styles.eyebrow}>Con tu correo institucional</ThemedText>
+                <ThemedText accessibilityRole="header" style={styles.title}>Vincular HaNet ID</ThemedText>
               </View>
 
               <HanetField
-                label="Email institucional"
+                label="Correo institucional"
                 value={email}
                 onChangeText={(value) => { setEmail(value); setError(null); }}
                 autoCapitalize="none"
@@ -303,11 +303,11 @@ export default function LinkInstitutionScreen() {
                 onPress={sendLink}
                 style={({ pressed }) => [styles.submitLight, sending && styles.busy, pressed && styles.pressed]}
               >
-                <ThemedText style={styles.submitLightText}>{sending ? 'Enviando…' : 'Conectar HaNet ID'}</ThemedText>
+                <ThemedText style={styles.submitLightText}>{sending ? 'Enviando…' : 'Enviar link'}</ThemedText>
                 {!sending && <Image source={ICONS.arrow} style={styles.icon} tintColor={AppColors.controlOnActive} contentFit="contain" />}
               </Pressable>
 
-              <ThemedText style={styles.note}>Se enviará un link de verificación al correo que introduzcas.</ThemedText>
+              <ThemedText style={styles.note}>Te llegará un link para confirmar que es tuyo. Dura 30 minutos.</ThemedText>
             </View>
           )}
 
@@ -315,8 +315,8 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <View>
-                <ThemedText style={styles.eyebrow}>¡Enlacemos tus credenciales!</ThemedText>
-                <ThemedText accessibilityRole="header" style={styles.title}>Conectar HaNet ID</ThemedText>
+                <ThemedText style={styles.eyebrow}>Con tu correo institucional</ThemedText>
+                <ThemedText accessibilityRole="header" style={styles.title}>Vincular HaNet ID</ThemedText>
               </View>
 
               <ThemedText style={styles.lead}>Si {email} está en la lista de {institutionName}, ya va un link de verificación en camino.</ThemedText>
@@ -324,7 +324,7 @@ export default function LinkInstitutionScreen() {
               <View accessibilityLiveRegion="polite" style={styles.waitingBox}>
                 <ActivityIndicator color={AppColors.textSecondary} />
                 <ThemedText style={styles.waitingText}>
-                  {status?.status === 'email-confirmed' ? 'Correo confirmado' : 'Esperando link mágico…'}
+                  {status?.status === 'email-confirmed' ? 'Correo confirmado' : 'Esperando que confirmes…'}
                 </ThemedText>
               </View>
 
@@ -357,12 +357,12 @@ export default function LinkInstitutionScreen() {
                 style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
               >
                 <ThemedText style={[styles.resendText, secondsLeft > 0 && styles.resendWaiting]}>
-                  {sending ? 'Enviando…' : secondsLeft > 0 ? `(${secondsLeft}s) Re-enviar link mágico` : 'Re-enviar link mágico'}
+                  {sending ? 'Enviando…' : secondsLeft > 0 ? `Reenviar en ${secondsLeft} s` : 'Reenviar link'}
                 </ThemedText>
               </Pressable>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.submitDark, pressed && styles.pressed]}>
-                <ThemedText style={styles.submitDarkText}>Cambiar email de verificación</ThemedText>
+                <ThemedText style={styles.submitDarkText}>Usar otro correo</ThemedText>
               </Pressable>
             </View>
           )}
@@ -376,9 +376,9 @@ export default function LinkInstitutionScreen() {
       <AlertModal visible={reviewOpen} onRequestClose={closeReview}>
         <View style={styles.overlay}>
           <View accessibilityViewIsModal style={styles.review}>
-            <ThemedText style={styles.reviewTitle}>Verifica los datos.</ThemedText>
+            <ThemedText style={styles.reviewTitle}>¿Son tus datos?</ThemedText>
             <ThemedText style={styles.reviewBody}>
-              Estos datos de tu institución quedarán unidos a tu HaNet ID:
+              Quedarán vinculados a tu HaNet ID:
             </ThemedText>
             {!!status?.person && (
               <View style={styles.reviewList}>
@@ -397,7 +397,7 @@ export default function LinkInstitutionScreen() {
               onPress={finish}
               style={({ pressed }) => [styles.reviewConfirm, finishing && styles.busy, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.reviewConfirmText}>{finishing ? 'Enlazando…' : 'Datos correctos'}</ThemedText>
+              <ThemedText style={styles.reviewConfirmText}>{finishing ? 'Vinculando…' : 'Sí, son míos'}</ThemedText>
             </Pressable>
             <Pressable accessibilityRole="button" disabled={finishing} onPress={closeReview} style={({ pressed }) => [styles.reviewBack, pressed && styles.pressed]}>
               <ThemedText style={styles.reviewBackText}>Volver atrás</ThemedText>

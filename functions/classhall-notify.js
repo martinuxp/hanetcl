@@ -112,7 +112,7 @@ function messageFor(kind, hallId, hall, item) {
     return { title: `Tarea nueva · ${subject}`, body: `${truncate(item.title, 80)} · Se entrega el ${dueText(item.dueAt)}.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
   }
   if (kind === "taskTomorrow") {
-    return { title: `Se entrega mañana · ${subject}`, body: `${truncate(item.title, 80)}. Todavía no la entregas.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
+    return { title: `Se entrega mañana · ${subject}`, body: `${truncate(item.title, 80)}. Todavía no la has entregado.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
   }
   // reviewed
   return {

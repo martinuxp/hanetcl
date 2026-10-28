@@ -42,7 +42,7 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityHint={href ? `Abrir ${title}` : 'Próximamente disponible'}
+      accessibilityHint={href ? `Abrir ${title}` : 'Próximamente'}
       accessibilityState={{ disabled: !href }}
       disabled={!href}
       style={({ pressed }) => [styles.gridItem, { minHeight: height }, pressed && styles.gridItemPressed, !href && styles.gridItemUnavailable]}
@@ -163,7 +163,7 @@ function calendarBadge(item: NextCalendarItem, open: () => void): SideBadge {
   const when = item.days > 1 ? `en ${main}` : main.toLocaleLowerCase('es');
   return {
     main,
-    sub: item.isEvaluation ? 'Prox. eval.' : 'Prox.',
+    sub: item.isEvaluation ? 'Próx. eval.' : 'Próx.',
     label: `Próxima ${item.isEvaluation ? 'evaluación' : 'actividad'}: ${item.event.title}, ${when}. Abrir`,
     onPress: open,
   };

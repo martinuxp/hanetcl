@@ -66,7 +66,7 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
       return { label: offset === 1 ? 'Mañana' : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: `Entras a las ${first.start}`, exam };
     }
   }
-  return { label: 'Hoy', subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? 'Disfruta el día' : 'Tu curso aún no carga su horario', exam };
+  return { label: 'Hoy', subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? 'Disfruta el día' : 'Tu curso aún no tiene horario', exam };
 }
 
 function publish() {

@@ -33,7 +33,7 @@ function describeSaveError(error: unknown) {
   if ((error as { code?: string }).code === 'permission-denied') {
     return 'Tu cuenta no tiene permiso para publicar en este curso.';
   }
-  return 'No se pudo guardar el evento. Revisa tu conexión e inténtalo de nuevo.';
+  return 'No pudimos guardar el evento. Revisa tu conexión e inténtalo nuevamente.';
 }
 
 function CreateEventScreen() {
@@ -95,7 +95,7 @@ function CreateEventScreen() {
   const subjectsList = SUBJECTS
     .filter(item => item.plans.includes('comun') || item.plans.includes('electivo') || upper || item.name === subject)
     .map(item => item.name);
-  const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Off Topic'];
+  const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Otro'];
 
   const handleSubmit = async () => {
     setSaveError(null);
@@ -198,7 +198,7 @@ function CreateEventScreen() {
 
         <TextInput
           accessibilityLabel="Título del evento"
-          placeholder="Añade un titulo"
+          placeholder="Añade un título"
           placeholderTextColor="rgba(62,62,58,0.6)"
           style={styles.modalTitleInput}
           value={title}
@@ -310,7 +310,7 @@ function CreateEventScreen() {
             {requestVerification && <CustomIcon name="check-circle" size={16} color={AppColors.textPrimary} />}
           </View>
           <ThemedText style={{ flex: 1, fontSize: 13, color: AppColors.surface, lineHeight: 18, fontFamily: 'DMSans_500Medium' }}>
-            Solicitar al docente de la asignatura verificar la información después de agregarla
+            Pedir que el docente de la asignatura lo confirme
           </ThemedText>
         </Pressable>
 

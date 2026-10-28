@@ -304,7 +304,7 @@ function FeedPostScreen() {
 
       {preview ? (
         <View style={styles.preview}>
-          {currentBody.trim() ? <FeedMarkdown source={currentBody} /> : <ThemedText style={styles.hint}>Todavía no escribes nada.</ThemedText>}
+          {currentBody.trim() ? <FeedMarkdown source={currentBody} /> : <ThemedText style={styles.hint}>Todavía no has escrito nada.</ThemedText>}
         </View>
       ) : (
       <TextInput

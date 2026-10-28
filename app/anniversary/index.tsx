@@ -214,7 +214,7 @@ export default function AnniversaryScreen() {
           <ThemedText style={styles.emptyText}>
             {organizer
               ? 'Arma las alianzas con sus cursos, colores y mascotas. Después cargas las actividades y el marcador se suma solo.'
-              : 'El CEE todavía no arma el aniversario. Cuando lo haga, aquí vas a ver tu alianza, el marcador y lo que viene.'}
+              : 'El CEE todavía no ha armado el aniversario. Cuando lo haga, aquí verás tu alianza, el marcador y lo que viene.'}
           </ThemedText>
           {organizer && <HanetButton label="Armar el aniversario" variant="accent" onPress={() => router.push('/anniversary/setup')} />}
         </View>

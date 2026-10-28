@@ -245,7 +245,7 @@ export default function ClassHallScreen() {
             <ThemedText style={styles.noticeText}>
               {canCreate
                 ? 'Crea un Hall para tu asignatura. Si es para todo el curso, todos entran solos.'
-                : 'Las clases de tu curso aparecen aquí solas cuando tus profesores crean su Hall. Para un electivo o dominio, usa el código en "Unirse a un Hall".'}
+                : 'Las clases de tu curso aparecen solas cuando tus docentes crean su Hall. Para un electivo o dominio, usa «Unirse a un Hall».'}
             </ThemedText>
           </View>
         )}

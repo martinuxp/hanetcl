@@ -16,11 +16,11 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
-        options={{ title: 'Home' }}
+        options={{ title: 'Inicio' }}
       />
       <Tabs.Screen
         name="explore"
-        options={{ title: 'Profile' }}
+        options={{ title: 'Perfil' }}
       />
       <Tabs.Screen
         name="calendar"

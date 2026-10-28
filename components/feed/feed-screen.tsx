@@ -215,7 +215,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
     <View style={styles.empty}>
       <CustomIcon name="feed" size={40} color={AppColors.textSecondary} />
       <ThemedText style={styles.emptyTitle}>
-        {term ? 'No encontramos coincidencias' : selectedSpace ? `${selectedSpace.name} todavía no publica nada` : tag ? 'Todavía no hay avisos' : 'Todavía no hay publicaciones'}
+        {term ? 'No encontramos coincidencias' : selectedSpace ? `${selectedSpace.name} todavía no ha publicado nada` : tag ? 'Todavía no hay avisos' : 'Todavía no hay publicaciones'}
       </ThemedText>
       <ThemedText style={styles.emptyText}>
         {term

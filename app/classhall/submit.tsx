@@ -192,7 +192,7 @@ function SubmitScreen() {
         </View>
       ) : (
         <View style={local.empty}>
-          <ThemedText style={local.emptyText}>Todavía no agregas nada. Elige un archivo, toma una foto de tu cuaderno o pega un vínculo.</ThemedText>
+          <ThemedText style={local.emptyText}>Todavía no has agregado nada. Sube un archivo, una foto o un vínculo.</ThemedText>
         </View>
       )}
 

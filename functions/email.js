@@ -6,7 +6,7 @@ const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const FROM = "HaNet <no-responder@hanet.muxp.art>";
 // Email clients only load images from a public URL (served by Firebase Hosting).
 const LOGO_BASE = "https://hanet-edu.web.app/email";
-const TAGLINE = "La herramienta más moderna para estar conectad@ con tu institución.";
+const TAGLINE = "Calendario, anuncios, tareas y evaluaciones en una sola app.";
 const TERMS_URL = "https://hanet-edu.web.app/terminos";
 const CONTACT = "muxp@muxp.art";
 
@@ -87,28 +87,27 @@ function codeBoxes(code) {
 
 function verificationCodeEmail({ fullName, username, code, minutes }) {
   const firstName = String(fullName || "").trim().split(/\s+/)[0] || "";
-  const greeting = firstName ? `Hola ${escapeHtml(firstName)}, te` : "Te";
+  const greeting = firstName ? `Hola, ${escapeHtml(firstName)}.` : "Hola.";
   const handle = username ? ` @${escapeHtml(username)}` : "";
   const nameLine = fullName ? `<p style="margin:8px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:20px;line-height:24px;font-style:italic;color:#000000;">¡Un placer, ${escapeHtml(fullName)}${handle}!</p>` : "";
 
   const html = layout(`
 <tr><td style="padding:44px 32px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
-<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Bienvenido a HaNet</p>
+<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Te damos la bienvenida a HaNet</p>
 ${nameLine}
-<p style="margin:22px 0 0;">${greeting} damos la bienvenida a HaNet, la herramienta más moderna para estar conectad@ con tu institución.</p>
-<p style="margin:0;">Te enviamos este correo para verificar que eres tú quien está usando este correo para registrar tu nuevo HaNet ID. Para esto necesitas introducir el siguiente código:</p>
+<p style="margin:22px 0 0;">${greeting} Este es tu código para verificar tu correo:</p>
 </td></tr>
 <tr><td align="center" style="padding:0 32px;">${codeBoxes(code)}</td></tr>
 <tr><td style="padding:44px 32px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:24px;color:#241c15;">
-<p style="margin:0;">Introdúcelo en tu aplicación durante los próximos ${minutes} minutos y verifica que eres tú.</p>
+<p style="margin:0;">Escríbelo en la app. Vence en ${minutes} minutos.</p>
 <p style="margin:0;">¡Gracias por usar HaNet${firstName ? `, ${escapeHtml(firstName)}` : ""}!</p>
 </td></tr>`);
 
   const text = [
-    "Bienvenido a HaNet",
+    "Te damos la bienvenida a HaNet",
     "",
     `Tu código de verificación es: ${code}`,
-    `Introdúcelo en la aplicación durante los próximos ${minutes} minutos.`,
+    `Escríbelo en la app. Vence en ${minutes} minutos.`,
     "",
     "¿No reconoces este correo? Puedes ignorarlo.",
   ].join("\n");
@@ -137,7 +136,7 @@ function institutionHero(bannerUrl, logoUrl) {
 </td></tr>`;
 }
 
-function magicLinkEmail({ fullName, username, institutionName, institutionLogoUrl, institutionBannerUrl, institutionalEmail, url, minutes }) {
+function magicLinkEmail({ fullName, username, institutionName, institutionLogoUrl, institutionBannerUrl, url, minutes }) {
   const firstName = String(fullName || "").trim().split(/\s+/)[0] || "";
   const name = escapeHtml(institutionName);
   const hello = firstName
@@ -148,32 +147,31 @@ function magicLinkEmail({ fullName, username, institutionName, institutionLogoUr
 
   const html = layout(`${institutionHero(institutionBannerUrl, institutionLogoUrl)}
 <tr><td style="padding:44px 32px;background:#efeeea;">
-<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">¡Conectemos tu HaNet ID!</p>
-<p style="margin:8px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:20px;line-height:24px;font-style:italic;color:#000000;">Es hora de enlazar tus credenciales y unirte a ${name}</p>
+<p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Vincula tu HaNet ID</p>
+<p style="margin:8px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:20px;line-height:24px;font-style:italic;color:#000000;">Confirma tu correo para unirte a ${name}</p>
 <p style="margin:22px 0 0;${body}">${hello}</p>
-<p style="margin:24px 0 0;${body}">Para entrar a tu institución “${name}”, necesitas enlazar tu correo institucional con tu HaNet ID.</p>
-<p style="margin:24px 0 0;${body}">Al hacerlo, tomaremos tus datos de la lista de tu institución y los completaremos en tu HaNet ID, para que puedas entrar a tu institución en la aplicación.</p>
-<p style="margin:20px 0 0;${small}font-weight:300;">El enlace funciona durante ${minutes} minutos. Si el botón no funciona, copia y pega la siguiente dirección en el navegador del teléfono que estás usando para enlazar tu cuenta:</p>
+<p style="margin:24px 0 0;${body}">Al confirmar, tu HaNet ID queda vinculado a tus datos en la lista de ${name}: nombre, RUT y curso.</p>
+<p style="margin:20px 0 0;${small}font-weight:300;">El link dura ${minutes} minutos. Si el botón no funciona, abre esta dirección en el navegador de tu teléfono:</p>
 <p style="margin:0;${small}font-weight:600;word-break:break-all;">${escapeHtml(url)}</p>
-<p style="margin:20px 0 0;${small}font-weight:300;">Al enlazar, aceptas los <a href="${TERMS_URL}" style="color:#241c15;">Términos y Condiciones</a>.</p>
+<p style="margin:20px 0 0;${small}font-weight:300;">Al vincular, aceptas los <a href="${TERMS_URL}" style="color:#241c15;">Términos y Condiciones</a>.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px;"><tr>
 <td align="center" bgcolor="#ef2274" style="border-radius:60px;">
-<a href="${escapeHtml(url)}" style="display:block;padding:29px 22px;border-radius:60px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#282829;text-decoration:none;text-align:center;">Conectar HaNet ID${institutionalEmail ? ` a ${escapeHtml(institutionalEmail)}` : ""}</a>
+<a href="${escapeHtml(url)}" style="display:block;padding:29px 22px;border-radius:60px;font-family:Inter,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#282829;text-decoration:none;text-align:center;">Vincular HaNet ID</a>
 </td>
 </tr></table>
 </td></tr>`);
 
   const text = [
-    "¡Conectemos tu HaNet ID!",
+    "Vincula tu HaNet ID",
     "",
-    `Para entrar a ${institutionName}, enlaza tu correo institucional con tu HaNet ID:`,
+    `Para unirte a ${institutionName}, confirma tu correo institucional:`,
     url,
     "",
-    `El enlace funciona durante ${minutes} minutos.`,
+    `El link dura ${minutes} minutos.`,
     "¿No reconoces este correo? Puedes ignorarlo.",
   ].join("\n");
 
-  return { subject: `Conecta tu HaNet ID a ${institutionName}`, html, text };
+  return { subject: `Vincula tu HaNet ID a ${institutionName}`, html, text };
 }
 
 // Sent instead of the link when the institutional email already belongs to
@@ -186,20 +184,20 @@ function alreadyLinkedEmail({ institutionName, institutionLogoUrl, institutionBa
   const html = layout(`${institutionHero(institutionBannerUrl, institutionLogoUrl)}
 <tr><td style="padding:44px 32px;background:#efeeea;">
 <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:40px;line-height:48px;font-weight:700;color:#000000;">Este correo ya tiene un HaNet ID</p>
-<p style="margin:22px 0 0;${body}">Alguien pidió conectar ${escapeHtml(institutionalEmail)} a un HaNet ID para entrar a “${name}”, pero ese correo ya está conectado a otro HaNet ID.</p>
-<p style="margin:24px 0 0;${body}">Si fuiste tú, entra con la cuenta que conectaste antes. Si necesitas cambiar de cuenta, o no reconoces la cuenta conectada, pide a los encargados de HaNet en tu institución que la desvinculen.</p>
+<p style="margin:22px 0 0;${body}">Alguien pidió vincular ${escapeHtml(institutionalEmail)} a un HaNet ID para entrar a “${name}”, pero ese correo ya está vinculado a otro HaNet ID.</p>
+<p style="margin:24px 0 0;${body}">Si fuiste tú, entra con la cuenta que vinculaste antes. Si necesitas cambiar de cuenta, o no reconoces la cuenta vinculada, pide a los encargados de HaNet en tu institución que la desvinculen.</p>
 <p style="margin:24px 0 0;${body}">Si no fuiste tú, puedes ignorar este correo: nadie entrará a tu institución con él.</p>
 </td></tr>`);
 
   const text = [
     "Este correo ya tiene un HaNet ID",
     "",
-    `Alguien pidió conectar ${institutionalEmail} a un HaNet ID para entrar a ${institutionName}, pero ese correo ya está conectado a otro HaNet ID.`,
-    "Si fuiste tú, entra con la cuenta que conectaste antes o pide a los encargados de HaNet en tu institución que la desvinculen.",
+    `Alguien pidió vincular ${institutionalEmail} a un HaNet ID para entrar a ${institutionName}, pero ese correo ya está vinculado a otro HaNet ID.`,
+    "Si fuiste tú, entra con la cuenta que vinculaste antes o pide a los encargados de HaNet en tu institución que la desvinculen.",
     "Si no fuiste tú, puedes ignorar este correo.",
   ].join("\n");
 
-  return { subject: `Tu correo ya está conectado a un HaNet ID de ${institutionName}`, html, text };
+  return { subject: `Tu correo ya está vinculado a un HaNet ID de ${institutionName}`, html, text };
 }
 
 module.exports = { RESEND_API_KEY, sendEmail, verificationCodeEmail, magicLinkEmail, alreadyLinkedEmail, escapeHtml };

@@ -211,7 +211,7 @@ export default function SettingsScreen() {
               ? 'Las notificaciones llegan a la app del teléfono, no a la web.'
               : support === 'expo-go-android'
                 ? 'En Android, las notificaciones necesitan la app de HaNet instalada; Expo Go no las recibe.'
-                : 'Anuncios, tareas y material nuevo de tus clases, un recordatorio el día antes de entregar y el aviso cuando tu docente revisa una entrega.'}
+                : 'Anuncios, tareas y material nuevo, recordatorios de entrega y cuando revisan lo que entregaste.'}
           </ThemedText>
           {support === 'supported' && classhallOn && permission === 'denied' && (
             <>
@@ -232,7 +232,7 @@ export default function SettingsScreen() {
             onChange={value => void chooseMorning(value === 'on')}
             disabled={savingDay || loadingNotifications}
           />
-          <ThemedText style={styles.note}>Los días de clases, a las 7:00: tus pruebas y entregas del día y con qué asignatura entras.</ThemedText>
+          <ThemedText style={styles.note}>De lunes a viernes a las 7:00: tu primera clase y las pruebas y entregas del día.</ThemedText>
           <HanetChoice
             label="Avisos de pruebas"
             options={[{ value: 'on', label: 'Activados' }, { value: 'off', label: 'Desactivados' }]}
@@ -244,8 +244,8 @@ export default function SettingsScreen() {
             {support === 'web'
               ? 'Los avisos llegan a la app del teléfono, no a la web.'
               : widgetsAvailable
-                ? '24 y 4 horas antes de cada prueba del Calendario, con una cuenta regresiva en la pantalla bloqueada y la Dynamic Island. Se guardan en este teléfono.'
-                : '24 y 4 horas antes de cada prueba del Calendario. Se guardan en este teléfono.'}
+                ? '24 y 4 horas antes de cada prueba, con cuenta regresiva en la pantalla bloqueada. Solo en este teléfono.'
+                : '24 y 4 horas antes de cada prueba. Solo en este teléfono.'}
           </ThemedText>
           <HanetChoice
             label="Aniversario"

@@ -200,7 +200,7 @@ export default function TaskScreen() {
                 <ThemedText style={styles.sectionLabel}>Entregas</ThemedText>
                 {submissions.length === 0 ? (
                   <View style={styles.card}>
-                    <ThemedText style={styles.body}>Todavía nadie entrega esta tarea.</ThemedText>
+                    <ThemedText style={styles.body}>Nadie ha entregado esta tarea todavía.</ThemedText>
                   </View>
                 ) : (
                   <View style={styles.list}>

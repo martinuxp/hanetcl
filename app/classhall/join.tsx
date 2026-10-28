@@ -91,7 +91,7 @@ function JoinHallScreen() {
     saveLabel: 'Unirse',
     canSave: canJoin,
     title: '¿Salir sin unirte?',
-    message: canJoin ? 'El código es válido, pero todavía no te unes al Hall.' : 'El código que escribiste se perderá.',
+    message: canJoin ? 'El código es válido, pero todavía no te has unido al Hall.' : 'El código que escribiste se perderá.',
   });
 
   return (
@@ -103,7 +103,7 @@ function JoinHallScreen() {
       <Image source={LOGO} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet ClassHall" />
       <ThemedText accessibilityRole="header" style={styles.title}>Unirse a un Hall</ThemedText>
       <ThemedText style={styles.lead}>
-        Pídele el código a tu profesor y escríbelo aquí.
+        Pídele el código a tu docente.
       </ThemedText>
 
       <View style={styles.divider} />
@@ -155,7 +155,7 @@ function JoinHallScreen() {
       )}
       {status.kind === 'invalid' && (
         <ThemedText accessibilityLiveRegion="assertive" style={styles.footnote}>
-          Ese código no corresponde a ningún Hall. Revísalo con tu profesor.
+          Ese código no corresponde a ningún Hall. Revísalo con tu docente.
         </ThemedText>
       )}
       {status.kind === 'failed' && (

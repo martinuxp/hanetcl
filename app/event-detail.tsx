@@ -224,7 +224,7 @@ export default function EventDetailScreen() {
           <View style={styles.signup}>
             <HanetButton
               label={busy ? 'Guardando…' : event.signedUp
-                ? (event.signupMode === 'list' ? 'Estás inscrito · Cancelar' : 'Vas · Ya no voy')
+                ? (event.signupMode === 'list' ? 'Te inscribiste · Cancelar' : 'Vas · Ya no voy')
                 : full ? 'Sin cupos' : event.signupMode === 'list' ? 'Inscribirme' : '¡Participo!'}
               variant={event.signedUp ? 'surface' : 'accent'}
               disabled={busy || full}
@@ -320,7 +320,7 @@ export default function EventDetailScreen() {
               <ThemedText style={styles.editorialTitle}>Inscritos ({event.signups.length})</ThemedText>
               <ThemedText style={styles.sectionNote}>Solo lo ven quienes organizan.</ThemedText>
               {event.signups.length === 0
-                ? <ThemedText style={styles.body}>Todavía nadie se inscribe.</ThemedText>
+                ? <ThemedText style={styles.body}>Nadie se ha inscrito todavía.</ThemedText>
                 : event.signups.map((person, index) => (
                   <ThemedText key={index} style={styles.body}>{index + 1}. {person.name}{person.courseId ? ` · ${person.courseId}` : ''}</ThemedText>
                 ))}
@@ -335,7 +335,7 @@ export default function EventDetailScreen() {
               <ThemedText style={styles.editorialTitle}>Llegaron ({event.checkins.length})</ThemedText>
               <ThemedText style={styles.sectionNote}>Escaneados en la entrada. Solo lo ven quienes organizan.</ThemedText>
               {event.checkins.length === 0
-                ? <ThemedText style={styles.body}>{event.canCheckIn ? 'Todavía no escaneas a nadie.' : 'La lista se abre 3 horas antes del evento.'}</ThemedText>
+                ? <ThemedText style={styles.body}>{event.canCheckIn ? 'Todavía no has escaneado a nadie.' : 'La lista se abre 3 horas antes del evento.'}</ThemedText>
                 : event.checkins.map((person, index) => (
                   <ThemedText key={index} style={styles.body}>{index + 1}. {person.name}{person.courseId ? ` · ${person.courseId}` : ''}</ThemedText>
                 ))}
