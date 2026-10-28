@@ -6,6 +6,8 @@ import { eventBar, useEventBar } from '@/components/events/event-bar-store';
 import { useEventOptions } from '@/components/events/event-options';
 import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
 import { CalendarViewMenu, CalendarViewPill } from '@/components/calendar/view-menu';
+import { OrganizeMenu, OrganizePill, organizeBar, useOrganizeBar } from '@/components/anniversary/organize-menu';
+import { useAnniversaryState } from '@/services/anniversary-service';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -416,10 +418,13 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
 /** Routes that show the bar; everything else (sign-in, onboarding, sheets) has none. */
 const TAB_ROOTS = ['/', '/explore'];
-const BAR_ROUTES = [...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation', '/hnt-admin', '/settings', '/licenses'];
+const BAR_ROUTES = [
+  ...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation',
+  '/anniversary', '/anniversary/activities', '/anniversary/notices', '/hnt-admin', '/settings', '/licenses',
+];
 
 /** Screens whose center pill is a search, which they read from the bar store. */
-const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed' };
+const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed', '/anniversary/notices': 'Buscar en los avisos' };
 
 /**
  * The app's only bar. It lives in the root layout, above every screen, so it
@@ -433,6 +438,8 @@ export function GlobalTabBar() {
   const bar = useEventBar();
   const options = useEventOptions(bar.actions);
   const calendar = useCalendarBar();
+  const organize = useOrganizeBar();
+  const anniversary = useAnniversaryState();
 
   // The search belongs to the screen it was opened on: changing screen closes it.
   const searchRoute = React.useRef(pathname);
@@ -441,14 +448,17 @@ export function GlobalTabBar() {
     searchRoute.current = pathname;
   }, [bar.query, bar.searchOpen, pathname]);
 
-  // The Calendar's menu belongs to the Calendar too.
+  // The Calendar's menu belongs to the Calendar too, and the Aniversario's to it.
   React.useEffect(() => {
     if (pathname !== '/calendar') calendarBar.closeMenu();
+    if (pathname !== '/anniversary') organizeBar.closeMenu();
   }, [pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
 
   const isTabRoot = TAB_ROOTS.includes(pathname);
+  // The Aniversario's tools, once it is armed, for those who organize it.
+  const organizing = pathname === '/anniversary' && !!anniversary?.canOrganize && !!anniversary.anniversary;
   const canAddEvents = !!user && !!role && EVENT_EDITOR_ROLES.includes(role);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -480,6 +490,8 @@ export function GlobalTabBar() {
   } else if (pathname === '/calendar') {
     // Names the view on screen; the menu to change it grows out of the bar.
     center = <CalendarViewPill view={calendar.view} open={calendar.menuOpen} onPress={calendarBar.toggleMenu} />;
+  } else if (organizing) {
+    center = <OrganizePill open={organize.menuOpen} />;
   }
 
   return (
@@ -490,13 +502,15 @@ export function GlobalTabBar() {
       onProfile={() => goToTab('/explore')}
       active={pathname === '/' ? 'home' : pathname === '/explore' ? 'profile' : null}
       center={center}
-      controlsKey={isTabRoot ? 'main' : pathname === '/calendar' || pathname === '/events' || pathname === '/feed' || pathname === '/event-detail' ? pathname : 'screen'}
+      controlsKey={isTabRoot ? 'main' : ['/calendar', '/events', '/feed', '/event-detail', '/anniversary/notices'].includes(pathname) || organizing ? pathname : 'screen'}
       search={SEARCH_PLACEHOLDERS[pathname]
         ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
         : undefined}
       panel={pathname === '/calendar'
         ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
-        : undefined}
+        : organizing
+          ? { open: organize.menuOpen, label: 'el menú', onClose: organizeBar.closeMenu, content: <OrganizeMenu /> }
+          : undefined}
     />
     {options.dialog}
     </>

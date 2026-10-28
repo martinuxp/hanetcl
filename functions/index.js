@@ -39,6 +39,9 @@ Object.assign(exports, require("./events").build(getAdminApp));
 // Feed y Comunidad: announcements by Espacios, with reactions.
 Object.assign(exports, require("./feed").build(getAdminApp));
 
+// Aniversario: alianzas, their points, deadlines and flash tests.
+Object.assign(exports, require("./anniversary").build(getAdminApp));
+
 // Push notifications: devices register their token here.
 Object.assign(exports, require("./classhall-notify").build(getAdminApp));
 

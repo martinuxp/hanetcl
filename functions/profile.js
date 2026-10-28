@@ -41,6 +41,13 @@ function build(getAdminApp) {
       return { morningNotifications: morning };
     }
 
+    // The switch for the anniversary's flash tests and deadlines.
+    if (typeof request.data?.anniversaryNotifications === "boolean") {
+      const anniversary = request.data.anniversaryNotifications;
+      await accountRef.set({ notifications: { anniversary } }, { merge: true });
+      return { anniversaryNotifications: anniversary };
+    }
+
     const nameFont = request.data?.nameFont;
     if (!NAME_FONTS.includes(nameFont)) {
       throw new HttpsError("invalid-argument", "Esa letra no está disponible.");
@@ -92,6 +99,7 @@ function build(getAdminApp) {
       avatarSeed: seed,
       classhallNotifications: account.notifications?.classhall !== false,
       morningNotifications: account.notifications?.morning !== false,
+      anniversaryNotifications: account.notifications?.anniversary !== false,
       jornada: ["manana", "tarde"].includes(account.jornada) ? account.jornada : null,
     };
   });

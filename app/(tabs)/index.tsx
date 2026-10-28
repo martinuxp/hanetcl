@@ -8,13 +8,15 @@ import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
 import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
 import type { MyProfile, Treatment } from '@/services/auth-service';
-import { restoreCached } from '@/services/cache';
+import { restoreCached, useCached } from '@/services/cache';
 import { listMyHalls } from '@/services/classhall-service';
 import { listEvents } from '@/services/events-service';
 import { listFeed } from '@/services/feed-service';
 import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { useHomeHighlights } from '@/hooks/use-home-highlights';
+import { getAnniversary, useAnniversaryState } from '@/services/anniversary-service';
+import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
 
@@ -122,6 +124,15 @@ export default function HomeScreen() {
     void listEvents('institution').catch(() => undefined);
   }, [contentLoaded, linked]);
 
+  // The Aniversario tile: what the phone kept, then the fresh score on every visit.
+  const keptAnniversary = useCached<AnniversaryState>(linked ? 'anniversary' : null);
+  const anniversary = useAnniversaryState() ?? keptAnniversary;
+  useFocusEffect(
+    useCallback(() => {
+      if (contentLoaded && linked) void getAnniversary().catch(() => undefined);
+    }, [contentLoaded, linked])
+  );
+
   if (!gateOpen) {
     return (
       <View style={styles.container}>
@@ -144,7 +155,7 @@ export default function HomeScreen() {
             <InstitutionBanner title={shownInstitution.name} logoUrl={shownInstitution.logoUrl} bannerUrl={shownInstitution.bannerUrl} />
           </View>
         )}
-        <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} />
+        <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
 
         {!user && (
           <HanetButton

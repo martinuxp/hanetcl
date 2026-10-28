@@ -18,6 +18,14 @@ export const SHEET_DETENTS: Record<string, number[]> = {
   'classhall/task-form': [1.0],
   'classhall/submit': [0.85, 1.0],
   'classhall/submission': [0.75, 1.0],
+  'anniversary/setup': [1.0],
+  'anniversary/activity': [1.0],
+  'anniversary/detail': [0.75, 1.0],
+  'anniversary/result': [0.75, 1.0],
+  'anniversary/points': [0.75, 1.0],
+  'anniversary/deadline': [0.75, 1.0],
+  'anniversary/flash': [1.0],
+  'anniversary/leads': [0.75, 1.0],
 };
 
 export function sheetDetents(route: string) {

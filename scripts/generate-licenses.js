@@ -54,6 +54,14 @@ for (const dir of [...dirs]) {
   packages.set(key, { name: pkg.name, version: pkg.version, license, author, text, url: normalizeUrl(repo) ?? pkg.homepage ?? null });
 }
 
+// Fonts copied into assets/ ship without a package of their own.
+const BUNDLED = [
+  { name: 'Google Sans Flex', version: '5.000', license: 'OFL-1.1', author: 'Google LLC', url: 'https://fonts.google.com/specimen/Google+Sans+Flex', file: 'assets/fonts/google-sans-flex/OFL.txt' },
+];
+for (const { file, ...entry } of BUNDLED) {
+  packages.set(`${entry.name}@${entry.version}`, { ...entry, text: fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n').trim() });
+}
+
 function normalizeUrl(repo) {
   if (!repo) return null;
   const url = repo.replace(/^git\+/, '').replace(/\.git$/, '').replace(/^git:\/\//, 'https://').replace(/^ssh:\/\/git@/, 'https://');

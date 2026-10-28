@@ -115,6 +115,14 @@ export default function RootLayout() {
     // Italics of the feed's Markdown.
     DMSans_400Regular_Italic,
     DMSans_700Bold_Italic,
+    // Google Sans Flex cuts for the Aniversario (see AppFlexFonts).
+    GoogleSansFlex_300Light_ExtraCondensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_300Light_ExtraCondensed.ttf'),
+    GoogleSansFlex_500Medium_Condensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_500Medium_Condensed.ttf'),
+    GoogleSansFlex_700Bold: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_700Bold.ttf'),
+    GoogleSansFlex_700Bold_SemiExpanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_700Bold_SemiExpanded.ttf'),
+    GoogleSansFlex_800ExtraBold_Expanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_800ExtraBold_Expanded.ttf'),
+    GoogleSansFlex_900Black_Condensed: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_900Black_Condensed.ttf'),
+    GoogleSansFlex_900Black_ExtraExpanded: require('@/assets/fonts/google-sans-flex/GoogleSansFlex_900Black_ExtraExpanded.ttf'),
   });
 
   // The native splash only covers the font load; HaNet's own splash takes
@@ -197,6 +205,18 @@ export default function RootLayout() {
             <Stack.Screen name="licenses" options={{ headerShown: false }} />
             <Stack.Screen name="whats-new" options={{ headerShown: false }} />
             <Stack.Screen name="event-info" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/index" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/activities" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/notices" options={{ headerShown: false }} />
+            <Stack.Screen name="anniversary/welcome" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="anniversary/setup" options={sheetOptions('anniversary/setup')} />
+            <Stack.Screen name="anniversary/activity" options={sheetOptions('anniversary/activity')} />
+            <Stack.Screen name="anniversary/detail" options={sheetOptions('anniversary/detail')} />
+            <Stack.Screen name="anniversary/result" options={sheetOptions('anniversary/result')} />
+            <Stack.Screen name="anniversary/points" options={sheetOptions('anniversary/points')} />
+            <Stack.Screen name="anniversary/deadline" options={sheetOptions('anniversary/deadline')} />
+            <Stack.Screen name="anniversary/flash" options={sheetOptions('anniversary/flash')} />
+            <Stack.Screen name="anniversary/leads" options={sheetOptions('anniversary/leads')} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
             <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />

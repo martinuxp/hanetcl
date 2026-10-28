@@ -82,6 +82,9 @@ export type Feed = {
   pollSpaces: string[];
 };
 
+/** The tag of the Aniversario's avisos (functions/feed.js). */
+export const ANNIVERSARY_TAG = 'Aniversario';
+
 /** Images per post and tags per post, as functions/feed.js allows. */
 export const MAX_FEED_IMAGES = 6;
 export const MAX_FEED_TAGS = 3;
@@ -113,16 +116,24 @@ export const REPORT_REASONS = [
   { value: 'otro', label: 'Otro motivo' },
 ] as const;
 
-// The last feed loaded, so the form opens without another read.
+// The last feed loaded, so the form opens without another read, and every
+// post loaded (from the whole feed or a tag's), so it opens to be edited.
 let lastFeed: Feed | null = null;
+const loadedPosts = new Map<string, FeedPost>();
 
 export function getLoadedFeed() {
   return lastFeed;
 }
 
-export async function listFeed() {
-  const feed = await cached('feed', async () => (await httpsCallable<void, Feed>(functions, 'listFeed')()).data);
-  lastFeed = feed;
+export function getLoadedPost(id: string) {
+  return loadedPosts.get(id) ?? null;
+}
+
+/** The feed, or only the posts with `tag` (the Aniversario's avisos). */
+export async function listFeed(tag?: string) {
+  const feed = await cached(tag ? `feed:tag:${tag}` : 'feed', async () => (await httpsCallable<{ tag?: string }, Feed>(functions, 'listFeed')(tag ? { tag } : {})).data);
+  if (!tag) lastFeed = feed;
+  for (const post of feed.posts) loadedPosts.set(post.id, post);
   return feed;
 }
 
@@ -145,6 +156,8 @@ export type FeedPostInput = {
   /** Only when creating: an event to share, or a poll. */
   eventId?: string;
   poll?: { options: string[]; closesAt: number; results: 'live' | 'closed' };
+  /** Only when creating an #Aniversario post of the school or the CEE: a push to the alianzas. */
+  notify?: boolean;
 };
 
 export async function saveFeedPost(input: FeedPostInput) {
