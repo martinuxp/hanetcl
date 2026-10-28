@@ -2,59 +2,40 @@ import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppPressed, AppSpacing } from '@/constants/design-tokens';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Dimensions, Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { KeyboardEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollViewProps, ViewStyle, StyleProp } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 // The keyboard covers the bottom of the screen without moving anything: on
 // iOS the form sheet stays where it is, and on Android (edge to edge) the
-// window doesn't shrink either. So each sheet and dialog measures how much of
-// it the keyboard covers, keeps its content above that, scrolls the field
-// being typed into back into view, and offers a button to put the keyboard away.
+// window doesn't shrink either. Sheets and dialogs reach the bottom of the
+// screen, so what the keyboard covers of them is its top measured from the
+// screen's bottom. (Measuring the sheet itself doesn't work: on iOS the
+// layout doesn't know where the native sheet sits.) Each one keeps its content
+// above that, scrolls the field being typed into back into view, and offers a
+// button to put the keyboard away.
 
 const IOS = Platform.OS === 'ios';
-const SHOW = IOS ? 'keyboardWillShow' : 'keyboardDidShow';
+const SHOW = IOS ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
 const HIDE = IOS ? 'keyboardWillHide' : 'keyboardDidHide';
 // Room between the field being typed into and the keyboard (the button fits there).
 const FIELD_MARGIN = 64;
 
-/**
- * How many points of `target` the keyboard covers, and whether it is up.
- * Measured again a moment later, when an Android sheet has finished rising.
- */
-export function useKeyboardOverlap(target: React.RefObject<React.ComponentRef<typeof View> | null>) {
+/** How many points of the screen's bottom the keyboard covers, and whether it is up. */
+export function useKeyboardOverlap() {
   const [state, setState] = useState({ shown: false, overlap: 0 });
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const measure = (top: number) => {
-      const node = target.current;
-      if (!node) {
-        setState({ shown: true, overlap: 0 });
-        return;
-      }
-      node.measureInWindow((_x, y, _width, height) => {
-        setState({ shown: true, overlap: Math.max(0, Math.round(y + height - top)) });
-      });
-    };
     const onShow = (event: KeyboardEvent) => {
-      const top = event.endCoordinates.screenY;
-      measure(top);
-      clearTimeout(timer);
-      timer = setTimeout(() => measure(top), 400);
+      const overlap = Math.max(0, Math.round(Dimensions.get('screen').height - event.endCoordinates.screenY));
+      setState({ shown: overlap > 0, overlap });
     };
     const subscriptions = [
       Keyboard.addListener(SHOW, onShow),
-      Keyboard.addListener(HIDE, () => {
-        clearTimeout(timer);
-        setState({ shown: false, overlap: 0 });
-      }),
+      Keyboard.addListener(HIDE, () => setState({ shown: false, overlap: 0 })),
     ];
-    return () => {
-      clearTimeout(timer);
-      subscriptions.forEach(subscription => subscription.remove());
-    };
-  }, [target]);
+    return () => subscriptions.forEach(subscription => subscription.remove());
+  }, []);
   return state;
 }
 
@@ -90,10 +71,9 @@ type KeyboardScrollProps = ScrollViewProps & {
  * On the web it is a plain ScrollView (the browser takes care of it).
  */
 export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, children, ...props }: KeyboardScrollProps) {
-  const box = useRef<React.ComponentRef<typeof View>>(null);
   const scroll = useRef<ScrollHandle | null>(null);
   const offset = useRef(0);
-  const { shown, overlap } = useKeyboardOverlap(box);
+  const { shown, overlap } = useKeyboardOverlap();
 
   const setRefs = useCallback((node: ScrollHandle | null) => {
     scroll.current = node;
@@ -128,7 +108,7 @@ export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, childr
   }
 
   return (
-    <View ref={box} style={[styles.box, containerStyle]}>
+    <View style={[styles.box, containerStyle]}>
       <View style={[styles.box, { paddingBottom: overlap }]}>
         <ScrollView
           ref={setRefs}

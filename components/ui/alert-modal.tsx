@@ -1,5 +1,5 @@
 import { KeyboardDismissButton, useKeyboardOverlap } from '@/components/ui/keyboard';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -30,8 +30,7 @@ export function AlertModal({ visible, onRequestClose, children }: Props) {
   if (visible && shown !== children) setShown(children);
   const progress = useSharedValue(0);
   // A dialog with a field stays above the keyboard, with "Bajar teclado" under it.
-  const screen = useRef<React.ComponentRef<typeof View>>(null);
-  const keyboard = useKeyboardOverlap(screen);
+  const keyboard = useKeyboardOverlap();
 
   useEffect(() => {
     if (visible) {
@@ -52,7 +51,6 @@ export function AlertModal({ visible, onRequestClose, children }: Props) {
   return (
     <Modal visible={mounted} transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.scrim, scrimStyle]} />
-      <View ref={screen} pointerEvents="none" style={StyleSheet.absoluteFill} />
       <Animated.View style={[styles.layer, dialogStyle, { paddingBottom: keyboard.overlap }]}>
         <View pointerEvents={visible ? 'box-none' : 'none'} style={styles.layer}>
           {visible ? children : shown}
