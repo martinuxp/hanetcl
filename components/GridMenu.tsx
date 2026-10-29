@@ -131,7 +131,7 @@ function anniversaryBand(state: AnniversaryState | null | undefined, now: number
   if (phase === 'after') {
     return scored ? { text: `¡Ganó ${leader.name}!`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
   }
-  // The Home's strips already show the score: one's alianza and the time left.
+  // The Home's carousel already shows the score: one's alianza and the time left.
   if (mine) {
     const left = daysTo(anniversary.endsAt, now);
     return { text: `${mine.name} - ${left <= 0 ? '¡Último día!' : left === 1 ? 'Queda 1 día' : `Quedan ${left} días`}`, alliance: mine };

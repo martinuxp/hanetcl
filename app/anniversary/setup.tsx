@@ -320,7 +320,7 @@ function SetupScreen() {
                 );
               })}
             </View>
-            <ThemedText style={styles.hint}>Como la camiseta de un equipo: sale en sus franjas y tarjetas.</ThemedText>
+            <ThemedText style={styles.hint}>Como la camiseta de un equipo: sale en su anillo y sus tarjetas.</ThemedText>
           </View>
           <Pressable
             accessibilityRole="button"

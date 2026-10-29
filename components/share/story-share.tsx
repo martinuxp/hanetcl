@@ -136,7 +136,7 @@ function WallpaperStory({ alliance, title, onReady }: { alliance: Alliance; titl
   const mascots = mascotsOf(alliance);
   return (
     <>
-      <GradientCard colors={allianceOwnFills(alliance)} style={styles.wallpaperLight}><View /></GradientCard>
+      <GradientCard colors={allianceOwnFills(alliance)} still style={styles.wallpaperLight}><View /></GradientCard>
       <View />
       <View style={styles.wallpaperMiddle}>
         {mascots.length > 0 && <ThemedText maxFontSizeMultiplier={1} style={styles.wallpaperMascots}>{mascots.join(' ')}</ThemedText>}

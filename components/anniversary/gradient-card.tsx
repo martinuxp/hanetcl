@@ -1,4 +1,5 @@
 import { fromHsl, toHex, toHsl, toRgb } from '@/components/events/event-glow';
+import { FLAG_AVAILABLE, FlagSurface } from '@/components/anniversary/flag-surface';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -9,7 +10,8 @@ import Svg, { Circle, Defs, Ellipse, LinearGradient, Mask, Pattern, RadialGradie
 // A card lit from inside by its alianzas' colors, after Apple Sports' team
 // cards: a deep base and soft blobs that drift slowly, under a halftone of
 // dots that fades across it, like print, so it doesn't read as a plain
-// digital gradient. The colors are pushed
+// digital gradient. On phones it all waves like a flag (flag-surface.tsx);
+// on the web, and in images saved to share, it stays SVG. The colors are pushed
 // dark enough for white text, so it always reads the same way. Kept for the
 // cards that carry points or results; the page itself stays dark.
 
@@ -93,8 +95,11 @@ function Halftone({ id, width, height }: { id: string; width: number; height: nu
 
 let nextId = 0;
 
-/** `colors` are fills (hex), the first one leads. */
-export function GradientCard({ colors, style, children }: { colors: string[]; style?: StyleProp<ViewStyle>; children: React.ReactNode }) {
+/**
+ * `colors` are fills (hex), the first one leads. `still` keeps the SVG version,
+ * for cards captured as images (a GPU canvas doesn't come out in a capture).
+ */
+export function GradientCard({ colors, still, style, children }: { colors: string[]; still?: boolean; style?: StyleProp<ViewStyle>; children: React.ReactNode }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [prefix] = useState(() => `gradient-card-${nextId++}`);
   const key = colors.join();
@@ -108,7 +113,10 @@ export function GradientCard({ colors, style, children }: { colors: string[]; st
 
   return (
     <View onLayout={onLayout} style={[styles.card, { backgroundColor: base }, style]}>
-      {size && (
+      {size && FLAG_AVAILABLE && !still && (
+        <FlagSurface base={base} colors={blobs.map(blob => blob.color)} width={size.width} height={size.height} />
+      )}
+      {size && (!FLAG_AVAILABLE || still) && (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {blobs.map((blob, index) => (
             <BlobView key={`${key}-${index}`} blob={blob} id={`${prefix}-${index}`} width={size.width} height={size.height} />

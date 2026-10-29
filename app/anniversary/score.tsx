@@ -1,17 +1,17 @@
-import { AllianceDot, PlaceMark, allianceFills, signedPoints } from '@/components/anniversary/anniversary-ui';
+import { AllianceBadge, PlaceMark, allianceFills, signedPoints } from '@/components/anniversary/anniversary-ui';
 import { GradientCard } from '@/components/anniversary/gradient-card';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetChip } from '@/components/ui/hanet-chip';
 import { withSheetFrame } from '@/components/ui/sheet-frame';
-import { AppColors, AppDisplay, AppFlexFonts, AppSpacing, AppType } from '@/constants/design-tokens';
+import { AppColors, AppDisplay, AppFlexFonts, AppPressed, AppSpacing, AppType } from '@/constants/design-tokens';
 import { formatPoints, movements, standings, useAnniversaryState } from '@/services/anniversary-service';
 import type { Alliance, Movement, Standing } from '@/services/anniversary-service';
 import { feedWhen } from '@/services/feed-service';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const PLACES = ['Primer lugar', 'Segundo lugar', 'Tercer lugar', 'Cuarto lugar', 'Quinto lugar', 'Sexto lugar', 'Séptimo lugar', 'Octavo lugar'];
@@ -28,18 +28,23 @@ function PlaceCell({ standing, mine, right, hidden }: { standing: Standing; mine
       accessibilityLabel={`${hidden ? '' : `${PLACES[standing.place] ?? `${standing.place + 1}° lugar`}, `}${standing.name}${mine ? ', tu alianza' : ''}${hidden ? '' : `: ${formatPoints(standing.total ?? 0)} puntos`}`}
       style={[styles.cell, right && styles.cellRight, small && styles.cellSmall]}
     >
-      {!hidden && <ThemedText style={[styles.placeLabel, align]}>{PLACES[standing.place] ?? `${standing.place + 1}° lugar`}</ThemedText>}
+      {(!hidden || mine) && (
+        <View style={[styles.labelRow, right && styles.labelRowRight]}>
+          {!hidden && <ThemedText style={styles.placeLabel}>{PLACES[standing.place] ?? `${standing.place + 1}° lugar`}</ThemedText>}
+          {mine && <View style={styles.mine}><ThemedText maxFontSizeMultiplier={1.2} style={styles.mineText}>Tu alianza</ThemedText></View>}
+        </View>
+      )}
       <ThemedText numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.name, small && styles.nameSmall, align]}>{standing.name}</ThemedText>
-      {mine && <ThemedText style={[styles.mine, align]}>Tu alianza</ThemedText>}
       {!hidden && <ThemedText style={[styles.points, small && styles.pointsSmall, align]}>{formatPoints(standing.total ?? 0)}</ThemedText>}
     </View>
   );
 }
 
 /**
- * "Registro de puntos" (Figma 10998:3868): opened from the Home's strips.
- * Every alianza by place on its colors, the gap between the first two, and
- * every movement in a table with filters.
+ * "Registro de puntos" (Figma 10998:3868): opened from the Home's carousel.
+ * Every alianza by place on their waving colors, the gap between the first
+ * two, and every movement in a glass table with filters. It closes by
+ * swiping down, so the only action is a link to the whole anniversary.
  */
 function ScoreScreen() {
   const router = useRouter();
@@ -130,8 +135,10 @@ function ScoreScreen() {
           )}
         </View>
 
-        <HanetButton label="Ver el aniversario" variant="accent" onPress={openAnniversary} />
-        <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />
+        <Pressable accessibilityRole="link" hitSlop={8} onPress={openAnniversary} style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
+          <ThemedText style={styles.linkText}>Ver el aniversario</ThemedText>
+          <Ionicons name="chevron-forward" size={16} color={AppColors.textPrimary} />
+        </Pressable>
       </ScrollView>
     </GradientCard>
   );
@@ -145,11 +152,11 @@ function MovementRow({ movement, alliance, now, first }: { movement: Movement; a
       accessibilityLabel={`${alliance?.name ?? 'Alianza'}, ${movement.reason}${points !== null ? `, ${signedPoints(points)} puntos` : movement.place !== null ? `, ${movement.place + 1}° lugar` : ''}`}
       style={[styles.row, !first && styles.rowBorder]}
     >
-      {alliance ? <AllianceDot alliance={alliance} size={10} /> : <View style={styles.dotSpace} />}
+      {alliance ? <AllianceBadge alliance={alliance} size={30} /> : <View style={styles.dotSpace} />}
       <View style={styles.rowText}>
-        <ThemedText numberOfLines={1} style={styles.rowName}>{alliance?.name ?? 'Alianza'}</ThemedText>
-        <ThemedText numberOfLines={2} style={styles.rowReason}>
-          {movement.reason}{movement.at ? ` · ${feedWhen(movement.at, now)}` : ''}
+        <ThemedText numberOfLines={2} style={styles.rowName}>{movement.reason}</ThemedText>
+        <ThemedText numberOfLines={1} style={styles.rowReason}>
+          {[alliance?.name ?? 'Alianza', movement.place !== null ? `${movement.place + 1}° lugar` : points !== null && points < 0 ? 'Descuento' : 'Suma', movement.at ? feedWhen(movement.at, now).toLocaleLowerCase('es') : null].filter(Boolean).join(' · ')}
         </ThemedText>
       </View>
       {points !== null ? (
@@ -216,6 +223,15 @@ const styles = StyleSheet.create({
   right: {
     textAlign: 'right',
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  labelRowRight: {
+    justifyContent: 'flex-end',
+  },
   placeLabel: {
     fontFamily: 'DMSans_500Medium',
     fontSize: 14,
@@ -234,9 +250,15 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   mine: {
-    ...AppType.caption,
+    paddingHorizontal: 7,
+    borderRadius: 999,
+    backgroundColor: AppColors.textPrimary,
+  },
+  mineText: {
     fontFamily: 'DMSans_700Bold',
-    color: AppColors.textPrimary,
+    fontSize: 10,
+    lineHeight: 15,
+    color: AppColors.textOnLight,
   },
   points: {
     ...AppDisplay.score,
@@ -272,11 +294,11 @@ const styles = StyleSheet.create({
   table: {
     gap: AppSpacing.sm,
     padding: AppSpacing.lg,
-    borderRadius: 15,
+    borderRadius: 20,
     borderCurve: 'continuous',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.5)',
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
   tableTitle: {
     ...AppType.headline,
@@ -302,7 +324,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.3)',
   },
   dotSpace: {
-    width: 10,
+    width: 30,
   },
   rowText: {
     flex: 1,
@@ -327,7 +349,23 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   rowMinus: {
-    color: AppColors.errorText,
+    opacity: 0.65,
+  },
+  link: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 4,
+  },
+  linkText: {
+    ...AppType.headline,
+    fontSize: 15,
+    color: AppColors.textPrimary,
+  },
+  pressed: {
+    opacity: AppPressed.opacity,
   },
 });
 

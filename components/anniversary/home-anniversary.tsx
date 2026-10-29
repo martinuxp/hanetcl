@@ -1,22 +1,29 @@
-import { AllianceBadge, PlaceMark, allianceColor, allianceFills, allianceSecond } from '@/components/anniversary/anniversary-ui';
+import { AllianceBadge, allianceColor, allianceFills, allianceOwnFills, allianceSecond, dayText } from '@/components/anniversary/anniversary-ui';
+import { GradientCard } from '@/components/anniversary/gradient-card';
 import { ThemedText } from '@/components/themed-text';
+import { CrownIcon } from '@/assets/animated-icons/crown';
 import { AppColors, AppFlexFonts, AppPressed } from '@/constants/design-tokens';
 import { anniversaryDay, daysTo, formatPoints, movements, standings } from '@/services/anniversary-service';
 import type { Alliance, Anniversary, AnniversaryPhase, Standing } from '@/services/anniversary-service';
+import { feedWhen } from '@/services/feed-service';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
-import Svg, { Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from 'react-native-svg';
+import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
+import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from 'react-native-svg';
 
-// The Home during alianza week (Figma "Home aniversario", before and during):
-// the top lit by the alianzas' colors, a strip with the countdown or the last
-// movement, and the leader's and one's own alianza's strips under the banner.
-// Tapping the top strip or one's own opens the score sheet.
+// The Home during alianza week: the top lit by the alianzas' colors and,
+// under the banner, a carousel of two cards. The first is one's own alianza
+// (place, points and the last movement) on its waving colors; swiping shows
+// every alianza as a row of rings, which come in one after another with the
+// finger. Either card opens the score sheet.
 
 export const GLOW_HEIGHT = 262;
 // Room above the page, as far as an iOS bounce can pull it.
 const OVERSCROLL = 600;
+const CARD_HEIGHT = 138;
+const SIDE = 16;
 
 /** Seconds that tick, only while the countdown is on screen. */
 function useTicking(active: boolean) {
@@ -79,154 +86,230 @@ export function AnniversaryGlow({ alliances, width }: { alliances: Pick<Alliance
   );
 }
 
-/** A full-width strip in an alianza's colors: its main fill into its second one (or a lighter self). */
-function StripFill({ alliance, height, style, children }: { alliance: Pick<Alliance, 'color' | 'color2'> | null; height: number; style?: StyleProp<ViewStyle>; children: React.ReactNode }) {
-  const [width, setWidth] = useState(0);
-  const color = alliance ? allianceColor(alliance) : null;
-  const from = color?.fill ?? AppColors.accent;
-  const to = (alliance && allianceSecond(alliance)?.fill) ?? from;
+/** The card's bottom line: when it starts, the last movement while it runs, the winner after. */
+function liveLine(anniversary: Anniversary, phase: AnniversaryPhase, rows: Standing[], now: number) {
+  if (phase === 'before') {
+    return { text: `${anniversary.alliances.length} alianzas · Empieza el ${dayText(anniversary.startsAt)}`, live: false };
+  }
+  if (phase === 'after') {
+    const [leader] = rows;
+    if (leader && leader.total !== null && leader.total > 0) return { text: `¡Ganó ${leader.name}!`, live: false };
+    return { text: '¡Gracias por este aniversario!', live: false };
+  }
+  const [last] = movements(anniversary);
+  const alliance = last ? anniversary.alliances.find(item => item.id === last.allianceId) : undefined;
+  if (last && alliance) {
+    const when = last.at ? ` · ${feedWhen(last.at, now).toLocaleLowerCase('es')}` : '';
+    const won = last.kind === 'result' && (last.place === 0 || last.place === null);
+    const what = won ? `${alliance.name} ganó ${last.reason}`
+      : last.points === null ? `${alliance.name}: ${(last.place ?? 0) + 1}° en ${last.reason}`
+        : last.points > 0 ? `${alliance.name} +${formatPoints(last.points)} · ${last.reason}`
+          : `${alliance.name} −${formatPoints(-last.points)} · ${last.reason}`;
+    return { text: `${what}${when}`, live: true };
+  }
+  const { day, total } = anniversaryDay(anniversary, now);
+  return { text: `Día ${day} de ${total} · Todavía no hay puntos`, live: false };
+}
+
+/** A mascot inside a ring in the alianza's two colors. */
+function MascotRing({ alliance, size, id }: { alliance: Alliance; size: number; id: string }) {
+  const from = allianceColor(alliance).fill;
+  const to = allianceSecond(alliance)?.fill ?? AppColors.textPrimary;
+  const stroke = Math.max(2.5, size * 0.05);
   return (
-    <View onLayout={event => setWidth(event.nativeEvent.layout.width)} style={[styles.strip, { height, backgroundColor: from }, style]}>
-      {width > 0 && to !== from && (
-        <Svg pointerEvents="none" width={width} height={height} style={StyleSheet.absoluteFill}>
-          <Defs>
-            <LinearGradient id={`strip-${alliance?.color}-${alliance?.color2}`} x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0.35" stopColor={from} />
-              <Stop offset="1" stopColor={to} />
-            </LinearGradient>
-          </Defs>
-          <Rect x={0} y={0} width={width} height={height} fill={`url(#strip-${alliance?.color}-${alliance?.color2})`} />
-        </Svg>
-      )}
-      {children}
+    <View style={[styles.ring, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={from} />
+            <Stop offset="1" stopColor={to} />
+          </LinearGradient>
+        </Defs>
+        <Circle cx={size / 2} cy={size / 2} r={size / 2 - stroke / 2} stroke={`url(#${id})`} strokeWidth={stroke} fill="none" />
+      </Svg>
+      <AllianceBadge alliance={alliance} size={size - stroke * 2 - 4} />
     </View>
   );
 }
 
-/** What the top strip says, and in whose colors. */
-function topLine(anniversary: Anniversary, phase: AnniversaryPhase, now: number) {
-  const byId = new Map(anniversary.alliances.map(alliance => [alliance.id, alliance]));
-  const mine = anniversary.myAllianceId ? byId.get(anniversary.myAllianceId) ?? null : null;
-  if (phase === 'after') {
-    const [leader] = standings(anniversary, now);
-    if (leader && leader.total !== null && leader.total > 0) return { text: `¡Ganó ${leader.name}!`, alliance: leader as Alliance };
-    return { text: '¡Gracias por este aniversario!', alliance: mine };
-  }
-  const [last] = movements(anniversary);
-  const alliance = last ? byId.get(last.allianceId) : undefined;
-  if (last && alliance) {
-    if (last.points === null) {
-      return { text: last.place === 0 || last.place === null ? `¡${alliance.name} ganó ${last.reason}!` : `${alliance.name}: ${last.place + 1}° en ${last.reason}`, alliance };
-    }
-    return last.points > 0
-      ? { text: `¡${alliance.name} ganó ${formatPoints(last.points)} puntos!`, alliance }
-      : { text: `${alliance.name} perdió ${formatPoints(-last.points)} puntos`, alliance };
-  }
-  const { day, total } = anniversaryDay(anniversary, now);
-  return { text: `¡Día ${day} de ${total} del aniversario!`, alliance: mine };
-}
+type CardProps = { anniversary: Anniversary; phase: AnniversaryPhase; rows: Standing[]; scored: boolean; hidden: boolean; onOpen: () => void };
 
-function Arrow({ color, size = 21 }: { color: string; size?: number }) {
-  return <Ionicons name="arrow-up-outline" size={size} color={color} style={styles.arrow} />;
-}
-
-/**
- * Under the title: the countdown before it starts (static copies at the
- * sides), the last movement while it runs, the winner after. Opens the score.
- */
-export function AnniversaryTopStrip({ anniversary, phase, onPress }: { anniversary: Anniversary; phase: AnniversaryPhase; onPress: () => void }) {
+/** First card: one's own alianza (or who leads, for those without one) on its colors. */
+function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProps) {
   const now = useTicking(phase === 'before');
-  // When the countdown reaches zero the strip moves on by itself.
+  // When the countdown reaches zero the card moves on by itself.
   if (phase === 'before' && now >= anniversary.startsAt) phase = 'during';
-  const mine = anniversary.alliances.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
+  const mine = rows.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
+  const shown = mine ?? (scored ? rows[0] : null);
+  const line = liveLine(anniversary, phase, rows, now);
+  const kicker = mine
+    ? `Tu alianza${scored && phase !== 'before' ? ` · ${mine.place + 1}° lugar` : ''}`
+    : shown ? (phase === 'after' ? 'Ganadora' : 'Va ganando') : anniversary.title;
+  const name = shown?.name ?? `${anniversary.alliances.length} alianzas`;
+  const points = scored && shown && phase !== 'before' ? formatPoints(shown.total ?? 0) : null;
 
-  if (phase === 'before') {
-    const time = countdown(anniversary.startsAt - now);
-    const ink = mine ? allianceColor(mine).ink : AppColors.textPrimary;
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Faltan ${daysTo(anniversary.startsAt, now)} días para ${anniversary.title}. Ver las alianzas`}
-        onPress={onPress}
-        style={({ pressed }) => pressed && styles.pressed}
-      >
-        <StripFill alliance={mine} height={35}>
-          <View style={styles.countdownRow}>
-            <ThemedText numberOfLines={1} style={[styles.countdown, styles.countdownSide, { color: ink }]}>{time}</ThemedText>
-            <ThemedText numberOfLines={1} style={[styles.countdown, { color: ink }]}>{time}</ThemedText>
-            <ThemedText numberOfLines={1} style={[styles.countdown, styles.countdownSide, { color: ink }]}>{time}</ThemedText>
-          </View>
-        </StripFill>
-      </Pressable>
-    );
-  }
-
-  const line = topLine(anniversary, phase, now);
-  const ink = line.alliance ? allianceColor(line.alliance).ink : AppColors.textPrimary;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${line.text} Ver el registro de puntos`} onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
-      <StripFill alliance={line.alliance} height={35} style={styles.stripRow}>
-        <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[styles.topText, { color: ink }]}>{line.text}</ThemedText>
-        <Arrow color={ink} />
-      </StripFill>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${kicker}, ${name}${points ? `, ${points} puntos` : ''}. ${line.text}. Ver el registro de puntos`}
+      onPress={onOpen}
+      style={({ pressed }) => [styles.page, pressed && styles.pressed]}
+    >
+      <GradientCard colors={shown ? allianceOwnFills(shown) : allianceFills(anniversary.alliances)} style={styles.card}>
+        <View style={styles.cardTop}>
+          {shown && <MascotRing alliance={shown} size={56} id={`mine-ring-${shown.id}`} />}
+          <View style={styles.cardName}>
+            <ThemedText numberOfLines={1} style={styles.kicker}>{kicker}</ThemedText>
+            <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.name}>{name}</ThemedText>
+          </View>
+          {phase === 'before' ? (
+            <View style={styles.cardRight}>
+              <ThemedText style={styles.countdown}>{countdown(anniversary.startsAt - now)}</ThemedText>
+              <ThemedText style={styles.unit}>para empezar</ThemedText>
+            </View>
+          ) : points ? (
+            <View style={styles.cardRight}>
+              <ThemedText style={styles.points}>{points}</ThemedText>
+              <ThemedText style={styles.unit}>puntos</ThemedText>
+            </View>
+          ) : hidden ? (
+            <View style={styles.cardRight}>
+              <Ionicons name="eye-off-outline" size={22} color={AppColors.textPrimary} />
+              <ThemedText style={styles.unit}>Marcador oculto</ThemedText>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.liveRow}>
+          {line.live && <View style={styles.liveDot} />}
+          <ThemedText numberOfLines={1} style={styles.liveText}>{line.text}</ThemedText>
+          <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
+        </View>
+      </GradientCard>
     </Pressable>
   );
 }
 
-/** "5.500 pts" in a frosted pill, with the place's medal. */
-function PointsPill({ standing, ink, large }: { standing: Standing; ink: string; large?: boolean }) {
+/** One alianza of the second card: it rises in as the card slides into view. */
+function RingItem({ standing, index, count, size, mine, leader, scored, progress, still }: {
+  standing: Standing; index: number; count: number; size: number; mine: boolean; leader: boolean; scored: boolean; progress: SharedValue<number>; still: boolean;
+}) {
+  // Each one starts a little after the one before, so they come in as a wave
+  // that follows the finger (and goes back if the swipe does).
+  const from = 0.2 + (index / Math.max(1, count)) * 0.4;
+  const style = useAnimatedStyle(() => {
+    const t = still ? 1 : interpolate(progress.value, [from, from + 0.4], [0, 1], Extrapolation.CLAMP);
+    const eased = t * t * (3 - 2 * t);
+    return { opacity: eased, transform: [{ translateY: (1 - eased) * 14 }, { scale: 0.7 + 0.3 * eased }] };
+  });
+  const crown = useAnimatedStyle(() => {
+    const t = still ? 1 : interpolate(progress.value, [0.75, 1], [0, 1], Extrapolation.CLAMP);
+    return { opacity: t, transform: [{ translateY: (1 - t) * 6 }, { rotate: `${(1 - t) * -20}deg` }] };
+  });
   return (
-    <View style={[styles.pill, large ? styles.pillLarge : styles.pillSmall]}>
-      <PlaceMark place={standing.place} size={large ? 16 : 12} />
-      <ThemedText style={[styles.pillPoints, large && styles.pillPointsLarge, { color: ink }]}>
-        {formatPoints(standing.total ?? 0)}
-        <ThemedText style={[styles.pillUnit, large && styles.pillPointsLarge, { color: ink }]}>pts</ThemedText>
-      </ThemedText>
-    </View>
+    <Animated.View style={[styles.ringItem, style]}>
+      <View>
+        <MascotRing alliance={standing} size={size} id={`ring-${standing.id}`} />
+        {leader && (
+          <Animated.View style={[styles.crown, crown]}>
+            <CrownIcon size={18} color={AppColors.accentYellow} />
+          </Animated.View>
+        )}
+        {mine && (
+          <View style={styles.you}>
+            <ThemedText maxFontSizeMultiplier={1} style={styles.youText}>Tú</ThemedText>
+          </View>
+        )}
+      </View>
+      <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.ringName}>{standing.name}</ThemedText>
+      {scored && <ThemedText style={styles.ringPoints}>{formatPoints(standing.total ?? 0)}</ThemedText>}
+    </Animated.View>
   );
 }
 
+/** Second card: every alianza as a ring, by place (by name while hidden or before it starts). */
+function RingsCard({ anniversary, phase, rows, scored, hidden, onOpen, progress, width }: CardProps & { progress: SharedValue<number>; width: number }) {
+  const reduceMotion = useReducedMotion();
+  const showPoints = scored && phase !== 'before';
+  const ordered = showPoints ? rows : [...rows].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const leaderId = showPoints && !hidden ? rows[0]?.id : null;
+  const inner = width - SIDE * 2 - 24;
+  const size = Math.max(40, Math.min(62, (inner - (ordered.length - 1) * 10) / ordered.length - 6));
+  const label = ordered.map(alliance => `${alliance.name}${showPoints ? ` ${formatPoints(alliance.total ?? 0)}` : ''}`).join(', ');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Alianzas: ${label}. Ver el registro de puntos`}
+      onPress={onOpen}
+      style={({ pressed }) => [styles.page, pressed && styles.pressed]}
+    >
+      <View style={[styles.card, styles.glass]}>
+        <View style={styles.rings}>
+          {ordered.map((standing, index) => (
+            <RingItem
+              key={standing.id}
+              standing={standing}
+              index={index}
+              count={ordered.length}
+              size={size}
+              mine={standing.id === anniversary.myAllianceId}
+              leader={standing.id === leaderId}
+              scored={showPoints}
+              progress={progress}
+              still={reduceMotion}
+            />
+          ))}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function PageDot({ index, progress }: { index: number; progress: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => {
+    const near = interpolate(Math.abs(progress.value - index), [0, 1], [1, 0], Extrapolation.CLAMP);
+    return { width: 6 + 10 * near, opacity: 0.35 + 0.65 * near };
+  });
+  return <Animated.View style={[styles.pageDot, style]} />;
+}
+
 /**
- * Under the banner: who leads (when it isn't one's own) and one's own
- * alianza, which opens the score. Before it starts, one's mascot instead of
- * points; with the score hidden, neither strip shows points.
+ * Under the banner: one's alianza and, swiping, all of them. With the score
+ * hidden or before it starts no points show, and the rings go by name.
  */
-export function AnniversaryStandingStrips({ anniversary, phase, onOpen }: { anniversary: Anniversary; phase: AnniversaryPhase; onOpen: () => void }) {
+export function AnniversaryCarousel({ anniversary, phase, onOpen }: { anniversary: Anniversary; phase: AnniversaryPhase; onOpen: () => void }) {
+  const [width, setWidth] = useState(0);
   const [now] = useState(() => Date.now());
+  const progress = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler(event => {
+    progress.value = width ? event.contentOffset.x / width : 0;
+  }, [width]);
   const rows = standings(anniversary, now);
+  if (!rows.length) return null;
   const hidden = rows.some(alliance => alliance.total === null);
-  const scored = !hidden && phase !== 'before' && rows.some(alliance => (alliance.total ?? 0) > 0);
-  const leader = scored ? rows[0] : null;
-  const mine = rows.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
-  const showLeader = !!leader && leader.id !== mine?.id;
-  if (!showLeader && !mine) return null;
+  const scored = !hidden && rows.some(alliance => (alliance.total ?? 0) > 0);
+  const props = { anniversary, phase, rows, scored, hidden, onOpen };
 
   return (
-    <View style={styles.standings}>
-      {showLeader && leader && (
-        <View accessible accessibilityLabel={`Va ganando ${leader.name}, ${formatPoints(leader.total ?? 0)} puntos`}>
-          <StripFill alliance={leader} height={30} style={styles.stripRow}>
-            <PointsPill standing={leader} ink={allianceColor(leader).ink} />
-            <ThemedText numberOfLines={1} style={[styles.leaderName, { color: allianceColor(leader).ink }]}>{leader.name}</ThemedText>
-          </StripFill>
-        </View>
-      )}
-      {mine && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Tu alianza, ${mine.name}${scored ? `, ${mine.place + 1}° lugar con ${formatPoints(mine.total ?? 0)} puntos` : ''}. Ver el registro de puntos`}
-          onPress={onOpen}
-          style={({ pressed }) => pressed && styles.pressed}
-        >
-          <StripFill alliance={mine} height={47} style={styles.stripRow}>
-            {scored ? <PointsPill standing={mine} ink={allianceColor(mine).ink} large /> : <AllianceBadge alliance={mine} size={31} />}
-            <View style={styles.mineText}>
-              <ThemedText style={[styles.mineKicker, { color: allianceColor(mine).ink }]}>Tu alianza</ThemedText>
-              <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.mineName, { color: allianceColor(mine).ink }]}>{mine.name}</ThemedText>
-            </View>
-            <Arrow color={allianceColor(mine).ink} />
-          </StripFill>
-        </Pressable>
+    <View style={styles.carousel} onLayout={event => setWidth(Math.round(event.nativeEvent.layout.width))}>
+      {width > 0 && (
+        <>
+          <Animated.ScrollView
+            horizontal
+            pagingEnabled
+            decelerationRate="fast"
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={onScroll}
+          >
+            <View style={{ width }}><MineCard {...props} /></View>
+            <View style={{ width }}><RingsCard {...props} progress={progress} width={width} /></View>
+          </Animated.ScrollView>
+          <View style={styles.pageDots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <PageDot index={0} progress={progress} />
+            <PageDot index={1} progress={progress} />
+          </View>
+        </>
       )}
     </View>
   );
@@ -247,100 +330,157 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  strip: {
-    width: '100%',
-    overflow: 'hidden',
-    justifyContent: 'center',
+  carousel: {
+    marginBottom: 24,
+    minHeight: CARD_HEIGHT + 16,
   },
-  stripRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 20,
+  page: {
+    paddingHorizontal: SIDE,
   },
   pressed: {
     opacity: AppPressed.opacity,
   },
-  countdownRow: {
+  card: {
+    height: CARD_HEIGHT,
+    padding: 16,
+    gap: 12,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  glass: {
+    overflow: 'hidden',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(60,59,62,0.55)',
+  },
+  cardTop: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 14,
-    // The side copies run off both edges.
-    marginHorizontal: -400,
   },
-  countdown: {
+  cardName: {
+    flex: 1,
+    gap: 2,
+  },
+  kicker: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 15,
+    color: AppColors.textSecondary,
+  },
+  name: {
     fontFamily: AppFlexFonts.wide,
     fontSize: 24,
-    lineHeight: 30,
+    lineHeight: 29,
     letterSpacing: -0.4,
+    color: AppColors.textPrimary,
+  },
+  cardRight: {
+    alignItems: 'flex-end',
+  },
+  points: {
+    fontFamily: AppFlexFonts.numbers,
+    fontSize: 34,
+    lineHeight: 38,
+    color: AppColors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
-  countdownSide: {
-    opacity: 0.5,
+  countdown: {
+    fontFamily: AppFlexFonts.numbers,
+    fontSize: 22,
+    lineHeight: 26,
+    color: AppColors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
-  topText: {
-    flexShrink: 1,
-    fontFamily: AppFlexFonts.name,
-    fontSize: 16,
-    lineHeight: 20,
+  unit: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 15,
+    color: AppColors.textSecondary,
   },
-  arrow: {
-    transform: [{ rotate: '45deg' }],
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
-  standings: {
-    gap: 11,
-    marginBottom: 28,
-  },
-  pill: {
+  liveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    gap: 10,
   },
-  pillSmall: {
-    height: 17,
-    paddingHorizontal: 8,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: AppColors.accentMint,
   },
-  pillLarge: {
-    height: 31,
-    paddingHorizontal: 14,
-  },
-  pillPoints: {
-    fontFamily: AppFlexFonts.numbers,
-    fontSize: 11,
-    lineHeight: 14,
-    fontVariant: ['tabular-nums'],
-  },
-  pillPointsLarge: {
+  liveText: {
+    flex: 1,
+    fontFamily: 'DMSans_500Medium',
     fontSize: 13,
     lineHeight: 17,
+    color: AppColors.textPrimary,
   },
-  pillUnit: {
-    fontFamily: AppFlexFonts.ramp[0],
-    fontSize: 11,
-    lineHeight: 14,
+  ring: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  leaderName: {
-    flexShrink: 1,
-    fontFamily: AppFlexFonts.wide,
-    fontSize: 14,
-    lineHeight: 18,
+  rings: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'flex-start',
   },
-  mineText: {
-    flexShrink: 1,
+  ringItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
-  mineKicker: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 11,
+  crown: {
+    position: 'absolute',
+    top: -12,
+    alignSelf: 'center',
+  },
+  you: {
+    position: 'absolute',
+    bottom: -6,
+    alignSelf: 'center',
+    paddingHorizontal: 7,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: AppColors.canvas,
+    backgroundColor: AppColors.textPrimary,
+  },
+  youText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 10,
     lineHeight: 13,
+    color: AppColors.textOnLight,
   },
-  mineName: {
+  ringName: {
+    marginTop: 4,
     fontFamily: AppFlexFonts.wide,
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: -0.3,
+    fontSize: 13,
+    lineHeight: 17,
+    color: AppColors.textPrimary,
+  },
+  ringPoints: {
+    marginTop: -3,
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    lineHeight: 15,
+    color: AppColors.textSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  pageDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  pageDot: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AppColors.textPrimary,
   },
 });

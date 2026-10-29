@@ -16,7 +16,7 @@ import { WelcomeCelebration } from '@/components/WelcomeCelebration';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { useHomeHighlights } from '@/hooks/use-home-highlights';
 import { getAnniversary, homeAnniversary, useAnniversaryState } from '@/services/anniversary-service';
-import { AnniversaryGlow, AnniversaryStandingStrips, AnniversaryTopStrip, anniversaryKicker } from '@/components/anniversary/home-anniversary';
+import { AnniversaryCarousel, AnniversaryGlow, anniversaryKicker } from '@/components/anniversary/home-anniversary';
 import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
@@ -156,7 +156,6 @@ export default function HomeScreen() {
       >
         {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} />}
         <TopHeader transparent={!!festive} />
-        {festive && <AnniversaryTopStrip anniversary={festive.anniversary} phase={festive.phase} onPress={openScore} />}
         {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
         {!!shownInstitution && (
           <View style={[styles.banner, festive && styles.festiveBanner]}>
@@ -168,7 +167,7 @@ export default function HomeScreen() {
             />
           </View>
         )}
-        {festive && <AnniversaryStandingStrips anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
+        {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
         <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
 
         {!user && (
@@ -217,7 +216,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   festiveBanner: {
-    marginTop: 24,
+    marginTop: 8,
     marginBottom: 12,
   },
   uiCatalogButton: {
