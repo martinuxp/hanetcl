@@ -136,6 +136,8 @@ function Arrow({ color, size = 21 }: { color: string; size?: number }) {
  */
 export function AnniversaryTopStrip({ anniversary, phase, onPress }: { anniversary: Anniversary; phase: AnniversaryPhase; onPress: () => void }) {
   const now = useTicking(phase === 'before');
+  // When the countdown reaches zero the strip moves on by itself.
+  if (phase === 'before' && now >= anniversary.startsAt) phase = 'during';
   const mine = anniversary.alliances.find(alliance => alliance.id === anniversary.myAllianceId) ?? null;
 
   if (phase === 'before') {
@@ -308,8 +310,8 @@ const styles = StyleSheet.create({
   },
   pillPoints: {
     fontFamily: AppFlexFonts.numbers,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 14,
     fontVariant: ['tabular-nums'],
   },
   pillPointsLarge: {
@@ -318,8 +320,8 @@ const styles = StyleSheet.create({
   },
   pillUnit: {
     fontFamily: AppFlexFonts.ramp[0],
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 14,
   },
   leaderName: {
     flexShrink: 1,

@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppPressed, AppSpacing } from '@/constants/design-tokens';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { KeyboardEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollViewProps, ViewStyle, StyleProp } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
@@ -26,13 +26,23 @@ export function useKeyboardOverlap() {
   const [state, setState] = useState({ shown: false, overlap: 0 });
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    // On iOS the space follows the keyboard with its own curve and time,
+    // so the content rises with it instead of jumping ahead of it.
+    const followKeyboard = (event: KeyboardEvent) => {
+      if (!IOS || !event.duration) return;
+      LayoutAnimation.configureNext({ duration: event.duration, update: { duration: event.duration, type: LayoutAnimation.Types.keyboard } });
+    };
     const onShow = (event: KeyboardEvent) => {
       const overlap = Math.max(0, Math.round(Dimensions.get('screen').height - event.endCoordinates.screenY));
+      followKeyboard(event);
       setState({ shown: overlap > 0, overlap });
     };
     const subscriptions = [
       Keyboard.addListener(SHOW, onShow),
-      Keyboard.addListener(HIDE, () => setState({ shown: false, overlap: 0 })),
+      Keyboard.addListener(HIDE, event => {
+        followKeyboard(event);
+        setState({ shown: false, overlap: 0 });
+      }),
     ];
     return () => subscriptions.forEach(subscription => subscription.remove());
   }, []);

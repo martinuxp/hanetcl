@@ -190,9 +190,10 @@ const styles = StyleSheet.create({
   updated: {
     fontSize: 11,
     lineHeight: 14,
+    letterSpacing: 0.2,
+    fontFamily: 'DMSans_500Medium',
     textAlign: 'center',
     color: AppColors.textPrimary,
-    opacity: 0.75,
   },
   grid: {
     gap: AppSpacing.xl,
@@ -287,8 +288,8 @@ const styles = StyleSheet.create({
   },
   tableEmpty: {
     ...AppType.callout,
+    fontFamily: 'DMSans_500Medium',
     color: AppColors.textPrimary,
-    opacity: 0.8,
   },
   row: {
     flexDirection: 'row',
@@ -314,8 +315,9 @@ const styles = StyleSheet.create({
   },
   rowReason: {
     ...AppType.caption,
+    fontFamily: 'DMSans_500Medium',
+    letterSpacing: 0.2,
     color: AppColors.textPrimary,
-    opacity: 0.8,
   },
   rowPoints: {
     ...AppDisplay.score,
