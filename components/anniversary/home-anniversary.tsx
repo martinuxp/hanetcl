@@ -15,6 +15,8 @@ import Svg, { Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from '
 // Tapping the top strip or one's own opens the score sheet.
 
 export const GLOW_HEIGHT = 262;
+// Room above the page, as far as an iOS bounce can pull it.
+const OVERSCROLL = 600;
 
 /** Seconds that tick, only while the countdown is on screen. */
 function useTicking(active: boolean) {
@@ -42,9 +44,14 @@ export function AnniversaryGlow({ alliances, width }: { alliances: Pick<Alliance
   const fills = allianceFills(alliances).slice(0, 4);
   const colors = fills.length ? fills : [AppColors.accent];
   const height = GLOW_HEIGHT;
+  // The light goes on above the page (like the events' glow), so pulling the
+  // Home past its top on iOS shows more color instead of a cut.
+  const extra = OVERSCROLL;
+  const center = extra + height * 0.12;
+  const column = (index: number) => (colors.length === 1 ? 0.5 : (index + 0.5) / colors.length);
   return (
-    <View pointerEvents="none" style={[styles.glow, { height }]}>
-      <Svg width={width} height={height}>
+    <View pointerEvents="none" style={[styles.glow, { top: -extra, height: height + extra }]}>
+      <Svg width={width} height={height + extra}>
         <Defs>
           {colors.map((color, index) => (
             <RadialGradient key={index} id={`home-glow-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
@@ -53,17 +60,20 @@ export function AnniversaryGlow({ alliances, width }: { alliances: Pick<Alliance
               <Stop offset="1" stopColor={color} stopOpacity={0} />
             </RadialGradient>
           ))}
+          <LinearGradient id="home-glow-above" x1="0" y1="0" x2="1" y2="0">
+            {colors.map((color, index) => <Stop key={index} offset={column(index)} stopColor={color} stopOpacity={0.45} />)}
+          </LinearGradient>
           <LinearGradient id="home-glow-fade" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={AppColors.textOnLight} stopOpacity={0} />
             <Stop offset="0.6" stopColor={AppColors.textOnLight} stopOpacity={0.35} />
             <Stop offset="1" stopColor={AppColors.textOnLight} stopOpacity={1} />
           </LinearGradient>
         </Defs>
-        {colors.map((_, index) => {
-          const x = colors.length === 1 ? width / 2 : (width * (index + 0.5)) / colors.length;
-          return <Ellipse key={index} cx={x} cy={height * 0.12} rx={width * 0.55} ry={height * 0.7} fill={`url(#home-glow-${index})`} />;
-        })}
-        <Rect x={0} y={0} width={width} height={height} fill="url(#home-glow-fade)" />
+        <Rect x={0} y={0} width={width} height={center} fill="url(#home-glow-above)" />
+        {colors.map((_, index) => (
+          <Ellipse key={index} cx={width * column(index)} cy={center} rx={width * 0.55} ry={height * 0.7} fill={`url(#home-glow-${index})`} />
+        ))}
+        <Rect x={0} y={extra} width={width} height={height} fill="url(#home-glow-fade)" />
       </Svg>
     </View>
   );
