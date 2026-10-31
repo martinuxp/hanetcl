@@ -1,4 +1,5 @@
 import { AllianceBadge, allianceColor, allianceFills, allianceOwnFills, allianceSecond, dayText } from '@/components/anniversary/anniversary-ui';
+import { FLAG_GLOW_AVAILABLE, FlagGlow } from '@/components/anniversary/flag-surface';
 import { GradientCard } from '@/components/anniversary/gradient-card';
 import { ThemedText } from '@/components/themed-text';
 import { CrownIcon } from '@/assets/animated-icons/crown';
@@ -20,6 +21,8 @@ import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop 
 // finger. Either card opens the score sheet.
 
 export const GLOW_HEIGHT = 262;
+// While it runs the light waves and goes further down the page, but fainter.
+const WAVING_REACH = 620;
 // Room above the page, as far as an iOS bounce can pull it.
 const OVERSCROLL = 600;
 const CARD_HEIGHT = 138;
@@ -46,10 +49,20 @@ function countdown(ms: number) {
   return [Math.floor(seconds / 86400), Math.floor(seconds / 3600) % 24, Math.floor(seconds / 60) % 60, seconds % 60].map(two).join(':');
 }
 
-/** The top of the Home lit by every alianza's color, fading into the page. */
-export function AnniversaryGlow({ alliances, width }: { alliances: Pick<Alliance, 'color'>[]; width: number }) {
+/**
+ * The top of the Home lit by every alianza's color, fading into the page.
+ * `waving` (the anniversary days) makes it a flag with dots (on phones).
+ */
+export function AnniversaryGlow({ alliances, width, waving }: { alliances: Pick<Alliance, 'color'>[]; width: number; waving?: boolean }) {
   const fills = allianceFills(alliances).slice(0, 4);
   const colors = fills.length ? fills : [AppColors.accent];
+  if (waving && FLAG_GLOW_AVAILABLE) {
+    return (
+      <View pointerEvents="none" style={[styles.glow, { top: -OVERSCROLL, height: OVERSCROLL + WAVING_REACH }]}>
+        <FlagGlow colors={colors} width={width} top={OVERSCROLL} reach={WAVING_REACH} />
+      </View>
+    );
+  }
   const height = GLOW_HEIGHT;
   // The light goes on above the page (like the events' glow), so pulling the
   // Home past its top on iOS shows more color instead of a cut.
