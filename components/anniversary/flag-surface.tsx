@@ -62,7 +62,83 @@ half4 main(float2 p) {
 }
 `;
 
+// The Home's light during the anniversary days: the alianzas' colors in
+// columns across the top, as the SVG glow draws them, fading into the page
+// further down than before, with the same folds and a much fainter halftone.
+// It is transparent where the light ends, so the page shows through.
+const GLOW_SOURCE = `
+uniform float2 size;
+uniform float time;
+uniform float top;
+uniform float reach;
+uniform float count;
+uniform float3 c0;
+uniform float3 c1;
+uniform float3 c2;
+uniform float3 c3;
+
+float3 pick(float index) {
+  return index < 0.5 ? c0 : index < 1.5 ? c1 : index < 2.5 ? c2 : c3;
+}
+
+half4 main(float2 p) {
+  float span = size.x;
+  // Long, slow folds: the whole width is a flag, not a card. They travel the
+  // other way from the cards' and at half their pace, so a card over the
+  // page doesn't look like it slides on it.
+  float phase = (p.x * 0.8 + (p.y - top) * 0.45) / span * 5.0 + time * 0.55;
+  float ripple = phase * 1.9 + 0.7 + time * 0.25;
+  float wave = sin(phase) + 0.3 * sin(ripple);
+  float slope = (cos(phase) + 0.57 * cos(ripple)) / 1.57;
+  float2 q = p + float2(wave * 3.0, wave * 9.0);
+
+  // Each alianza's column, an ellipse centered near the page's top; above the
+  // page (what an iOS pull shows) a band of all of them.
+  float center = top + reach * 0.1;
+  float3 color = float3(0.0);
+  float weight = 0.0;
+  float light = 0.0;
+  for (int i = 0; i < 4; i++) {
+    float index = float(i);
+    if (index >= count) break;
+    float x = count < 1.5 ? 0.5 : (index + 0.5) / count;
+    float2 d = (q - float2(x * size.x, center)) / float2(size.x * 0.62, reach * 1.15);
+    float w = clamp(1.0 - length(d), 0.0, 1.0);
+    w = w * w * (3.0 - 2.0 * w);
+    color += pick(index) * w;
+    weight += w;
+    light = max(light, w);
+  }
+  color = weight > 0.0 ? color / weight : c0;
+  if (q.y < center) {
+    float band = clamp(q.x / size.x * count - 0.5, 0.0, max(0.0, count - 1.0));
+    float3 above = mix(pick(floor(band)), pick(min(count - 1.0, floor(band) + 1.0)), fract(band));
+    float up = clamp((center - q.y) / (reach * 0.3), 0.0, 1.0);
+    color = mix(color, above, up);
+    light = max(light, mix(light, 0.6, up));
+  }
+
+  color *= 1.0 + 0.14 * slope;
+  color += 0.03 * max(slope, 0.0);
+
+  // A faint halftone that rides the folds.
+  float pitch = 6.0;
+  float2 grid = float2(q.x + q.y, q.x - q.y) * 0.70710678;
+  float2 cell = (fract(grid / pitch) - 0.5) * pitch;
+  float radius = 1.0 + 0.45 * slope;
+  float ink = 1.0 - smoothstep(radius - 0.6, radius + 0.6, length(cell));
+  color = mix(color, float3(0.976, 0.976, 0.98), ink * 0.16 * (1.0 + 0.5 * slope));
+
+  // It holds through most of the screen and only fades into the page near
+  // the end of its reach.
+  float down = clamp(((p.y - top) / reach - 0.3) / 0.7, 0.0, 1.0);
+  float alpha = max(light, 0.35) * 0.6 * (1.0 - down * down * (3.0 - 2.0 * down));
+  return half4(half3(color * alpha), alpha);
+}
+`;
+
 const effect = Skia.RuntimeEffect.Make(SOURCE);
+const glowEffect = Skia.RuntimeEffect.Make(GLOW_SOURCE);
 
 function rgb(hex: string) {
   return toRgb(hex).map(channel => channel / 255);
@@ -85,12 +161,13 @@ function useScreenFocused() {
 }
 
 export const FLAG_AVAILABLE = !!effect;
+export const FLAG_GLOW_AVAILABLE = !!glowEffect;
 
-/** `colors`: the three blobs' colors (hex), over `base`. */
-export function FlagSurface({ base, colors, width, height }: { base: string; colors: string[]; width: number; height: number }) {
+/** Seconds of wind, from a random point, that pass only while the screen is in front. */
+function useWindTime() {
   const reduceMotion = useReducedMotion();
   const focused = useScreenFocused();
-  // Each card starts somewhere else in the wind, so a list of them doesn't wave in step.
+  // Each surface starts somewhere else in the wind, so a list of them doesn't wave in step.
   const [start] = useState(() => Math.random() * 40);
   const time = useSharedValue(start);
   const clock = useFrameCallback(frame => {
@@ -99,6 +176,12 @@ export function FlagSurface({ base, colors, width, height }: { base: string; col
   useEffect(() => {
     clock.setActive(focused && !reduceMotion);
   }, [clock, focused, reduceMotion]);
+  return time;
+}
+
+/** `colors`: the three blobs' colors (hex), over `base`. */
+export function FlagSurface({ base, colors, width, height }: { base: string; colors: string[]; width: number; height: number }) {
+  const time = useWindTime();
 
   const [c0, c1, c2] = [0, 1, 2].map(index => rgb(colors[index] ?? colors[0] ?? base));
   const baseRgb = rgb(base);
@@ -109,6 +192,29 @@ export function FlagSurface({ base, colors, width, height }: { base: string; col
     <Canvas pointerEvents="none" style={[StyleSheet.absoluteFill, { width, height }]}>
       <Fill>
         <Shader source={effect} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+}
+
+/**
+ * The Home's waving light: up to four colors (hex) in columns. `top` is where
+ * the page starts inside it (the room above is for pulling down) and `reach`
+ * how far down the page the light goes.
+ */
+export function FlagGlow({ colors, width, top, reach }: { colors: string[]; width: number; top: number; reach: number }) {
+  const time = useWindTime();
+  const fills = (colors.length ? colors : ['#EF2274']).slice(0, 4);
+  const [c0, c1, c2, c3] = [0, 1, 2, 3].map(index => rgb(fills[index] ?? fills[0]));
+  const count = fills.length;
+  const height = top + reach;
+  const uniforms = useDerivedValue(() => ({ size: [width, height], time: time.value, top, reach, count, c0, c1, c2, c3 }));
+
+  if (!glowEffect) return null;
+  return (
+    <Canvas pointerEvents="none" style={{ width, height }}>
+      <Fill>
+        <Shader source={glowEffect} uniforms={uniforms} />
       </Fill>
     </Canvas>
   );

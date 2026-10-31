@@ -154,7 +154,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} />}
+        {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} waving={festive.phase === 'during'} />}
         <TopHeader transparent={!!festive} />
         {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
         {!!shownInstitution && (
