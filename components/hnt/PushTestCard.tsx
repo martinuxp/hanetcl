@@ -7,7 +7,7 @@ import { enablePush, openNotificationSettings, pushPermission, pushSupport, regi
 import type { PushPermission } from '@/services/push-service';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
 
 type DeviceResult = { platform: string; updatedAt: number | null; token: string; ok: boolean; error: string | null };
 
@@ -47,7 +47,7 @@ export function PushTestCard() {
     const status = permission === 'granted' ? 'granted' : await enablePush();
     setPermission(status);
     if (status === 'granted') {
-      setMessage((await registerDevice()) ? 'Este teléfono quedó registrado en tu cuenta.' : 'No pudimos obtener el token de este teléfono. Revisa la consola de Expo.');
+      setMessage((await registerDevice()) ? 'Este teléfono quedó registrado en tu cuenta.' : (Platform.OS === 'ios' ? 'No pudimos obtener el token. En una build firmada en el teléfono (LiveContainer, SideStore u otro certificado) es lo esperado: Apple solo entrega push a builds firmadas con la cuenta de desarrollador de HaNet.' : 'No pudimos obtener el token de este teléfono. Revisa la consola de Expo.'));
     } else {
       setError('El permiso de notificaciones no está concedido en este teléfono.');
     }

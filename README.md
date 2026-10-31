@@ -108,6 +108,11 @@ node scripts/build-legal.js
 
 El flujo manual `Build LiveContainer IPA` en GitHub Actions genera una IPA sin firmar, pensada para LiveContainer.
 
+- La IPA lleva una firma ad-hoc con los entitlements (App Group, sin `aps-environment`), para que la herramienta que la firma en el teléfono sepa que la app y el widget comparten un App Group.
+- `scripts/patch-expo-widgets.js` (corre en `postinstall`) hace que la app y el widget usen el App Group que de verdad les da la firma, aunque no sea `group.art.muxp.hanetcl`.
+- Dentro de LiveContainer no hay widgets ni Live Activities (no carga extensiones). Instalada como app propia (SideStore, AltStore u otro certificado) sí funcionan, y también los avisos locales de las pruebas.
+- Las push del servidor (resumen de las 7:00, ClassHall, Aniversario) solo llegan a builds firmadas con la cuenta de desarrollador de HaNet, que es la que tiene la llave de APNs en EAS.
+
 ## Convenciones de diseño
 
 - Tema oscuro "Misty Rose", con `#EF2274` como color de acento. Los tokens están en `constants/design-tokens.ts`.
