@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.35)',
   },
   stroke: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 24,
     borderCurve: 'continuous',
     borderWidth: 1,
