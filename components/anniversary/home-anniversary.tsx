@@ -1,4 +1,5 @@
 import { AllianceBadge, allianceColor, allianceFills, allianceOwnFills, allianceSecond, dayText } from '@/components/anniversary/anniversary-ui';
+import { FLAG_GLOW_AVAILABLE, FlagGlow } from '@/components/anniversary/flag-surface';
 import { GradientCard } from '@/components/anniversary/gradient-card';
 import { ThemedText } from '@/components/themed-text';
 import { CrownIcon } from '@/assets/animated-icons/crown';
@@ -8,7 +9,7 @@ import type { Alliance, Anniversary, AnniversaryPhase, Standing } from '@/servic
 import { feedWhen } from '@/services/feed-service';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from 'react-native-svg';
@@ -20,6 +21,8 @@ import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop 
 // finger. Either card opens the score sheet.
 
 export const GLOW_HEIGHT = 262;
+// While it runs the light waves and covers almost the whole screen, but fainter.
+const WAVING_REACH = 1.1;
 // Room above the page, as far as an iOS bounce can pull it.
 const OVERSCROLL = 600;
 const CARD_HEIGHT = 138;
@@ -46,10 +49,22 @@ function countdown(ms: number) {
   return [Math.floor(seconds / 86400), Math.floor(seconds / 3600) % 24, Math.floor(seconds / 60) % 60, seconds % 60].map(two).join(':');
 }
 
-/** The top of the Home lit by every alianza's color, fading into the page. */
-export function AnniversaryGlow({ alliances, width }: { alliances: Pick<Alliance, 'color'>[]; width: number }) {
+/**
+ * The top of the Home lit by every alianza's color, fading into the page.
+ * `waving` (the anniversary days) makes it a flag with dots (on phones).
+ */
+export function AnniversaryGlow({ alliances, width, waving }: { alliances: Pick<Alliance, 'color'>[]; width: number; waving?: boolean }) {
+  const { height: screenHeight } = useWindowDimensions();
   const fills = allianceFills(alliances).slice(0, 4);
   const colors = fills.length ? fills : [AppColors.accent];
+  if (waving && FLAG_GLOW_AVAILABLE) {
+    const reach = Math.round(screenHeight * WAVING_REACH);
+    return (
+      <View pointerEvents="none" style={[styles.glow, { top: -OVERSCROLL, height: OVERSCROLL + reach }]}>
+        <FlagGlow colors={colors} width={width} top={OVERSCROLL} reach={reach} />
+      </View>
+    );
+  }
   const height = GLOW_HEIGHT;
   // The light goes on above the page (like the events' glow), so pulling the
   // Home past its top on iOS shows more color instead of a cut.
@@ -155,6 +170,7 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
       onPress={onOpen}
       style={({ pressed }) => [styles.page, pressed && styles.pressed]}
     >
+      <View style={styles.lift}>
       <GradientCard colors={shown ? allianceOwnFills(shown) : allianceFills(anniversary.alliances)} style={styles.card}>
         <View style={styles.cardTop}>
           {shown && <MascotRing alliance={shown} size={56} id={`mine-ring-${shown.id}`} />}
@@ -185,7 +201,10 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
           <ThemedText numberOfLines={1} style={styles.liveText}>{line.text}</ThemedText>
           <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
         </View>
+        {/* Over the waving colors (which cover the card's own border), so the card keeps its edge on the Home's light. */}
+        <View pointerEvents="none" style={styles.stroke} />
       </GradientCard>
+      </View>
     </Pressable>
   );
 }
@@ -348,6 +367,18 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.22)',
+  },
+  lift: {
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.35)',
+  },
+  stroke: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   glass: {
     overflow: 'hidden',

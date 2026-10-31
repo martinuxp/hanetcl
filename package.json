@@ -1,12 +1,12 @@
 {
   "name": "hanetcl",
   "main": "expo-router/entry",
-  "version": "0.3.3-beta",
+  "version": "0.3.4-beta",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "version:bump": "node ./scripts/version.js bump",
