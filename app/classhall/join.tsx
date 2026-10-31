@@ -9,8 +9,9 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const LOGO = require('@/assets/images/ClassHall.svg');
 const BOXES = Array.from({ length: HALL_CODE_LENGTH }, (_, index) => index);
@@ -95,7 +96,7 @@ function JoinHallScreen() {
   });
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -169,7 +170,7 @@ function JoinHallScreen() {
         <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
       </Pressable>
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

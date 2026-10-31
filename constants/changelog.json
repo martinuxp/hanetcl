@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.3.0-beta",
+      "date": "2026-10-28",
+      "title": "Semana de alianzas",
+      "items": [
+        "En semana de aniversario el inicio se viste con los colores de las alianzas y muestra la tarjeta de tu alianza. Desliza para ver a todas.",
+        "Toca la tarjeta para ver el registro de puntos con todos los movimientos.",
+        "Los colores y puntitos de las tarjetas de puntos ahora ondean como una bandera.",
+        "Cada alianza puede tener dos colores, hasta tres mascotas, su grito de barra, sus artistas y lo que salió en el sorteo.",
+        "Fondo de pantalla de tu alianza para guardar en el teléfono.",
+        "La alianza solidaria trae su calculadora: canastas y bonus, y los puntos salen solos.",
+        "Descuentos típicos de las bases con un toque al descontar puntos.",
+        "Tu foto de perfil lleva el color de tu alianza durante el aniversario.",
+        "En el Feed, publicar y buscar están en un menú que se abre desde la barra.",
+        "Los campos de texto de las hojas y los diálogos ya no quedan tapados por el teclado.",
+        "Botón \"Bajar teclado\" mientras escribes."
+      ]
+    },
+    {
       "version": "0.2.1-beta",
       "date": "2026-10-28",
       "title": "",

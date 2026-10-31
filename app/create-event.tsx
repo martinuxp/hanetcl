@@ -1,7 +1,7 @@
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors } from '@/constants/design-tokens';
 import React, { useRef, useState } from 'react';
-import { StyleSheet, View, ScrollView, Platform, TextInput, Pressable, KeyboardAvoidingView, type ScrollViewInstance } from 'react-native';
+import { StyleSheet, View, Platform, TextInput, Pressable, type ScrollViewInstance } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -17,6 +17,7 @@ import { collection, addDoc, deleteField, doc, getDoc, updateDoc, serverTimestam
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 // New events start on the next 5-minute mark, matching the picker's step.
 function nextRoundedTime() {
@@ -176,13 +177,11 @@ function CreateEventScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'android' ? 'padding' : undefined}>
-      <ScrollView
+      <KeyboardScroll
         ref={scrollRef}
         style={{ flex: 1, width: '100%' }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustsScrollIndicatorInsets={false}
@@ -324,8 +323,7 @@ function CreateEventScreen() {
         </View>
         <View style={{ height: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 40 }} />
 
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardScroll>
       {discardDialog}
     </SafeAreaView>
   );

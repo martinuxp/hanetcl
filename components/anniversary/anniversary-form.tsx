@@ -7,8 +7,9 @@ import { AppColors, AppDisplay, AppRadii, AppSpacing, AppTouch, AppType } from '
 import type { Alliance } from '@/services/anniversary-service';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 // Pieces shared by the anniversary's sheets, on top of the Hall's form look.
 
@@ -24,7 +25,7 @@ export const AUDIENCE_OPTIONS = [
 export function SheetBody({ title, lead, icon, children }: { title: string; lead?: string; icon?: React.ReactNode; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -35,7 +36,7 @@ export function SheetBody({ title, lead, icon, children }: { title: string; lead
       </View>
       {!!lead && <ThemedText style={styles.lead}>{lead}</ThemedText>}
       {children}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

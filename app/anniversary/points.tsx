@@ -1,5 +1,6 @@
 import { AlliancePicker, SheetActions, SheetBody, TextField, digitsOnly, formStyles as styles } from '@/components/anniversary/anniversary-form';
 import { ThemedText } from '@/components/themed-text';
+import { HanetChip } from '@/components/ui/hanet-chip';
 import { HanetChoice } from '@/components/ui/hanet-select';
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors } from '@/constants/design-tokens';
@@ -9,11 +10,20 @@ import { addScoreEntry, formatPoints, peekAnniversary } from '@/services/anniver
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 const SIGNS = [
   { value: 'plus', label: 'Sumar' },
   { value: 'minus', label: 'Descontar' },
+];
+
+// The deductions most rules spell out, to fill the form with one tap. The
+// points and the words can be changed before saving.
+const TYPICAL_DEDUCTIONS = [
+  { label: 'Plagio de coreografía', points: 5000 },
+  { label: 'Lienzo pintado fuera del liceo', points: 5000 },
+  { label: 'Pareja de reyes ausente', points: 1000 },
+  { label: 'Desfiló por otra alianza', points: 1000 },
 ];
 
 /** An addition or a deduction, always with its reason, as the rules ask. */
@@ -54,6 +64,21 @@ function PointsScreen() {
     <SheetBody title="Sumar o descontar" lead="El motivo lo ve toda la alianza en sus movimientos. Nunca nombres a una persona.">
       <AlliancePicker alliances={alliances} value={allianceId} onChange={id => { setAllianceId(id); setError(null); }} disabled={submitting} />
       <HanetChoice label="Sumar o descontar" options={SIGNS} value={sign} onChange={value => setSign(value as 'plus' | 'minus')} disabled={submitting} />
+      <View style={styles.field}>
+        <ThemedText style={styles.label}>Descuentos típicos</ThemedText>
+        <View style={local.chips}>
+          {TYPICAL_DEDUCTIONS.map(item => (
+            <HanetChip
+              key={item.label}
+              label={`${item.label} · −${formatPoints(item.points)}`}
+              compact
+              selected={sign === 'minus' && reason === item.label && Number(amount) === item.points}
+              disabled={submitting}
+              onPress={() => { setSign('minus'); setAmount(String(item.points)); setReason(item.label); setError(null); }}
+            />
+          ))}
+        </View>
+      </View>
       <TextField label="Puntos" value={amount} onChange={value => { setAmount(digitsOnly(value)); setError(null); }} placeholder="1000" keyboardType="number-pad" disabled={submitting} />
       <TextField
         label="Motivo"
@@ -71,5 +96,13 @@ function PointsScreen() {
     </SheetBody>
   );
 }
+
+const local = StyleSheet.create({
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+});
 
 export default withSheetFrame(PointsScreen, AppColors.surface);

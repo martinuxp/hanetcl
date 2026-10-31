@@ -13,8 +13,9 @@ import type { PendingFile } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 const MAX_ITEMS = 6;
 const MAX_NOTE = 1000;
@@ -152,7 +153,7 @@ function SubmitScreen() {
   });
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -268,7 +269,7 @@ function SubmitScreen() {
         </View>
       </HanetDialog>
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -1,4 +1,5 @@
-import { AllianceBadge, allianceColor } from '@/components/anniversary/anniversary-ui';
+import { AllianceBadge, allianceColor, allianceOwnFills, mascotsOf } from '@/components/anniversary/anniversary-ui';
+import { GradientCard } from '@/components/anniversary/gradient-card';
 import { SpaceAvatar, OfficialSeal } from '@/components/feed/feed-ui';
 import { markdownToPlain } from '@/components/feed/feed-markdown';
 import { ThemedText } from '@/components/themed-text';
@@ -8,7 +9,7 @@ import { JORNADA_LABELS, eventWhen } from '@/services/events-service';
 import type { HnEvent } from '@/services/events-service';
 import type { FeedPost } from '@/services/feed-service';
 import { formatPoints, phaseOf, ranking } from '@/services/anniversary-service';
-import type { Anniversary } from '@/services/anniversary-service';
+import type { Alliance, Anniversary } from '@/services/anniversary-service';
 import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
@@ -21,11 +22,18 @@ import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 // 9:16 image ready for Instagram or WhatsApp stories. The sheet shows it
 // first; "Compartir" captures that same card (360×640 points, 1080×1920
 // pixels on a 3x phone) and opens the system's share sheet. Not on the web, where there is nothing to share it to.
+// The alianza's wallpaper goes the same way, as tall as a phone's screen,
+// to save it from the share sheet.
 
-export type StoryItem = { kind: 'event'; event: HnEvent } | { kind: 'post'; post: FeedPost } | { kind: 'anniversary'; anniversary: Anniversary };
+export type StoryItem =
+  | { kind: 'event'; event: HnEvent }
+  | { kind: 'post'; post: FeedPost }
+  | { kind: 'anniversary'; anniversary: Anniversary }
+  | { kind: 'wallpaper'; alliance: Alliance; title: string };
 
 const STORY_WIDTH = 360;
 const STORY_HEIGHT = 640;
+const WALLPAPER_HEIGHT = 780;
 const LOGO = require('@/assets/icons/auth/logo-mark.svg');
 
 export const storyShareAvailable = Platform.OS !== 'web';
@@ -122,6 +130,24 @@ function PostStory({ post, onReady }: { post: FeedPost; onReady: () => void }) {
   );
 }
 
+// The lock screen's clock sits on the top third, so the alianza goes below it.
+function WallpaperStory({ alliance, title, onReady }: { alliance: Alliance; title: string; onReady: () => void }) {
+  useEffect(() => { onReady(); }, [onReady]);
+  const mascots = mascotsOf(alliance);
+  return (
+    <>
+      <GradientCard colors={allianceOwnFills(alliance)} still style={styles.wallpaperLight}><View /></GradientCard>
+      <View />
+      <View style={styles.wallpaperMiddle}>
+        {mascots.length > 0 && <ThemedText maxFontSizeMultiplier={1} style={styles.wallpaperMascots}>{mascots.join(' ')}</ThemedText>}
+        <ThemedText maxFontSizeMultiplier={1} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.wallpaperName}>{alliance.name}</ThemedText>
+        {!!alliance.motto && <ThemedText maxFontSizeMultiplier={1} numberOfLines={3} style={styles.wallpaperMotto}>“{alliance.motto}”</ThemedText>}
+      </View>
+      <ThemedText maxFontSizeMultiplier={1} style={[styles.footer, styles.wallpaperFooter]}>{title}</ThemedText>
+    </>
+  );
+}
+
 function AnniversaryStory({ anniversary, onReady }: { anniversary: Anniversary; onReady: () => void }) {
   useEffect(() => { onReady(); }, [onReady]);
   const rows = ranking(anniversary).slice(0, 6);
@@ -159,7 +185,11 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
   const [error, setError] = useState<string | null>(null);
 
   // A new card starts over (the object itself is rebuilt on every render).
-  const itemKey = item ? `${item.kind}:${item.kind === 'event' ? item.event.id : item.kind === 'post' ? item.post.id : item.anniversary.id}` : null;
+  const itemKey = item
+    ? `${item.kind}:${item.kind === 'event' ? item.event.id : item.kind === 'post' ? item.post.id : item.kind === 'wallpaper' ? item.alliance.id : item.anniversary.id}`
+    : null;
+  const wallpaper = item?.kind === 'wallpaper';
+  const cardHeight = wallpaper ? WALLPAPER_HEIGHT : STORY_HEIGHT;
   const [shownKey, setShownKey] = useState(itemKey);
   if (shownKey !== itemKey) {
     setShownKey(itemKey);
@@ -175,7 +205,7 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
   }, [itemKey]);
 
   const markReady = React.useCallback(() => setReady(true), []);
-  const scale = Math.min(1, (width - AppSpacing.xl * 2) / STORY_WIDTH, (height - 220) / STORY_HEIGHT);
+  const scale = Math.min(1, (width - AppSpacing.xl * 2) / STORY_WIDTH, (height - 220) / cardHeight);
 
   const share = async () => {
     if (!card.current || busy) return;
@@ -184,7 +214,7 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
     try {
       const uri = await captureRef(card, { format: 'png', quality: 1, result: 'tmpfile' });
       if (!(await Sharing.isAvailableAsync())) throw new Error('unavailable');
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: 'Compartir historia' });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: wallpaper ? 'Guardar fondo de pantalla' : 'Compartir historia' });
       onClose();
     } catch {
       setError('No pudimos preparar la imagen. Inténtalo nuevamente.');
@@ -197,14 +227,22 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
     <Modal visible={!!item} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!busy) onClose(); }}>
       <View style={styles.overlay}>
         {!!item && (
-          <View style={{ width: STORY_WIDTH * scale, height: STORY_HEIGHT * scale }}>
-            <View style={{ width: STORY_WIDTH, height: STORY_HEIGHT, transform: [{ scale }], transformOrigin: 'top left' }}>
-              <View ref={card} collapsable={false} style={styles.story} accessible accessibilityLabel="Vista previa de la historia">
+          <View style={{ width: STORY_WIDTH * scale, height: cardHeight * scale }}>
+            <View style={{ width: STORY_WIDTH, height: cardHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
+              <View
+                ref={card}
+                collapsable={false}
+                style={[styles.story, wallpaper && styles.wallpaper]}
+                accessible
+                accessibilityLabel={wallpaper ? 'Vista previa del fondo de pantalla' : 'Vista previa de la historia'}
+              >
                 {item.kind === 'event'
                   ? <EventStory event={item.event} onReady={markReady} />
                   : item.kind === 'post'
                     ? <PostStory post={item.post} onReady={markReady} />
-                    : <AnniversaryStory anniversary={item.anniversary} onReady={markReady} />}
+                    : item.kind === 'wallpaper'
+                      ? <WallpaperStory alliance={item.alliance} title={item.title} onReady={markReady} />
+                      : <AnniversaryStory anniversary={item.anniversary} onReady={markReady} />}
               </View>
             </View>
           </View>
@@ -212,7 +250,7 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
         {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
         <View style={styles.buttons}>
           <HanetButton label="Cancelar" variant="surface" disabled={busy} onPress={onClose} style={styles.button} />
-          <HanetButton label={busy ? 'Preparando…' : 'Compartir'} variant="accent" disabled={busy || !ready} onPress={() => void share()} style={styles.button} />
+          <HanetButton label={busy ? 'Preparando…' : wallpaper ? 'Guardar' : 'Compartir'} variant="accent" disabled={busy || !ready} onPress={() => void share()} style={styles.button} />
         </View>
       </View>
     </Modal>
@@ -239,6 +277,44 @@ const styles = StyleSheet.create({
     borderRadius: AppRadii.lg,
     borderCurve: 'continuous',
     backgroundColor: AppColors.canvas,
+  },
+  wallpaper: {
+    height: WALLPAPER_HEIGHT,
+    borderRadius: 0,
+  },
+  wallpaperLight: {
+    ...StyleSheet.absoluteFill,
+    padding: 0,
+    borderRadius: 0,
+  },
+  wallpaperMiddle: {
+    alignItems: 'center',
+    gap: AppSpacing.md,
+    marginTop: 120,
+  },
+  wallpaperFooter: {
+    alignSelf: 'center',
+    marginBottom: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+  },
+  wallpaperMascots: {
+    fontSize: 64,
+    lineHeight: 80,
+  },
+  wallpaperName: {
+    ...AppDisplay.hero,
+    fontSize: 48,
+    lineHeight: 52,
+    textAlign: 'center',
+    color: AppColors.textPrimary,
+  },
+  wallpaperMotto: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 18,
+    lineHeight: 24,
+    textAlign: 'center',
+    color: AppColors.textPrimary,
+    opacity: 0.85,
   },
   brand: {
     flexDirection: 'row',

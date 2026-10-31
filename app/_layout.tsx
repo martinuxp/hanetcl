@@ -217,6 +217,7 @@ export default function RootLayout() {
             <Stack.Screen name="anniversary/deadline" options={sheetOptions('anniversary/deadline')} />
             <Stack.Screen name="anniversary/flash" options={sheetOptions('anniversary/flash')} />
             <Stack.Screen name="anniversary/leads" options={sheetOptions('anniversary/leads')} />
+            <Stack.Screen name="anniversary/score" options={sheetOptions('anniversary/score')} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
             <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />

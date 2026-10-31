@@ -17,10 +17,10 @@ const { sendPush } = require("./classhall-notify");
 // In hn-calendar, closed to the app (only these functions read and write):
 //   anniversaries/{institutionId__year}
 //     institutionId, year, title, startsAt, endsAt, rulesUrl, scoreHidden,
-//     finished, alliances [{ id, name, theme, color, emoji, motto,
-//       instagram, courseIds, leadUids }],
+//     finished, alliances [{ id, name, theme, color, color2, emoji, motto,
+//       instagram, chant, artists, draw, courseIds, leadUids }],
 //     activities [{ id, name, group, startsAt, place, mode, points, flash,
-//       text, result, resultAt }],
+//       text, result, resultAt, tally }],
 //     deadlines [{ id, title, dueAt, audience, remindedDay, remindedSoon }],
 //     score { totals { allianceId: points }, recent [latest entries] } — the
 //       sum of entries, kept here so a visit reads one document (rescore)
@@ -42,8 +42,11 @@ const ORGANIZER_ROLES = ["CEE", "Admin", "HNT"];
 const STAFF_ROLES = ["Profesor", "Admin", "HNT"];
 // Alliance colors are names; the app maps them to its palette.
 const COLORS = ["rosa", "rojo", "naranjo", "amarillo", "verde", "celeste", "azul", "morado", "blanco", "negro"];
-// An alianza's mascot is one emoji (the app uses icons everywhere else).
-const EMOJI = /^(?=.*\p{Extended_Pictographic})[\p{Extended_Pictographic}\p{Emoji_Component}\uFE0F\u200D]{1,16}$/u;
+// An alianza's mascots are up to three emoji (the app uses icons everywhere else).
+const EMOJI = /^(?=.*\p{Extended_Pictographic})[\p{Extended_Pictographic}\p{Emoji_Component}\uFE0F\u200D]{1,40}$/u;
+const MAX_MASCOTS = 3;
+// What the solidarity calculator counted for an alianza: baskets and bonus items.
+const MAX_TALLY_ITEMS = 20;
 const INSTAGRAM = /^[A-Za-z0-9._]{1,30}$/;
 const GROUPS = ["previas", "deportes", "velada", "show", "flash", "otras"];
 const MODES = ["podium", "manual"];
@@ -155,8 +158,28 @@ function whenText(ms) {
 }
 
 function emojiIn(value) {
-  const emoji = typeof value === "string" ? value.trim() : "";
-  return EMOJI.test(emoji) ? emoji : "";
+  const emoji = typeof value === "string" ? value.replace(/\s+/g, "") : "";
+  if (!EMOJI.test(emoji)) return "";
+  const mascots = [...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(emoji)].map(part => part.segment);
+  return mascots.slice(0, MAX_MASCOTS).join("");
+}
+
+// The counts behind a manual result: per alianza, how many of each thing
+// (the calculator's own keys, like "baskets" or a bonus item).
+function tallyIn(value, allianceIds) {
+  if (!value || typeof value !== "object") return null;
+  const tally = {};
+  for (const allianceId of allianceIds) {
+    const counts = value[allianceId];
+    if (!counts || typeof counts !== "object") continue;
+    const kept = {};
+    for (const [key, count] of Object.entries(counts).slice(0, MAX_TALLY_ITEMS)) {
+      const number = Math.round(Number(count));
+      if (/^[a-z][a-zA-Z0-9]{0,30}$/.test(key) && Number.isFinite(number) && number > 0 && number <= 10000) kept[key] = number;
+    }
+    if (Object.keys(kept).length) tally[allianceId] = kept;
+  }
+  return Object.keys(tally).length ? tally : null;
 }
 
 // "@alianza.80s" or a profile link, kept as the bare handle.
@@ -227,6 +250,7 @@ function activityOut(activity) {
     text: activity.text || "",
     result: activity.result || null,
     resultAt: millis(activity.resultAt),
+    tally: activity.tally || null,
   };
 }
 
@@ -243,9 +267,13 @@ function anniversaryOut(id, data, viewer) {
     name: alliance.name,
     theme: alliance.theme || "",
     color: alliance.color,
+    color2: alliance.color2 || "",
     emoji: alliance.emoji || "",
     motto: alliance.motto || "",
     instagram: alliance.instagram || "",
+    chant: alliance.chant || "",
+    artists: alliance.artists || "",
+    draw: alliance.draw || "",
     courseIds: alliance.courseIds || [],
     // Organizers see who leads each alianza; the leads only learn that they do.
     leadCount: (alliance.leadUids || []).length,
@@ -258,7 +286,10 @@ function anniversaryOut(id, data, viewer) {
     const out = activityOut(activity);
     if (hidden) {
       out.points = [];
-      if (out.mode === "manual") out.result = null;
+      if (out.mode === "manual") {
+        out.result = null;
+        out.tally = null;
+      }
     }
     return out;
   });
@@ -490,6 +521,7 @@ function build(getAdminApp) {
         const name = text(item?.name, 40);
         if (!name) throw new HttpsError("invalid-argument", "Cada alianza necesita un nombre.");
         const color = COLORS.includes(item?.color) ? item.color : COLORS[0];
+        const color2 = COLORS.includes(item?.color2) && item.color2 !== color ? item.color2 : "";
         const courseIds = [...new Set((Array.isArray(item?.courseIds) ? item.courseIds : []).filter(validCourse).map(course => course.trim()))];
         for (const courseId of courseIds) {
           if (taken.has(courseId)) throw new HttpsError("invalid-argument", `${courseId} está en dos alianzas.`);
@@ -502,9 +534,15 @@ function build(getAdminApp) {
           name,
           theme: text(item?.theme, 60),
           color,
+          color2,
           emoji: emojiIn(item?.emoji),
           motto: text(item?.motto, 80),
           instagram: instagramIn(item?.instagram),
+          // The cheer to learn, the artists the draw gave it, and anything
+          // else the draw decided (its turn on stage, its delivery time).
+          chant: paragraph(item?.chant, 400),
+          artists: paragraph(item?.artists, 300),
+          draw: paragraph(item?.draw, 300),
           courseIds,
           leadUids: existing?.leadUids || [],
         };
@@ -656,6 +694,7 @@ function build(getAdminApp) {
       const allianceIds = (anniversary.alliances || []).map(alliance => alliance.id);
 
       let result = null;
+      let tally = null;
       const entries = [];
       if (activity.mode === "podium" && Array.isArray(data.order) && data.order.length) {
         const order = [...new Set(data.order.filter(id => allianceIds.includes(id)))];
@@ -673,6 +712,7 @@ function build(getAdminApp) {
           result[allianceId] = points;
           if (points) entries.push({ allianceId, points });
         }
+        tally = tallyIn(data.tally, allianceIds);
       }
 
       for (const entry of old.docs) tx.delete(entry.ref);
@@ -688,7 +728,7 @@ function build(getAdminApp) {
         });
       }
       const next = [...activities];
-      next[index] = { ...activity, result, resultAt: result ? Timestamp.now() : null };
+      next[index] = { ...activity, result, resultAt: result ? Timestamp.now() : null, tally };
       tx.update(ref, { activities: next, updatedAt: FieldValue.serverTimestamp() });
     });
     return respond(ref, profile, { rescored: true });

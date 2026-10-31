@@ -10,6 +10,8 @@ type Props = {
   logoUrl?: string | null;
   bannerUrl?: string | null;
   height?: number;
+  /** A small line over the name. With it the banner drops its card and photo and sits on the page (the anniversary's Home). */
+  kicker?: string;
 };
 
 /**
@@ -17,7 +19,18 @@ type Props = {
  * it. Both images are set by the HaNet team in the HNT panel; without a
  * banner the card is plain, and without a shield only the name shows.
  */
-export default function InstitutionBanner({ title, logoUrl, bannerUrl, height = 105 }: Props) {
+export default function InstitutionBanner({ title, logoUrl, bannerUrl, height = 105, kicker }: Props) {
+  if (kicker) {
+    return (
+      <View style={[styles.bare, { minHeight: height }]} accessible accessibilityRole="header" accessibilityLabel={`${kicker} ${title.replace(/\n/g, ' ')}`}>
+        {!!logoUrl && <Image source={{ uri: logoUrl }} style={styles.logo} contentFit="contain" transition={200} />}
+        <View style={styles.bareText}>
+          <ThemedText numberOfLines={2} style={styles.kicker}>{kicker}</ThemedText>
+          <ThemedText numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.bareTitle}>{title}</ThemedText>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={[styles.card, { height }]} accessible accessibilityRole="header" accessibilityLabel={title.replace(/\n/g, ' ')}>
       {!!bannerUrl && (
@@ -63,6 +76,30 @@ const styles = StyleSheet.create({
     ...AppType.title2,
     flexShrink: 1,
     color: AppColors.textSecondary,
+  },
+  bare: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: AppSpacing.md,
+    paddingHorizontal: AppSpacing.lg,
+  },
+  bareText: {
+    flexShrink: 1,
+  },
+  kicker: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    lineHeight: 14,
+    color: AppColors.textPrimary,
+  },
+  bareTitle: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 40,
+    lineHeight: 44,
+    letterSpacing: -1.6,
+    color: AppColors.textPrimary,
   },
   titleOverPhoto: {
     textShadowColor: 'rgba(0,0,0,0.7)',

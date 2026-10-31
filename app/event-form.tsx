@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 
 type GalleryItem = { type: 'keep' | 'url'; uri: string } | { type: 'upload'; uri: string; uploadPath: string };
 
@@ -285,7 +286,7 @@ function EventFormScreen() {
   const shownCover = cover?.localUri || form.imageUrl;
 
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.sheet}
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
@@ -464,7 +465,7 @@ function EventFormScreen() {
         }}
       />
       {dialog}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -7,6 +7,7 @@ import { useEventOptions } from '@/components/events/event-options';
 import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
 import { CalendarViewMenu, CalendarViewPill } from '@/components/calendar/view-menu';
 import { OrganizeMenu, OrganizePill, organizeBar, useOrganizeBar } from '@/components/anniversary/organize-menu';
+import { FeedMenu, FeedMenuPill } from '@/components/feed/feed-menu';
 import { useAnniversaryState } from '@/services/anniversary-service';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
@@ -126,6 +127,7 @@ type BarSearch = {
 const SEARCH_PILL_WIDTH = 118;
 const SEARCH_INSET = 8;
 
+
 function CloseGlyph() {
   return (
     <Svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -187,7 +189,7 @@ type AppTabBarProps = {
   center?: React.ReactNode;
   /** Changes when the set of controls changes, to crossfade between them. */
   controlsKey?: string;
-  /** Replaces `center` with a search pill that expands over the whole bar. */
+  /** A search pill that expands over the whole bar (in the center unless `center` is given; then something there opens it). */
   search?: BarSearch;
   /** A panel the center pill opens, growing out of the bar. */
   panel?: BarPanel;
@@ -371,7 +373,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           )}
 
           <View style={styles.center} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-            {searchPill ?? center ?? <HanetLogo />}
+            {center ?? searchPill ?? <HanetLogo />}
           </View>
 
           <MotionTab active={active === 'profile'} icon="user" label="Perfil" onPress={onProfile} />
@@ -423,6 +425,9 @@ const BAR_ROUTES = [
   '/anniversary', '/anniversary/activities', '/anniversary/notices', '/hnt-admin', '/settings', '/licenses',
 ];
 
+/** The feed's screens: for those who publish, their search lives in a menu with "Crear". */
+const FEED_ROUTES = ['/feed', '/anniversary/notices'];
+
 /** Screens whose center pill is a search, which they read from the bar store. */
 const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed', '/anniversary/notices': 'Buscar en los avisos' };
 
@@ -452,6 +457,7 @@ export function GlobalTabBar() {
   React.useEffect(() => {
     if (pathname !== '/calendar') calendarBar.closeMenu();
     if (pathname !== '/anniversary') organizeBar.closeMenu();
+    if (!FEED_ROUTES.includes(pathname)) eventBar.closeMenu();
   }, [pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
@@ -460,6 +466,7 @@ export function GlobalTabBar() {
   // The Aniversario's tools, once it is armed, for those who organize it.
   const organizing = pathname === '/anniversary' && !!anniversary?.canOrganize && !!anniversary.anniversary;
   const canAddEvents = !!user && !!role && EVENT_EDITOR_ROLES.includes(role);
+  const feedMenu = FEED_ROUTES.includes(pathname) && !!bar.compose;
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   // Leaves whatever is stacked over the tabs before switching tab.
@@ -492,6 +499,9 @@ export function GlobalTabBar() {
     center = <CalendarViewPill view={calendar.view} open={calendar.menuOpen} onPress={calendarBar.toggleMenu} />;
   } else if (organizing) {
     center = <OrganizePill open={organize.menuOpen} />;
+  } else if (feedMenu) {
+    // Those who publish get a menu with the search and "Crear"; the rest, the search pill.
+    center = <FeedMenuPill label={pathname === '/feed' ? 'Feed' : 'Avisos'} open={bar.menuOpen} />;
   }
 
   return (
@@ -510,7 +520,9 @@ export function GlobalTabBar() {
         ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
         : organizing
           ? { open: organize.menuOpen, label: 'el menú', onClose: organizeBar.closeMenu, content: <OrganizeMenu /> }
-          : undefined}
+          : feedMenu && bar.compose
+            ? { open: bar.menuOpen, label: 'el menú', onClose: eventBar.closeMenu, content: <FeedMenu compose={bar.compose} placeholder={SEARCH_PLACEHOLDERS[pathname]} /> }
+            : undefined}
     />
     {options.dialog}
     </>

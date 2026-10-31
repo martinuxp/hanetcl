@@ -1,5 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
-import { ActivityList, AllianceBadge, AllianceCard, LeaderCard, Scoreboard, SectionTitle, allianceColor, allianceFills, dayText, shortWhen, signedPoints, timeText } from '@/components/anniversary/anniversary-ui';
+import { ActivityList, AllianceBadge, AllianceCard, AllianceExtras, LeaderCard, Scoreboard, SectionTitle, allianceColor, allianceFills, dayText, shortWhen, signedPoints, timeText } from '@/components/anniversary/anniversary-ui';
 import { Confetti } from '@/components/anniversary/confetti';
 import { FlexText } from '@/components/anniversary/flex-text';
 import { GradientCard } from '@/components/anniversary/gradient-card';
@@ -255,6 +255,12 @@ export default function AnniversaryScreen() {
         {phase === 'after' && scored && <WinnerCard anniversary={anniversary} now={now} onShare={share} />}
 
         {mine && <AllianceCard alliance={mine} standing={myStanding} mine lead={anniversary.isLead} />}
+        {mine && (
+          <AllianceExtras
+            alliance={mine}
+            onWallpaper={storyShareAvailable ? () => setStory({ kind: 'wallpaper', alliance: mine, title: anniversary.title }) : undefined}
+          />
+        )}
 
         <SectionTitle title="Marcador" detail={hidden && organizer ? 'Oculto para los demás' : undefined} />
         {phase !== 'after' && scored && <LeaderCard anniversary={anniversary} now={now} />}
