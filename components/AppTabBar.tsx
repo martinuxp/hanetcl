@@ -29,6 +29,8 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  ZoomIn,
+  ZoomOut,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -121,10 +123,14 @@ type BarSearch = {
   onChangeText: (text: string) => void;
   onOpen: () => void;
   onClose: () => void;
+  /** A round "+" beside the pill, to publish; the search covers it when it opens. */
+  compose?: { label: string; onPress: () => void } | null;
 };
 
 const SEARCH_PILL_WIDTH = 118;
 const SEARCH_INSET = 8;
+const COMPOSE_SIZE = 45;
+const COMPOSE_GAP = 6;
 
 function CloseGlyph() {
   return (
@@ -223,8 +229,11 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
     input.current?.blur();
   }, [morph, open, reduceMotion]);
 
-  // Where the pill rests (in the middle slot) and the whole bar it grows to.
-  const startLeft = 12 + centerFrame.x + (centerFrame.width - SEARCH_PILL_WIDTH) / 2;
+  // Where the pill rests (in the middle slot, left of the "+" when there is
+  // one) and the whole bar it grows to.
+  const compose = search?.compose ?? null;
+  const restingRow = SEARCH_PILL_WIDTH + (compose ? COMPOSE_GAP + COMPOSE_SIZE : 0);
+  const startLeft = 12 + centerFrame.x + (centerFrame.width - restingRow) / 2;
   const fullWidth = Math.max(barWidth - 2 - SEARCH_INSET * 2, SEARCH_PILL_WIDTH);
 
   const liftStyle = useAnimatedStyle(() => ({ bottom: Math.max(restingBottom, keyboard.value + 10) }));
@@ -294,18 +303,36 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const searchPill = search ? (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={search.placeholder}
-      style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
-      onPress={() => {
-        if (Platform.OS === 'ios') void Haptics.selectionAsync();
-        search.onOpen();
-      }}
-    >
-      <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-      <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
-    </Pressable>
+    <View style={styles.searchRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={search.placeholder}
+        style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
+        onPress={() => {
+          if (Platform.OS === 'ios') void Haptics.selectionAsync();
+          search.onOpen();
+        }}
+      >
+        <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
+        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
+      </Pressable>
+      {compose && (
+        <Animated.View entering={reduceMotion ? undefined : ZoomIn.springify().damping(16).stiffness(220)} exiting={reduceMotion ? undefined : ZoomOut.duration(120)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={compose.label}
+            hitSlop={4}
+            style={({ pressed }) => [styles.composeButton, pressed && styles.motionPressPressed]}
+            onPress={() => {
+              if (Platform.OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              compose.onPress();
+            }}
+          >
+            <CustomIcon name="plus" size={22} color={AppColors.textPrimary} />
+          </Pressable>
+        </Animated.View>
+      )}
+    </View>
   ) : null;
 
   return (
@@ -504,7 +531,7 @@ export function GlobalTabBar() {
       center={center}
       controlsKey={isTabRoot ? 'main' : ['/calendar', '/events', '/feed', '/event-detail', '/anniversary/notices'].includes(pathname) || organizing ? pathname : 'screen'}
       search={SEARCH_PLACEHOLDERS[pathname]
-        ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
+        ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch, compose: bar.compose }
         : undefined}
       panel={pathname === '/calendar'
         ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
@@ -601,6 +628,19 @@ const styles = StyleSheet.create({
   },
   searchPill: {
     width: 118,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: COMPOSE_GAP,
+  },
+  composeButton: {
+    width: COMPOSE_SIZE,
+    height: COMPOSE_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 360,
+    backgroundColor: AppColors.accent,
   },
   optionsPill: {
     width: 124,

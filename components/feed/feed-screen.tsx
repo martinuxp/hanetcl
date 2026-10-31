@@ -1,5 +1,5 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
-import { useEventBar } from '@/components/events/event-bar-store';
+import { eventBar, useEventBar } from '@/components/events/event-bar-store';
 import { markdownToPlain } from '@/components/feed/feed-markdown';
 import { FeedPostView, SpaceTile } from '@/components/feed/feed-ui';
 import { StoryShareSheet, storyShareAvailable } from '@/components/share/story-share';
@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog } from '@/components/ui/hanet-dialog';
-import { AppColors, AppPressed, AppRadii, AppSpacing } from '@/constants/design-tokens';
+import { AppColors, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
 import { REPORT_REASONS, canShareAsStory, deleteFeedPost, listFeed, reportFeedPost, setFeedPostPinned, spaceGroup, toggleFeedReaction, voteFeedPoll } from '@/services/feed-service';
 import type { Feed, FeedPost } from '@/services/feed-service';
@@ -16,9 +16,8 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, RefreshControl, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 const MAX_WIDTH = 480;
 
@@ -86,6 +85,16 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
 
   const contentWidth = Math.min(width, MAX_WIDTH);
   const canPublish = (feed?.publishAs.length ?? 0) > 0;
+
+  // Publishing is the "+" beside the bar's search, while this screen is in front.
+  useFocusEffect(useCallback(() => {
+    if (!canPublish) return;
+    eventBar.setCompose({
+      label: tag ? 'Publicar un aviso' : 'Crear publicación',
+      onPress: () => router.push(tag ? { pathname: '/feed-post', params: { tag } } : '/feed-post'),
+    });
+    return () => eventBar.setCompose(null);
+  }, [canPublish, router, tag]));
 
   const updatePost = (id: string, change: (post: FeedPost) => FeedPost) =>
     setFeed(current => (current ? { ...current, posts: current.posts.map(post => (post.id === id ? change(post) : post)) } : current));
@@ -164,16 +173,6 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
   const header = (
     <View style={styles.header}>
       <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${title ?? 'Feed y comunidad'}, volver arriba`}
-          onPress={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
-          style={({ pressed }) => [styles.logoButton, pressed && AppPressed]}
-        >
-          <Svg width={19} height={28} viewBox="0 0 20 29" fill="none">
-            <Path d="M0 0L6.87688 6.43605V13.1403L10.3153 13.5425V8.98366L19.3082 9.78816V19.1741L10.3153 19.9786V15.4197L6.87688 15.822V22.5262L0 28.9622V0Z" fill={AppColors.accent} />
-          </Svg>
-        </Pressable>
         <View style={styles.titleWrap}>
           <ThemedText accessibilityRole="header" style={styles.title}>{title ?? 'Feed y comunidad'}</ThemedText>
           {(!!tag || !!feed?.institutionName) && (
@@ -261,17 +260,6 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} />}
       />
-
-      {canPublish && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={tag ? 'Publicar un aviso' : 'Crear publicación'}
-          onPress={() => router.push(tag ? { pathname: '/feed-post', params: { tag } } : '/feed-post')}
-          style={({ pressed }) => [styles.fab, pressed && AppPressed]}
-        >
-          <CustomIcon name="plus" size={28} color={AppColors.textPrimary} />
-        </Pressable>
-      )}
 
       <HanetDialog
         visible={dialog?.kind === 'more'}
@@ -367,7 +355,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MAX_WIDTH,
     alignSelf: 'center',
-    paddingBottom: TAB_BAR_CLEARANCE + AppSpacing.xxl + 64,
+    paddingBottom: TAB_BAR_CLEARANCE + AppSpacing.xxl,
   },
   header: {
     gap: AppSpacing.md,
@@ -378,16 +366,6 @@ const styles = StyleSheet.create({
     gap: AppSpacing.md,
     paddingHorizontal: AppSpacing.lg,
     paddingTop: AppSpacing.sm,
-  },
-  logoButton: {
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: AppRadii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(60, 59, 62, 0.72)',
   },
   titleWrap: {
     flex: 1,
@@ -451,18 +429,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: AppColors.textSecondary,
-  },
-  fab: {
-    position: 'absolute',
-    right: AppSpacing.lg,
-    bottom: TAB_BAR_CLEARANCE + AppSpacing.lg,
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: AppRadii.pill,
-    backgroundColor: AppColors.accent,
-    boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.3)',
   },
   dialogButtons: {
     gap: AppSpacing.sm,
