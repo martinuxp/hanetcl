@@ -86,7 +86,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
   const contentWidth = Math.min(width, MAX_WIDTH);
   const canPublish = (feed?.publishAs.length ?? 0) > 0;
 
-  // Publishing is the "+" beside the bar's search, while this screen is in front.
+  // Publishing goes in the bar's menu, while this screen is in front.
   useFocusEffect(useCallback(() => {
     if (!canPublish) return;
     eventBar.setCompose({
@@ -221,10 +221,10 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
           ? 'Prueba con otra palabra o un tag.'
           : tag
             ? canPublish
-              ? `Toca el botón + para publicar el primero. Lleva el tag #${tag} y también sale en el Feed.`
+              ? `Toca Avisos en la barra para publicar el primero. Lleva el tag #${tag} y también sale en el Feed.`
               : 'Cuando el CEE o tu liceo publiquen un aviso, aparecerá aquí.'
             : canPublish
-              ? 'Toca el botón + para publicar la primera.'
+              ? 'Toca Feed en la barra para publicar la primera.'
               : 'Cuando tu liceo, el CEE o tu directiva publiquen algo, aparecerá aquí.'}
       </ThemedText>
     </View>

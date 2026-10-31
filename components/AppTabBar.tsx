@@ -7,6 +7,7 @@ import { useEventOptions } from '@/components/events/event-options';
 import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
 import { CalendarViewMenu, CalendarViewPill } from '@/components/calendar/view-menu';
 import { OrganizeMenu, OrganizePill, organizeBar, useOrganizeBar } from '@/components/anniversary/organize-menu';
+import { FeedMenu, FeedMenuPill } from '@/components/feed/feed-menu';
 import { useAnniversaryState } from '@/services/anniversary-service';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
 import { BlurView } from 'expo-blur';
@@ -29,8 +30,6 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-  ZoomIn,
-  ZoomOut,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -123,14 +122,11 @@ type BarSearch = {
   onChangeText: (text: string) => void;
   onOpen: () => void;
   onClose: () => void;
-  /** A round "+" beside the pill, to publish; the search covers it when it opens. */
-  compose?: { label: string; onPress: () => void } | null;
 };
 
 const SEARCH_PILL_WIDTH = 118;
 const SEARCH_INSET = 8;
-const COMPOSE_SIZE = 45;
-const COMPOSE_GAP = 6;
+
 
 function CloseGlyph() {
   return (
@@ -193,7 +189,7 @@ type AppTabBarProps = {
   center?: React.ReactNode;
   /** Changes when the set of controls changes, to crossfade between them. */
   controlsKey?: string;
-  /** Replaces `center` with a search pill that expands over the whole bar. */
+  /** A search pill that expands over the whole bar (in the center unless `center` is given; then something there opens it). */
   search?: BarSearch;
   /** A panel the center pill opens, growing out of the bar. */
   panel?: BarPanel;
@@ -229,11 +225,8 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
     input.current?.blur();
   }, [morph, open, reduceMotion]);
 
-  // Where the pill rests (in the middle slot, left of the "+" when there is
-  // one) and the whole bar it grows to.
-  const compose = search?.compose ?? null;
-  const restingRow = SEARCH_PILL_WIDTH + (compose ? COMPOSE_GAP + COMPOSE_SIZE : 0);
-  const startLeft = 12 + centerFrame.x + (centerFrame.width - restingRow) / 2;
+  // Where the pill rests (in the middle slot) and the whole bar it grows to.
+  const startLeft = 12 + centerFrame.x + (centerFrame.width - SEARCH_PILL_WIDTH) / 2;
   const fullWidth = Math.max(barWidth - 2 - SEARCH_INSET * 2, SEARCH_PILL_WIDTH);
 
   const liftStyle = useAnimatedStyle(() => ({ bottom: Math.max(restingBottom, keyboard.value + 10) }));
@@ -303,36 +296,18 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const searchPill = search ? (
-    <View style={styles.searchRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={search.placeholder}
-        style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
-        onPress={() => {
-          if (Platform.OS === 'ios') void Haptics.selectionAsync();
-          search.onOpen();
-        }}
-      >
-        <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
-      </Pressable>
-      {compose && (
-        <Animated.View entering={reduceMotion ? undefined : ZoomIn.springify().damping(16).stiffness(220)} exiting={reduceMotion ? undefined : ZoomOut.duration(120)}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={compose.label}
-            hitSlop={4}
-            style={({ pressed }) => [styles.composeButton, pressed && styles.motionPressPressed]}
-            onPress={() => {
-              if (Platform.OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              compose.onPress();
-            }}
-          >
-            <CustomIcon name="plus" size={22} color={AppColors.textPrimary} />
-          </Pressable>
-        </Animated.View>
-      )}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={search.placeholder}
+      style={({ pressed }) => [styles.centerPill, styles.searchPill, pressed && styles.motionPressPressed]}
+      onPress={() => {
+        if (Platform.OS === 'ios') void Haptics.selectionAsync();
+        search.onOpen();
+      }}
+    >
+      <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
+      <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
+    </Pressable>
   ) : null;
 
   return (
@@ -398,7 +373,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           )}
 
           <View style={styles.center} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-            {searchPill ?? center ?? <HanetLogo />}
+            {center ?? searchPill ?? <HanetLogo />}
           </View>
 
           <MotionTab active={active === 'profile'} icon="user" label="Perfil" onPress={onProfile} />
@@ -450,6 +425,9 @@ const BAR_ROUTES = [
   '/anniversary', '/anniversary/activities', '/anniversary/notices', '/hnt-admin', '/settings', '/licenses',
 ];
 
+/** The feed's screens: for those who publish, their search lives in a menu with "Crear". */
+const FEED_ROUTES = ['/feed', '/anniversary/notices'];
+
 /** Screens whose center pill is a search, which they read from the bar store. */
 const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed', '/anniversary/notices': 'Buscar en los avisos' };
 
@@ -479,6 +457,7 @@ export function GlobalTabBar() {
   React.useEffect(() => {
     if (pathname !== '/calendar') calendarBar.closeMenu();
     if (pathname !== '/anniversary') organizeBar.closeMenu();
+    if (!FEED_ROUTES.includes(pathname)) eventBar.closeMenu();
   }, [pathname]);
 
   if (!BAR_ROUTES.includes(pathname)) return null;
@@ -487,6 +466,7 @@ export function GlobalTabBar() {
   // The Aniversario's tools, once it is armed, for those who organize it.
   const organizing = pathname === '/anniversary' && !!anniversary?.canOrganize && !!anniversary.anniversary;
   const canAddEvents = !!user && !!role && EVENT_EDITOR_ROLES.includes(role);
+  const feedMenu = FEED_ROUTES.includes(pathname) && !!bar.compose;
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   // Leaves whatever is stacked over the tabs before switching tab.
@@ -519,6 +499,9 @@ export function GlobalTabBar() {
     center = <CalendarViewPill view={calendar.view} open={calendar.menuOpen} onPress={calendarBar.toggleMenu} />;
   } else if (organizing) {
     center = <OrganizePill open={organize.menuOpen} />;
+  } else if (feedMenu) {
+    // Those who publish get a menu with the search and "Crear"; the rest, the search pill.
+    center = <FeedMenuPill label={pathname === '/feed' ? 'Feed' : 'Avisos'} open={bar.menuOpen} />;
   }
 
   return (
@@ -531,13 +514,15 @@ export function GlobalTabBar() {
       center={center}
       controlsKey={isTabRoot ? 'main' : ['/calendar', '/events', '/feed', '/event-detail', '/anniversary/notices'].includes(pathname) || organizing ? pathname : 'screen'}
       search={SEARCH_PLACEHOLDERS[pathname]
-        ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch, compose: bar.compose }
+        ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
         : undefined}
       panel={pathname === '/calendar'
         ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
         : organizing
           ? { open: organize.menuOpen, label: 'el menú', onClose: organizeBar.closeMenu, content: <OrganizeMenu /> }
-          : undefined}
+          : feedMenu && bar.compose
+            ? { open: bar.menuOpen, label: 'el menú', onClose: eventBar.closeMenu, content: <FeedMenu compose={bar.compose} placeholder={SEARCH_PLACEHOLDERS[pathname]} /> }
+            : undefined}
     />
     {options.dialog}
     </>
@@ -628,19 +613,6 @@ const styles = StyleSheet.create({
   },
   searchPill: {
     width: 118,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: COMPOSE_GAP,
-  },
-  composeButton: {
-    width: COMPOSE_SIZE,
-    height: COMPOSE_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 360,
-    backgroundColor: AppColors.accent,
   },
   optionsPill: {
     width: 124,

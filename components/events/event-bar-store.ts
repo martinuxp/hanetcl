@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react';
 
 // What a screen shares with the global bar: the search, which opens in the bar
-// itself (HaNet Eventos and the feed), the button that sits beside it to
-// publish (the feed, for those who can), and the buying options of the event
-// on screen.
+// itself (HaNet Eventos and the feed), the feed's way to publish (for those
+// who can, a menu with the search and "Crear" grows out of the bar), and the
+// buying options of the event on screen.
 
 export type EventBarActions = {
   title: string;
@@ -12,7 +12,7 @@ export type EventBarActions = {
   coupon: { code: string; description: string } | null;
 };
 
-/** The round "+" beside the search. */
+/** "Crear" in the feed's menu. */
 export type EventBarCompose = { label: string; onPress: () => void };
 
 type State = {
@@ -20,9 +20,10 @@ type State = {
   query: string;
   actions: EventBarActions | null;
   compose: EventBarCompose | null;
+  menuOpen: boolean;
 };
 
-let state: State = { searchOpen: false, query: '', actions: null, compose: null };
+let state: State = { searchOpen: false, query: '', actions: null, compose: null, menuOpen: false };
 const listeners = new Set<() => void>();
 
 function set(changes: Partial<State>) {
@@ -40,9 +41,11 @@ export function useEventBar() {
 }
 
 export const eventBar = {
-  openSearch: () => set({ searchOpen: true }),
+  openSearch: () => set({ searchOpen: true, menuOpen: false }),
   closeSearch: () => set({ searchOpen: false, query: '' }),
   setQuery: (query: string) => set({ query }),
   setActions: (actions: EventBarActions | null) => set({ actions }),
-  setCompose: (compose: EventBarCompose | null) => set({ compose }),
+  setCompose: (compose: EventBarCompose | null) => set(compose ? { compose } : { compose, menuOpen: false }),
+  toggleMenu: () => set({ menuOpen: !state.menuOpen }),
+  closeMenu: () => { if (state.menuOpen) set({ menuOpen: false }); },
 };
