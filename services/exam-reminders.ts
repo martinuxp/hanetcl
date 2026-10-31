@@ -80,8 +80,12 @@ async function sync(events: CalendarEvent[]) {
   const next = events.find(event => isEvaluation(event) && !event.cancelled && event.startDate.getTime() > now.getTime());
   syncWidgetExam(next && enabled ? { subject: subjectOf(next), startsAt: next.startDate.getTime() } : null);
 
-  await syncLiveActivity(upcoming, now);
-  await scheduleNotifications(upcoming, now);
+  // The notifications first and apart: a Live Activity that iOS refuses or
+  // that never answers (a re-signed build) must not leave the test without them.
+  const results = await Promise.allSettled([scheduleNotifications(upcoming, now), syncLiveActivity(upcoming, now)]);
+  for (const result of results) {
+    if (result.status === 'rejected') console.warn('syncExamReminders', result.reason instanceof Error ? result.reason.message : result.reason);
+  }
 }
 
 async function scheduleNotifications(upcoming: CalendarEvent[], now: Date) {
