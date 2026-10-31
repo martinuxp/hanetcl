@@ -170,6 +170,7 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
       onPress={onOpen}
       style={({ pressed }) => [styles.page, pressed && styles.pressed]}
     >
+      <View style={styles.lift}>
       <GradientCard colors={shown ? allianceOwnFills(shown) : allianceFills(anniversary.alliances)} style={styles.card}>
         <View style={styles.cardTop}>
           {shown && <MascotRing alliance={shown} size={56} id={`mine-ring-${shown.id}`} />}
@@ -200,7 +201,10 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
           <ThemedText numberOfLines={1} style={styles.liveText}>{line.text}</ThemedText>
           <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
         </View>
+        {/* Over the waving colors (which cover the card's own border), so the card keeps its edge on the Home's light. */}
+        <View pointerEvents="none" style={styles.stroke} />
       </GradientCard>
+      </View>
     </Pressable>
   );
 }
@@ -363,6 +367,18 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.22)',
+  },
+  lift: {
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.35)',
+  },
+  stroke: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   glass: {
     overflow: 'hidden',
