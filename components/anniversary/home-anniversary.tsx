@@ -9,7 +9,7 @@ import type { Alliance, Anniversary, AnniversaryPhase, Standing } from '@/servic
 import { feedWhen } from '@/services/feed-service';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from 'react-native-svg';
@@ -21,8 +21,8 @@ import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop 
 // finger. Either card opens the score sheet.
 
 export const GLOW_HEIGHT = 262;
-// While it runs the light waves and goes further down the page, but fainter.
-const WAVING_REACH = 620;
+// While it runs the light waves and covers almost the whole screen, but fainter.
+const WAVING_REACH = 1.1;
 // Room above the page, as far as an iOS bounce can pull it.
 const OVERSCROLL = 600;
 const CARD_HEIGHT = 138;
@@ -54,12 +54,14 @@ function countdown(ms: number) {
  * `waving` (the anniversary days) makes it a flag with dots (on phones).
  */
 export function AnniversaryGlow({ alliances, width, waving }: { alliances: Pick<Alliance, 'color'>[]; width: number; waving?: boolean }) {
+  const { height: screenHeight } = useWindowDimensions();
   const fills = allianceFills(alliances).slice(0, 4);
   const colors = fills.length ? fills : [AppColors.accent];
   if (waving && FLAG_GLOW_AVAILABLE) {
+    const reach = Math.round(screenHeight * WAVING_REACH);
     return (
-      <View pointerEvents="none" style={[styles.glow, { top: -OVERSCROLL, height: OVERSCROLL + WAVING_REACH }]}>
-        <FlagGlow colors={colors} width={width} top={OVERSCROLL} reach={WAVING_REACH} />
+      <View pointerEvents="none" style={[styles.glow, { top: -OVERSCROLL, height: OVERSCROLL + reach }]}>
+        <FlagGlow colors={colors} width={width} top={OVERSCROLL} reach={reach} />
       </View>
     );
   }

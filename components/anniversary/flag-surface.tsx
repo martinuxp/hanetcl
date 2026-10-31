@@ -83,9 +83,11 @@ float3 pick(float index) {
 
 half4 main(float2 p) {
   float span = size.x;
-  // Long, slow folds: the whole width is a flag, not a card.
-  float phase = (p.x * 0.8 + (p.y - top) * 0.45) / span * 5.0 - time * 0.9;
-  float ripple = phase * 1.9 + 0.7 - time * 0.45;
+  // Long, slow folds: the whole width is a flag, not a card. They travel the
+  // other way from the cards' and at half their pace, so a card over the
+  // page doesn't look like it slides on it.
+  float phase = (p.x * 0.8 + (p.y - top) * 0.45) / span * 5.0 + time * 0.55;
+  float ripple = phase * 1.9 + 0.7 + time * 0.25;
   float wave = sin(phase) + 0.3 * sin(ripple);
   float slope = (cos(phase) + 0.57 * cos(ripple)) / 1.57;
   float2 q = p + float2(wave * 3.0, wave * 9.0);
@@ -100,7 +102,7 @@ half4 main(float2 p) {
     float index = float(i);
     if (index >= count) break;
     float x = count < 1.5 ? 0.5 : (index + 0.5) / count;
-    float2 d = (q - float2(x * size.x, center)) / float2(size.x * 0.6, reach * 0.9);
+    float2 d = (q - float2(x * size.x, center)) / float2(size.x * 0.62, reach * 1.15);
     float w = clamp(1.0 - length(d), 0.0, 1.0);
     w = w * w * (3.0 - 2.0 * w);
     color += pick(index) * w;
@@ -127,9 +129,10 @@ half4 main(float2 p) {
   float ink = 1.0 - smoothstep(radius - 0.6, radius + 0.6, length(cell));
   color = mix(color, float3(0.976, 0.976, 0.98), ink * 0.16 * (1.0 + 0.5 * slope));
 
-  // Down the page the light fades into it.
-  float down = clamp((p.y - top) / reach, 0.0, 1.0);
-  float alpha = light * 0.62 * (1.0 - down * down * (3.0 - 2.0 * down));
+  // It holds through most of the screen and only fades into the page near
+  // the end of its reach.
+  float down = clamp(((p.y - top) / reach - 0.3) / 0.7, 0.0, 1.0);
+  float alpha = max(light, 0.35) * 0.6 * (1.0 - down * down * (3.0 - 2.0 * down));
   return half4(half3(color * alpha), alpha);
 }
 `;
