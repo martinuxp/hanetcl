@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.3.1-beta",
+      "date": "2026-10-31",
+      "title": "",
+      "items": [
+        "HaNet ya se puede instalar en teléfonos Android."
+      ]
+    },
+    {
       "version": "0.3.0-beta",
       "date": "2026-10-28",
       "title": "Semana de alianzas",
