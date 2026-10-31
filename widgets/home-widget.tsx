@@ -4,7 +4,8 @@ import { createWidget } from 'expo-widgets';
 import type { WidgetEnvironment } from 'expo-widgets';
 
 // The home screen widget (iPhone): what class is on now or next, from the
-// course's Horario, and the next evaluation of the Calendar. The app hands
+// course's Horario, and the next evaluation of the Calendar. The Lock Screen
+// has its own, the Calendar (widgets/calendar-widget.tsx). The app hands
 // it a timeline for the rest of the day (services/widget-service.ts), so it
 // changes block by block without opening HaNet.
 //
@@ -35,16 +36,6 @@ const HomeWidget = (props: HomeWidgetProps, environment: WidgetEnvironment) => {
   const subject = empty ? 'Abre HaNet' : props.subject;
   const detail = empty ? 'Para ver tu horario aquí' : props.detail;
   const exam = empty ? '' : props.exam;
-
-  if (environment.widgetFamily === 'accessoryRectangular') {
-    return (
-      <VStack alignment="leading" spacing={1} modifiers={[widgetURL('hanetcl://schedule')]}>
-        <Text modifiers={[font({ size: 12, weight: 'semibold' })]}>{label}</Text>
-        <Text modifiers={[font({ size: 15, weight: 'bold' }), lineLimit(1)]}>{subject}</Text>
-        <Text modifiers={[font({ size: 12 }), lineLimit(1)]}>{exam || detail}</Text>
-      </VStack>
-    );
-  }
 
   return (
     <VStack alignment="leading" spacing={4} modifiers={[padding({ all: small ? 2 : 4 }), containerBackground(canvas, 'widget'), widgetURL('hanetcl://schedule')]}>
