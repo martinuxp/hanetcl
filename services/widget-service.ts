@@ -11,7 +11,16 @@ import type { LiveActivityFactory, Widget } from 'expo-widgets';
 // Go, on Android and on the web these functions do nothing, and the app
 // never loads the widget files there.
 
-export const widgetsAvailable = Platform.OS === 'ios' && !!requireOptionalNativeModule('ExpoWidgets');
+const widgetsModule = Platform.OS === 'ios' ? requireOptionalNativeModule<{ widgetsDirectory?: string | null }>('ExpoWidgets') : null;
+
+export const widgetsAvailable = !!widgetsModule;
+
+/**
+ * Whether the app reaches the App Group it shares with the widget. Without it
+ * (a build re-signed with a certificate that has no App Groups) the widget
+ * keeps its first layout and the Live Activity shows up empty.
+ */
+export const widgetsShareData = !!widgetsModule?.widgetsDirectory;
 
 let homeWidget: Widget<HomeWidgetProps> | null = null;
 let examActivity: LiveActivityFactory<ExamActivityProps> | null = null;
@@ -70,7 +79,14 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
 }
 
 function publish() {
-  const widget = home();
+  let widget: Widget<HomeWidgetProps> | null;
+  try {
+    widget = home();
+  } catch (error) {
+    // The widget never stops the reminders that come right after it.
+    console.warn('syncHomeWidget', error instanceof Error ? error.message : error);
+    return;
+  }
   if (!widget) return;
   const blocks = lastBlocks ?? [];
   const now = new Date();

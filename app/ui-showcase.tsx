@@ -24,7 +24,7 @@ import type { FeedEvent, FeedPoll, FeedPost, FeedReaction } from '@/services/fee
 import { idQrValue, msToNextCode } from '@/services/hanet-id-service';
 import { previewExamActivity, previewExamReminder, previewMorningSummary } from '@/services/exam-reminders';
 import type { ScheduleBlock } from '@/services/schedule-service';
-import { widgetsAvailable } from '@/services/widget-service';
+import { widgetsAvailable, widgetsShareData } from '@/services/widget-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
@@ -361,7 +361,13 @@ export default function UiShowcaseScreen() {
 
         <Section title="Live Activity y widget" description="Cuenta regresiva de una prueba en la pantalla bloqueada y en la Dynamic Island. El widget “HaNet hoy” se agrega desde la pantalla de inicio del iPhone.">
           <HanetButton label="Iniciar Live Activity" variant="surface" disabled={!widgetsAvailable} onPress={testActivity} />
-          <Note>{notice?.key === 'live' ? notice.text : widgetsAvailable ? null : 'Solo en la app instalada en un iPhone: en Expo Go, Android y la web no existen.'}</Note>
+          <Note>{notice?.key === 'live'
+            ? notice.text
+            : !widgetsAvailable
+              ? 'Solo en la app instalada en un iPhone: en Expo Go, Android y la web no existen.'
+              : widgetsShareData
+                ? null
+                : 'Esta build no llega a su App Group, así que el widget no se actualiza y la Live Activity sale vacía. Fírmala con un certificado que tenga App Groups.'}</Note>
         </Section>
 
         <GroupTitle>Base</GroupTitle>

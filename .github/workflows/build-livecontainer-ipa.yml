@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       app_group:
-        description: "App Group del certificado que firma la app (para el widget y la Live Activity). Vacío = group.art.muxp.hanetcl."
+        description: "Opcional. App Group del certificado que firma la app. Vacío = group.art.muxp.hanetcl (la app igual toma el grupo que le dé la firma)."
         required: false
         default: ""
 
@@ -73,6 +73,55 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build
+
+      # Without a signature the IPA carries no entitlements, so whatever signs
+      # it on the phone doesn't know the app and the widget share an App Group
+      # and they get none: the widget never updates and the Live Activity
+      # shows up empty. An ad-hoc signature (no certificate) keeps the
+      # entitlements in the binaries for the signer to read. aps-environment
+      # goes out: Apple only delivers push to builds signed by HaNet's own
+      # developer account, and some signers refuse to install with it.
+      - name: Ad-hoc sign with the entitlements
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app_path="$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          app_name="$(basename "$app_path" .app)"
+          entitlements_dir="$(mktemp -d)"
+
+          entitlements_for() {
+            local source="$1" target="$2"
+            cp "$source" "$target"
+            /usr/libexec/PlistBuddy -c 'Delete :aps-environment' "$target" 2>/dev/null || true
+            plutil -p "$target"
+          }
+
+          # Inside out: frameworks and dylibs, then the extensions, then the app.
+          while IFS= read -r -d '' nested; do
+            codesign --force --sign - --timestamp=none "$nested"
+          done < <(find "$app_path" \( -name '*.framework' -o -name '*.dylib' \) -print0)
+
+          for appex in "$app_path"/PlugIns/*.appex; do
+            [[ -e "$appex" ]] || continue
+            target_name="$(basename "$appex" .appex)"
+            target_entitlements="$entitlements_dir/$target_name.plist"
+            if [[ -f "ios/$target_name/$target_name.entitlements" ]]; then
+              entitlements_for "ios/$target_name/$target_name.entitlements" "$target_entitlements"
+              codesign --force --sign - --timestamp=none --entitlements "$target_entitlements" "$appex"
+            else
+              codesign --force --sign - --timestamp=none "$appex"
+            fi
+          done
+
+          app_entitlements="$entitlements_dir/$app_name.plist"
+          entitlements_for "ios/$app_name/$app_name.entitlements" "$app_entitlements"
+          codesign --force --sign - --timestamp=none --entitlements "$app_entitlements" "$app_path"
+
+          codesign --display --entitlements - "$app_path"
+          for appex in "$app_path"/PlugIns/*.appex; do
+            [[ -e "$appex" ]] && codesign --display --entitlements - "$appex"
+          done
 
       - name: Package the application as an IPA
         shell: bash
