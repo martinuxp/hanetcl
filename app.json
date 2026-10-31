@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -125,7 +125,8 @@
           "./assets/app-icons/ios/ComicSans.icon",
           "./assets/app-icons/ios/TestFlight.icon"
         ]
-      ]
+      ],
+      "./plugins/with-android-build-limits"
     ],
     "experiments": {
       "typedRoutes": true,
