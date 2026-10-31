@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.3.3-beta",
+      "date": "2026-10-31",
+      "title": "",
+      "items": [
+        "En iPhone, el Calendar llega a la pantalla bloqueada: una línea sobre la hora, un círculo con la fecha y un rectángulo con tu próxima clase.",
+        "Si la clase trae prueba, el widget te lo dice. Cuando se acaban las clases, muestra la primera de mañana.",
+        "El widget \"HaNet: tu día\" queda para la pantalla de inicio."
+      ]
+    },
+    {
       "version": "0.3.2-beta",
       "date": "2026-10-31",
       "title": "",

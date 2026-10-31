@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -109,10 +109,22 @@
               "ios": {
                 "supportedFamilies": [
                   "systemSmall",
-                  "systemMedium",
-                  "accessoryRectangular"
+                  "systemMedium"
                 ],
                 "initialLayout": "widgets/home-widget.tsx"
+              }
+            },
+            {
+              "name": "HaNetCalendar",
+              "displayName": "Calendar",
+              "description": "Tu próxima clase y la prueba que trae, en la pantalla bloqueada.",
+              "ios": {
+                "supportedFamilies": [
+                  "accessoryInline",
+                  "accessoryCircular",
+                  "accessoryRectangular"
+                ],
+                "initialLayout": "widgets/calendar-widget.tsx"
               }
             }
           ]
