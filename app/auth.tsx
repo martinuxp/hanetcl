@@ -21,6 +21,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -106,7 +107,7 @@ export default function AuthScreen() {
     setError(null);
     setNotice(null);
     if (!email.trim() || !password) {
-      setError('Completa el correo y la contraseña.');
+      setError(t('auth.completaElCorreoYLa'));
       return;
     }
 
@@ -116,7 +117,7 @@ export default function AuthScreen() {
     } catch (authError) {
       // A HaNet ID blocked from the HNT panel gets the blocked screen, with the appeal.
       if (isBlockedError(authError)) showAppError('blocked');
-      setError(describeAuthError(authError, 'No pudimos iniciar sesión. Inténtalo nuevamente.'));
+      setError(describeAuthError(authError, t('auth.noPudimosIniciarSesionIntentalo')));
     } finally {
       setLoading(false);
     }
@@ -126,16 +127,16 @@ export default function AuthScreen() {
     setError(null);
     setNotice(null);
     if (!email.trim()) {
-      setError('Escribe tu correo para enviarte el link de recuperación.');
+      setError(t('auth.escribeTuCorreoParaEnviarte'));
       return;
     }
 
     setLoading(true);
     try {
       await resetPassword(email);
-      setNotice('Te enviamos un link para cambiar tu contraseña.');
+      setNotice(t('auth.teEnviamosUnLinkPara'));
     } catch (resetError) {
-      setError(describeAuthError(resetError, 'No pudimos enviar el link. Inténtalo nuevamente.'));
+      setError(describeAuthError(resetError, t('auth.noPudimosEnviarElLink')));
     } finally {
       setLoading(false);
     }
@@ -148,15 +149,15 @@ export default function AuthScreen() {
 
     if (invalid.fullName || invalid.username || invalid.email || invalid.password) {
       setError(
-        invalid.fullName ? 'Escribe tus nombres y apellidos.'
-          : invalid.username ? 'El HaNet ID debe tener entre 3 y 24 letras, números, puntos o guiones bajos.'
-            : invalid.email ? 'Ese correo no parece válido.'
-              : `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`,
+        invalid.fullName ? t('auth.escribeTusNombresYApellidos')
+          : invalid.username ? t('auth.elHanetIdDebeTener')
+            : invalid.email ? t('auth.eseCorreoNoPareceValido')
+              : t('auth.laContrasenaDebeTenerAl', { minPassword: MIN_PASSWORD }),
       );
       return;
     }
     if (!acceptedTerms) {
-      setError('Debes aceptar los Términos y Condiciones.');
+      setError(t('auth.debesAceptarLosTerminosY'));
       return;
     }
 
@@ -171,7 +172,7 @@ export default function AuthScreen() {
       });
       router.replace('/verify-email');
     } catch (signUpError) {
-      setError(describeAuthError(signUpError, 'No pudimos crear tu cuenta. Inténtalo nuevamente.'));
+      setError(describeAuthError(signUpError, t('auth.noPudimosCrearTuCuenta')));
     } finally {
       submitting.current = false;
       setLoading(false);
@@ -183,7 +184,7 @@ export default function AuthScreen() {
   const passwordToggle = (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      accessibilityLabel={passwordVisible ? t('auth.ocultarContrasena') : t('auth.mostrarContrasena')}
       hitSlop={10}
       onPress={() => setPasswordVisible(visible => !visible)}
       style={({ pressed }) => pressed && styles.pressed}
@@ -203,12 +204,12 @@ export default function AuthScreen() {
           <View style={styles.card}>
             <Animated.View layout={moveLayout} style={styles.tabs}>
               <HanetSegmented
-                accessibilityLabel="Tipo de cuenta"
+                accessibilityLabel={t('auth.tipoDeCuenta')}
                 value={mode}
                 onChange={changeMode}
                 options={[
-                  { value: 'login', label: 'Cuenta existente', accessibilityLabel: 'Cuenta existente' },
-                  { value: 'signup', label: 'Cuenta nueva', accessibilityLabel: 'Cuenta nueva' },
+                  { value: 'login', label: t('auth.cuentaExistente'), accessibilityLabel: t('auth.cuentaExistente') },
+                  { value: 'signup', label: t('auth.cuentaNueva'), accessibilityLabel: t('auth.cuentaNueva') },
                 ]}
               />
             </Animated.View>
@@ -220,7 +221,7 @@ export default function AuthScreen() {
             )}
             {!isSignUp && (
               <Animated.View key="welcome" entering={appear} exiting={vanish} layout={moveLayout}>
-                <ThemedText style={styles.welcome}>¡Qué bien que vuelves!</ThemedText>
+                <ThemedText style={styles.welcome}>{t('auth.queBienQueVuelves')}</ThemedText>
               </Animated.View>
             )}
 
@@ -232,7 +233,7 @@ export default function AuthScreen() {
             {isSignUp && (
               <Animated.View key="identity" entering={appear} exiting={vanish} layout={moveLayout} style={styles.group}>
                 <HanetField
-                  label="Nombres y apellidos"
+                  label={t('auth.nombresYApellidos')}
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
@@ -246,7 +247,7 @@ export default function AuthScreen() {
                 />
                 <HanetField
                   ref={usernameRef}
-                  label="HaNet ID (nombre de usuario)"
+                  label={t('auth.hanetIdNombreDeUsuario')}
                   value={username}
                   onChangeText={(text) => setUsername(text.replace(/\s/g, '').toLowerCase())}
                   autoCapitalize="none"
@@ -260,14 +261,14 @@ export default function AuthScreen() {
                   invalid={flag('username')}
                   editable={!loading}
                 />
-                <ThemedText style={[styles.hint, styles.hintWrap]}>De 3 a 24 caracteres: letras, números, punto o guion bajo.</ThemedText>
+                <ThemedText style={[styles.hint, styles.hintWrap]}>{t('auth.de3A24Caracteres')}</ThemedText>
               </Animated.View>
             )}
 
             <Animated.View layout={moveLayout}>
             <HanetField
               ref={emailRef}
-              label="Correo"
+              label={t('common.correo')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -287,7 +288,7 @@ export default function AuthScreen() {
             <Animated.View layout={moveLayout}>
             <HanetField
               ref={passwordRef}
-              label="Contraseña"
+              label={t('auth.contrasena')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!passwordVisible}
@@ -306,23 +307,23 @@ export default function AuthScreen() {
 
             {isSignUp && (
               <Animated.View key="password-hint" entering={appear} exiting={vanish} layout={moveLayout} style={styles.hintWrap}>
-                <ThemedText style={styles.hint}>Mínimo {MIN_PASSWORD} caracteres.</ThemedText>
+                <ThemedText style={styles.hint}>{t('auth.minimoMinpasswordCaracteres', { minPassword: MIN_PASSWORD })}</ThemedText>
               </Animated.View>
             )}
 
             {isSignUp ? (
               <Animated.View key="signup-extra" entering={appear} exiting={vanish} layout={moveLayout} style={styles.group}>
                 <View>
-                  <ThemedText style={styles.sectionLabel}>¿Cómo prefieres que te tratemos?</ThemedText>
+                  <ThemedText style={styles.sectionLabel}>{t('auth.comoPrefieresQueTeTratemos')}</ThemedText>
                   <HanetSegmented
                     tall
-                    accessibilityLabel="Tratamiento"
+                    accessibilityLabel={t('auth.tratamiento')}
                     value={treatment}
                     onChange={setTreatment}
                     options={[
-                      { value: 'el', accessibilityLabel: 'Él', icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'ella', accessibilityLabel: 'Ella', icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
-                      { value: 'neutro', label: 'No decirlo', accessibilityLabel: 'No decirlo, trato neutro' },
+                      { value: 'el', accessibilityLabel: t('auth.el'), icon: active => <Image source={ICONS.male} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'ella', accessibilityLabel: t('auth.ella'), icon: active => <Image source={ICONS.female} style={styles.icon} tintColor={active ? AppColors.controlOnActive : undefined} contentFit="contain" /> },
+                      { value: 'neutro', label: t('auth.noDecirlo'), accessibilityLabel: t('auth.noDecirloTratoNeutro') },
                     ]}
                   />
                 </View>
@@ -331,7 +332,7 @@ export default function AuthScreen() {
                 <View style={styles.terms}>
                   <Pressable
                     accessibilityRole="checkbox"
-                    accessibilityLabel="Acepto los Términos y Condiciones"
+                    accessibilityLabel={t('auth.aceptoLosTerminosYCondiciones')}
                     accessibilityState={{ checked: acceptedTerms }}
                     onPress={() => setAcceptedTerms(accepted => !accepted)}
                     hitSlop={12}
@@ -340,16 +341,16 @@ export default function AuthScreen() {
                     <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
                       {acceptedTerms && <ThemedText style={styles.checkmark}>✓</ThemedText>}
                     </View>
-                    <ThemedText style={styles.termsText}>Acepto los</ThemedText>
+                    <ThemedText style={styles.termsText}>{t('auth.aceptoLos')}</ThemedText>
                   </Pressable>
                   <Pressable
                     accessibilityRole="link"
-                    accessibilityLabel="Leer los Términos y Condiciones"
+                    accessibilityLabel={t('auth.leerLosTerminosYCondiciones')}
                     onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)}
                     hitSlop={8}
                     style={({ pressed }) => pressed && styles.pressed}
                   >
-                    <ThemedText style={[styles.termsText, styles.termsLink]}>Términos y Condiciones</ThemedText>
+                    <ThemedText style={[styles.termsText, styles.termsLink]}>{t('auth.terminosYCondiciones')}</ThemedText>
                   </Pressable>
                 </View>
               </Animated.View>
@@ -362,7 +363,7 @@ export default function AuthScreen() {
                   hitSlop={8}
                   style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}
                 >
-                  <ThemedText style={styles.forgotText}>Olvidé mi contraseña</ThemedText>
+                  <ThemedText style={styles.forgotText}>{t('auth.olvideMiContrasena')}</ThemedText>
                 </Pressable>
               </Animated.View>
             )}
@@ -387,7 +388,7 @@ export default function AuthScreen() {
               style={({ pressed }) => [styles.submit, pressed && styles.pressed, loading && styles.submitBusy]}
             >
               <ThemedText style={styles.submitText}>
-                {loading ? (isSignUp ? 'Creando tu cuenta…' : 'Entrando…') : isSignUp ? 'Crear cuenta HaNet ID' : '¡Iniciemos!'}
+                {loading ? (isSignUp ? t('auth.creandoTuCuenta') : t('auth.entrando')) : isSignUp ? t('auth.crearCuentaHanetId') : t('auth.iniciemos')}
               </ThemedText>
               {!loading && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
             </Pressable>
@@ -397,18 +398,18 @@ export default function AuthScreen() {
           {/* Signing in with Google is paused in auth-service, so it says so. */}
           <Animated.View layout={moveLayout} style={styles.quick}>
             <View>
-              <ThemedText style={styles.quickTitle}>Otras formas de entrar</ThemedText>
-              {isSignUp && <ThemedText style={styles.quickNote}>Aceptas los Términos y Condiciones.</ThemedText>}
+              <ThemedText style={styles.quickTitle}>{t('auth.otrasFormasDeEntrar')}</ThemedText>
+              {isSignUp && <ThemedText style={styles.quickNote}>{t('auth.aceptasLosTerminosYCondiciones')}</ThemedText>}
             </View>
             <View
               accessible
               accessibilityRole="button"
-              accessibilityLabel="Continuar con Google, próximamente"
+              accessibilityLabel={t('auth.continuarConGoogleProximamente')}
               accessibilityState={{ disabled: true }}
               style={styles.quickButton}
             >
               <Image source={ICONS.google} style={styles.icon} contentFit="contain" />
-              <ThemedText style={styles.quickSoon}>Próximamente</ThemedText>
+              <ThemedText style={styles.quickSoon}>{t('common.proximamente')}</ThemedText>
             </View>
           </Animated.View>
         </ScrollView>

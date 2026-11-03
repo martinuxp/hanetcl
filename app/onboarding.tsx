@@ -9,13 +9,14 @@ import type { SharedValue } from 'react-native-reanimated';
 import React, { useRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // Kept honest: the network is just starting (CLAUDE.md, no invented figures).
 const PAGES = [
-  'Únete a la red escolar de HaNet, solo faltas tú.',
-  'Calendario, anuncios, tareas y evaluaciones en una sola app.',
+  t('onboarding.uneteALaRedEscolar'),
+  t('onboarding.calendarioAnunciosTareasYEvaluaciones'),
 ];
-const SUBTITLE = 'Para estar al día con tu institución.';
+const SUBTITLE = t('onboarding.paraEstarAlDiaCon');
 
 // Headline growth with the system text size is capped so it still reads as a
 // headline; past that the card scrolls instead of clipping.
@@ -91,21 +92,21 @@ export default function OnboardingScreen() {
             <View style={styles.button}>
               {/* Nothing comes before the first page, so the back arrow rests. */}
               <Image source={ARROWS.back} style={[styles.arrow, styles.arrowResting]} contentFit="contain" accessibilityElementsHidden />
-              <Pressable accessibilityRole="button" accessibilityLabel="Siguiente" hitSlop={12} onPress={() => goTo(index + 1)} style={({ pressed }) => pressed && styles.pressed}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('anniversary.welcome.siguiente')} hitSlop={12} onPress={() => goTo(index + 1)} style={({ pressed }) => pressed && styles.pressed}>
                 <Image source={ARROWS.next} style={styles.arrow} contentFit="contain" />
               </Pressable>
             </View>
           ) : (
             <View style={styles.actions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Anterior" onPress={() => goTo(index - 1)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('onboarding.anterior')} onPress={() => goTo(index - 1)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
                 <Image source={ARROWS.back} style={styles.arrow} contentFit="contain" />
               </Pressable>
               {isLast ? (
                 <Pressable accessibilityRole="button" onPress={finish} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-                  <ThemedText style={styles.buttonText}>Iniciar sesión</ThemedText>
+                  <ThemedText style={styles.buttonText}>{t('common.iniciarSesion')}</ThemedText>
                 </Pressable>
               ) : (
-                <Pressable accessibilityRole="button" accessibilityLabel="Siguiente" onPress={() => goTo(index + 1)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('anniversary.welcome.siguiente')} onPress={() => goTo(index + 1)} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
                   <Image source={ARROWS.next} style={styles.arrow} contentFit="contain" />
                 </Pressable>
               )}
@@ -147,9 +148,9 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>HaNet para estudiantes y comunidades.</ThemedText>
-        <Pressable accessibilityRole="button" accessibilityHint="Va directo a iniciar sesión" onPress={finish} style={({ pressed }) => [styles.skip, pressed && styles.pressed]}>
-          <ThemedText style={styles.skipText}>Saltar</ThemedText>
+        <ThemedText style={styles.footerText}>{t('onboarding.hanetParaEstudiantesYComunidades')}</ThemedText>
+        <Pressable accessibilityRole="button" accessibilityHint={t('onboarding.vaDirectoAIniciarSesion')} onPress={finish} style={({ pressed }) => [styles.skip, pressed && styles.pressed]}>
+          <ThemedText style={styles.skipText}>{t('anniversary.welcome.saltar')}</ThemedText>
         </Pressable>
       </View>
     </View>

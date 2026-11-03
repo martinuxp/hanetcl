@@ -13,10 +13,11 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { t } from '@/i18n';
 
 const HOW = [
-  { value: 'count', label: 'Calculadora' },
-  { value: 'hand', label: 'A mano' },
+  { value: 'count', label: t('anniversary.result.calculadora') },
+  { value: 'hand', label: t('anniversary.result.aMano') },
 ];
 
 function numbers(counts: Record<string, string> | undefined): SolidarityCount {
@@ -56,8 +57,8 @@ function ResultScreen() {
 
   if (!anniversary || !activity) {
     return (
-      <SheetBody title="Resultado" lead="Esta actividad ya no existe.">
-        <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
+      <SheetBody title={t('anniversary.detail.resultado')} lead={t('anniversary.detail.estaActividadYaNoExiste')}>
+        <HanetButton label={t('common.volver')} variant="surface" onPress={() => router.back()} />
       </SheetBody>
     );
   }
@@ -90,7 +91,7 @@ function ResultScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar el resultado. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.result.noPudimosGuardarElResultado')));
       setSubmitting(false);
     }
   };
@@ -101,10 +102,10 @@ function ResultScreen() {
     <SheetBody
       title={activity.name}
       lead={podium
-        ? 'Toca las alianzas en el orden en que quedaron, del 1° al último.'
+        ? t('anniversary.result.tocaLasAlianzasEnEl')
         : calculator
-          ? 'Cuenta las canastas y los bonus de cada alianza: los puntos salen solos, como dicen las bases.'
-          : 'Escribe los puntos que ganó cada alianza en esta actividad.'}
+          ? t('anniversary.result.cuentaLasCanastasYLos')
+          : t('anniversary.result.escribeLosPuntosQueGano')}
     >
       {!!detail && <ThemedText style={styles.hint}>{detail}</ThemedText>}
 
@@ -118,7 +119,7 @@ function ResultScreen() {
               <Pressable
                 key={alliance.id}
                 accessibilityRole="button"
-                accessibilityLabel={placed ? `${alliance.name}, ${placeLabel(place)} lugar. Tocar para quitar` : `${alliance.name}. Tocar para darle el ${placeLabel(order.length)} lugar`}
+                accessibilityLabel={placed ? t('anniversary.result.namePlacelabelLugarTocarPara', { name: alliance.name, placeLabel: placeLabel(place) }) : t('anniversary.result.nameTocarParaDarleEl', { name: alliance.name, placeLabel: placeLabel(order.length) })}
                 disabled={submitting}
                 onPress={() => tap(alliance.id)}
                 style={({ pressed }) => [local.row, placed && { backgroundColor: color.fill }, pressed && styles.pressed]}
@@ -133,11 +134,11 @@ function ResultScreen() {
               </Pressable>
             );
           })}
-          {order.length > 0 && <HanetButton label="Empezar de nuevo" variant="surface" disabled={submitting} onPress={() => setOrder([])} />}
+          {order.length > 0 && <HanetButton label={t('anniversary.result.empezarDeNuevo')} variant="surface" disabled={submitting} onPress={() => setOrder([])} />}
         </View>
       ) : calculator ? (
         <>
-          <HanetChoice label="Cómo poner los puntos" options={HOW} value={how} onChange={value => setHow(value as 'count' | 'hand')} disabled={submitting} />
+          <HanetChoice label={t('anniversary.result.comoPonerLosPuntos')} options={HOW} value={how} onChange={value => setHow(value as 'count' | 'hand')} disabled={submitting} />
           <View accessibilityRole="radiogroup" style={local.list}>
             {alliances.map(alliance => {
               const color = allianceColor(alliance);
@@ -147,7 +148,7 @@ function ResultScreen() {
                   key={alliance.id}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={`${alliance.name}, ${formatPoints(points[alliance.id] ?? 0)} puntos. Contar`}
+                  accessibilityLabel={t('anniversary.result.namePointsPuntosContar', { name: alliance.name, points: formatPoints(points[alliance.id] ?? 0) })}
                   disabled={submitting}
                   onPress={() => setCounting(alliance.id)}
                   style={({ pressed }) => [local.row, selected && { backgroundColor: color.fill }, pressed && styles.pressed]}
@@ -162,16 +163,16 @@ function ResultScreen() {
           {current && (
             <View style={local.counter}>
               <CountRow
-                label="Canastas"
-                detail={`${SOLIDARITY.minimum} como mínimo: ${formatPoints(SOLIDARITY.minimumPoints)}. De la 11 a la 30, 500 c/u; desde la 31, 200 c/u.`}
+                label={t('anniversary.result.canastas')}
+                detail={t('anniversary.result.minimumComoMinimoPointsDe', { minimum: SOLIDARITY.minimum, points: formatPoints(SOLIDARITY.minimumPoints) })}
                 value={counts[current.id]?.baskets ?? ''}
                 onChange={value => setCount(current.id, 'baskets', value)}
                 disabled={submitting}
               />
               {(currentCount.baskets ?? 0) > 0 && (currentCount.baskets ?? 0) < SOLIDARITY.minimum && (
-                <ThemedText style={local.warning}>No llega al mínimo de {SOLIDARITY.minimum} canastas: las canastas no suman puntos.</ThemedText>
+                <ThemedText style={local.warning}>{t('anniversary.result.noLlegaAlMinimoDe', { minimum: SOLIDARITY.minimum })}</ThemedText>
               )}
-              <ThemedText style={local.counterTitle}>Bonus</ThemedText>
+              <ThemedText style={local.counterTitle}>{t('anniversary.result.bonus')}</ThemedText>
               {SOLIDARITY.bonus.map(item => (
                 <CountRow
                   key={item.key}
@@ -183,27 +184,27 @@ function ResultScreen() {
                 />
               ))}
               <ThemedText style={styles.hint}>
-                {current.name}: {formatPoints(basketPoints(currentCount.baskets ?? 0))} por canastas + {formatPoints(bonusPoints(currentCount))} de bonus = {formatPoints(points[current.id] ?? 0)} puntos.
+                {t('anniversary.result.namePointsPorCanastasPoints2', { name: current.name, points: formatPoints(basketPoints(currentCount.baskets ?? 0)), points2: formatPoints(bonusPoints(currentCount)), points3: formatPoints(points[current.id] ?? 0) })}
               </ThemedText>
             </View>
           )}
         </>
       ) : (
         <View style={local.list}>
-          {solidarity && <HanetChoice label="Cómo poner los puntos" options={HOW} value={how} onChange={value => setHow(value as 'count' | 'hand')} disabled={submitting} />}
+          {solidarity && <HanetChoice label={t('anniversary.result.comoPonerLosPuntos')} options={HOW} value={how} onChange={value => setHow(value as 'count' | 'hand')} disabled={submitting} />}
           {alliances.map(alliance => (
             <View key={alliance.id} style={local.manual}>
               <View style={[local.swatch, { backgroundColor: allianceColor(alliance).fill }]} />
               <ThemedText style={local.manualName}>{alliance.name}</ThemedText>
               <HanetChoice
-                label={`Suma o descuenta, ${alliance.name}`}
+                label={t('anniversary.result.sumaODescuentaName', { name: alliance.name })}
                 options={[{ value: 'plus', label: '+' }, { value: 'minus', label: '−' }]}
                 value={negative[alliance.id] ? 'minus' : 'plus'}
                 onChange={value => setNegative(current => ({ ...current, [alliance.id]: value === 'minus' }))}
                 disabled={submitting}
               />
               <TextInput
-                accessibilityLabel={`Puntos de ${alliance.name}`}
+                accessibilityLabel={t('anniversary.result.puntosDeName', { name: alliance.name })}
                 value={manual[alliance.id] ?? ''}
                 onChangeText={text => { setError(null); setManual(current => ({ ...current, [alliance.id]: digitsOnly(text) })); }}
                 placeholder="0"
@@ -218,9 +219,9 @@ function ResultScreen() {
         </View>
       )}
 
-      <SheetActions label="Guardar resultado" busyLabel="Guardando…" ready={ready} busy={submitting} onSubmit={() => void save()} error={error} />
-      {!!activity.result && <HanetButton label="Quitar el resultado" variant="surface" disabled={submitting} onPress={() => void save(true)} />}
-      <HanetButton label="Editar la actividad" variant="surface" disabled={submitting} onPress={() => router.replace({ pathname: '/anniversary/activity', params: { id: activity.id } })} />
+      <SheetActions label={t('anniversary.result.guardarResultado')} busyLabel={t('common.guardando')} ready={ready} busy={submitting} onSubmit={() => void save()} error={error} />
+      {!!activity.result && <HanetButton label={t('anniversary.result.quitarElResultado')} variant="surface" disabled={submitting} onPress={() => void save(true)} />}
+      <HanetButton label={t('anniversary.detail.editarLaActividad')} variant="surface" disabled={submitting} onPress={() => router.replace({ pathname: '/anniversary/activity', params: { id: activity.id } })} />
     </SheetBody>
   );
 }

@@ -23,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const ICONS = {
   back: require('@/assets/icons/event/arrow-left-long.svg'),
@@ -90,7 +91,7 @@ export default function LinkInstitutionScreen() {
           setStep('waiting');
         }
       } catch (loadError) {
-        if (active) setError(describeAuthError(loadError, 'No pudimos cargar tu institución. Inténtalo nuevamente.'));
+        if (active) setError(describeAuthError(loadError, t('linkInstitution.noPudimosCargarTuInstitucion')));
       } finally {
         if (active) setChecking(false);
       }
@@ -142,7 +143,7 @@ export default function LinkInstitutionScreen() {
     if (sending) return;
     setError(null);
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-      setError('Escribe tu correo institucional.');
+      setError(t('linkInstitution.escribeTuCorreoInstitucional'));
       return;
     }
     setSending(true);
@@ -153,7 +154,7 @@ export default function LinkInstitutionScreen() {
       setSentCount(count => count + 1);
       setStep('waiting');
     } catch (sendError) {
-      setError(describeAuthError(sendError, 'No pudimos enviar el link. Inténtalo nuevamente.'));
+      setError(describeAuthError(sendError, t('auth.noPudimosEnviarElLink')));
     } finally {
       setSending(false);
     }
@@ -176,7 +177,7 @@ export default function LinkInstitutionScreen() {
       router.replace('/(tabs)');
     } catch (completeError) {
       setSyncing(false);
-      setFinishError(describeAuthError(completeError, 'No pudimos terminar el vínculo. Inténtalo nuevamente.'));
+      setFinishError(describeAuthError(completeError, t('linkInstitution.noPudimosTerminarElVinculo')));
       setFinishing(false);
       setReviewOpen(true);
     }
@@ -210,7 +211,7 @@ export default function LinkInstitutionScreen() {
 
   // The institution's own banner and shield when it has them (HNT panel).
   const banner = (
-    <InstitutionBanner title={`Unirse a\n${institutionName}`} logoUrl={status?.logoUrl} bannerUrl={status?.bannerUrl} height={138} />
+    <InstitutionBanner title={t('linkInstitution.unirseAInstitutionname', { institutionName })} logoUrl={status?.logoUrl} bannerUrl={status?.bannerUrl} height={138} />
   );
 
   return (
@@ -225,7 +226,7 @@ export default function LinkInstitutionScreen() {
             ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Volver al paso anterior"
+                accessibilityLabel={t('linkInstitution.volverAlPasoAnterior')}
                 onPress={goBack}
                 hitSlop={4}
                 style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
@@ -233,13 +234,13 @@ export default function LinkInstitutionScreen() {
                 <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
               </Pressable>
             )}
-            <ThemedText accessibilityRole="header" style={styles.topBarTitle} numberOfLines={1}>Unirse a {institutionName}</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle} numberOfLines={1}>{t('linkInstitution.unirseAInstitutionname2', { institutionName })}</ThemedText>
           </View>
           <OnboardingProgress step={4} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
-              <ThemedText style={styles.headlineText}>Se verificó tu correo</ThemedText>
+              <ThemedText style={styles.headlineText}>{t('joinBeta.seVerificoTuCorreo')}</ThemedText>
               <Image source={ICONS.logo} style={styles.logo} contentFit="contain" />
             </View>
           </View>
@@ -248,25 +249,25 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <ThemedText style={styles.lead}>
-                {institutionName} pide comprobar quién eres antes de entrar.
+                {t('linkInstitution.institutionnamePideComprobarQuienEres', { institutionName })}
               </ThemedText>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.methodPrimary, pressed && styles.pressed]}>
-                <ThemedText style={styles.methodHint}>La más rápida</ThemedText>
-                <ThemedText style={styles.methodPrimaryText}>Usar mi correo institucional</ThemedText>
+                <ThemedText style={styles.methodHint}>{t('linkInstitution.laMasRapida')}</ThemedText>
+                <ThemedText style={styles.methodPrimaryText}>{t('linkInstitution.usarMiCorreoInstitucional')}</ThemedText>
               </Pressable>
 
-              <View accessible accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel="Rellenar formulario verificador, próximamente" style={styles.methodSecondary}>
-                <ThemedText style={styles.methodSecondaryText}>Rellenar formulario verificador</ThemedText>
-                <ThemedText style={styles.methodSoon}>Próximamente</ThemedText>
+              <View accessible accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel={t('linkInstitution.rellenarFormularioVerificadorProximamente')} style={styles.methodSecondary}>
+                <ThemedText style={styles.methodSecondaryText}>{t('linkInstitution.rellenarFormularioVerificador')}</ThemedText>
+                <ThemedText style={styles.methodSoon}>{t('common.proximamente')}</ThemedText>
               </View>
 
               {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
 
               <View style={styles.help}>
-                <ThemedText style={styles.helpTitle}>¿Por qué solo están estas opciones?</ThemedText>
+                <ThemedText style={styles.helpTitle}>{t('linkInstitution.porQueSoloEstanEstas')}</ThemedText>
                 <ThemedText style={styles.helpText}>
-                  Son las que activó tu institución. Si tienes problemas con alguna, habla con {institutionName}.
+                  {t('linkInstitution.sonLasQueActivoTu', { institutionName })}
                 </ThemedText>
               </View>
             </View>
@@ -276,12 +277,12 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <View>
-                <ThemedText style={styles.eyebrow}>Con tu correo institucional</ThemedText>
-                <ThemedText accessibilityRole="header" style={styles.title}>Vincular HaNet ID</ThemedText>
+                <ThemedText style={styles.eyebrow}>{t('linkInstitution.conTuCorreoInstitucional')}</ThemedText>
+                <ThemedText accessibilityRole="header" style={styles.title}>{t('linkInstitution.vincularHanetId')}</ThemedText>
               </View>
 
               <HanetField
-                label="Correo institucional"
+                label={t('linkInstitution.correoInstitucional')}
                 value={email}
                 onChangeText={(value) => { setEmail(value); setError(null); }}
                 autoCapitalize="none"
@@ -305,11 +306,11 @@ export default function LinkInstitutionScreen() {
                 onPress={sendLink}
                 style={({ pressed }) => [styles.submitLight, sending && styles.busy, pressed && styles.pressed]}
               >
-                <ThemedText style={styles.submitLightText}>{sending ? 'Enviando…' : 'Enviar link'}</ThemedText>
+                <ThemedText style={styles.submitLightText}>{sending ? t('common.enviando') : t('eventDetail.enviarLink')}</ThemedText>
                 {!sending && <Image source={ICONS.arrow} style={styles.icon} tintColor={AppColors.controlOnActive} contentFit="contain" />}
               </Pressable>
 
-              <ThemedText style={styles.note}>Te llegará un link para confirmar que es tuyo. Dura 30 minutos.</ThemedText>
+              <ThemedText style={styles.note}>{t('linkInstitution.teLlegaraUnLinkPara')}</ThemedText>
             </View>
           )}
 
@@ -317,28 +318,28 @@ export default function LinkInstitutionScreen() {
             <View style={styles.card}>
               {banner}
               <View>
-                <ThemedText style={styles.eyebrow}>Con tu correo institucional</ThemedText>
-                <ThemedText accessibilityRole="header" style={styles.title}>Vincular HaNet ID</ThemedText>
+                <ThemedText style={styles.eyebrow}>{t('linkInstitution.conTuCorreoInstitucional')}</ThemedText>
+                <ThemedText accessibilityRole="header" style={styles.title}>{t('linkInstitution.vincularHanetId')}</ThemedText>
               </View>
 
-              <ThemedText style={styles.lead}>Si {email} está en la lista de {institutionName}, ya va un link de verificación en camino.</ThemedText>
+              <ThemedText style={styles.lead}>{t('linkInstitution.siEmailEstaEnLa', { email, institutionName })}</ThemedText>
 
               <View accessibilityLiveRegion="polite" style={styles.waitingBox}>
                 <ActivityIndicator color={AppColors.textSecondary} />
                 <ThemedText style={styles.waitingText}>
-                  {status?.status === 'email-confirmed' ? 'Correo confirmado' : 'Esperando que confirmes…'}
+                  {status?.status === 'email-confirmed' ? t('linkInstitution.correoConfirmado') : t('linkInstitution.esperandoQueConfirmes')}
                 </ThemedText>
               </View>
 
               <ThemedText style={styles.note}>
-                Abre ese correo y confirma. Esta pantalla avanza sola cuando lo hagas.
+                {t('linkInstitution.abreEseCorreoYConfirma')}
               </ThemedText>
 
               {stuck && status?.status !== 'email-confirmed' && (
                 <View accessibilityLiveRegion="polite" style={styles.stuck}>
-                  <ThemedText style={styles.stuckTitle}>¿No te llega?</ThemedText>
+                  <ThemedText style={styles.stuckTitle}>{t('linkInstitution.noTeLlega')}</ThemedText>
                   <ThemedText style={styles.stuckText}>
-                    Revisa que el correo esté bien escrito y mira en spam. Si sigue sin llegar, puede que no esté en la lista de {institutionName}: pide ayuda a los encargados de HaNet en tu institución.
+                    {t('linkInstitution.revisaQueElCorreoEste', { institutionName })}
                   </ThemedText>
                 </View>
               )}
@@ -347,7 +348,7 @@ export default function LinkInstitutionScreen() {
 
               {status?.status === 'email-confirmed' && (
                 <Pressable accessibilityRole="button" onPress={() => { reviewDismissed.current = false; setReviewOpen(true); }} style={({ pressed }) => [styles.submitLight, pressed && styles.pressed]}>
-                  <ThemedText style={styles.submitLightText}>Revisar mis datos</ThemedText>
+                  <ThemedText style={styles.submitLightText}>{t('linkInstitution.revisarMisDatos')}</ThemedText>
                 </Pressable>
               )}
 
@@ -359,18 +360,18 @@ export default function LinkInstitutionScreen() {
                 style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
               >
                 <ThemedText style={[styles.resendText, secondsLeft > 0 && styles.resendWaiting]}>
-                  {sending ? 'Enviando…' : secondsLeft > 0 ? `Reenviar en ${secondsLeft} s` : 'Reenviar link'}
+                  {sending ? t('common.enviando') : secondsLeft > 0 ? t('linkInstitution.reenviarEnSecondsleftS', { secondsLeft }) : t('linkInstitution.reenviarLink')}
                 </ThemedText>
               </Pressable>
 
               <Pressable accessibilityRole="button" onPress={() => { setError(null); setStep('email'); }} style={({ pressed }) => [styles.submitDark, pressed && styles.pressed]}>
-                <ThemedText style={styles.submitDarkText}>Usar otro correo</ThemedText>
+                <ThemedText style={styles.submitDarkText}>{t('linkInstitution.usarOtroCorreo')}</ThemedText>
               </Pressable>
             </View>
           )}
 
           <Pressable accessibilityRole="button" onPress={useAnotherAccount} style={({ pressed }) => [styles.switchAccount, pressed && styles.pressed]}>
-            <ThemedText style={styles.switchAccountText}>Usar otra cuenta</ThemedText>
+            <ThemedText style={styles.switchAccountText}>{t('joinBeta.usarOtraCuenta')}</ThemedText>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -378,16 +379,16 @@ export default function LinkInstitutionScreen() {
       <AlertModal visible={reviewOpen} onRequestClose={closeReview}>
         <View style={styles.overlay}>
           <View accessibilityViewIsModal style={styles.review}>
-            <ThemedText style={styles.reviewTitle}>¿Son tus datos?</ThemedText>
+            <ThemedText style={styles.reviewTitle}>{t('linkInstitution.sonTusDatos')}</ThemedText>
             <ThemedText style={styles.reviewBody}>
-              Quedarán vinculados a tu HaNet ID:
+              {t('linkInstitution.quedaranVinculadosATuHanet')}
             </ThemedText>
             {!!status?.person && (
               <View style={styles.reviewList}>
                 <ThemedText style={styles.reviewItem}>•  {status.person.fullName}</ThemedText>
                 <ThemedText style={styles.reviewItem}>•  {status.person.rut.slice(0, -1)}-{status.person.rut.slice(-1)}</ThemedText>
                 <ThemedText style={styles.reviewItem}>•  {status.person.curso}</ThemedText>
-                <ThemedText style={styles.reviewItem}>•  Estudiante, {institutionName}</ThemedText>
+                <ThemedText style={styles.reviewItem}>{t('linkInstitution.estudianteInstitutionname', { institutionName })}</ThemedText>
               </View>
             )}
             {!!finishError && <ThemedText accessibilityLiveRegion="assertive" style={styles.reviewError}>{finishError}</ThemedText>}
@@ -399,13 +400,13 @@ export default function LinkInstitutionScreen() {
               onPress={finish}
               style={({ pressed }) => [styles.reviewConfirm, finishing && styles.busy, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.reviewConfirmText}>{finishing ? 'Vinculando…' : 'Sí, son míos'}</ThemedText>
+              <ThemedText style={styles.reviewConfirmText}>{finishing ? t('linkInstitution.vinculando') : t('linkInstitution.siSonMios')}</ThemedText>
             </Pressable>
             <Pressable accessibilityRole="button" disabled={finishing} onPress={closeReview} style={({ pressed }) => [styles.reviewBack, pressed && styles.pressed]}>
-              <ThemedText style={styles.reviewBackText}>Volver atrás</ThemedText>
+              <ThemedText style={styles.reviewBackText}>{t('eventInfo.volverAtras')}</ThemedText>
             </Pressable>
             <ThemedText style={styles.reviewNote}>
-              Si algún dato no es tuyo o está mal, no continúes y avisa a tu institución.
+              {t('linkInstitution.siAlgunDatoNoEs')}
             </ThemedText>
           </View>
         </View>

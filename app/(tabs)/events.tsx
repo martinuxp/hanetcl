@@ -22,14 +22,15 @@ import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWin
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = [
-  { value: 'regional', label: 'Cerca de mí', accessibilityLabel: 'Cerca de mí' },
-  { value: 'institution', label: 'En mi institución', accessibilityLabel: 'En mi institución' },
+  { value: 'regional', label: t('events.cercaDeMi'), accessibilityLabel: t('events.cercaDeMi') },
+  { value: 'institution', label: t('events.enMiInstitucion'), accessibilityLabel: t('events.enMiInstitucion') },
 ];
 
 // HaNet Eventos shows Temuco for now; more cities will come with more schools.
-const CITY = { name: 'Temuco', region: 'Región de la Araucanía' };
+const CITY = { name: 'Temuco', region: 'Región de la Araucanía' }; // i18n-ignore
 
 export default function EventsScreen() {
   const insets = useSafeAreaInsets();
@@ -55,7 +56,7 @@ export default function EventsScreen() {
       setLists(current => ({ ...current, [which]: result }));
       setError(null);
     } catch (loadError) {
-      setError(describeAuthError(loadError, 'No pudimos cargar los eventos. Desliza hacia abajo para reintentar.'));
+      setError(describeAuthError(loadError, t('events.noPudimosCargarLosEventos')));
     }
   }, []);
 
@@ -102,7 +103,7 @@ export default function EventsScreen() {
         return { ...current, institution: { ...institution, events: institution.events.map(item => (item.id === event.id ? { ...item, ...result } : item)) } };
       });
     } catch (signupError) {
-      setActionError(describeAuthError(signupError, 'No pudimos guardar tu inscripción. Inténtalo nuevamente.'));
+      setActionError(describeAuthError(signupError, t('events.noPudimosGuardarTuInscripcion')));
     } finally {
       setBusyId(null);
     }
@@ -115,7 +116,7 @@ export default function EventsScreen() {
       setDialog(null);
       await load('institution');
     } catch (saveError) {
-      setActionError(describeAuthError(saveError, 'No pudimos cambiar tu jornada.'));
+      setActionError(describeAuthError(saveError, t('events.noPudimosCambiarTuJornada')));
       setDialog(null);
     } finally {
       setSavingJornada(false);
@@ -131,26 +132,26 @@ export default function EventsScreen() {
   const header = (
     <View style={styles.header}>
       <View style={styles.topBar}>
-        <ThemedText accessibilityRole="header" style={styles.title}>HaNet Eventos</ThemedText>
-        <Pressable accessibilityRole="button" accessibilityLabel="Cambiar ciudad" onPress={() => setDialog('city')} style={({ pressed }) => [styles.globe, pressed && AppPressed]}>
+        <ThemedText accessibilityRole="header" style={styles.title}>{t('common.hanetEventos')}</ThemedText>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('events.cambiarCiudad')} onPress={() => setDialog('city')} style={({ pressed }) => [styles.globe, pressed && AppPressed]}>
           <Image source={HNE_ICONS.globe} style={styles.icon24} contentFit="contain" tintColor={AppColors.textPrimary} />
         </Pressable>
       </View>
       {kind === 'regional' && soonest && <EventsMarquee event={soonest} now={now} />}
 
-      <HanetSegmented options={TABS} value={kind} onChange={value => { setKind(value); setFeaturedIndex(0); }} accessibilityLabel="Tipo de eventos" background={AppColors.surface} />
+      <HanetSegmented options={TABS} value={kind} onChange={value => { setKind(value); setFeaturedIndex(0); }} accessibilityLabel={t('events.tipoDeEventos')} background={AppColors.surface} />
 
       <View style={styles.placeRow}>
         <View style={styles.placeText}>
           {kind === 'regional' ? (
             <>
-              <ThemedText style={styles.placeTitle}>En {CITY.name}, Chile.</ThemedText>
+              <ThemedText style={styles.placeTitle}>{t('events.enNameChile', { name: CITY.name })}</ThemedText>
               <ThemedText style={styles.placeSubtitle}>{CITY.region}.</ThemedText>
             </>
           ) : (
             <>
-              <ThemedText numberOfLines={1} style={styles.placeTitle}>{list?.institutionName ? `${list.institutionName}.` : 'Tu institución.'}</ThemedText>
-              <ThemedText style={styles.placeSubtitle}>{list?.jornada ? `${JORNADA_LABELS[list.jornada]}.` : 'Elige tu jornada para ver solo sus eventos.'}</ThemedText>
+              <ThemedText numberOfLines={1} style={styles.placeTitle}>{list?.institutionName ? `${list.institutionName}.` : t('events.tuInstitucion')}</ThemedText>
+              <ThemedText style={styles.placeSubtitle}>{list?.jornada ? `${JORNADA_LABELS[list.jornada]}.` : t('events.eligeTuJornadaParaVer')}</ThemedText>
             </>
           )}
         </View>
@@ -159,7 +160,7 @@ export default function EventsScreen() {
           onPress={() => setDialog(kind === 'regional' ? 'city' : 'jornada')}
           style={({ pressed }) => [styles.outlinePill, pressed && AppPressed]}
         >
-          <ThemedText style={styles.outlinePillText}>{kind === 'regional' ? 'Cambiar ubicación' : list?.jornada ? 'Cambiar jornada' : 'Elegir jornada'}</ThemedText>
+          <ThemedText style={styles.outlinePillText}>{kind === 'regional' ? t('events.cambiarUbicacion') : list?.jornada ? t('events.cambiarJornada') : t('events.elegirJornada')}</ThemedText>
         </Pressable>
       </View>
 
@@ -187,7 +188,7 @@ export default function EventsScreen() {
 
       {list?.canPublish && (
         <HanetButton
-          label={kind === 'regional' ? 'Publicar evento de la ciudad' : 'Publicar evento del liceo'}
+          label={kind === 'regional' ? t('events.publicarEventoDeLaCiudad') : t('events.publicarEventoDelLiceo')}
           variant="surface"
           onPress={() => router.push({ pathname: '/event-form', params: { kind } })}
         />
@@ -203,14 +204,14 @@ export default function EventsScreen() {
     <View style={styles.empty}>
       <CustomIcon name="calendar" size={40} color={AppColors.textSecondary} />
       <ThemedText style={styles.emptyTitle}>
-        {term ? 'No encontramos coincidencias' : kind === 'regional' ? 'Todavía no hay eventos en la ciudad' : 'Tu liceo no tiene eventos próximos'}
+        {term ? t('events.noEncontramosCoincidencias') : kind === 'regional' ? t('events.todaviaNoHayEventosEn') : t('events.tuLiceoNoTieneEventos')}
       </ThemedText>
       <ThemedText style={styles.emptyText}>
         {term
-          ? 'Prueba con otro nombre o lugar.'
+          ? t('events.pruebaConOtroNombreO')
           : kind === 'regional'
-            ? `Estamos armando la cartelera de ${CITY.name}. Vuelve pronto.`
-            : 'Cuando el CEE o la administración publiquen algo, aparecerá aquí.'}
+            ? t('events.estamosArmandoLaCarteleraDe', { name: CITY.name })
+            : t('events.cuandoElCeeOLa')}
       </ThemedText>
     </View>
   );
@@ -226,7 +227,7 @@ export default function EventsScreen() {
             onPress={() => openEvent(item)}
             action={item.kind === 'institution' && item.signupMode !== 'none'
               ? {
-                label: item.signedUp ? (item.signupMode === 'list' ? 'Inscrito ✓' : 'Voy ✓') : item.signupMode === 'list' ? 'Inscribirme' : '¡Participo!',
+                label: item.signedUp ? (item.signupMode === 'list' ? t('events.inscrito') : t('events.voy')) : item.signupMode === 'list' ? t('events.inscribirme') : t('events.participo'),
                 onPress: () => void signup(item),
                 busy: busyId === item.id,
                 active: item.signedUp,
@@ -247,22 +248,22 @@ export default function EventsScreen() {
         visible={dialog === 'city'}
         onRequestClose={() => setDialog(null)}
         dismissOnBackdrop
-        title="Ciudad"
-        body={`Por ahora HaNet Eventos muestra ${CITY.name}. Iremos sumando ciudades a medida que lleguen más liceos.`}
+        title={t('events.ciudad')}
+        body={t('events.porAhoraHanetEventosMuestra', { name: CITY.name })}
       >
-        <HanetButton label="Entendido" variant="surface" onPress={() => setDialog(null)} />
+        <HanetButton label={t('events.entendido')} variant="surface" onPress={() => setDialog(null)} />
       </HanetDialog>
 
       <HanetDialog
         visible={dialog === 'jornada'}
         onRequestClose={() => !savingJornada && setDialog(null)}
         dismissOnBackdrop={!savingJornada}
-        title="¿En qué jornada estás?"
-        body="Verás los eventos de tu jornada y los que son para ambas."
+        title={t('events.enQueJornadaEstas')}
+        body={t('events.verasLosEventosDeTu')}
       >
         <View style={styles.dialogButtons}>
-          <HanetButton label="Jornada mañana" variant={list?.jornada === 'manana' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('manana')} />
-          <HanetButton label="Jornada tarde" variant={list?.jornada === 'tarde' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('tarde')} />
+          <HanetButton label={t('common.jornadaManana')} variant={list?.jornada === 'manana' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('manana')} />
+          <HanetButton label={t('common.jornadaTarde')} variant={list?.jornada === 'tarde' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('tarde')} />
         </View>
       </HanetDialog>
     </FrostedScreen>

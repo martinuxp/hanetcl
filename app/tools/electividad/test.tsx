@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // The test itself: one "which would you rather" question at a time. Answers
 // stay on the phone (so it can be paused) until the last one, when they go to
@@ -65,7 +66,7 @@ export default function ElectividadTestScreen() {
         setQuestions(data.questions);
       })
       .catch(err => {
-        if (alive) setError(describeAuthError(err, 'No pudimos cargar las preguntas. Inténtalo nuevamente.'));
+        if (alive) setError(describeAuthError(err, t('tools.electividad.test.noPudimosCargarLasPreguntas')));
       });
     return () => { alive = false; };
   }, [router]);
@@ -93,7 +94,7 @@ export default function ElectividadTestScreen() {
       router.replace('/tools/electividad/reveal');
     } catch (err) {
       setSending(false);
-      setError(describeAuthError(err, 'No pudimos enviar tus respuestas. Revisa tu conexión e inténtalo nuevamente.'));
+      setError(describeAuthError(err, t('tools.electividad.test.noPudimosEnviarTusRespuestas')));
     }
   }, [router]);
 
@@ -142,30 +143,30 @@ export default function ElectividadTestScreen() {
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cerrar el test. Tus respuestas quedan guardadas"
+          accessibilityLabel={t('tools.electividad.test.cerrarElTestTusRespuestas')}
           hitSlop={8}
           onPress={pause}
           style={({ pressed }) => [styles.round, pressed && AppPressed]}
         >
           <Ionicons name="close" size={22} color={AppColors.textPrimary} />
         </Pressable>
-        <ThemedText style={styles.topTitle}>Test de intereses</ThemedText>
+        <ThemedText style={styles.topTitle}>{t('tools.electividad.reveal.testDeIntereses')}</ThemedText>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Pausar. Puedes seguir después desde donde quedaste"
+          accessibilityLabel={t('tools.electividad.test.pausarPuedesSeguirDespuesDesde')}
           onPress={pause}
           disabled={sending}
           style={({ pressed }) => [styles.pausePill, pressed && AppPressed]}
         >
           <Ionicons name="pause" size={14} color={AppColors.textPrimary} />
-          <ThemedText style={styles.pauseText}>Pausar</ThemedText>
+          <ThemedText style={styles.pauseText}>{t('tools.electividad.test.pausar')}</ThemedText>
         </Pressable>
       </View>
 
       <View style={styles.body}>
         <View style={styles.progressBlock}>
           <View style={styles.progressRow}>
-            <ThemedText style={styles.counter}>Pregunta {Math.min(index + 1, total)} de {total}</ThemedText>
+            <ThemedText style={styles.counter}>{t('tools.electividad.test.preguntaNumberDeTotal', { number: Math.min(index + 1, total), total })}</ThemedText>
             <ThemedText style={styles.percent}>{Math.round((answeredCount / total) * 100)}%</ThemedText>
           </View>
           <View
@@ -181,7 +182,7 @@ export default function ElectividadTestScreen() {
 
         {question && !sending && !complete && (
           <Animated.View key={question.id} entering={reduceMotion ? undefined : FadeIn.duration(160)} style={styles.questionBlock}>
-            <ThemedText accessibilityRole="header" style={styles.prompt}>¿Qué actividad prefieres?</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.prompt}>{t('tools.electividad.test.queActividadPrefieres')}</ThemedText>
             {(['a', 'b'] as const).map(choice => {
               const selected = current === choice;
               return (
@@ -189,7 +190,7 @@ export default function ElectividadTestScreen() {
                   key={choice}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
-                  accessibilityLabel={`Opción ${choice.toUpperCase()}: ${question[choice]}`}
+                  accessibilityLabel={t('tools.electividad.test.opcionChoiceQuestion', { choice: choice.toUpperCase(), question: question[choice] })}
                   onPress={() => choose(choice)}
                   style={({ pressed }) => [styles.option, selected && styles.optionSelected, pressed && !selected && AppPressed]}
                 >
@@ -206,7 +207,7 @@ export default function ElectividadTestScreen() {
         {sending && (
           <View style={styles.sending}>
             <ActivityIndicator color={AppColors.accent} />
-            <ThemedText style={styles.sendingText}>Enviando tus respuestas…</ThemedText>
+            <ThemedText style={styles.sendingText}>{t('tools.electividad.test.enviandoTusRespuestas')}</ThemedText>
           </View>
         )}
 
@@ -215,8 +216,8 @@ export default function ElectividadTestScreen() {
             {!!error && <ThemedText style={styles.error}>{error}</ThemedText>}
             {complete && !sending && progress && (
               <>
-                {!error && <ThemedText style={styles.sendingText}>Respondiste las 72 preguntas.</ThemedText>}
-                <HanetButton label={error ? 'Enviar nuevamente' : 'Enviar mis respuestas'} variant="accent" onPress={() => void send(progress.answers, progress.activeMs)} />
+                {!error && <ThemedText style={styles.sendingText}>{t('tools.electividad.test.respondisteLas72Preguntas')}</ThemedText>}
+                <HanetButton label={error ? t('tools.electividad.test.enviarNuevamente') : t('tools.electividad.test.enviarMisRespuestas')} variant="accent" onPress={() => void send(progress.answers, progress.activeMs)} />
               </>
             )}
           </View>
@@ -227,16 +228,16 @@ export default function ElectividadTestScreen() {
         <View style={styles.footer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Pregunta anterior"
+            accessibilityLabel={t('tools.electividad.test.preguntaAnterior')}
             accessibilityState={{ disabled: index === 0 }}
             disabled={index === 0}
             onPress={goBack}
             style={({ pressed }) => [styles.backPill, index === 0 && styles.disabled, pressed && AppPressed]}
           >
             <Ionicons name="chevron-back" size={16} color={AppColors.textPrimary} />
-            <ThemedText style={styles.backText}>Anterior</ThemedText>
+            <ThemedText style={styles.backText}>{t('onboarding.anterior')}</ThemedText>
           </Pressable>
-          <ThemedText style={styles.hint}>Elige la que más te atraiga, aunque ambas te gusten.</ThemedText>
+          <ThemedText style={styles.hint}>{t('tools.electividad.test.eligeLaQueMasTe')}</ThemedText>
         </View>
       )}
     </View>

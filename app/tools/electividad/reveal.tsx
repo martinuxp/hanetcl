@@ -23,6 +23,7 @@ import Animated, {
   ZoomIn,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // After the test (or from the result, to see it again): "calculating" over the
 // nine areas, then the top three one by one, from third to first, and a short
@@ -34,11 +35,11 @@ const TINT = 'rgba(239,34,116,0.18)';
 /** When each phase starts (ms): 0 calculating, 1 top three lit, 2–4 third to first, 5 podium. */
 const PHASES = [0, 1900, 3000, 5200, 7400, 10000];
 
-const ORDINAL = ['Tu área de mayor interés', 'Tu segunda área de mayor interés', 'Tu tercera área de mayor interés'];
+const ORDINAL = [t('tools.electividad.reveal.tuAreaDeMayorInteres'), t('tools.electividad.reveal.tuSegundaAreaDeMayor'), t('tools.electividad.reveal.tuTerceraAreaDeMayor')];
 
 function podiumTitle(result: ElectividadResult) {
   const field = leaningField(result);
-  return field ? `Lo tuyo son las ${field.name}` : 'Tienes intereses variados';
+  return field ? t('tools.electividad.reveal.loTuyoSonLasName', { name: field.name }) : t('tools.electividad.reveal.tienesInteresesVariados');
 }
 
 function haptic(strong = false) {
@@ -78,9 +79,9 @@ function useCountUp(target: number, run: boolean) {
     if (!run) return;
     const start = Date.now();
     const timer = setInterval(() => {
-      const t = Math.min(1, (Date.now() - start) / 900);
-      setValue(Math.round(target * (1 - Math.pow(1 - t, 3))));
-      if (t >= 1) clearInterval(timer);
+      const progress = Math.min(1, (Date.now() - start) / 900);
+      setValue(Math.round(target * (1 - Math.pow(1 - progress, 3))));
+      if (progress >= 1) clearInterval(timer);
     }, 30);
     return () => clearInterval(timer);
   }, [run, target]);
@@ -96,7 +97,7 @@ function RevealArea({ area, place, animate }: { area: AreaScore; place: number; 
     <View
       style={styles.reveal}
       accessible
-      accessibilityLabel={`${ORDINAL[place]}: ${area.name}, ${area.percent} por ciento, ${area.wins} de ${area.of} elecciones`}
+      accessibilityLabel={t('tools.electividad.reveal.ordinalNamePercentPorCiento', { ordinal: ORDINAL[place], name: area.name, percent: area.percent, wins: area.wins, of: area.of })}
       accessibilityLiveRegion="polite"
     >
       <Animated.View entering={enter(0)}>
@@ -115,7 +116,7 @@ function RevealArea({ area, place, animate }: { area: AreaScore; place: number; 
         <ThemedText style={styles.revealPercent}>{percent}%</ThemedText>
       </Animated.View>
       <Animated.View entering={enter(600)}>
-        <ThemedText style={styles.revealWins}>{area.wins} de {area.of} elecciones</ThemedText>
+        <ThemedText style={styles.revealWins}>{t('tools.electividad.reveal.winsDeOfElecciones', { wins: area.wins, of: area.of })}</ThemedText>
       </Animated.View>
     </View>
   );
@@ -158,8 +159,8 @@ export default function ElectividadRevealScreen() {
   if (!result) {
     return (
       <View style={[styles.screen, styles.center, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <ThemedText style={styles.calcHint}>No encontramos tu resultado.</ThemedText>
-        <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
+        <ThemedText style={styles.calcHint}>{t('tools.electividad.reveal.noEncontramosTuResultado')}</ThemedText>
+        <HanetButton label={t('common.volver')} variant="surface" onPress={() => router.back()} />
       </View>
     );
   }
@@ -172,15 +173,15 @@ export default function ElectividadRevealScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + AppSpacing.sm, paddingBottom: insets.bottom + AppSpacing.lg }]}>
       <View style={styles.topBar}>
-        <ThemedText style={styles.topTitle}>Test de intereses</ThemedText>
+        <ThemedText style={styles.topTitle}>{t('tools.electividad.reveal.testDeIntereses')}</ThemedText>
         {phase < 5 && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Saltar la animación"
+            accessibilityLabel={t('tools.electividad.reveal.saltarLaAnimacion')}
             onPress={() => { stop(); setPhase(5); }}
             style={({ pressed }) => [styles.skip, pressed && AppPressed]}
           >
-            <ThemedText style={styles.skipText}>Saltar</ThemedText>
+            <ThemedText style={styles.skipText}>{t('anniversary.welcome.saltar')}</ThemedText>
           </Pressable>
         )}
       </View>
@@ -194,8 +195,8 @@ export default function ElectividadRevealScreen() {
               ))}
             </View>
             <View style={styles.calcText} accessibilityLiveRegion="polite">
-              <ThemedText accessibilityRole="header" style={styles.calcTitle}>{phase >= 1 ? 'Listo' : 'Calculando tus resultados…'}</ThemedText>
-              <ThemedText style={styles.calcHint}>Comparando tus 72 elecciones</ThemedText>
+              <ThemedText accessibilityRole="header" style={styles.calcTitle}>{phase >= 1 ? t('common.listo') : t('tools.electividad.reveal.calculandoTusResultados')}</ThemedText>
+              <ThemedText style={styles.calcHint}>{t('tools.electividad.reveal.comparandoTus72Elecciones')}</ThemedText>
               <CalcBar key={run} animate={animate} />
             </View>
           </View>
@@ -206,7 +207,7 @@ export default function ElectividadRevealScreen() {
         {phase === 5 && (
           <View style={styles.podium}>
             <Animated.View entering={animate ? FadeIn.duration(300) : undefined}>
-              <ThemedText style={styles.podiumEyebrow}>Tus áreas de mayor interés</ThemedText>
+              <ThemedText style={styles.podiumEyebrow}>{t('common.tusAreasDeMayorInteres')}</ThemedText>
               <ThemedText accessibilityRole="header" style={styles.podiumTitle}>{podiumTitle(result)}</ThemedText>
             </Animated.View>
             {top.map((area, place) => (
@@ -215,7 +216,7 @@ export default function ElectividadRevealScreen() {
                 entering={animate ? FadeInDown.delay(120 + place * 110).duration(380) : undefined}
                 style={[styles.podiumRow, place === 0 && styles.podiumRowFirst]}
                 accessible
-                accessibilityLabel={`${place + 1}. ${area.name}, ${area.percent} por ciento`}
+                accessibilityLabel={t('tools.electividad.reveal.numberNamePercentPorCiento', { number: place + 1, name: area.name, percent: area.percent })}
               >
                 <ThemedText style={styles.podiumRank}>{place + 1}</ThemedText>
                 <View style={styles.podiumIcon}>
@@ -226,8 +227,8 @@ export default function ElectividadRevealScreen() {
               </Animated.View>
             ))}
             <Animated.View entering={animate ? FadeIn.delay(600).duration(300) : undefined} style={styles.actions}>
-              <HanetButton label="Ver resultado completo" variant="accent" onPress={openResult} />
-              {!reduceMotion && <HanetButton label="Repetir animación" variant="surface" onPress={() => { setPhase(0); setRun(value => value + 1); }} />}
+              <HanetButton label={t('tools.electividad.reveal.verResultadoCompleto')} variant="accent" onPress={openResult} />
+              {!reduceMotion && <HanetButton label={t('tools.electividad.reveal.repetirAnimacion')} variant="surface" onPress={() => { setPhase(0); setRun(value => value + 1); }} />}
             </Animated.View>
           </View>
         )}

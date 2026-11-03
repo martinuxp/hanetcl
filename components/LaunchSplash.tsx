@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
+import { t } from '@/i18n';
 
 // The first launch holds a beat for the brand; later ones only long enough
 // not to flash. Nobody waits on it once the app is ready.
@@ -62,7 +63,7 @@ export function LaunchSplash({ ready, quick = false }: { ready: boolean; quick?:
   return (
     <Animated.View
       accessible
-      accessibilityLabel={`HaNet ${APP_VERSION_LABEL}, cargando`}
+      accessibilityLabel={t('components.launchSplash.hanetAppversionlabelCargando', { appVersionLabel: APP_VERSION_LABEL })}
       style={[styles.root, { paddingTop: insets.top + AppSpacing.xl, paddingBottom: insets.bottom + AppSpacing.md }, style]}
     >
       <View style={styles.header}>

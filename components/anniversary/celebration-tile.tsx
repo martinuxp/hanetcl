@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // The Home tile once the anniversary has started and this device hasn't
 // opened it yet: lit by the alianzas' colors, with rings that go out from
@@ -52,7 +53,7 @@ export function CelebrationTile({ anniversary, day, height }: { anniversary: Ann
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`¡Empezó el ${anniversary.title}! ${day}. Toca para entrar`}
+      accessibilityLabel={t('components.anniversary.celebrationTile.empezoElTitleDayToca', { title: anniversary.title, day })}
       onPress={() => router.push('/anniversary')}
       style={({ pressed }) => [styles.press, { minHeight: height }, pressed && styles.pressed]}
     >
@@ -67,9 +68,9 @@ export function CelebrationTile({ anniversary, day, height }: { anniversary: Ann
           </View>
           <ThemedText numberOfLines={1} style={styles.day}>{day}</ThemedText>
         </View>
-        <ThemedText numberOfLines={2} style={styles.title}>¡Empezó el aniversario!</ThemedText>
+        <ThemedText numberOfLines={2} style={styles.title}>{t('anniversary.welcome.empezoElAniversario')}</ThemedText>
         <View style={styles.pill}>
-          <ThemedText style={styles.pillText}>Toca para entrar</ThemedText>
+          <ThemedText style={styles.pillText}>{t('components.anniversary.celebrationTile.tocaParaEntrar')}</ThemedText>
           <Ionicons name="chevron-forward" size={14} color={AppColors.textOnLight} />
         </View>
       </GradientCard>

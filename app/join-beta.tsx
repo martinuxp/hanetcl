@@ -9,6 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const ICONS = {
   lock: require('@/assets/icons/auth/lock.svg'),
@@ -84,7 +85,7 @@ export default function JoinBetaScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(routeForStep(await getOnboardingStep(user)));
     } catch (redeemError) {
-      setError(describeAuthError(redeemError, 'No pudimos comprobar el código. Inténtalo nuevamente.'));
+      setError(describeAuthError(redeemError, t('classhall.join.noPudimosComprobarElCodigo')));
       setSubmitting(false);
     }
   };
@@ -110,34 +111,34 @@ export default function JoinBetaScreen() {
             <View style={styles.lockPill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Image source={ICONS.lock} style={styles.icon} contentFit="contain" />
             </View>
-            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Unirse a HaNet</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>{t('joinBeta.unirseAHanet')}</ThemedText>
           </View>
           <OnboardingProgress step={3} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
-              <ThemedText style={styles.headlineText}>Se verificó tu correo</ThemedText>
+              <ThemedText style={styles.headlineText}>{t('joinBeta.seVerificoTuCorreo')}</ThemedText>
               <Image source={ICONS.logo} style={styles.logo} contentFit="contain" />
             </View>
           </View>
 
           <View style={styles.card}>
             <View style={styles.hero}>
-              <ThemedText accessibilityRole="header" style={styles.heroText}>Unirse a{'\n'}HaNet Beta</ThemedText>
+              <ThemedText accessibilityRole="header" style={styles.heroText}>{t('joinBeta.unirseAHanetBeta')}</ThemedText>
               <Image source={ICONS.mark} style={styles.heroMark} contentFit="contain" accessibilityLabel="HaNet" />
             </View>
 
             <ThemedText style={styles.lead}>
-              Escribe el código de invitación que te dio tu institución. Son cuatro palabras.
+              {t('joinBeta.escribeElCodigoDeInvitacion')}
             </ThemedText>
 
             <View style={styles.grid}>
               {words.map((word, index) => (
                 <View key={index} style={[styles.wordBox, focusedIndex === index && styles.wordBoxFocused, !!error && styles.wordBoxError]}>
-                  <ThemedText style={styles.wordLabel}>Palabra {index + 1}</ThemedText>
+                  <ThemedText style={styles.wordLabel}>{t('joinBeta.palabraNumber', { number: index + 1 })}</ThemedText>
                   <TextInput
                     ref={(input) => { inputs.current[index] = input; }}
-                    accessibilityLabel={`Palabra ${index + 1} de ${WORD_COUNT}`}
+                    accessibilityLabel={t('joinBeta.palabraNumberDeWordcount', { number: index + 1, wordCount: WORD_COUNT })}
                     value={word}
                     onChangeText={text => changeWord(index, text)}
                     onFocus={() => setFocusedIndex(index)}
@@ -170,20 +171,20 @@ export default function JoinBetaScreen() {
               onPress={submit}
               style={({ pressed }) => [styles.submit, (!complete || submitting) && styles.submitDisabled, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.submitText}>{submitting ? 'Verificando…' : 'Verificar'}</ThemedText>
+              <ThemedText style={styles.submitText}>{submitting ? t('joinBeta.verificando') : t('joinBeta.verificar')}</ThemedText>
               {!submitting && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
             </Pressable>
 
             <View style={styles.help}>
-              <ThemedText style={styles.helpTitle}>¿No funciona el código?</ThemedText>
+              <ThemedText style={styles.helpTitle}>{t('joinBeta.noFuncionaElCodigo')}</ThemedText>
               <ThemedText style={styles.helpText}>
-                Revisa que las palabras vayan en el orden en que te las dieron. Si sigue sin funcionar, pregunta a los encargados de HaNet en tu institución.
+                {t('joinBeta.revisaQueLasPalabrasVayan')}
               </ThemedText>
             </View>
           </View>
 
           <Pressable accessibilityRole="button" onPress={useAnotherAccount} style={({ pressed }) => [styles.switchAccount, pressed && styles.pressed]}>
-            <ThemedText style={styles.switchAccountText}>Usar otra cuenta</ThemedText>
+            <ThemedText style={styles.switchAccountText}>{t('joinBeta.usarOtraCuenta')}</ThemedText>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

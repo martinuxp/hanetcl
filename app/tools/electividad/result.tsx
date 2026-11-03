@@ -11,6 +11,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // The full result of HaNet Electividad: the top three, how the answers split,
 // every area by group, related careers and the most telling comparisons.
@@ -18,9 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const TINT = 'rgba(239,34,116,0.18)';
 const FIELD_COLORS = ['#EF2274', '#DDDDE2', '#7D7C82'];
 const GROUPS: { id: AreaScore['group']; label: string; color: string }[] = [
-  { id: 'alto', label: 'Mayor interés', color: '#EF2274' },
-  { id: 'medio', label: 'Interés intermedio', color: '#DDDDE2' },
-  { id: 'bajo', label: 'Menor interés', color: '#7D7C82' },
+  { id: 'alto', label: t('tools.electividad.result.mayorInteres'), color: '#EF2274' },
+  { id: 'medio', label: t('tools.electividad.result.interesIntermedio'), color: '#DDDDE2' },
+  { id: 'bajo', label: t('tools.electividad.result.menorInteres'), color: '#7D7C82' },
 ];
 const MIFUTURO_URL = 'https://www.mifuturo.cl/buscador-de-empleabilidad-e-ingresos/';
 
@@ -29,11 +30,11 @@ function list(names: string[]) {
 }
 
 function answeredText(at: number | null) {
-  if (!at) return 'Resultado';
+  if (!at) return t('anniversary.detail.resultado');
   try {
-    return `Respondido el ${new Date(at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    return t('tools.electividad.result.respondidoElLocaledatestring', { localeDateString: new Date(at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }) });
   } catch {
-    return 'Resultado';
+    return t('anniversary.detail.resultado');
   }
 }
 
@@ -52,9 +53,9 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 function Stats({ result }: { result: ElectividadResult }) {
   const perQuestion = result.durationSec ? Math.round(result.durationSec / 72) : 0;
   const stats = [
-    { label: 'Consistencia', value: `${result.consistency.percent}%`, sub: `${result.consistency.same} de ${result.consistency.of} pares` },
-    { label: 'Duración', value: formatDuration(result.durationSec), sub: perQuestion ? `${perQuestion} s por pregunta` : 'Sin registro' },
-    { label: 'Perfil', value: result.profile === 'definido' ? 'Definido' : 'Amplio', sub: result.profile === 'definido' ? 'Top 3 destacado' : 'Intereses repartidos' },
+    { label: t('tools.electividad.result.consistencia'), value: `${result.consistency.percent}%`, sub: t('tools.electividad.result.sameDeOfPares', { same: result.consistency.same, of: result.consistency.of }) },
+    { label: t('eventInfo.duracion'), value: formatDuration(result.durationSec), sub: perQuestion ? t('tools.electividad.result.perquestionSPorPregunta', { perQuestion }) : t('tools.electividad.result.sinRegistro') },
+    { label: t('layout.perfil'), value: result.profile === 'definido' ? 'Definido' : 'Amplio', sub: result.profile === 'definido' ? t('tools.electividad.result.top3Destacado') : t('tools.electividad.result.interesesRepartidos') },
   ];
   return (
     <View style={styles.stats}>
@@ -71,7 +72,7 @@ function Stats({ result }: { result: ElectividadResult }) {
 
 function Distribution({ result }: { result: ElectividadResult }) {
   return (
-    <Section title="Distribución por ámbito" subtitle="Porcentaje de tus 72 elecciones">
+    <Section title={t('tools.electividad.result.distribucionPorAmbito')} subtitle={t('tools.electividad.result.porcentajeDeTus72Elecciones')}>
       <View style={styles.card}>
         <View style={styles.stack} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {result.fields.map((field, index) => (
@@ -79,7 +80,7 @@ function Distribution({ result }: { result: ElectividadResult }) {
           ))}
         </View>
         {result.fields.map((field, index) => (
-          <View key={field.id} style={styles.legendRow} accessible accessibilityLabel={`${field.name}: ${field.percent} por ciento. ${list(field.areas)}`}>
+          <View key={field.id} style={styles.legendRow} accessible accessibilityLabel={t('tools.electividad.result.namePercentPorCientoList', { name: field.name, percent: field.percent, list: list(field.areas) })}>
             <View style={[styles.legendIcon, index === 0 && styles.legendIconTop]}>
               <AreaIcon area={FIELD_AREA[field.id]} size={20} color={index === 0 ? AppColors.accent : AppColors.textPrimary} />
             </View>
@@ -100,7 +101,7 @@ function Distribution({ result }: { result: ElectividadResult }) {
 
 function Groups({ result }: { result: ElectividadResult }) {
   return (
-    <Section title="Todas las áreas" subtitle="Elecciones a favor de cada área, de 16">
+    <Section title={t('tools.electividad.result.todasLasAreas')} subtitle={t('tools.electividad.result.eleccionesAFavorDeCada')}>
       <View style={styles.card}>
         {GROUPS.map(group => {
           const rows = result.areas.filter(area => area.group === group.id);
@@ -113,14 +114,14 @@ function Groups({ result }: { result: ElectividadResult }) {
                 <ThemedText style={styles.groupLabel}>{group.label}</ThemedText>
               </View>
               {rows.map(area => (
-                <View key={area.id} style={styles.areaRow} accessible accessibilityLabel={`${area.name}: ${area.wins} de ${area.of}, ${area.percent} por ciento`}>
+                <View key={area.id} style={styles.areaRow} accessible accessibilityLabel={t('tools.electividad.result.nameWinsDeOfPercent', { name: area.name, wins: area.wins, of: area.of, percent: area.percent })}>
                   <View style={[styles.areaIcon, top && styles.areaIconTop]}>
                     <AreaIcon area={area.id} size={20} color={top ? AppColors.accent : AppColors.textPrimary} />
                   </View>
                   <View style={styles.areaBody}>
                     <View style={styles.areaHead}>
                       <ThemedText style={styles.areaName}>{area.name}</ThemedText>
-                      <ThemedText style={styles.areaWins}>{area.wins} de {area.of}</ThemedText>
+                      <ThemedText style={styles.areaWins}>{t('tools.electividad.result.winsDeOf', { wins: area.wins, of: area.of })}</ThemedText>
                     </View>
                     <View style={styles.areaTrack}>
                       <View style={[styles.areaFill, { width: `${(area.wins / area.of) * 100}%`, backgroundColor: group.color }]} />
@@ -141,7 +142,7 @@ function Careers({ result }: { result: ElectividadResult }) {
   const current = result.careers.find(group => group.areaId === tab) ?? result.careers[0];
   if (!current) return null;
   return (
-    <Section title="Carreras relacionadas" subtitle="Según tus áreas de mayor interés">
+    <Section title={t('tools.electividad.result.carrerasRelacionadas')} subtitle={t('tools.electividad.result.segunTusAreasDeMayor')}>
       <View style={styles.tabs} accessibilityRole="tablist">
         {result.careers.map(group => {
           const selected = group.areaId === current.areaId;
@@ -173,15 +174,15 @@ function Careers({ result }: { result: ElectividadResult }) {
             </View>
           </View>
         ))}
-        <ThemedText style={styles.soon}>Duración, arancel e instituciones de cada carrera: Próximamente.</ThemedText>
+        <ThemedText style={styles.soon}>{t('tools.electividad.result.duracionArancelEInstitucionesDe')}</ThemedText>
       </View>
       <HanetButton
-        label="Ver empleabilidad e ingresos en mifuturo.cl"
+        label={t('tools.electividad.result.verEmpleabilidadEIngresosEn')}
         variant="surface"
         icon={<Ionicons name="open-outline" size={18} color={AppColors.textPrimary} />}
         onPress={() => void WebBrowser.openBrowserAsync(MIFUTURO_URL)}
       />
-      <ThemedText style={styles.source}>Fuente: www.mifuturo.cl, de Mineduc</ThemedText>
+      <ThemedText style={styles.source}>{t('tools.electividad.result.fuenteWwwMifuturoClDe')}</ThemedText>
     </Section>
   );
 }
@@ -189,7 +190,7 @@ function Careers({ result }: { result: ElectividadResult }) {
 function Duels({ result }: { result: ElectividadResult }) {
   if (!result.duels.length) return null;
   return (
-    <Section title="Comparaciones destacadas" subtitle="Cada par de áreas apareció 2 veces">
+    <Section title={t('tools.electividad.result.comparacionesDestacadas')} subtitle={t('tools.electividad.result.cadaParDeAreasAparecio')}>
       <View style={styles.card}>
         {result.duels.map((duel, index) => {
           const clear = duel.kind === 'clara';
@@ -198,15 +199,15 @@ function Duels({ result }: { result: ElectividadResult }) {
               key={`${duel.aId}-${duel.bId}`}
               style={[styles.duelRow, index > 0 && styles.careerDivider]}
               accessible
-              accessibilityLabel={`${duel.a} contra ${duel.b}: ${duel.score.replace('–', ' a ')}. ${clear ? 'Preferencia clara' : 'La comparación más pareja'}`}
+              accessibilityLabel={t('tools.electividad.result.aContraBReplaceValue', { a: duel.a, b: duel.b, replace: duel.score.replace('–', ' a '), value: clear ? t('tools.electividad.result.preferenciaClara') : t('tools.electividad.result.laComparacionMasPareja') })}
             >
               <View style={styles.duelIcons}>
                 <AreaIcon area={duel.aId} size={18} color={AppColors.accent} />
                 <AreaIcon area={duel.bId} size={18} color={AppColors.textSecondary} />
               </View>
               <View style={styles.careerBody}>
-                <ThemedText style={styles.duelTitle}>{duel.a} vs {duel.b}</ThemedText>
-                <ThemedText style={styles.duelNote}>{clear ? 'Preferencia clara' : 'La comparación más pareja'}</ThemedText>
+                <ThemedText style={styles.duelTitle}>{t('tools.electividad.result.aVsB', { a: duel.a, b: duel.b })}</ThemedText>
+                <ThemedText style={styles.duelNote}>{clear ? t('tools.electividad.result.preferenciaClara') : t('tools.electividad.result.laComparacionMasPareja')}</ThemedText>
               </View>
               <View style={[styles.score, clear && styles.scoreClear]}>
                 <ThemedText style={styles.scoreText}>{duel.score}</ThemedText>
@@ -243,8 +244,8 @@ export default function ElectividadResultScreen() {
         <View style={[styles.empty, { paddingTop: insets.top + AppSpacing.xxl }]}>
           {result === undefined ? <ActivityIndicator color={AppColors.textSecondary} /> : (
             <>
-              <ThemedText style={styles.sectionSubtitle}>Todavía no hay un resultado para mostrar.</ThemedText>
-              <HanetButton label="Ir al test" variant="accent" onPress={() => router.replace('/tools/electividad')} />
+              <ThemedText style={styles.sectionSubtitle}>{t('tools.electividad.result.todaviaNoHayUnResultado')}</ThemedText>
+              <HanetButton label={t('tools.electividad.result.irAlTest')} variant="accent" onPress={() => router.replace('/tools/electividad')} />
             </>
           )}
         </View>
@@ -265,12 +266,12 @@ export default function ElectividadResultScreen() {
         <View style={styles.hero}>
           <View style={styles.heroChip}>
             <Ionicons name="sparkles" size={13} color={AppColors.textPrimary} />
-            <ThemedText style={styles.heroChipText}>Tus áreas de mayor interés</ThemedText>
+            <ThemedText style={styles.heroChipText}>{t('common.tusAreasDeMayorInteres')}</ThemedText>
           </View>
           <ThemedText style={styles.heroTitle}>{list(top.map(area => area.name))}</ThemedText>
           <View style={styles.heroTiles}>
             {top.map(area => (
-              <View key={area.id} style={styles.heroTile} accessible accessibilityLabel={`${area.rank}. ${area.name}, ${area.percent} por ciento`}>
+              <View key={area.id} style={styles.heroTile} accessible accessibilityLabel={t('tools.electividad.result.rankNamePercentPorCiento', { rank: area.rank, name: area.name, percent: area.percent })}>
                 <AreaIcon area={area.id} size={24} color={AppColors.textPrimary} />
                 <ThemedText style={styles.heroPercent}>{area.percent}%</ThemedText>
                 <ThemedText style={styles.heroName} numberOfLines={2}>{area.name}</ThemedText>
@@ -280,7 +281,7 @@ export default function ElectividadResultScreen() {
         </View>
 
         <ThemedText style={styles.explain}>
-          El test mide tus preferencias entre áreas, no tu rendimiento. Un puntaje menor indica que elegiste otras áreas con más frecuencia.
+          {t('tools.electividad.result.elTestMideTusPreferencias')}
         </ThemedText>
 
         <Stats result={result} />
@@ -292,17 +293,17 @@ export default function ElectividadResultScreen() {
         <View style={styles.cta}>
           <View style={styles.ctaHead}>
             <Ionicons name="school-outline" size={20} color={AppColors.textPrimary} />
-            <ThemedText style={styles.ctaTitle}>Postulación a electivos</ThemedText>
+            <ThemedText style={styles.ctaTitle}>{t('tools.electividad.result.postulacionAElectivos')}</ThemedText>
             <View style={styles.soonChip}>
-              <ThemedText style={styles.soonChipText}>Próximamente</ThemedText>
+              <ThemedText style={styles.soonChipText}>{t('common.proximamente')}</ThemedText>
             </View>
           </View>
-          <ThemedText style={styles.ctaText}>Aquí podrás ver los electivos que ofrece tu liceo según tu resultado y postular a ellos.</ThemedText>
+          <ThemedText style={styles.ctaText}>{t('tools.electividad.result.aquiPodrasVerLosElectivos')}</ThemedText>
         </View>
 
         <View style={styles.visibility}>
           <Ionicons name="eye-outline" size={16} color={AppColors.textSecondary} />
-          <ThemedText style={styles.visibilityText}>Resultado visible para ti y para la administración de tu liceo.</ThemedText>
+          <ThemedText style={styles.visibilityText}>{t('tools.electividad.result.resultadoVisibleParaTiY')}</ThemedText>
         </View>
       </ScrollView>
     </FrostedScreen>

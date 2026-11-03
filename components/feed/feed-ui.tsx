@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '@/i18n';
 
 // Feed y Comunidad, after Substack: Espacio tiles on top, posts without cards
 // split by a dark band, image carousels and reaction chips.
@@ -44,7 +45,7 @@ export function SpaceAvatar({ space, size = 48 }: { space: FeedSpace; size?: num
 /** The pink seal of an official Espacio (the school and HaNet). */
 export function OfficialSeal({ size = 18 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Espacio oficial">
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel={t('components.feed.feedUi.espacioOficial')}>
       <Path fill={AppColors.accent} d="M12 1.8l2.6 2 3.2-.3 1 3.1 2.8 1.7-.9 3.1.9 3.1-2.8 1.7-1 3.1-3.2-.3-2.6 2-2.6-2-3.2.3-1-3.1-2.8-1.7.9-3.1-.9-3.1 2.8-1.7 1-3.1 3.2.3z" />
       <Path d="M8.2 12.2l2.6 2.6 5-5.2" fill="none" stroke={AppColors.textPrimary} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
@@ -58,8 +59,8 @@ export function SpaceTile({ space, selected, onPress }: { space: FeedSpace; sele
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={selected ? `${space.name}, mostrando solo este Espacio` : `Ver solo ${space.name}`}
-      accessibilityHint={selected ? 'Vuelve a mostrar todo el feed' : undefined}
+      accessibilityLabel={selected ? t('components.feed.feedUi.nameMostrandoSoloEsteEspacio', { name: space.name }) : t('components.feed.feedUi.verSoloName', { name: space.name })}
+      accessibilityHint={selected ? t('components.feed.feedUi.vuelveAMostrarTodoEl') : undefined}
       onPress={onPress}
       style={({ pressed }) => [styles.tile, pressed && AppPressed]}
     >
@@ -84,7 +85,7 @@ export function FeedCarousel({ images, width }: { images: string[]; width: numbe
   if (images.length === 1) {
     return (
       <View style={styles.carouselPad}>
-        <Image source={{ uri: images[0] }} accessibilityLabel="Imagen de la publicación" style={[styles.slide, { width: inner, height: inner * 0.75 }]} contentFit="cover" transition={120} />
+        <Image source={{ uri: images[0] }} accessibilityLabel={t('components.feed.feedUi.imagenDeLaPublicacion')} style={[styles.slide, { width: inner, height: inner * 0.75 }]} contentFit="cover" transition={120} />
       </View>
     );
   }
@@ -101,7 +102,7 @@ export function FeedCarousel({ images, width }: { images: string[]; width: numbe
         <Image
           key={uri}
           source={{ uri }}
-          accessibilityLabel={`Imagen ${index + 1} de ${images.length}`}
+          accessibilityLabel={t('components.feed.feedUi.imagenNumberDeImagescount', { number: index + 1, imagesCount: images.length })}
           style={[styles.slide, { width: card, height: card * 1.25 }]}
           contentFit="cover"
           transition={120}
@@ -128,7 +129,7 @@ export function ReactionChips({ reactions, busyEmoji, open, onToggleOpen, onReac
           key={reaction.emoji}
           accessibilityRole="button"
           accessibilityState={{ selected: reaction.mine, busy: busyEmoji === reaction.emoji }}
-          accessibilityLabel={`${EMOJI_NAMES[reaction.emoji] ?? reaction.emoji}, ${reaction.count}${reaction.mine ? ', reaccionaste' : ''}`}
+          accessibilityLabel={`${EMOJI_NAMES[reaction.emoji] ?? reaction.emoji}, ${reaction.count}${reaction.mine ? t('components.feed.feedUi.reaccionaste') : ''}`}
           disabled={!!busyEmoji}
           onPress={() => onReact(reaction.emoji)}
           style={({ pressed }) => [styles.chip, reaction.mine && styles.chipMine, pressed && AppPressed]}
@@ -139,7 +140,7 @@ export function ReactionChips({ reactions, busyEmoji, open, onToggleOpen, onReac
       ))}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={open ? 'Cerrar las reacciones' : 'Agregar una reacción'}
+        accessibilityLabel={open ? t('components.feed.feedUi.cerrarLasReacciones') : t('components.feed.feedUi.agregarUnaReaccion')}
         accessibilityState={{ expanded: open }}
         onPress={onToggleOpen}
         style={({ pressed }) => [styles.iconButton, open && styles.iconButtonOpen, pressed && AppPressed]}
@@ -171,7 +172,7 @@ export function ReactionPicker({ emojis, reactions, busyEmoji, onReact }: {
               key={emoji}
               accessibilityRole="button"
               accessibilityState={{ selected: mine }}
-              accessibilityLabel={`${EMOJI_NAMES[emoji] ?? emoji}${mine ? ', quitar tu reacción' : ''}`}
+              accessibilityLabel={`${EMOJI_NAMES[emoji] ?? emoji}${mine ? t('components.feed.feedUi.quitarTuReaccion') : ''}`}
               disabled={!!busyEmoji}
               onPress={() => onReact(emoji)}
               style={({ pressed }) => [styles.pickerItem, mine && styles.pickerItemMine, pressed && AppPressed]}
@@ -229,13 +230,13 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, votingPoll =
             {post.space.official && <OfficialSeal />}
           </View>
           <ThemedText numberOfLines={1} style={styles.meta}>
-            {[feedWhen(post.createdAt, now), post.space.kind, post.edited ? 'Editado' : null].filter(Boolean).join(' · ')}
+            {[feedWhen(post.createdAt, now), post.space.kind, post.edited ? t('components.feed.feedUi.editado') : null].filter(Boolean).join(' · ')}
           </ThemedText>
         </View>
         {post.pinned && (
-          <View style={styles.pinned} accessibilityLabel="Fijado arriba">
+          <View style={styles.pinned} accessibilityLabel={t('components.feed.feedUi.fijadoArriba')}>
             <CustomIcon name="pin" size={14} color={AppColors.textSecondary} />
-            <ThemedText style={styles.pinnedText}>Fijado</ThemedText>
+            <ThemedText style={styles.pinnedText}>{t('components.feed.feedUi.fijado')}</ThemedText>
           </View>
         )}
       </View>
@@ -245,7 +246,7 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, votingPoll =
           <FeedMarkdown source={long && !expanded ? folded(post.body) : post.body} />
           {long && (
             <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setExpanded(value => !value)} style={({ pressed }) => pressed && AppPressed}>
-              <ThemedText style={styles.more}>{expanded ? 'Ver menos' : 'Ver más'}</ThemedText>
+              <ThemedText style={styles.more}>{expanded ? t('anniversary.verMenos') : t('components.events.eventUi.verMas')}</ThemedText>
             </Pressable>
           )}
         </View>
@@ -266,10 +267,10 @@ export function FeedPostView({ post, emojis, width, now, busyEmoji, votingPoll =
       <View style={styles.actions}>
         <ReactionChips reactions={post.reactions} busyEmoji={busyEmoji} open={picker} onToggleOpen={() => setPicker(value => !value)} onReact={react} />
         <View style={styles.spacer} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Más opciones" onPress={onMore} style={({ pressed }) => [styles.iconButton, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('components.feed.feedUi.masOpciones')} onPress={onMore} style={({ pressed }) => [styles.iconButton, pressed && AppPressed]}>
           <CustomIcon name="more" size={22} color={AppColors.textSecondary} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Compartir" onPress={onShare} style={({ pressed }) => [styles.iconButton, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.compartir')} onPress={onShare} style={({ pressed }) => [styles.iconButton, pressed && AppPressed]}>
           <CustomIcon name="share" size={23} color={AppColors.textSecondary} />
         </Pressable>
       </View>

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 const ASSETS = {
   logotype: require('@/assets/onboarding/logotype.svg'),
@@ -53,8 +54,8 @@ export function InstitutionSync({ logoUrl }: Props) {
   }));
 
   const message = phase === 'secure'
-    ? 'Conectando con tu institución…'
-    : 'Descargando los datos de tu institución…';
+    ? t('components.institutionSync.conectandoConTuInstitucion')
+    : t('components.institutionSync.descargandoLosDatosDeTu');
 
   return (
     <Animated.View

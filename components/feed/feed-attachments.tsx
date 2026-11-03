@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // What a post can carry besides text and images: an event of HaNet Eventos
 // (a card that opens it) and an anonymous poll.
@@ -18,7 +19,7 @@ export function FeedEventCard({ event, onPress }: { event: FeedEvent; onPress?: 
     return (
       <View style={[styles.event, styles.eventMissing]}>
         <CustomIcon name="calendar" size={22} color={AppColors.textSecondary} />
-        <ThemedText style={styles.eventMeta}>Este evento ya no está disponible.</ThemedText>
+        <ThemedText style={styles.eventMeta}>{t('components.feed.feedAttachments.esteEventoYaNoEsta')}</ThemedText>
       </View>
     );
   }
@@ -26,7 +27,7 @@ export function FeedEventCard({ event, onPress }: { event: FeedEvent; onPress?: 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Evento: ${event.title}, ${eventWhen(event)}${place ? `, ${place}` : ''}. Abrir`}
+      accessibilityLabel={t('components.feed.feedAttachments.eventoTitleEventwhenValueAbrir', { title: event.title, eventWhen: eventWhen(event), value: place ? `, ${place}` : '' })}
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.event, pressed && AppPressed]}
@@ -37,7 +38,7 @@ export function FeedEventCard({ event, onPress }: { event: FeedEvent; onPress?: 
           : <CustomIcon name="calendar" size={26} color={AppColors.textSecondary} />}
       </View>
       <View style={styles.eventText}>
-        <ThemedText style={styles.eventKicker}>{event.kind === 'institution' ? 'Evento del liceo' : 'HaNet Eventos'}</ThemedText>
+        <ThemedText style={styles.eventKicker}>{event.kind === 'institution' ? t('eventForm.eventoDelLiceo') : t('common.hanetEventos')}</ThemedText>
         <ThemedText numberOfLines={2} style={styles.eventTitle}>{event.title}</ThemedText>
         <ThemedText numberOfLines={1} style={styles.eventMeta}>{[eventWhen(event), place].filter(Boolean).join(' · ')}</ThemedText>
       </View>
@@ -102,18 +103,18 @@ export function FeedPollView({ poll, now, busy, onVote }: { poll: FeedPoll; now:
           onPress={() => chosen && onVote(chosen)}
           style={({ pressed }) => [styles.vote, (!chosen || busy) && styles.voteDisabled, pressed && AppPressed]}
         >
-          <ThemedText style={styles.voteText}>{busy ? 'Votando…' : 'Votar'}</ThemedText>
+          <ThemedText style={styles.voteText}>{busy ? t('components.feed.feedAttachments.votando') : t('components.feed.feedAttachments.votar')}</ThemedText>
         </Pressable>
       )}
 
       <ThemedText style={styles.pollMeta}>
         {[
-          poll.voted ? 'Votaste' : null,
-          showsResults ? `${poll.total} ${poll.total === 1 ? 'voto' : 'votos'}` : poll.voted && poll.results === 'closed' ? 'Los resultados se ven al cerrar' : null,
+          poll.voted ? t('components.feed.feedAttachments.votaste') : null,
+          showsResults ? t('components.feed.feedAttachments.countVotos', { count: poll.total }) : poll.voted && poll.results === 'closed' ? t('components.feed.feedAttachments.losResultadosSeVenAl') : null,
           pollClosing(poll, now),
         ].filter(Boolean).join(' · ')}
       </ThemedText>
-      <ThemedText style={styles.anonymous}>Votación anónima: nadie puede ver qué elegiste, ni tu liceo ni HaNet. El voto no se puede cambiar.</ThemedText>
+      <ThemedText style={styles.anonymous}>{t('components.feed.feedAttachments.votacionAnonimaNadiePuedeVer')}</ThemedText>
     </View>
   );
 }

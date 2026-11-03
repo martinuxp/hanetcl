@@ -21,6 +21,7 @@ import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -173,7 +174,7 @@ export default function HomeScreen() {
 
         {!user && (
           <HanetButton
-            label="Iniciar sesión"
+            label={t('common.iniciarSesion')}
             onPress={() => router.push('/auth')}
             style={styles.authButton}
           />
@@ -181,7 +182,7 @@ export default function HomeScreen() {
 
         {isHnt && (
           <HanetButton
-            label="Panel HNT"
+            label={t('index.panelHnt')}
             variant="surface"
             onPress={() => router.push('/hnt-admin')}
             style={styles.uiCatalogButton}

@@ -11,6 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -61,7 +62,7 @@ export default function VerifyEmailScreen() {
           return;
         }
         setSecondsLeft(0);
-        setError(describeAuthError(sendError, 'No pudimos enviar el código. Toca «Reenviar» en un momento.'));
+        setError(describeAuthError(sendError, t('verifyEmail.noPudimosEnviarElCodigo')));
       });
   }, [router, user]);
 
@@ -81,7 +82,7 @@ export default function VerifyEmailScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(routeForStep(await getOnboardingStep(user).catch(() => 'done' as const)));
     } catch (verifyError) {
-      setError(describeAuthError(verifyError, 'No pudimos verificar el código. Inténtalo nuevamente.'));
+      setError(describeAuthError(verifyError, t('verifyEmail.noPudimosVerificarElCodigo')));
       setCode('');
       inputRef.current?.focus();
       setVerifying(false);
@@ -103,10 +104,10 @@ export default function VerifyEmailScreen() {
     try {
       await sendEmailCode();
       setCodeSent(true);
-      setNotice('Te enviamos un código nuevo.');
+      setNotice(t('verifyEmail.teEnviamosUnCodigoNuevo'));
       setSecondsLeft(RESEND_SECONDS);
     } catch (sendError) {
-      setError(describeAuthError(sendError, 'No pudimos enviar el código. Inténtalo en un momento.'));
+      setError(describeAuthError(sendError, t('verifyEmail.noPudimosEnviarElCodigo2')));
     } finally {
       setSending(false);
     }
@@ -133,29 +134,29 @@ export default function VerifyEmailScreen() {
             {/* The account already exists: going back signs out to start over with another one. */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Volver"
-              accessibilityHint="Pregunta antes de cerrar la sesión para usar otra cuenta"
+              accessibilityLabel={t('common.volver')}
+              accessibilityHint={t('verifyEmail.preguntaAntesDeCerrarLa')}
               onPress={() => setConfirmLeave(true)}
               style={({ pressed }) => [styles.backPill, pressed && styles.pressed]}
             >
               <Image source={ICONS.back} style={styles.icon} contentFit="contain" />
             </Pressable>
-            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Verificar email</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>{t('verifyEmail.verificarEmail')}</ThemedText>
           </View>
           <OnboardingProgress step={2} />
 
           <View style={styles.card}>
             <View style={styles.headline}>
-              <ThemedText accessibilityRole="header" style={styles.headlineText}>Verifica tu identidad</ThemedText>
+              <ThemedText accessibilityRole="header" style={styles.headlineText}>{t('verifyEmail.verificaTuIdentidad')}</ThemedText>
               <Image source={ICONS.logo} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet" />
             </View>
 
             <ThemedText style={styles.sentTo}>
-              {codeSent ? 'Se envió un código de verificación a' : 'Enviando un código de verificación a'}{'\n'}{user.email}
+              {codeSent ? t('verifyEmail.seEnvioUnCodigoDe') : t('verifyEmail.enviandoUnCodigoDeVerificacion')}{'\n'}{user.email}
             </ThemedText>
 
             <Pressable
-              accessibilityLabel={`Código de verificación, ${code.length} de ${CODE_LENGTH} dígitos`}
+              accessibilityLabel={t('verifyEmail.codigoDeVerificacionCodecountDe', { codeCount: code.length, codeLength: CODE_LENGTH })}
               onPress={() => inputRef.current?.focus()}
               style={styles.boxes}
             >
@@ -197,7 +198,7 @@ export default function VerifyEmailScreen() {
               style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
             >
               <ThemedText style={[styles.resendText, secondsLeft > 0 && styles.resendWaiting]}>
-                {sending ? 'Enviando…' : secondsLeft > 0 ? `Reenviar en ${secondsLeft} s` : 'Reenviar código'}
+                {sending ? t('common.enviando') : secondsLeft > 0 ? t('linkInstitution.reenviarEnSecondsleftS', { secondsLeft }) : t('verifyEmail.reenviarCodigo')}
               </ThemedText>
             </Pressable>
 
@@ -208,14 +209,14 @@ export default function VerifyEmailScreen() {
               onPress={() => submit(code)}
               style={({ pressed }) => [styles.submit, (code.length !== CODE_LENGTH || verifying) && styles.submitDisabled, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.submitText}>{verifying ? 'Verificando…' : 'Verificar'}</ThemedText>
+              <ThemedText style={styles.submitText}>{verifying ? t('joinBeta.verificando') : t('joinBeta.verificar')}</ThemedText>
               {!verifying && <Image source={ICONS.arrow} style={styles.icon} contentFit="contain" />}
             </Pressable>
 
             <View style={styles.why}>
-              <ThemedText style={styles.whyTitle}>¿Por qué un código al correo?</ThemedText>
+              <ThemedText style={styles.whyTitle}>{t('verifyEmail.porQueUnCodigoAl')}</ThemedText>
               <ThemedText style={styles.whyText}>
-                Así sabemos que el correo es tuyo.
+                {t('verifyEmail.asiSabemosQueElCorreo')}
               </ThemedText>
             </View>
           </View>
@@ -227,13 +228,13 @@ export default function VerifyEmailScreen() {
         visible={confirmLeave}
         onRequestClose={() => setConfirmLeave(false)}
         dismissOnBackdrop
-        title="¿Usar otra cuenta?"
-        body="Tu HaNet ID ya está creado. Podrás verificarlo cuando vuelvas a iniciar sesión con él."
+        title={t('verifyEmail.usarOtraCuenta')}
+        body={t('verifyEmail.tuHanetIdYaEsta')}
       >
         <HanetDialogActions>
-          <HanetButton label="Seguir aquí" variant="surface" onPress={() => setConfirmLeave(false)} style={dialogStyles.action} />
+          <HanetButton label={t('verifyEmail.seguirAqui')} variant="surface" onPress={() => setConfirmLeave(false)} style={dialogStyles.action} />
           <HanetButton
-            label="Usar otra"
+            label={t('verifyEmail.usarOtra')}
             variant="accent"
             onPress={() => {
               setConfirmLeave(false);

@@ -11,14 +11,15 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // HaNet Electividad's entry: what the test is before starting it, where to
 // pick it up when paused, or one's result once answered.
 
 const FACTS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
-  { icon: 'list-outline', text: '72 preguntas: en cada una eliges entre dos actividades.' },
-  { icon: 'time-outline', text: 'Toma cerca de 10 minutos. Puedes pausar y seguir después.' },
-  { icon: 'shield-checkmark-outline', text: 'No hay respuestas correctas ni incorrectas: mide tus preferencias, no tu rendimiento.' },
+  { icon: 'list-outline', text: t('tools.electividad.n72PreguntasEnCadaUna') },
+  { icon: 'time-outline', text: t('tools.electividad.tomaCercaDe10Minutos') },
+  { icon: 'shield-checkmark-outline', text: t('tools.electividad.noHayRespuestasCorrectasNi') },
 ];
 
 export default function ElectividadScreen() {
@@ -36,7 +37,7 @@ export default function ElectividadScreen() {
       .catch(err => {
         if (!alive) return;
         setState(current => current ?? null);
-        setError(describeAuthError(err, 'No pudimos cargar el test. Inténtalo nuevamente.'));
+        setError(describeAuthError(err, t('tools.electividad.noPudimosCargarElTest')));
       });
     return () => { alive = false; };
   }, []));
@@ -48,9 +49,9 @@ export default function ElectividadScreen() {
     <FrostedScreen style={styles.screen}>
       <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText style={styles.eyebrow}>Herramientas</ThemedText>
-          <ThemedText accessibilityRole="header" style={styles.title}>HaNet Electividad</ThemedText>
-          <ThemedText style={styles.intro}>Un test de intereses para ayudarte a elegir tus electivos de 3° medio.</ThemedText>
+          <ThemedText style={styles.eyebrow}>{t('common.herramientas')}</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{t('tools.electividad.hanetElectividad')}</ThemedText>
+          <ThemedText style={styles.intro}>{t('tools.electividad.unTestDeInteresesPara')}</ThemedText>
         </View>
 
         <View style={styles.iconGrid} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -66,10 +67,10 @@ export default function ElectividadScreen() {
 
         {result && (
           <View style={styles.card}>
-            <ThemedText style={styles.cardEyebrow}>Tus áreas de mayor interés</ThemedText>
+            <ThemedText style={styles.cardEyebrow}>{t('common.tusAreasDeMayorInteres')}</ThemedText>
             <ThemedText style={styles.cardTitle}>{result.areas.slice(0, 3).map(area => area.name).join(', ')}</ThemedText>
             <HanetButton
-              label="Ver mi resultado"
+              label={t('tools.electividad.verMiResultado')}
               variant="accent"
               onPress={() => {
                 rememberResult(result);
@@ -77,7 +78,7 @@ export default function ElectividadScreen() {
               }}
             />
             <HanetButton
-              label="Ver la animación"
+              label={t('tools.electividad.verLaAnimacion')}
               variant="surface"
               onPress={() => {
                 rememberResult(result);
@@ -100,18 +101,18 @@ export default function ElectividadScreen() {
             <View style={styles.notice}>
               <Ionicons name="eye-outline" size={18} color={AppColors.textSecondary} />
               <ThemedText style={styles.noticeText}>
-                Tu resultado lo verán tú y la administración de tu liceo, para orientarte en la elección. Se responde una sola vez.
+                {t('tools.electividad.tuResultadoLoVeranTu')}
               </ThemedText>
             </View>
             <HanetButton
-              label={answered > 0 ? `Continuar (pregunta ${Math.min(answered + 1, 72)} de 72)` : 'Comenzar el test'}
+              label={answered > 0 ? t('tools.electividad.continuarPreguntaNumberDe72', { number: Math.min(answered + 1, 72) }) : t('tools.electividad.comenzarElTest')}
               variant="accent"
               onPress={() => router.push('/tools/electividad/test')}
             />
           </>
         )}
 
-        <ThemedText style={styles.footnote}>Postulación a electivos: Próximamente.</ThemedText>
+        <ThemedText style={styles.footnote}>{t('tools.electividad.postulacionAElectivosProximamente')}</ThemedText>
       </ScrollView>
     </FrostedScreen>
   );

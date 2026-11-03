@@ -18,6 +18,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 // New events start on the next 5-minute mark, matching the picker's step.
 function nextRoundedTime() {
@@ -32,9 +33,9 @@ class FormError extends Error {}
 function describeSaveError(error: unknown) {
   if (error instanceof FormError) return error.message;
   if ((error as { code?: string }).code === 'permission-denied') {
-    return 'Tu cuenta no tiene permiso para publicar en este curso.';
+    return t('createEvent.tuCuentaNoTienePermiso');
   }
-  return 'No pudimos guardar el evento. Revisa tu conexión e inténtalo nuevamente.';
+  return t('createEvent.noPudimosGuardarElEvento');
 }
 
 function CreateEventScreen() {
@@ -96,6 +97,8 @@ function CreateEventScreen() {
   const subjectsList = SUBJECTS
     .filter(item => item.plans.includes('comun') || item.plans.includes('electivo') || upper || item.name === subject)
     .map(item => item.name);
+  // The event types are saved as written (and read by the widgets and alerts): they're data, not labels.
+  // i18n-ignore-next-line
   const eventTypesList = ['Evaluación sumativa', 'Evaluación formativa', 'Taller', 'Tarea', 'Remedial', 'Actividad', 'Otro'];
 
   const handleSubmit = async () => {
@@ -106,17 +109,17 @@ function CreateEventScreen() {
       return;
     }
     if (!user) {
-      setSaveError('Inicia sesión para publicar eventos.');
+      setSaveError(t('createEvent.iniciaSesionParaPublicarEventos'));
       return;
     }
 
     setLoading(true);
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) throw new FormError('No encontramos tu perfil de HaNet.');
+      if (!userDoc.exists()) throw new FormError(t('createEvent.noEncontramosTuPerfilDe'));
 
       const courseId = userDoc.data().courseId;
-      if (!courseId) throw new FormError('Tu HaNet ID todavía no está vinculado a un curso.');
+      if (!courseId) throw new FormError(t('common.tuHanetIdTodaviaNo'));
 
       await ensureClaims(user);
 
@@ -171,8 +174,8 @@ function CreateEventScreen() {
     dirty: dirty && !loading,
     onSave: handleSubmit,
     message: isEditing
-      ? 'Los cambios a este evento todavía no se han guardado.'
-      : 'El evento que estás creando todavía no se ha guardado.',
+      ? t('createEvent.losCambiosAEsteEvento')
+      : t('createEvent.elEventoQueEstasCreando'),
   });
 
   return (
@@ -196,21 +199,21 @@ function CreateEventScreen() {
         </View>
 
         <TextInput
-          accessibilityLabel="Título del evento"
-          placeholder="Añade un título"
+          accessibilityLabel={t('createEvent.tituloDelEvento')}
+          placeholder={t('createEvent.anadeUnTitulo')}
           placeholderTextColor="rgba(62,62,58,0.6)"
           style={styles.modalTitleInput}
           value={title}
           onChangeText={setTitle}
         />
         <View style={[styles.separator, showErrors && missingTitle && styles.separatorError]} />
-        {showErrors && missingTitle && <ThemedText accessibilityLiveRegion="polite" style={[styles.fieldError, styles.titleError]}>Escribe un título para el evento.</ThemedText>}
+        {showErrors && missingTitle && <ThemedText accessibilityLiveRegion="polite" style={[styles.fieldError, styles.titleError]}>{t('createEvent.escribeUnTituloParaEl')}</ThemedText>}
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Fecha y hora</ThemedText>
+          <ThemedText style={styles.modalLabel}>{t('createEvent.fechaYHora')}</ThemedText>
           <TouchableRipple
             accessibilityRole="button"
-            accessibilityLabel="Elegir fecha y hora"
+            accessibilityLabel={t('createEvent.elegirFechaYHora')}
             style={styles.datePickerBtn}
             onPress={() => setDatePickerVisibility(true)}
           >
@@ -232,14 +235,14 @@ function CreateEventScreen() {
         </View>
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Ubicación</ThemedText>
+          <ThemedText style={styles.modalLabel}>{t('createEvent.ubicacion')}</ThemedText>
           <View style={[styles.datePickerBtn, { alignItems: 'center' }]}>
             <TextInput
-              accessibilityLabel="Ubicación del evento"
+              accessibilityLabel={t('createEvent.ubicacionDelEvento')}
               style={[styles.datePickerText, { flex: 1, outlineStyle: 'none' as any }]}
               value={location}
               onChangeText={setLocation}
-              placeholder="Sala o lugar (opcional)"
+              placeholder={t('createEvent.salaOLugarOpcional')}
               placeholderTextColor="rgba(250,250,249,0.5)"
             />
             <CustomIcon name="map-pin" size={20} color={AppColors.textSecondary} />
@@ -247,10 +250,10 @@ function CreateEventScreen() {
         </View>
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Asignatura relacionada</ThemedText>
-          {showErrors && missingSubject && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige una asignatura.</ThemedText>}
+          <ThemedText style={styles.modalLabel}>{t('createEvent.asignaturaRelacionada')}</ThemedText>
+          {showErrors && missingSubject && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>{t('createEvent.eligeUnaAsignatura')}</ThemedText>}
           <HanetChoice
-            label="Asignatura relacionada"
+            label={t('createEvent.asignaturaRelacionada')}
             options={subjectsList.map(name => ({ value: name, label: name }))}
             value={subject || null}
             onChange={setSubject}
@@ -259,10 +262,10 @@ function CreateEventScreen() {
         </View>
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Tipo de evento</ThemedText>
-          {showErrors && missingType && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>Elige un tipo de evento.</ThemedText>}
+          <ThemedText style={styles.modalLabel}>{t('common.tipoDeEvento')}</ThemedText>
+          {showErrors && missingType && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>{t('createEvent.eligeUnTipoDeEvento')}</ThemedText>}
           <HanetChoice
-            label="Tipo de evento"
+            label={t('common.tipoDeEvento')}
             options={eventTypesList.map(name => ({ value: name, label: name }))}
             value={eventType || null}
             onChange={setEventType}
@@ -271,9 +274,9 @@ function CreateEventScreen() {
         </View>
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Subir documentos</ThemedText>
+          <ThemedText style={styles.modalLabel}>{t('createEvent.subirDocumentos')}</ThemedText>
           <HanetButton
-            label="Adjuntar documentos · Próximamente"
+            label={t('createEvent.adjuntarDocumentosProximamente')}
             icon={<CustomIcon name="file-text" size={20} color={AppColors.textPrimary} />}
             onPress={() => undefined}
             disabled
@@ -282,10 +285,10 @@ function CreateEventScreen() {
         </View>
 
         <View style={styles.modalSection}>
-          <ThemedText style={styles.modalLabel}>Añadir descripción</ThemedText>
+          <ThemedText style={styles.modalLabel}>{t('createEvent.anadirDescripcion')}</ThemedText>
           <TextInput
-            accessibilityLabel="Descripción del evento"
-            placeholder="Qué hay que saber o traer"
+            accessibilityLabel={t('createEvent.descripcionDelEvento')}
+            placeholder={t('createEvent.queHayQueSaberO')}
             placeholderTextColor="rgba(62,62,58,0.5)"
             multiline
             value={description}
@@ -294,13 +297,13 @@ function CreateEventScreen() {
             style={{ fontSize: 16, color: AppColors.textOnLight, minHeight: 80, borderBottomWidth: 1.5, borderBottomColor: AppColors.textOnLight, fontFamily: 'DMSans_400Regular', outlineStyle: 'none' as any }}
           />
           <ThemedText style={{ fontSize: 12, color: AppColors.surface, opacity: 0.8, marginTop: 10, lineHeight: 16 }}>
-            Un docente puede confirmar, corregir o borrar lo que publiques.
+            {t('createEvent.unDocentePuedeConfirmarCorregir')}
           </ThemedText>
         </View>
 
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityLabel="Solicitar verificación docente"
+          accessibilityLabel={t('createEvent.solicitarVerificacionDocente')}
           accessibilityState={{ checked: requestVerification }}
           onPress={() => setRequestVerification((current) => !current)}
           style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 40 }, pressed && { opacity: 0.75 }]}
@@ -309,7 +312,7 @@ function CreateEventScreen() {
             {requestVerification && <CustomIcon name="check-circle" size={16} color={AppColors.textPrimary} />}
           </View>
           <ThemedText style={{ flex: 1, fontSize: 13, color: AppColors.surface, lineHeight: 18, fontFamily: 'DMSans_500Medium' }}>
-            Pedir que el docente de la asignatura lo confirme
+            {t('createEvent.pedirQueElDocenteDe')}
           </ThemedText>
         </Pressable>
 
@@ -318,8 +321,8 @@ function CreateEventScreen() {
           <ThemedText accessibilityLiveRegion="assertive" style={styles.saveError}>{saveError}</ThemedText>
         )}
         <View style={styles.modalFooter}>
-          <HanetButton label="Cancelar" variant="surface" onPress={() => router.back()} disabled={loading} style={styles.footerButton} />
-          <HanetButton label={loading ? 'Guardando…' : (isEditing ? 'Guardar cambios' : 'Agregar')} onPress={handleSubmit} disabled={loading} style={styles.footerButton} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => router.back()} disabled={loading} style={styles.footerButton} />
+          <HanetButton label={loading ? t('common.guardando') : (isEditing ? t('common.guardarCambios') : t('common.agregar'))} onPress={handleSubmit} disabled={loading} style={styles.footerButton} />
         </View>
         <View style={{ height: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 40 }} />
 

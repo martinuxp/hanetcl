@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
+import { t } from '@/i18n';
 
 /**
  * A flash test: a push to the leads (or to everyone in the alianzas) that a
@@ -46,7 +47,7 @@ function FlashScreen() {
       allowLeave();
       setSent(count);
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos lanzar la prueba. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.flash.noPudimosLanzarLaPrueba')));
       setSubmitting(false);
     }
   };
@@ -54,28 +55,28 @@ function FlashScreen() {
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: (!!name.trim() || !!text.trim()) && !submitting && sent === null,
     onSave: submit,
-    saveLabel: 'Lanzar',
+    saveLabel: t('anniversary.flash.lanzar'),
     canSave: ready,
-    title: '¿Descartar la prueba?',
-    message: 'Todavía no la has lanzado.',
+    title: t('anniversary.flash.descartarLaPrueba'),
+    message: t('anniversary.flash.todaviaNoLaHasLanzado'),
   });
 
   return (
-    <SheetBody title="Prueba flash" icon={<BoltIcon size={26} color={AppColors.accentYellow} animated />} lead="Llega al instante como notificación. Después marcas el orden en que la cumplieron.">
-      <TextField label="Nombre" value={name} onChange={value => { setName(value); setError(null); }} placeholder="Traigan un paraguas amarillo" disabled={submitting} autoFocus />
-      <TextField label="Qué hay que hacer" value={text} onChange={value => { setText(value); setError(null); }} placeholder="La primera alianza que llegue a la sala del CEE con un paraguas amarillo gana." multiline maxLength={500} disabled={submitting} />
-      <PointsFields label="Puntos por lugar" points={points} count={places} onChange={setPoints} disabled={submitting} />
-      <ThemedText style={styles.label}>Le llega a</ThemedText>
-      <HanetChoice label="A quién le llega" options={AUDIENCE_OPTIONS} value={audience} onChange={value => setAudience(value as Audience)} disabled={submitting} />
-      {audience === 'leads' && !leads && <ThemedText style={styles.hint}>Todavía no hay jefes de alianza. Elígelos en “Jefes de alianza” o mándala a toda la alianza.</ThemedText>}
-      <SheetActions label="Lanzar la prueba" busyLabel="Lanzando…" ready={ready} busy={submitting} onSubmit={submit} error={error} />
+    <SheetBody title={t('common.pruebaFlash')} icon={<BoltIcon size={26} color={AppColors.accentYellow} animated />} lead={t('anniversary.flash.llegaAlInstanteComoNotificacion')}>
+      <TextField label={t('common.nombre')} value={name} onChange={value => { setName(value); setError(null); }} placeholder={t('anniversary.flash.traiganUnParaguasAmarillo')} disabled={submitting} autoFocus />
+      <TextField label={t('anniversary.flash.queHayQueHacer')} value={text} onChange={value => { setText(value); setError(null); }} placeholder={t('anniversary.flash.laPrimeraAlianzaQueLlegue')} multiline maxLength={500} disabled={submitting} />
+      <PointsFields label={t('anniversary.activity.puntosPorLugar')} points={points} count={places} onChange={setPoints} disabled={submitting} />
+      <ThemedText style={styles.label}>{t('anniversary.flash.leLlegaA')}</ThemedText>
+      <HanetChoice label={t('anniversary.deadline.aQuienLeLlega')} options={AUDIENCE_OPTIONS} value={audience} onChange={value => setAudience(value as Audience)} disabled={submitting} />
+      {audience === 'leads' && !leads && <ThemedText style={styles.hint}>{t('anniversary.flash.todaviaNoHayJefesDe')}</ThemedText>}
+      <SheetActions label={t('anniversary.flash.lanzarLaPrueba')} busyLabel={t('anniversary.flash.lanzando')} ready={ready} busy={submitting} onSubmit={submit} error={error} />
       <HanetDialog
         visible={sent !== null}
         onRequestClose={() => router.back()}
-        title="¡Prueba lanzada!"
-        body={sent ? `La notificación llegó a ${sent} ${sent === 1 ? 'teléfono' : 'teléfonos'}.` : 'Quedó en el aniversario, pero ningún teléfono tenía las notificaciones activadas.'}
+        title={t('anniversary.flash.pruebaLanzada')}
+        body={sent ? t('anniversary.flash.laNotificacionLlegoACount', { count: sent }) : t('anniversary.flash.quedoEnElAniversarioPero')}
       >
-        <HanetButton label="Listo" onPress={() => router.back()} />
+        <HanetButton label={t('common.listo')} onPress={() => router.back()} />
       </HanetDialog>
       {dialog}
     </SheetBody>

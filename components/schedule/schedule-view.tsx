@@ -21,6 +21,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 // Horario: the course's week, block by block, with what is on now. The
 // course's Directiva, the administration and HNT edit it. Each student also
@@ -60,7 +61,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
       setError(null);
       if (!courseId) void syncHomeWidget(myWeek(result));
     } catch (loadError) {
-      setError(describeAuthError(loadError, 'No pudimos cargar el horario.'));
+      setError(describeAuthError(loadError, t('components.schedule.scheduleView.noPudimosCargarElHorario')));
     }
   }, [courseId]);
 
@@ -87,7 +88,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
       if (!courseId) void syncHomeWidget(myWeek({ blocks: saved, hallBlocks: schedule.hallBlocks }));
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar el horario.'));
+      setError(describeAuthError(saveError, t('components.schedule.scheduleView.noPudimosGuardarElHorario')));
     } finally {
       setSaving(false);
     }
@@ -96,10 +97,10 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
   const { allowLeave, dialog: guardDialog } = useUnsavedChangesGuard({
     dirty: !!edited && !saving,
     onSave: save,
-    saveLabel: 'Guardar',
+    saveLabel: t('common.guardar'),
     canSave: !!edited,
-    title: '¿Descartar los cambios del horario?',
-    message: 'El horario quedará como estaba.',
+    title: t('components.schedule.scheduleView.descartarLosCambiosDelHorario'),
+    message: t('components.schedule.scheduleView.elHorarioQuedaraComoEstaba'),
   });
 
   const saveDraft = (block: ScheduleBlock) => {
@@ -125,11 +126,11 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
       >
         {!embedded && (
         <View style={styles.topBar}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={back} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.volver')} onPress={back} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
             <Image source={require('@/assets/icons/event/arrow-left-long.svg')} style={styles.icon} contentFit="contain" tintColor={AppColors.textPrimary} />
           </Pressable>
           <View style={styles.titleWrap}>
-            <ThemedText accessibilityRole="header" style={styles.title}>Horario</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.title}>{t('common.horario')}</ThemedText>
             {!!schedule?.courseId && <ThemedText style={styles.subtitle}>{schedule.courseId}</ThemedText>}
           </View>
         </View>
@@ -137,7 +138,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
 
         {!!schedule && schedule.courses.length > 0 && (
           <HanetSelect
-            label="Curso"
+            label={t('common.curso')}
             options={schedule.courses.map(course => ({ value: course, label: course }))}
             value={schedule.courseId}
             onChange={value => { setEdited(null); setCourseId(value); }}
@@ -149,7 +150,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
         {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.error}>{error}</ThemedText>}
 
         {!!schedule && !schedule.courseId && (
-          <ThemedText style={styles.empty}>Tu cuenta no tiene curso todavía. El horario aparece cuando tu liceo te asigna uno.</ThemedText>
+          <ThemedText style={styles.empty}>{t('components.schedule.scheduleView.tuCuentaNoTieneCurso')}</ThemedText>
         )}
 
         {!!schedule?.courseId && (
@@ -172,13 +173,13 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
               ))}
             </View>
 
-            <ThemedText style={styles.dayName}>{SCHEDULE_DAYS.find(item => item.day === day)?.name}{isToday ? ' · hoy' : ''}</ThemedText>
+            <ThemedText style={styles.dayName}>{SCHEDULE_DAYS.find(item => item.day === day)?.name}{isToday ? t('components.schedule.scheduleView.hoy') : ''}</ThemedText>
 
             {dayBlocks.length === 0 ? (
               <ThemedText style={styles.empty}>
                 {blocks.length === 0
-                  ? schedule.canEdit ? 'Este curso todavía no tiene horario. Toca “Editar horario” para armarlo.' : 'Tu curso todavía no tiene horario cargado.'
-                  : 'No hay clases este día.'}
+                  ? schedule.canEdit ? t('components.schedule.scheduleView.esteCursoTodaviaNoTiene') : t('components.schedule.scheduleView.tuCursoTodaviaNoTiene')
+                  : t('components.schedule.scheduleView.noHayClasesEsteDia')}
               </ThemedText>
             ) : (
               <View style={styles.blocks}>
@@ -192,8 +193,8 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
                     <Pressable
                       key={`${block.id}-${index}`}
                       accessibilityRole={edited || hallId ? 'button' : undefined}
-                      accessibilityLabel={`${block.start} a ${block.end}, ${block.subject}${block.room ? `, ${block.room}` : ''}${live ? ', ahora' : ''}`}
-                      accessibilityHint={edited ? 'Editar el bloque' : hallId ? 'Abrir el Hall' : undefined}
+                      accessibilityLabel={`${block.start} a ${block.end}, ${block.subject}${block.room ? `, ${block.room}` : ''}${live ? t('components.schedule.scheduleView.ahora') : ''}`}
+                      accessibilityHint={edited ? t('classhall.hall.editarElBloque') : hallId ? t('components.schedule.scheduleView.abrirElHall') : undefined}
                       disabled={!edited && !hallId}
                       onPress={() => (edited
                         ? setDraft({ index, kind: pause ? 'break' : 'class' })
@@ -209,7 +210,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
                         <ThemedText style={[styles.blockSubject, pause && styles.blockSubjectBreak]}>{block.subject}</ThemedText>
                         {(!!block.room || block.kind === 'hall') && (
                           <ThemedText style={styles.blockRoom}>
-                            {[block.kind === 'hall' ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ')}
+                            {[block.kind === 'hall' ? (block.plan === 'dominio' ? t('common.dominio') : t('common.electivo')) : null, block.room || null].filter(Boolean).join(' · ')}
                           </ThemedText>
                         )}
                       </View>
@@ -224,19 +225,19 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
               edited ? (
                 <View style={styles.editActions}>
                   <HanetDialogActions>
-                    <HanetButton label="Agregar clase" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'class' })} style={dialogStyles.action} />
-                    <HanetButton label="Agregar recreo" variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'break' })} style={dialogStyles.action} />
+                    <HanetButton label={t('components.schedule.scheduleView.agregarClase')} variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'class' })} style={dialogStyles.action} />
+                    <HanetButton label={t('components.schedule.scheduleView.agregarRecreo')} variant="surface" disabled={saving} onPress={() => setDraft({ index: null, kind: 'break' })} style={dialogStyles.action} />
                   </HanetDialogActions>
                   <HanetDialogActions>
-                    <HanetButton label="Descartar" variant="surface" disabled={saving} onPress={() => setEdited(null)} style={dialogStyles.action} />
-                    <HanetButton label={saving ? 'Guardando…' : 'Guardar'} variant="accent" disabled={saving} onPress={() => void save()} style={dialogStyles.action} />
+                    <HanetButton label={t('components.schedule.scheduleView.descartar')} variant="surface" disabled={saving} onPress={() => setEdited(null)} style={dialogStyles.action} />
+                    <HanetButton label={saving ? t('common.guardando') : t('common.guardar')} variant="accent" disabled={saving} onPress={() => void save()} style={dialogStyles.action} />
                   </HanetDialogActions>
                 </View>
               ) : (
-                <HanetButton label="Editar horario" variant="surface" onPress={() => (embedded ? router.push('/schedule') : setEdited(schedule.blocks))} style={styles.editButton} />
+                <HanetButton label={t('components.schedule.scheduleView.editarHorario')} variant="surface" onPress={() => (embedded ? router.push('/schedule') : setEdited(schedule.blocks))} style={styles.editButton} />
               )
             )}
-            <ThemedText style={styles.note}>Los electivos y dominios los agrega cada Hall: aparecen en el horario de quienes están en él.</ThemedText>
+            <ThemedText style={styles.note}>{t('components.schedule.scheduleView.losElectivosYDominiosLos')}</ThemedText>
           </>
         )}
       </ScrollView>

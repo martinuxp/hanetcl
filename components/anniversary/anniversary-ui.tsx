@@ -9,20 +9,21 @@ import React, { useEffect } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { months, t } from '@/i18n';
 
 // The alianzas' colors are data the CEE picks, so they live here and not in
 // the design tokens. `ink` is the text that reads on each one.
 export const ALLIANCE_COLORS: Record<AllianceColor, { fill: string; ink: string; label: string }> = {
-  rosa: { fill: '#EF2274', ink: '#F9F9FA', label: 'Rosa' },
-  rojo: { fill: '#E5393B', ink: '#F9F9FA', label: 'Rojo' },
-  naranjo: { fill: '#FF8A1F', ink: '#282829', label: 'Naranjo' },
-  amarillo: { fill: '#FFCC00', ink: '#282829', label: 'Amarillo' },
-  verde: { fill: '#2EBD6B', ink: '#282829', label: 'Verde' },
-  celeste: { fill: '#5AC8FA', ink: '#282829', label: 'Celeste' },
-  azul: { fill: '#3A62E0', ink: '#F9F9FA', label: 'Azul' },
-  morado: { fill: '#8E4FD8', ink: '#F9F9FA', label: 'Morado' },
-  blanco: { fill: '#F9F9FA', ink: '#282829', label: 'Blanco' },
-  negro: { fill: '#111113', ink: '#F9F9FA', label: 'Negro' },
+  rosa: { fill: '#EF2274', ink: '#F9F9FA', label: t('components.anniversary.anniversaryUi.rosa') },
+  rojo: { fill: '#E5393B', ink: '#F9F9FA', label: t('components.anniversary.anniversaryUi.rojo') },
+  naranjo: { fill: '#FF8A1F', ink: '#282829', label: t('components.anniversary.anniversaryUi.naranjo') },
+  amarillo: { fill: '#FFCC00', ink: '#282829', label: t('components.anniversary.anniversaryUi.amarillo') },
+  verde: { fill: '#2EBD6B', ink: '#282829', label: t('components.anniversary.anniversaryUi.verde') },
+  celeste: { fill: '#5AC8FA', ink: '#282829', label: t('components.anniversary.anniversaryUi.celeste') },
+  azul: { fill: '#3A62E0', ink: '#F9F9FA', label: t('components.anniversary.anniversaryUi.azul') },
+  morado: { fill: '#8E4FD8', ink: '#F9F9FA', label: t('components.anniversary.anniversaryUi.morado') },
+  blanco: { fill: '#F9F9FA', ink: '#282829', label: t('components.anniversary.anniversaryUi.blanco') },
+  negro: { fill: '#111113', ink: '#F9F9FA', label: t('components.anniversary.anniversaryUi.negro') },
 };
 
 export const ALLIANCE_COLOR_ORDER = Object.keys(ALLIANCE_COLORS) as AllianceColor[];
@@ -59,7 +60,7 @@ export function mascotsOf(alliance: Pick<Alliance, 'emoji'> | null | undefined) 
   return Array.from(alliance.emoji).filter(part => part.trim() && part !== '\uFE0F' && part !== '\u200D');
 }
 
-const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const MONTHS = months();
 
 function two(value: number) {
   return String(value).padStart(2, '0');
@@ -172,7 +173,7 @@ export function InstagramButton({ handle, light = true }: { handle: string; ligh
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`Instagram de la alianza, @${handle}`}
+      accessibilityLabel={t('components.anniversary.anniversaryUi.instagramDeLaAlianzaHandle', { handle })}
       onPress={() => void Linking.openURL(`https://instagram.com/${handle}`)}
       hitSlop={6}
       style={({ pressed }) => [styles.instagram, light ? styles.instagramLight : styles.instagramDark, pressed && AppPressed]}
@@ -199,12 +200,12 @@ export function AllianceCard({ alliance, standing, mine, lead, style }: {
         {scored && (
           <View style={styles.allianceScore}>
             <ThemedText style={styles.allianceScorePoints}>{formatPoints(standing.total ?? 0)}</ThemedText>
-            <ThemedText style={styles.onColorSoft}>{placeLabel(standing.place)} lugar</ThemedText>
+            <ThemedText style={styles.onColorSoft}>{t('components.anniversary.anniversaryUi.placelabelLugar', { placeLabel: placeLabel(standing.place) })}</ThemedText>
           </View>
         )}
       </View>
       <View style={styles.allianceText}>
-        {mine && <ThemedText style={styles.kicker}>Tu alianza</ThemedText>}
+        {mine && <ThemedText style={styles.kicker}>{t('common.tuAlianza')}</ThemedText>}
         <ThemedText numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.allianceName}>{alliance.name}</ThemedText>
         {!!alliance.theme && <ThemedText numberOfLines={2} style={styles.onColorSoft}>{alliance.theme}</ThemedText>}
         {!!alliance.motto && <ThemedText numberOfLines={3} style={styles.motto}>“{alliance.motto}”</ThemedText>}
@@ -212,7 +213,7 @@ export function AllianceCard({ alliance, standing, mine, lead, style }: {
       {lead && (
         <View style={styles.leadBadge}>
           <CrownIcon size={14} color={AppColors.textOnLight} />
-          <ThemedText style={styles.leadText}>Eres jefe de alianza</ThemedText>
+          <ThemedText style={styles.leadText}>{t('anniversary.welcome.eresJefeDeAlianza')}</ThemedText>
         </View>
       )}
       {!!alliance.instagram && <InstagramButton handle={alliance.instagram} />}
@@ -226,9 +227,9 @@ export function AllianceCard({ alliance, standing, mine, lead, style }: {
  */
 export function AllianceExtras({ alliance, onWallpaper }: { alliance: Alliance; onWallpaper?: () => void }) {
   const items = [
-    { key: 'chant', title: 'Grito de barra', icon: 'megaphone-outline' as const, text: alliance.chant },
-    { key: 'artists', title: 'Sus artistas', icon: 'musical-notes-outline' as const, text: alliance.artists },
-    { key: 'draw', title: 'Lo que salió en el sorteo', icon: 'shuffle-outline' as const, text: alliance.draw },
+    { key: 'chant', title: t('anniversary.setup.gritoDeBarra'), icon: 'megaphone-outline' as const, text: alliance.chant },
+    { key: 'artists', title: t('components.anniversary.anniversaryUi.susArtistas'), icon: 'musical-notes-outline' as const, text: alliance.artists },
+    { key: 'draw', title: t('anniversary.setup.loQueSalioEnEl'), icon: 'shuffle-outline' as const, text: alliance.draw },
   ].filter(item => !!item.text?.trim());
   if (!items.length && !onWallpaper) return null;
   return (
@@ -249,7 +250,7 @@ export function AllianceExtras({ alliance, onWallpaper }: { alliance: Alliance; 
           style={({ pressed }) => [styles.extra, items.length > 0 && styles.extraBorder, pressed && AppPressed]}
         >
           <Ionicons name="phone-portrait-outline" size={18} color={AppColors.textSecondary} />
-          <ThemedText style={[styles.extraTitle, styles.extraAction]}>Fondo de pantalla de tu alianza</ThemedText>
+          <ThemedText style={[styles.extraTitle, styles.extraAction]}>{t('components.anniversary.anniversaryUi.fondoDePantallaDeTu')}</ThemedText>
           <Ionicons name="chevron-forward" size={16} color={AppColors.textSecondary} />
         </Pressable>
       )}
@@ -269,20 +270,20 @@ export function LeaderCard({ anniversary, now }: { anniversary: Anniversary; now
     <GradientCard colors={[allianceColor(leader).fill, ...(second ? [allianceColor(second).fill] : [])]} style={styles.leader}>
       <View style={styles.leaderHead}>
         <CrownIcon size={22} color={MEDALS[0]} animated />
-        <ThemedText style={styles.kicker}>Va ganando</ThemedText>
+        <ThemedText style={styles.kicker}>{t('components.anniversary.anniversaryUi.vaGanando')}</ThemedText>
       </View>
       <View style={styles.leaderRow}>
         <AllianceBadge alliance={leader} size={56} />
         <View style={styles.leaderText}>
           <ThemedText numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.leaderName}>{leader.name}</ThemedText>
           <ThemedText style={styles.onColorSoft}>
-            {gap !== null && gap > 0 ? `${formatPoints(gap)} sobre ${second?.name}` : gap === 0 ? `Empatada con ${second?.name}` : 'Primer lugar'}
+            {gap !== null && gap > 0 ? t('components.anniversary.anniversaryUi.pointsSobreName', { points: formatPoints(gap), name: second?.name }) : gap === 0 ? t('components.anniversary.anniversaryUi.empatadaConName', { name: second?.name }) : t('anniversary.score.primerLugar')}
           </ThemedText>
         </View>
       </View>
       <View style={styles.leaderNumbers}>
-        <ThemedText accessibilityLabel={`${formatPoints(leader.total)} puntos`} style={styles.leaderPoints}>{formatPoints(leader.total)}</ThemedText>
-        {leader.today > 0 && <ThemedText style={styles.leaderToday}>+{formatPoints(leader.today)} hoy</ThemedText>}
+        <ThemedText accessibilityLabel={t('anniversary.pointsPuntos', { points: formatPoints(leader.total) })} style={styles.leaderPoints}>{formatPoints(leader.total)}</ThemedText>
+        {leader.today > 0 && <ThemedText style={styles.leaderToday}>{t('components.anniversary.anniversaryUi.pointsHoy', { points: formatPoints(leader.today) })}</ThemedText>}
       </View>
     </GradientCard>
   );
@@ -306,7 +307,7 @@ function Movement({ moved }: { moved: number }) {
   if (!moved) return null;
   const up = moved > 0;
   return (
-    <View accessibilityLabel={up ? `Subió ${moved} hoy` : `Bajó ${-moved} hoy`} style={styles.moved}>
+    <View accessibilityLabel={up ? t('components.anniversary.anniversaryUi.subioMovedHoy', { moved }) : t('components.anniversary.anniversaryUi.bajoValueHoy', { value: -moved })} style={styles.moved}>
       <Ionicons name={up ? 'caret-up' : 'caret-down'} size={12} color={up ? AppColors.accentMint : AppColors.errorText} />
       <ThemedText style={[styles.movedText, { color: up ? AppColors.accentMint : AppColors.errorText }]}>{Math.abs(moved)}</ThemedText>
     </View>
@@ -324,8 +325,8 @@ export function Scoreboard({ anniversary, now }: { anniversary: Anniversary; now
     return (
       <GradientCard colors={allianceFills(anniversary.alliances)} style={styles.hiddenCard}>
         <Ionicons name="eye-off-outline" size={28} color={AppColors.textPrimary} />
-        <ThemedText style={styles.hiddenTitle}>Marcador oculto</ThemedText>
-        <ThemedText style={styles.onColorSoft}>El CEE lo guarda para revelar la alianza ganadora en la premiación.</ThemedText>
+        <ThemedText style={styles.hiddenTitle}>{t('components.anniversary.anniversaryUi.marcadorOculto')}</ThemedText>
+        <ThemedText style={styles.onColorSoft}>{t('components.anniversary.anniversaryUi.elCeeLoGuardaPara')}</ThemedText>
         <View style={styles.hiddenBadges}>
           {rows.map(alliance => <AllianceBadge key={alliance.id} alliance={alliance} size={32} />)}
         </View>
@@ -334,7 +335,7 @@ export function Scoreboard({ anniversary, now }: { anniversary: Anniversary; now
   }
 
   return (
-    <View style={styles.scoreboard} accessibilityLabel="Marcador">
+    <View style={styles.scoreboard} accessibilityLabel={t('common.marcador')}>
       {rows.map((alliance, index) => {
         const color = allianceColor(alliance);
         const mine = alliance.id === anniversary.myAllianceId;
@@ -343,7 +344,7 @@ export function Scoreboard({ anniversary, now }: { anniversary: Anniversary; now
           <View
             key={alliance.id}
             accessible
-            accessibilityLabel={`${index + 1}° lugar, ${alliance.name}${mine ? ', tu alianza' : ''}: ${formatPoints(alliance.total ?? 0)} puntos`}
+            accessibilityLabel={t('components.anniversary.anniversaryUi.numberLugarNameValuePoints', { number: index + 1, name: alliance.name, value: mine ? t('anniversary.score.tuAlianza') : '', points: formatPoints(alliance.total ?? 0) })}
             style={[styles.scoreRow, mine && styles.scoreRowMine]}
           >
             <View style={styles.scoreHead}>
@@ -356,7 +357,7 @@ export function Scoreboard({ anniversary, now }: { anniversary: Anniversary; now
                 </View>
                 {(mine || alliance.today !== 0) && (
                   <ThemedText style={styles.scoreDetail}>
-                    {[mine ? 'Tu alianza' : null, alliance.today ? `${signedPoints(alliance.today)} hoy` : null].filter(Boolean).join(' · ')}
+                    {[mine ? t('common.tuAlianza') : null, alliance.today ? `${signedPoints(alliance.today)} hoy` : null].filter(Boolean).join(' · ')}
                   </ThemedText>
                 )}
               </View>
@@ -367,7 +368,7 @@ export function Scoreboard({ anniversary, now }: { anniversary: Anniversary; now
           </View>
         );
       })}
-      {!anyPoints && <ThemedText style={styles.scoreEmpty}>Todavía no hay puntos. Se suman solos con cada resultado.</ThemedText>}
+      {!anyPoints && <ThemedText style={styles.scoreEmpty}>{t('components.anniversary.anniversaryUi.todaviaNoHayPuntosSe')}</ThemedText>}
     </View>
   );
 }
@@ -396,8 +397,8 @@ function activityLine(anniversary: Anniversary, activity: AnniversaryActivity) {
   const summary = resultSummary(anniversary, activity);
   const [first] = summary;
   if (first) {
-    if (first.place >= 0) return { text: `Ganó ${first.alliance.name}`, winner: first.alliance };
-    return { text: `${first.alliance.name} ${signedPoints(first.points ?? 0)}${summary.length > 1 ? ` y ${summary.length - 1} más` : ''}`, winner: first.alliance };
+    if (first.place >= 0) return { text: t('anniversary.ganoName', { name: first.alliance.name }), winner: first.alliance };
+    return { text: `${first.alliance.name} ${signedPoints(first.points ?? 0)}${summary.length > 1 ? t('components.anniversary.anniversaryUi.ySummarycountMas', { summaryCount: summary.length - 1 }) : ''}`, winner: first.alliance };
   }
   const when = activity.startsAt ? shortWhen(activity.startsAt) : null;
   return { text: [when, activity.place].filter(Boolean).join(' · ') || 'Sin fecha todavía', winner: null };
@@ -423,7 +424,7 @@ export function ActivityList({ anniversary, activities, onOpen, footer }: {
             key={activity.id}
             accessibilityRole="button"
             accessibilityLabel={`${activity.name}. ${line.text}`}
-            accessibilityHint="Ver la actividad"
+            accessibilityHint={t('components.anniversary.anniversaryUi.verLaActividad')}
             onPress={() => onOpen(activity.id)}
             style={({ pressed }) => [styles.listRow, pressed && styles.listRowPressed]}
           >

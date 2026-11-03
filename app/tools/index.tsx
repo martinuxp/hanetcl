@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // Herramientas: tools for school life that the institution turns on as
 // modules. The first one is HaNet Electividad.
@@ -27,7 +28,7 @@ export default function ToolsScreen() {
       .catch(err => {
         if (!alive) return;
         setState(null);
-        setError(describeAuthError(err, 'No pudimos cargar tus herramientas. Inténtalo nuevamente.'));
+        setError(describeAuthError(err, t('tools.noPudimosCargarTusHerramientas')));
       });
     return () => { alive = false; };
   }, []);
@@ -39,8 +40,8 @@ export default function ToolsScreen() {
       <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <ThemedText style={styles.eyebrow}>HaNet</ThemedText>
-          <ThemedText accessibilityRole="header" style={styles.title}>Herramientas</ThemedText>
-          <ThemedText style={styles.intro}>Recursos para tus decisiones del liceo.</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{t('common.herramientas')}</ThemedText>
+          <ThemedText style={styles.intro}>{t('tools.recursosParaTusDecisionesDel')}</ThemedText>
         </View>
 
         {state === undefined && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
@@ -54,7 +55,7 @@ export default function ToolsScreen() {
         {!!state && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`HaNet Electividad. ${done ? 'Respondido. Ver tu resultado' : 'Test de intereses para elegir tus electivos de 3° medio'}`}
+            accessibilityLabel={t('tools.hanetElectividadValue', { value: done ? t('tools.respondidoVerTuResultado') : t('tools.testDeInteresesParaElegir') })}
             onPress={() => router.push('/tools/electividad')}
             style={({ pressed }) => [styles.card, pressed && AppPressed]}
           >
@@ -68,20 +69,20 @@ export default function ToolsScreen() {
               </View>
               <View style={[styles.status, done && styles.statusDone]}>
                 {done && <Ionicons name="checkmark" size={14} color={AppColors.accent} />}
-                <ThemedText style={styles.statusText}>{done ? 'Respondido' : 'Disponible'}</ThemedText>
+                <ThemedText style={styles.statusText}>{done ? t('tools.respondido') : t('tools.disponible')}</ThemedText>
               </View>
             </View>
-            <ThemedText style={styles.cardTitle}>HaNet Electividad</ThemedText>
-            <ThemedText style={styles.cardText}>Test de intereses para elegir tus electivos de 3° medio. 72 preguntas, unos 10 minutos.</ThemedText>
+            <ThemedText style={styles.cardTitle}>{t('tools.electividad.hanetElectividad')}</ThemedText>
+            <ThemedText style={styles.cardText}>{t('tools.testDeInteresesParaElegir2')}</ThemedText>
             <View style={styles.cardFoot}>
-              <ThemedText style={styles.cardLink}>{done ? 'Ver mi resultado' : 'Comenzar'}</ThemedText>
+              <ThemedText style={styles.cardLink}>{done ? t('tools.electividad.verMiResultado') : t('tools.comenzar')}</ThemedText>
               <Ionicons name="chevron-forward" size={18} color={AppColors.textPrimary} />
             </View>
           </Pressable>
         )}
 
         <View style={styles.soon}>
-          <ThemedText style={styles.soonText}>Próximamente, más herramientas.</ThemedText>
+          <ThemedText style={styles.soonText}>{t('tools.proximamenteMasHerramientas')}</ThemedText>
         </View>
       </ScrollView>
     </FrostedScreen>

@@ -11,6 +11,7 @@ import type { ScheduleBlock } from '@/services/schedule-service';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { t } from '@/i18n';
 
 // The dialog that adds or edits one timetable block: the day, the start on
 // wheels, the length as chips and the subject from the catalog. The course's
@@ -20,7 +21,7 @@ export type BlockKind = 'class' | 'break';
 
 // Block lengths as chips; "Otra" opens the wheels for the end.
 const DURATIONS: Record<BlockKind, number[]> = { class: [45, 90, 120, 180], break: [15, 30, 45, 60] };
-const BREAK_NAMES = ['Recreo', 'Almuerzo'];
+const BREAK_NAMES = [t('components.schedule.blockEditor.recreo'), t('components.schedule.blockEditor.almuerzo')];
 // The course's Horario is the plan común, so its catalog subjects.
 const SCHEDULE_SUBJECTS = SUBJECTS.filter(subject => subject.plans.includes('comun'));
 
@@ -99,7 +100,7 @@ export function BlockEditor(props: Props) {
 
   const end = draft.duration !== null ? draft.start + draft.duration : draft.end;
   const noun = hallSubject ? 'bloque' : draft.kind === 'break' ? 'recreo' : 'clase';
-  const title = picking ? 'Asignatura' : block ? `Editar ${noun}` : noun === 'clase' ? 'Nueva clase' : `Nuevo ${noun}`;
+  const title = picking ? t('classhall.create.asignatura') : block ? `Editar ${noun}` : noun === 'clase' ? t('components.schedule.blockEditor.nuevaClase') : `Nuevo ${noun}`;
 
   const setKind = (kind: BlockKind) => {
     if (draft.kind === kind) return;
@@ -108,12 +109,12 @@ export function BlockEditor(props: Props) {
   };
 
   const commit = () => {
-    if (end <= draft.start) return setDraftError('El bloque tiene que terminar después de empezar.');
-    if (end > 24 * 60) return setDraftError('El bloque tiene que terminar antes de medianoche.');
+    if (end <= draft.start) return setDraftError(t('components.schedule.blockEditor.elBloqueTieneQueTerminar'));
+    if (end > 24 * 60) return setDraftError(t('components.schedule.blockEditor.elBloqueTieneQueTerminar2'));
     const subject = hallSubject ?? (draft.kind === 'break' ? draft.breakName : (draft.subject ?? draft.customSubject.trim()));
-    if (!subject) return setDraftError('Elige la asignatura.');
+    if (!subject) return setDraftError(t('components.schedule.blockEditor.eligeLaAsignatura'));
     const clash = blocksOn(others, draft.day).find(item => minutesOf(item.start) < end && draft.start < minutesOf(item.end));
-    if (clash) return setDraftError(`Choca con ${clash.subject} (${clash.start} – ${clash.end}).`);
+    if (clash) return setDraftError(t('components.schedule.blockEditor.chocaConSubjectStartEnd', { subject: clash.subject, start: clash.start, end: clash.end }));
     setDraftError(null);
     onSave({
       id: block?.id ?? `b${Date.now().toString(36)}`,
@@ -133,10 +134,10 @@ export function BlockEditor(props: Props) {
       {picking ? (
         <View style={styles.form}>
           <TextInput
-            accessibilityLabel="Buscar asignatura"
+            accessibilityLabel={t('components.schedule.blockEditor.buscarAsignatura')}
             value={query}
             onChangeText={setQuery}
-            placeholder="Buscar"
+            placeholder={t('components.schedule.blockEditor.buscar')}
             placeholderTextColor="rgba(221, 221, 226, 0.4)"
             autoCorrect={false}
             style={styles.input}
@@ -170,10 +171,10 @@ export function BlockEditor(props: Props) {
               onPress={() => { setDraft({ ...draft, subject: null, customSubject: draft.customSubject || query.trim() }); setPicking(false); }}
               style={({ pressed }) => [styles.subjectOption, pressed && AppPressed]}
             >
-              <ThemedText style={[styles.subjectText, styles.subjectOther]}>Otra asignatura…</ThemedText>
+              <ThemedText style={[styles.subjectText, styles.subjectOther]}>{t('components.schedule.blockEditor.otraAsignatura')}</ThemedText>
             </Pressable>
           </ScrollView>
-          <HanetButton label="Volver" variant="surface" onPress={() => setPicking(false)} />
+          <HanetButton label={t('common.volver')} variant="surface" onPress={() => setPicking(false)} />
         </View>
       ) : (
         <ScrollView style={{ maxHeight: height * 0.7 }} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -194,8 +195,8 @@ export function BlockEditor(props: Props) {
 
           {!hallSubject && (
             <HanetChoice
-              label="Tipo de bloque"
-              options={[{ value: 'class', label: 'Clase' }, { value: 'break', label: 'Recreo' }]}
+              label={t('components.schedule.blockEditor.tipoDeBloque')}
+              options={[{ value: 'class', label: t('components.schedule.blockEditor.clase') }, { value: 'break', label: t('components.schedule.blockEditor.recreo') }]}
               value={draft.kind}
               onChange={value => setKind(value as BlockKind)}
             />
@@ -205,8 +206,8 @@ export function BlockEditor(props: Props) {
             <>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Asignatura: ${draft.subject ?? (draft.customSubject || 'sin elegir')}`}
-                accessibilityHint="Abre la lista de asignaturas"
+                accessibilityLabel={t('components.schedule.blockEditor.asignaturaSubject', { subject: draft.subject ?? (draft.customSubject || 'sin elegir') })}
+                accessibilityHint={t('components.schedule.blockEditor.abreLaListaDeAsignaturas')}
                 onPress={() => { setQuery(''); setPicking(true); }}
                 style={({ pressed }) => [styles.field, pressed && AppPressed]}
               >
@@ -216,12 +217,12 @@ export function BlockEditor(props: Props) {
                 <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />
               </Pressable>
               {draft.subject === null && (
-                <TextInput accessibilityLabel="Nombre de la asignatura" value={draft.customSubject} onChangeText={customSubject => setDraft({ ...draft, customSubject })} placeholder="Nombre de la asignatura" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={40} style={styles.input} selectionColor={AppColors.accent} />
+                <TextInput accessibilityLabel={t('classhall.create.nombreDeLaAsignatura')} value={draft.customSubject} onChangeText={customSubject => setDraft({ ...draft, customSubject })} placeholder={t('classhall.create.nombreDeLaAsignatura')} placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={40} style={styles.input} selectionColor={AppColors.accent} />
               )}
             </>
           ) : (
             <HanetChoice
-              label="Nombre del recreo"
+              label={t('components.schedule.blockEditor.nombreDelRecreo')}
               options={BREAK_NAMES.map(name => ({ value: name, label: name }))}
               value={draft.breakName}
               onChange={breakName => setDraft({ ...draft, breakName })}
@@ -229,37 +230,37 @@ export function BlockEditor(props: Props) {
           ))}
 
           <View style={styles.timeRow}>
-            <ThemedText style={styles.label}>Empieza</ThemedText>
-            <HanetTimeWheels label="Empieza" minutes={draft.start} onChange={start => setDraft({ ...draft, start })} />
+            <ThemedText style={styles.label}>{t('common.empieza')}</ThemedText>
+            <HanetTimeWheels label={t('common.empieza')} minutes={draft.start} onChange={start => setDraft({ ...draft, start })} />
           </View>
 
-          <ThemedText style={styles.label}>Duración</ThemedText>
+          <ThemedText style={styles.label}>{t('eventInfo.duracion')}</ThemedText>
           <HanetChoice
-            label="Duración"
-            options={[...DURATIONS[draft.kind].map(minutes => ({ value: String(minutes), label: `${minutes} min` })), { value: 'other', label: 'Otra' }]}
+            label={t('eventInfo.duracion')}
+            options={[...DURATIONS[draft.kind].map(minutes => ({ value: String(minutes), label: t('components.schedule.blockEditor.minutesMin', { minutes }) })), { value: 'other', label: t('classhall.evaluationForm.otra') }]}
             value={draft.duration === null ? 'other' : String(draft.duration)}
             onChange={value => setDraft(value === 'other' ? { ...draft, duration: null, end } : { ...draft, duration: Number(value) })}
           />
           {draft.duration === null && (
             <View style={styles.timeRow}>
-              <ThemedText style={styles.label}>Termina</ThemedText>
-              <HanetTimeWheels label="Termina" minutes={draft.end} onChange={value => setDraft({ ...draft, end: value })} />
+              <ThemedText style={styles.label}>{t('common.termina')}</ThemedText>
+              <HanetTimeWheels label={t('common.termina')} minutes={draft.end} onChange={value => setDraft({ ...draft, end: value })} />
             </View>
           )}
           <ThemedText style={styles.range} accessibilityLiveRegion="polite">
             {timeOf(draft.start)} – {end < 24 * 60 ? timeOf(end) : '…'}
-            {end > draft.start ? ` · ${end - draft.start} min` : ''}
+            {end > draft.start ? t('components.schedule.blockEditor.valueMin', { value: end - draft.start }) : ''}
           </ThemedText>
 
           {draft.kind === 'class' && (
-            <TextInput accessibilityLabel="Sala (opcional)" value={draft.room} onChangeText={room => setDraft({ ...draft, room })} placeholder="Sala (opcional)" placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={20} style={styles.input} selectionColor={AppColors.accent} />
+            <TextInput accessibilityLabel={t('components.schedule.blockEditor.salaOpcional')} value={draft.room} onChangeText={room => setDraft({ ...draft, room })} placeholder={t('components.schedule.blockEditor.salaOpcional')} placeholderTextColor="rgba(221, 221, 226, 0.4)" maxLength={20} style={styles.input} selectionColor={AppColors.accent} />
           )}
           {!!shownError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{shownError}</ThemedText>}
           <HanetDialogActions>
-            <HanetButton label="Cancelar" variant="surface" disabled={saving} onPress={onClose} style={dialogStyles.action} />
-            <HanetButton label={saving ? 'Guardando…' : 'Listo'} disabled={saving} onPress={commit} style={dialogStyles.action} />
+            <HanetButton label={t('common.cancelar')} variant="surface" disabled={saving} onPress={onClose} style={dialogStyles.action} />
+            <HanetButton label={saving ? t('common.guardando') : t('common.listo')} disabled={saving} onPress={commit} style={dialogStyles.action} />
           </HanetDialogActions>
-          {!!block && !!onRemove && <HanetButton label={`Quitar ${noun}`} variant="surface" disabled={saving} onPress={onRemove} />}
+          {!!block && !!onRemove && <HanetButton label={t('components.schedule.blockEditor.quitarNoun', { noun })} variant="surface" disabled={saving} onPress={onRemove} />}
         </ScrollView>
       )}
     </HanetDialog>

@@ -33,6 +33,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '@/i18n';
 
 type MotionTabIcon = React.ComponentProps<typeof CustomIcon>['name'];
 
@@ -77,7 +78,7 @@ function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: Mo
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
-      accessibilityHint={active ? undefined : `Cambiar a ${label}`}
+      accessibilityHint={active ? undefined : t('components.appTabBar.cambiarALabel', { label })}
       onPress={() => {
         if (!active && Platform.OS === 'ios') void Haptics.selectionAsync();
         onPress();
@@ -306,7 +307,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
       }}
     >
       <CustomIcon name="search" size={20} color={AppColors.textOnLight} />
-      <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>Buscar…</ThemedText>
+      <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.searchText}>{t('components.appTabBar.buscar')}</ThemedText>
     </Pressable>
   ) : null;
 
@@ -314,7 +315,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
     <>
     {panel && (
       <Animated.View pointerEvents={panelOpen ? 'auto' : 'none'} style={[styles.backdrop, backdropStyle]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Cerrar ${panel.label}`} onPress={panel.onClose} style={StyleSheet.absoluteFill} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('components.appTabBar.cerrarLabel', { label: panel.label })} onPress={panel.onClose} style={StyleSheet.absoluteFill} />
       </Animated.View>
     )}
     <Animated.View
@@ -362,21 +363,21 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           {onBack ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Volver"
+              accessibilityLabel={t('common.volver')}
               style={({ pressed }) => [styles.backButton, pressed && styles.motionPressPressed]}
               onPress={onBack}
             >
               <CustomIcon name="chevron-left" size={20} color={AppColors.textOnLight} />
             </Pressable>
           ) : (
-            <MotionTab active={active === 'home'} icon="home" label="Inicio" onPress={onHome} />
+            <MotionTab active={active === 'home'} icon="home" label={t('layout.inicio')} onPress={onHome} />
           )}
 
           <View style={styles.center} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
             {center ?? searchPill ?? <HanetLogo />}
           </View>
 
-          <MotionTab active={active === 'profile'} icon="user" label="Perfil" onPress={onProfile} />
+          <MotionTab active={active === 'profile'} icon="user" label={t('layout.perfil')} onPress={onProfile} />
         </Animated.View>
         </Animated.View>
 
@@ -400,12 +401,12 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
                 style={styles.searchInput}
               />
               {search.value.length > 0 && (
-                <Pressable accessibilityRole="button" accessibilityLabel="Borrar la búsqueda" hitSlop={8} onPress={() => search.onChangeText('')} style={({ pressed }) => [styles.clearButton, pressed && styles.motionPressPressed]}>
-                  <ThemedText style={styles.clearText}>Borrar</ThemedText>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('components.appTabBar.borrarLaBusqueda')} hitSlop={8} onPress={() => search.onChangeText('')} style={({ pressed }) => [styles.clearButton, pressed && styles.motionPressPressed]}>
+                  <ThemedText style={styles.clearText}>{t('common.borrar')}</ThemedText>
                 </Pressable>
               )}
             </Animated.View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar la búsqueda" hitSlop={6} onPress={search.onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.motionPressPressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('components.appTabBar.cerrarLaBusqueda')} hitSlop={6} onPress={search.onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.motionPressPressed]}>
               <CloseGlyph />
             </Pressable>
           </Animated.View>
@@ -430,7 +431,7 @@ const BAR_ROUTES = [
 const FEED_ROUTES = ['/feed', '/anniversary/notices'];
 
 /** Screens whose center pill is a search, which they read from the bar store. */
-const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': 'Buscar eventos', '/feed': 'Buscar en el feed', '/anniversary/notices': 'Buscar en los avisos' };
+const SEARCH_PLACEHOLDERS: Record<string, string> = { '/events': t('components.appTabBar.buscarEventos'), '/feed': t('components.appTabBar.buscarEnElFeed'), '/anniversary/notices': t('components.appTabBar.buscarEnLosAvisos') };
 
 /**
  * The app's only bar. It lives in the root layout, above every screen, so it
@@ -484,15 +485,15 @@ export function GlobalTabBar() {
     center = (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Opciones del evento"
-        accessibilityHint={none ? 'Este evento no tiene entradas ni cupones' : options.count === 1 ? options.singleLabel : 'Comprar entradas o reclamar el cupón HaNet'}
+        accessibilityLabel={t('components.appTabBar.opcionesDelEvento')}
+        accessibilityHint={none ? t('components.appTabBar.esteEventoNoTieneEntradas') : options.count === 1 ? options.singleLabel : t('components.appTabBar.comprarEntradasOReclamarEl')}
         accessibilityState={{ disabled: none }}
         disabled={none}
         style={({ pressed }) => [styles.centerPill, styles.optionsPill, none && styles.pillDisabled, pressed && styles.motionPressPressed]}
         onPress={options.open}
       >
         <CustomIcon name="tag" size={18} color={AppColors.textOnLight} />
-        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>Opciones</ThemedText>
+        <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>{t('components.appTabBar.opciones')}</ThemedText>
       </Pressable>
     );
   } else if (pathname === '/calendar') {
@@ -502,7 +503,7 @@ export function GlobalTabBar() {
     center = <OrganizePill open={organize.menuOpen} />;
   } else if (feedMenu) {
     // Those who publish get a menu with the search and "Crear"; the rest, the search pill.
-    center = <FeedMenuPill label={pathname === '/feed' ? 'Feed' : 'Avisos'} open={bar.menuOpen} />;
+    center = <FeedMenuPill label={pathname === '/feed' ? t('layout.feed') : t('components.appTabBar.avisos')} open={bar.menuOpen} />;
   }
 
   return (
@@ -518,11 +519,11 @@ export function GlobalTabBar() {
         ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
         : undefined}
       panel={pathname === '/calendar'
-        ? { open: calendar.menuOpen, label: 'las vistas', onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
+        ? { open: calendar.menuOpen, label: t('components.appTabBar.lasVistas'), onClose: calendarBar.closeMenu, content: <CalendarViewMenu canCreate={canAddEvents} /> }
         : organizing
-          ? { open: organize.menuOpen, label: 'el menú', onClose: organizeBar.closeMenu, content: <OrganizeMenu /> }
+          ? { open: organize.menuOpen, label: t('components.appTabBar.elMenu'), onClose: organizeBar.closeMenu, content: <OrganizeMenu /> }
           : feedMenu && bar.compose
-            ? { open: bar.menuOpen, label: 'el menú', onClose: eventBar.closeMenu, content: <FeedMenu compose={bar.compose} placeholder={SEARCH_PLACEHOLDERS[pathname]} /> }
+            ? { open: bar.menuOpen, label: t('components.appTabBar.elMenu'), onClose: eventBar.closeMenu, content: <FeedMenu compose={bar.compose} placeholder={SEARCH_PLACEHOLDERS[pathname]} /> }
             : undefined}
     />
     {options.dialog}
