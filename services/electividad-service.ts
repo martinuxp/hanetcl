@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from './firebase';
 import { putCached, peekCached } from './cache';
+import { t } from '@/i18n';
 
 // HaNet Electividad (functions/electividad.js), in Herramientas: an interests
 // test of 72 "which would you rather" questions over nine areas, to help 2°
@@ -111,5 +112,5 @@ export function leaningField(result: ElectividadResult) {
 
 export function headline(result: ElectividadResult) {
   const field = leaningField(result);
-  return field ? `Tu perfil se inclina hacia las ${field.name}` : 'Tienes intereses variados';
+  return field ? t('services.electividadService.tuPerfilSeInclinaHacia', { name: field.name }) : t('tools.electividad.reveal.tienesInteresesVariados');
 }
