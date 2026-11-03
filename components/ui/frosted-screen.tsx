@@ -21,7 +21,8 @@ type FrostedScreenProps = {
   style?: StyleProp<ViewStyle>;
   /**
    * Stays on top while the content scrolls under it (the Calendar's week
-   * strip). Without one, the bar only covers the status bar.
+   * strip), as frosted glass that also covers the status bar. Without one
+   * nothing covers the status bar: the content runs edge to edge.
    */
   header?: React.ReactNode;
   /** Also keep the content off the home indicator, as `SafeAreaView` did. */
@@ -32,8 +33,8 @@ type FrostedScreenProps = {
 
 /**
  * A screen whose content runs under the status bar (and its header, if any)
- * instead of being cut at the safe area. The bar is frosted glass: what
- * scrolls under it shows through, blurred, so the bar never reads as a solid
+ * instead of being cut at the safe area. A fixed header is frosted glass:
+ * what scrolls under it shows through, blurred, so it never reads as a solid
  * band that chops the content.
  */
 export function FrostedScreen({ style, header, bottom, children }: FrostedScreenProps) {
@@ -44,21 +45,32 @@ export function FrostedScreen({ style, header, bottom, children }: FrostedScreen
   const top = insets.top + (header ? headerHeight : 0);
   const background = StyleSheet.flatten(style)?.backgroundColor;
 
+  const content = typeof children === 'function' ? children(top) : children;
+
+  // Without a fixed header the content simply runs to the top edge, under
+  // the status bar, with nothing over it (decided 2026-11-03): the glass is
+  // only for bars that stay put while the content scrolls.
+  if (!header) {
+    return (
+      <View style={[styles.screen, style, bottom && { paddingBottom: insets.bottom }]}>
+        <FrostedInsetContext.Provider value={top}>{content}</FrostedInsetContext.Provider>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.screen, style, bottom && { paddingBottom: insets.bottom }]}>
       <FrostedInsetContext.Provider value={top}>
         <BlurTargetView ref={target} style={[styles.fill, { backgroundColor: background }]}>
-          {typeof children === 'function' ? children(top) : children}
+          {content}
         </BlurTargetView>
       </FrostedInsetContext.Provider>
-      <View style={styles.bar} pointerEvents={header ? 'box-none' : 'none'}>
+      <View style={styles.bar} pointerEvents="box-none">
         <FrostedFill target={target} />
         <View style={{ height: insets.top }} />
-        {!!header && (
-          <View onLayout={event => setHeaderHeight(Math.round(event.nativeEvent.layout.height))}>
-            {header}
-          </View>
-        )}
+        <View onLayout={event => setHeaderHeight(Math.round(event.nativeEvent.layout.height))}>
+          {header}
+        </View>
       </View>
     </View>
   );
