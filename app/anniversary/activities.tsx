@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen } from '@/components/ui/frosted-screen';
 
 // Sooner first; those without a date go last, by name.
 const byWhen = (a: AnniversaryActivity, b: AnniversaryActivity) =>
@@ -62,7 +63,7 @@ export default function AnniversaryActivities() {
   const shown = group ? groups.filter(item => item.value === group) : groups;
 
   return (
-    <View style={styles.container}>
+    <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + AppSpacing.xl }]} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           {!!anniversary && <ThemedText style={styles.kicker}>{anniversary.title}</ThemedText>}
@@ -130,7 +131,7 @@ export default function AnniversaryActivities() {
           </>
         )}
       </ScrollView>
-    </View>
+    </FrostedScreen>
   );
 }
 

@@ -31,7 +31,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Animated, { Easing, FadeIn, FadeInRight, FadeOutLeft, useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 // Sistema HaNet UI (Panel HNT): the app's real components with example data,
 // to check how they look and behave. Nothing here reads or writes real data:
@@ -188,6 +189,7 @@ function RotatingQr() {
 }
 
 export default function UiShowcaseScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const reducedMotion = useReducedMotion();
   const [selectedFilter, setSelectedFilter] = useState('Todos');
@@ -275,8 +277,8 @@ export default function UiShowcaseScreen() {
   const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
   const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.container}>
+      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
@@ -488,7 +490,7 @@ export default function UiShowcaseScreen() {
           <FatalScreen preview onDismiss={() => setFatalVisible(false)} />
         </Animated.View>
       )}
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

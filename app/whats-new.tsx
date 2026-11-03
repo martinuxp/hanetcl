@@ -4,7 +4,8 @@ import CHANGELOG from '@/constants/changelog.json';
 import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 // Every PR adds its release on top (scripts/version.js keeps it in step with app.json).
 type Release = (typeof CHANGELOG.releases)[number];
@@ -17,12 +18,13 @@ function formatDate(iso: string) {
 }
 
 export default function WhatsNewScreen() {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <FrostedScreen style={styles.screen}>
       <FlatList
         data={CHANGELOG.releases}
         keyExtractor={item => item.version}
-        contentContainerStyle={styles.page}
+        contentContainerStyle={withTopInset(styles.page, insets.top)}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -34,7 +36,7 @@ export default function WhatsNewScreen() {
         ItemSeparatorComponent={Separator}
         renderItem={({ item, index }) => <ReleaseCard release={item} current={index === 0} />}
       />
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

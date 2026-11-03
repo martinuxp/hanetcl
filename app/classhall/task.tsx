@@ -15,7 +15,8 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 function openItem(item: SubmissionItem) {
   void openHallDocument({ url: item.url });
@@ -27,6 +28,7 @@ function submittedLabel(submission: HallSubmission) {
 }
 
 export default function TaskScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hallId, id } = useLocalSearchParams<{ hallId: string; id: string }>();
   const { user, initializing } = useSession();
@@ -95,8 +97,8 @@ export default function TaskScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.container}>
+      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
           <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/classhall/tasks', params: { hallId } }))} />
           <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel="HaNet ClassHall" />
@@ -259,7 +261,7 @@ export default function TaskScreen() {
           />
         </HanetDialogActions>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

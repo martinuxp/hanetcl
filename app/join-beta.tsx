@@ -7,7 +7,8 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const ICONS = {
   lock: require('@/assets/icons/auth/lock.svg'),
@@ -25,6 +26,7 @@ function cleanWord(text: string) {
 }
 
 export default function JoinBetaScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
   const inputs = useRef<(TextInputInstance | null)[]>([]);
@@ -101,9 +103,9 @@ export default function JoinBetaScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             <View style={styles.lockPill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <Image source={ICONS.lock} style={styles.icon} contentFit="contain" />
@@ -185,7 +187,7 @@ export default function JoinBetaScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

@@ -17,11 +17,13 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const CONTACT = 'muxp@muxp.art';
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut } = useSession();
 
@@ -153,8 +155,8 @@ export default function SettingsScreen() {
   const tapVersion = useSecretTaps(useCallback(() => setEggOpen(true), []));
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.screen}>
+      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <ThemedText style={styles.eyebrow}>HaNet ID</ThemedText>
           <ThemedText accessibilityRole="header" style={styles.title}>Configuraciones</ThemedText>
@@ -277,7 +279,7 @@ export default function SettingsScreen() {
         />
       </ScrollView>
       <VersionEasterEgg visible={eggOpen} version={APP_VERSION} stage={APP_RELEASE_STAGE} onClose={() => setEggOpen(false)} />
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

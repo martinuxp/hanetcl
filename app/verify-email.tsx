@@ -9,7 +9,8 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -21,6 +22,7 @@ const CODE_LENGTH = 4;
 const RESEND_SECONDS = 60;
 
 export default function VerifyEmailScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
   const inputRef = useRef<TextInputInstance>(null);
@@ -124,9 +126,9 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             {/* The account already exists: going back signs out to start over with another one. */}
             <Pressable
@@ -241,7 +243,7 @@ export default function VerifyEmailScreen() {
           />
         </HanetDialogActions>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 
