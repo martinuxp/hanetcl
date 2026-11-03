@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.3.6-beta",
+      "date": "2026-11-03",
+      "title": "",
+      "items": [
+        "En Android llega el widget \"HaNet: tu día\" para la pantalla de inicio: tu clase de ahora o la siguiente y tu próxima prueba, en 2×2."
+      ]
+    },
+    {
       "version": "0.3.5-beta",
       "date": "2026-11-03",
       "title": "",
