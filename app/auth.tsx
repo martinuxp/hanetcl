@@ -18,7 +18,8 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 const ICONS = {
@@ -40,6 +41,7 @@ const USERNAME_PATTERN = /^[a-z0-9._]{3,24}$/;
 const MIN_PASSWORD = 8;
 
 export default function AuthScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
   const [mode, setMode] = useState<Mode>('login');
@@ -191,10 +193,10 @@ export default function AuthScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={withTopInset(styles.scrollContent, insets.top)}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -411,7 +413,7 @@ export default function AuthScreen() {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

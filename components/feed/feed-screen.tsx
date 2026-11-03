@@ -17,7 +17,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, RefreshControl, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const MAX_WIDTH = 480;
 
@@ -33,6 +34,7 @@ type Dialog =
  * avisos, app/anniversary/notices.tsx), with the same reactions and menus.
  */
 export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
   const { width } = useWindowDimensions();
@@ -233,7 +235,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
   const current = dialog?.post;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <FrostedScreen style={styles.container}>
       <FlatList
         ref={list}
         data={visible}
@@ -255,10 +257,10 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
         )}
         ListHeaderComponent={header}
         ListEmptyComponent={empty ?? undefined}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={withTopInset(styles.content, insets.top)}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} progressViewOffset={insets.top} />}
       />
 
       <HanetDialog
@@ -342,7 +344,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
           <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

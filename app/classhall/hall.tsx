@@ -19,7 +19,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { dropCached, useCached } from '@/services/cache';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 type Tab = 'announcements' | 'evaluations' | 'documents';
 
@@ -208,6 +209,7 @@ function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: ()
 }
 
 export default function HallScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
@@ -380,8 +382,8 @@ export default function HallScreen() {
       : isTeacher ? newEvaluation : undefined;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.container}>
+      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
           <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
           <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel="HaNet ClassHall" />
@@ -614,7 +616,7 @@ export default function HallScreen() {
           <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={deleting} onPress={confirmDelete} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

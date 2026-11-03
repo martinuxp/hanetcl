@@ -20,6 +20,7 @@ import { AnniversaryCarousel, AnniversaryGlow, anniversaryKicker } from '@/compo
 import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
+import { FrostedScreen } from '@/components/ui/frosted-screen';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -149,7 +150,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <FrostedScreen style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -195,7 +196,7 @@ export default function HomeScreen() {
         institutionName={welcome?.institutionName}
         onDone={() => setWelcome(null)}
       />
-    </View>
+    </FrostedScreen>
   );
 }
 

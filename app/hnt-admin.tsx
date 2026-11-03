@@ -25,7 +25,8 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 
 type Access = 'checking' | 'granted' | 'denied';
@@ -41,6 +42,7 @@ function formatDate(millis: number) {
 }
 
 export default function HntAdminScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing } = useSession();
 
@@ -262,9 +264,9 @@ export default function HntAdminScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Panel HNT</ThemedText>
           </View>
@@ -539,7 +541,7 @@ export default function HntAdminScreen() {
         )}
       </HanetDialog>
       {discardDialog}
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 
