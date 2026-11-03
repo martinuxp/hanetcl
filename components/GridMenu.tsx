@@ -207,10 +207,11 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
           href="/classhall"
         />
         <GridItem
-          title="En construcción"
+          title="Herramientas"
           IconComponent={HammerIcon}
           height={82}
           iconSize={26}
+          href="/tools"
         />
       </View>
 

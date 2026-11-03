@@ -423,6 +423,7 @@ const TAB_ROOTS = ['/', '/explore'];
 const BAR_ROUTES = [
   ...TAB_ROOTS, '/calendar', '/events', '/feed', '/event-info', '/event-detail', '/classhall', '/classhall/hall', '/classhall/evaluation',
   '/anniversary', '/anniversary/activities', '/anniversary/notices', '/hnt-admin', '/settings', '/licenses',
+  '/tools', '/tools/electividad', '/tools/electividad/result',
 ];
 
 /** The feed's screens: for those who publish, their search lives in a menu with "Crear". */

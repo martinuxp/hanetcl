@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.3.6",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",

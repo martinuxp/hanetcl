@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.4.0-beta",
+      "date": "2026-11-03",
+      "title": "Herramientas",
+      "items": [
+        "Nuevo en el Home: Herramientas, con HaNet Electividad, un test de intereses para elegir tus electivos de 3° medio.",
+        "Son 72 preguntas donde eliges entre dos actividades. Puedes pausar y seguir después; se responde una sola vez.",
+        "Al terminar ves tus tres áreas de mayor interés con una animación, y después el detalle: todas las áreas, carreras relacionadas y tus comparaciones más claras."
+      ]
+    },
+    {
       "version": "0.3.6-beta",
       "date": "2026-11-03",
       "title": "",
