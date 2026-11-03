@@ -39,7 +39,7 @@ export default function ElectividadTestScreen() {
   const reduceMotion = useReducedMotion();
   const [questions, setQuestions] = useState<Question[] | null>(() => {
     const cached = peekElectividad();
-    return cached && !cached.result && cached.questions.length ? cached.questions : null;
+    return cached?.questions?.length ? cached.questions : null;
   });
   const [progress, setProgress] = useState<Progress | null>(null);
   const [picked, setPicked] = useState<Choice | null>(null);
@@ -56,14 +56,9 @@ export default function ElectividadTestScreen() {
     });
     getElectividad()
       .then(data => {
-        if (!alive) return;
-        if (data.result) {
-          // Already answered (maybe on another phone): show the result instead.
-          rememberResult(data.result);
-          router.replace('/tools/electividad/result');
-          return;
-        }
-        setQuestions(data.questions);
+        // A new attempt works the same as the first one: the current result
+        // moves to the history when this one is sent.
+        if (alive) setQuestions(data.questions);
       })
       .catch(err => {
         if (alive) setError(describeAuthError(err, t('tools.electividad.test.noPudimosCargarLasPreguntas')));

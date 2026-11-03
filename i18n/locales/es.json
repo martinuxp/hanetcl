@@ -2089,13 +2089,17 @@
     "comenzar": "Comenzar",
     "disponible": "Disponible",
     "electividad": {
+      "alRepetirloEsteResultadoQueda": "Al repetirlo, este resultado queda guardado en tus intentos anteriores.",
       "comenzarElTest": "Comenzar el test",
+      "continuarElNuevoIntentoPregunta": "Continuar el nuevo intento (pregunta {{number}} de 72)",
       "continuarPreguntaNumberDe72": "Continuar (pregunta {{number}} de 72)",
       "hanetElectividad": "HaNet Electividad",
+      "intentosAnteriores": "Intentos anteriores",
       "n72PreguntasEnCadaUna": "72 preguntas: en cada una eliges entre dos actividades.",
       "noHayRespuestasCorrectasNi": "No hay respuestas correctas ni incorrectas: mide tus preferencias, no tu rendimiento.",
       "noPudimosCargarElTest": "No pudimos cargar el test. Inténtalo nuevamente.",
       "postulacionAElectivosProximamente": "Postulación a electivos: Próximamente.",
+      "repetirElTest": "Repetir el test",
       "result": {
         "aContraBReplaceValue": "{{a}} contra {{b}}: {{replace}}. {{value}}",
         "aquiPodrasVerLosElectivos": "Aquí podrás ver los electivos que ofrece tu liceo según tu resultado y postular a ellos.",
@@ -2107,8 +2111,10 @@
         "distribucionPorAmbito": "Distribución por ámbito",
         "duracionArancelEInstitucionesDe": "Duración, arancel e instituciones de cada carrera: Próximamente.",
         "eleccionesAFavorDeCada": "Elecciones a favor de cada área, de 16",
+        "eleccionesAFavorDeCada2": "Elecciones a favor de cada área, de 16, y cuánto cambió desde tu intento anterior",
         "elTestMideTusPreferencias": "El test mide tus preferencias entre áreas, no tu rendimiento. Un puntaje menor indica que elegiste otras áreas con más frecuencia.",
         "fuenteWwwMifuturoClDe": "Fuente: www.mifuturo.cl, de Mineduc",
+        "intentoAnterior": "Intento anterior",
         "interesesRepartidos": "Intereses repartidos",
         "interesIntermedio": "Interés intermedio",
         "irAlTest": "Ir al test",
@@ -2167,7 +2173,7 @@
         "respondisteLas72Preguntas": "Respondiste las 72 preguntas."
       },
       "tomaCercaDe10Minutos": "Toma cerca de 10 minutos. Puedes pausar y seguir después.",
-      "tuResultadoLoVeranTu": "Tu resultado lo verán tú y la administración de tu liceo, para orientarte en la elección. Se responde una sola vez.",
+      "tuResultadoLoVeranTu": "Tu resultado lo verán tú y la administración de tu liceo, para orientarte en la elección. Puedes repetirlo cuando quieras: tus resultados anteriores quedan guardados.",
       "unTestDeInteresesPara": "Un test de intereses para ayudarte a elegir tus electivos de 3° medio.",
       "verLaAnimacion": "Ver la animación",
       "verMiResultado": "Ver mi resultado"

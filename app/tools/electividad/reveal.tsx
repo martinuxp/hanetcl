@@ -7,7 +7,7 @@ import type { AreaId, AreaScore, ElectividadResult } from '@/services/electivida
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -47,7 +47,7 @@ function haptic(strong = false) {
   void Haptics.impactAsync(strong ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
 }
 
-function CalcTile({ area, index, lit, top }: { area: AreaId; index: number; lit: boolean; top: boolean }) {
+function CalcTile({ area, index, lit, top, size }: { area: AreaId; index: number; lit: boolean; top: boolean; size: number }) {
   const reduceMotion = useReducedMotion();
   const opacity = useSharedValue(reduceMotion ? 1 : 0.35);
 
@@ -66,8 +66,8 @@ function CalcTile({ area, index, lit, top }: { area: AreaId; index: number; lit:
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
-    <Animated.View style={[styles.calcTile, lit && top && styles.calcTileLit, style]}>
-      <AreaIcon area={area} size={32} color={lit && top ? AppColors.accent : AppColors.textPrimary} />
+    <Animated.View style={[styles.calcTile, { width: size, height: size, borderRadius: Math.round(size * 0.24) }, lit && top && styles.calcTileLit, style]}>
+      <AreaIcon area={area} size={Math.round(size * 0.36)} color={lit && top ? AppColors.accent : AppColors.textPrimary} />
     </Animated.View>
   );
 }
@@ -126,6 +126,7 @@ export default function ElectividadRevealScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const { width } = useWindowDimensions();
   const [result] = useState(() => currentResult());
   const [phase, setPhase] = useState(reduceMotion ? 5 : 0);
   const [run, setRun] = useState(0);
@@ -166,6 +167,9 @@ export default function ElectividadRevealScreen() {
   }
 
   const top = result.areas.slice(0, 3);
+  // Square tiles with a fixed size: a percentage width with aspectRatio laid
+  // them out flat on iOS, with the icon off center.
+  const tile = Math.min(92, Math.floor((Math.min(width, 430) - AppSpacing.lg * 2 - 24 - 48) / 3));
   const topIds = new Set(top.map(area => area.id));
   const revealing = phase >= 2 && phase <= 4 ? top[4 - phase] : null;
   const animate = !reduceMotion;
@@ -190,8 +194,12 @@ export default function ElectividadRevealScreen() {
         {phase <= 1 && (
           <View style={styles.calc}>
             <View style={styles.calcGrid} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-              {GRID.map((area, index) => (
-                <CalcTile key={area} area={area} index={index} lit={phase >= 1} top={topIds.has(area)} />
+              {[0, 1, 2].map(row => (
+                <View key={row} style={styles.calcRow}>
+                  {GRID.slice(row * 3, row * 3 + 3).map((area, column) => (
+                    <CalcTile key={area} area={area} index={row * 3 + column} lit={phase >= 1} top={topIds.has(area)} size={tile} />
+                  ))}
+                </View>
               ))}
             </View>
             <View style={styles.calcText} accessibilityLiveRegion="polite">
@@ -259,8 +267,9 @@ const styles = StyleSheet.create({
   skipText: { ...AppType.callout, color: AppColors.textPrimary },
   stage: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', justifyContent: 'center' },
   calc: { gap: AppSpacing.xxl },
-  calcGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, paddingHorizontal: AppSpacing.xl },
-  calcTile: { width: '29%', aspectRatio: 1, borderRadius: 22, backgroundColor: AppColors.surface, alignItems: 'center', justifyContent: 'center' },
+  calcGrid: { alignSelf: 'center', gap: 12 },
+  calcRow: { flexDirection: 'row', gap: 12 },
+  calcTile: { backgroundColor: AppColors.surface, alignItems: 'center', justifyContent: 'center' },
   calcTileLit: { backgroundColor: TINT },
   calcText: { alignItems: 'center', gap: AppSpacing.md },
   calcTitle: { ...AppType.title1, color: AppColors.textPrimary, textAlign: 'center' },

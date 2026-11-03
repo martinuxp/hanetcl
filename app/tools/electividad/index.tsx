@@ -2,19 +2,50 @@ import { ThemedText } from '@/components/themed-text';
 import { AreaIcon } from '@/components/tools/area-icon';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { HanetButton } from '@/components/ui/hanet-button';
-import { AppColors, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
+import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { getElectividad, loadProgress, peekElectividad, rememberResult } from '@/services/electividad-service';
-import type { ElectividadState, Progress } from '@/services/electividad-service';
+import type { ElectividadAttempt, ElectividadState, Progress } from '@/services/electividad-service';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 
 // HaNet Electividad's entry: what the test is before starting it, where to
-// pick it up when paused, or one's result once answered.
+// pick it up when paused, or one's result once answered, with the earlier
+// attempts and the way to take it again.
+
+function attemptDate(at: number | null) {
+  if (!at) return '';
+  try {
+    return new Date(at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
+function AttemptRow({ attempt, onPress }: { attempt: ElectividadAttempt; onPress: () => void }) {
+  const top = attempt.areas.slice(0, 3);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${attemptDate(attempt.answeredAt)}: ${top.map(area => area.name).join(', ')}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.attempt, pressed && AppPressed]}
+    >
+      <View style={styles.attemptIcons}>
+        {top.map(area => <AreaIcon key={area.id} area={area.id} size={16} color={AppColors.textPrimary} />)}
+      </View>
+      <View style={styles.attemptBody}>
+        <ThemedText style={styles.attemptTitle} numberOfLines={1}>{top.map(area => area.name).join(', ')}</ThemedText>
+        <ThemedText style={styles.attemptDate}>{attemptDate(attempt.answeredAt)}</ThemedText>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />
+    </Pressable>
+  );
+}
 
 const FACTS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
   { icon: 'list-outline', text: t('tools.electividad.n72PreguntasEnCadaUna') },
@@ -85,6 +116,29 @@ export default function ElectividadScreen() {
                 router.push('/tools/electividad/reveal');
               }}
             />
+            <HanetButton
+              label={answered > 0 ? t('tools.electividad.continuarElNuevoIntentoPregunta', { number: Math.min(answered + 1, 72) }) : t('tools.electividad.repetirElTest')}
+              variant="surface"
+              icon={<Ionicons name="refresh" size={18} color={AppColors.textPrimary} />}
+              onPress={() => router.push('/tools/electividad/test')}
+            />
+            <ThemedText style={styles.repeatNote}>{t('tools.electividad.alRepetirloEsteResultadoQueda')}</ThemedText>
+          </View>
+        )}
+
+        {!!state?.history?.length && (
+          <View style={styles.history}>
+            <ThemedText accessibilityRole="header" style={styles.historyTitle}>{t('tools.electividad.intentosAnteriores')}</ThemedText>
+            {state.history.map(attempt => (
+              <AttemptRow
+                key={attempt.id}
+                attempt={attempt}
+                onPress={() => {
+                  rememberResult(attempt);
+                  router.push({ pathname: '/tools/electividad/result', params: { attempt: attempt.id } });
+                }}
+              />
+            ))}
           </View>
         )}
 
@@ -135,5 +189,13 @@ const styles = StyleSheet.create({
   factText: { ...AppType.callout, color: AppColors.textPrimary, flex: 1 },
   notice: { flexDirection: 'row', gap: AppSpacing.sm, alignItems: 'flex-start', paddingHorizontal: AppSpacing.xs },
   noticeText: { ...AppType.footnote, color: AppColors.textSecondary, flex: 1 },
+  repeatNote: { ...AppType.caption, fontFamily: 'DMSans_400Regular', color: AppColors.textSecondary, textAlign: 'center' },
+  history: { gap: AppSpacing.sm },
+  historyTitle: { ...AppType.headline, color: AppColors.textPrimary, marginBottom: AppSpacing.xs },
+  attempt: { flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md, padding: 14, borderRadius: AppRadii.lg, backgroundColor: AppColors.surface },
+  attemptIcons: { flexDirection: 'row', gap: 4, paddingHorizontal: 10, height: 36, borderRadius: AppRadii.pill, backgroundColor: AppColors.canvas, alignItems: 'center' },
+  attemptBody: { flex: 1, gap: 2 },
+  attemptTitle: { ...AppType.callout, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
+  attemptDate: { ...AppType.caption, fontFamily: 'DMSans_400Regular', color: AppColors.textSecondary },
   footnote: { ...AppType.caption, color: AppColors.surfaceSoft, textAlign: 'center' },
 });

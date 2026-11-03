@@ -37,7 +37,10 @@ export type ElectividadResult = {
   answeredAt: number | null;
 };
 
-export type ElectividadState = { result: ElectividadResult | null; questions: Question[] };
+/** An earlier attempt: the test can be taken again and old results are kept. */
+export type ElectividadAttempt = ElectividadResult & { id: string };
+
+export type ElectividadState = { result: ElectividadResult | null; history: ElectividadAttempt[]; questions: Question[] };
 
 const CACHE_KEY = 'electividad';
 
@@ -48,14 +51,22 @@ export function peekElectividad() {
 export async function getElectividad(): Promise<ElectividadState> {
   const call = httpsCallable<void, ElectividadState>(functions, 'getElectividad');
   const { data } = await call();
-  putCached(CACHE_KEY, data);
-  return data;
+  const state = { ...data, history: data.history ?? [] };
+  putCached(CACHE_KEY, state);
+  return state;
 }
 
 export async function submitElectividad(answers: Record<string, 'a' | 'b'>, durationSec: number) {
   const call = httpsCallable<{ answers: Record<string, 'a' | 'b'>; durationSec: number }, { result: ElectividadResult }>(functions, 'submitElectividad');
   const { data } = await call({ answers, durationSec });
-  putCached(CACHE_KEY, { result: data.result, questions: [] });
+  // Until the next load, the previous result goes to the history here too.
+  const before = peekElectividad();
+  const history = before?.history ?? [];
+  putCached(CACHE_KEY, {
+    result: data.result,
+    history: before?.result ? [{ ...before.result, id: `local-${before.result.answeredAt ?? 0}` }, ...history] : history,
+    questions: before?.questions ?? [],
+  });
   await clearProgress();
   return data.result;
 }
@@ -90,6 +101,12 @@ export function rememberResult(result: ElectividadResult) {
 }
 export function currentResult(): ElectividadResult | null {
   return lastResult ?? peekElectividad()?.result ?? null;
+}
+
+/** All attempts, newest first: the current result and then the history. */
+export function allAttempts(state: ElectividadState | null | undefined): ElectividadAttempt[] {
+  if (!state?.result) return state?.history ?? [];
+  return [{ ...state.result, id: 'current' }, ...(state.history ?? [])];
 }
 
 export function formatDuration(sec: number) {

@@ -3,10 +3,10 @@ import { AreaIcon, FIELD_AREA, KnowledgeIcon } from '@/components/tools/area-ico
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
-import { currentResult, formatDuration, getElectividad, headline, rememberResult } from '@/services/electividad-service';
-import type { AreaScore, ElectividadResult } from '@/services/electividad-service';
+import { allAttempts, currentResult, formatDuration, getElectividad, headline, peekElectividad } from '@/services/electividad-service';
+import type { AreaScore, ElectividadAttempt, ElectividadResult } from '@/services/electividad-service';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -99,9 +99,24 @@ function Distribution({ result }: { result: ElectividadResult }) {
   );
 }
 
-function Groups({ result }: { result: ElectividadResult }) {
+function Change({ delta }: { delta: number }) {
+  if (!delta) return null;
+  const up = delta > 0;
   return (
-    <Section title={t('tools.electividad.result.todasLasAreas')} subtitle={t('tools.electividad.result.eleccionesAFavorDeCada')}>
+    <View style={[styles.change, up && styles.changeUp]}>
+      <Ionicons name={up ? 'caret-up' : 'caret-down'} size={10} color={AppColors.textPrimary} />
+      <ThemedText style={styles.changeText}>{Math.abs(delta)}</ThemedText>
+    </View>
+  );
+}
+
+function Groups({ result, previous }: { result: ElectividadResult; previous?: ElectividadResult }) {
+  const before = new Map(previous?.areas.map(area => [area.id, area.wins]) ?? []);
+  return (
+    <Section
+      title={t('tools.electividad.result.todasLasAreas')}
+      subtitle={previous ? t('tools.electividad.result.eleccionesAFavorDeCada2') : t('tools.electividad.result.eleccionesAFavorDeCada')}
+    >
       <View style={styles.card}>
         {GROUPS.map(group => {
           const rows = result.areas.filter(area => area.group === group.id);
@@ -121,6 +136,7 @@ function Groups({ result }: { result: ElectividadResult }) {
                   <View style={styles.areaBody}>
                     <View style={styles.areaHead}>
                       <ThemedText style={styles.areaName}>{area.name}</ThemedText>
+                      {previous && <Change delta={area.wins - (before.get(area.id) ?? area.wins)} />}
                       <ThemedText style={styles.areaWins}>{t('tools.electividad.result.winsDeOf', { wins: area.wins, of: area.of })}</ThemedText>
                     </View>
                     <View style={styles.areaTrack}>
@@ -223,20 +239,27 @@ function Duels({ result }: { result: ElectividadResult }) {
 export default function ElectividadResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [result, setResult] = useState<ElectividadResult | null | undefined>(() => currentResult() ?? undefined);
+  // Without `attempt` it shows the current result; with it, an earlier one.
+  const { attempt } = useLocalSearchParams<{ attempt?: string }>();
+  const [attempts, setAttempts] = useState<ElectividadAttempt[] | null | undefined>(() => {
+    const cached = allAttempts(peekElectividad());
+    return cached.length ? cached : undefined;
+  });
 
   useEffect(() => {
-    if (result) return;
     let alive = true;
     getElectividad()
-      .then(data => {
-        if (!alive) return;
-        if (data.result) rememberResult(data.result);
-        setResult(data.result);
-      })
-      .catch(() => { if (alive) setResult(null); });
+      .then(data => { if (alive) setAttempts(allAttempts(data)); })
+      .catch(() => { if (alive) setAttempts(current => current ?? null); });
     return () => { alive = false; };
-  }, [result]);
+  }, []);
+
+  const index = attempts ? (attempt ? attempts.findIndex(item => item.id === attempt) : 0) : -1;
+  const result: ElectividadResult | null | undefined = index >= 0 && attempts
+    ? attempts[index]
+    : attempts === undefined ? (attempt ? undefined : currentResult() ?? undefined) : null;
+  const previous = index >= 0 && attempts ? attempts[index + 1] : undefined;
+  const isCurrent = !attempt || attempt === 'current';
 
   if (!result) {
     return (
@@ -259,6 +282,12 @@ export default function ElectividadResultScreen() {
     <FrostedScreen style={styles.screen}>
       <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
+          {!isCurrent && (
+            <View style={styles.pastChip}>
+              <Ionicons name="time-outline" size={13} color={AppColors.textPrimary} />
+              <ThemedText style={styles.pastChipText}>{t('tools.electividad.result.intentoAnterior')}</ThemedText>
+            </View>
+          )}
           <ThemedText style={styles.eyebrow}>{answeredText(result.answeredAt)}</ThemedText>
           <ThemedText accessibilityRole="header" style={styles.title}>{headline(result)}</ThemedText>
         </View>
@@ -286,7 +315,7 @@ export default function ElectividadResultScreen() {
 
         <Stats result={result} />
         <Distribution result={result} />
-        <Groups result={result} />
+        <Groups result={result} previous={previous} />
         <Careers result={result} />
         <Duels result={result} />
 
@@ -300,6 +329,15 @@ export default function ElectividadResultScreen() {
           </View>
           <ThemedText style={styles.ctaText}>{t('tools.electividad.result.aquiPodrasVerLosElectivos')}</ThemedText>
         </View>
+
+        {isCurrent && (
+          <HanetButton
+            label={t('tools.electividad.repetirElTest')}
+            variant="surface"
+            icon={<Ionicons name="refresh" size={18} color={AppColors.textPrimary} />}
+            onPress={() => router.push('/tools/electividad/test')}
+          />
+        )}
 
         <View style={styles.visibility}>
           <Ionicons name="eye-outline" size={16} color={AppColors.textSecondary} />
@@ -353,9 +391,14 @@ const styles = StyleSheet.create({
   areaIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: AppColors.canvas, alignItems: 'center', justifyContent: 'center' },
   areaIconTop: { backgroundColor: TINT },
   areaBody: { flex: 1, gap: 5 },
-  areaHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  areaHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  change: { flexDirection: 'row', alignItems: 'center', gap: 1, height: 18, paddingHorizontal: 6, borderRadius: AppRadii.pill, backgroundColor: AppColors.surfaceMuted },
+  changeUp: { backgroundColor: AppColors.accent },
+  changeText: { ...AppType.caption, fontSize: 11, lineHeight: 14, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontVariant: ['tabular-nums'] },
+  pastChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, height: 26, paddingHorizontal: 10, borderRadius: AppRadii.pill, backgroundColor: AppColors.surfaceMuted, marginBottom: AppSpacing.xs },
+  pastChipText: { ...AppType.caption, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
   areaName: { ...AppType.callout, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
-  areaWins: { ...AppType.caption, color: AppColors.textSecondary, fontVariant: ['tabular-nums'] },
+  areaWins: { ...AppType.caption, color: AppColors.textSecondary, fontVariant: ['tabular-nums'], marginLeft: 'auto' },
   areaTrack: { height: 6, borderRadius: AppRadii.pill, backgroundColor: AppColors.canvas, overflow: 'hidden' },
   areaFill: { height: 6, borderRadius: AppRadii.pill },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

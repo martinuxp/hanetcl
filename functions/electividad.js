@@ -12,14 +12,17 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // The questions are ours. The format follows the usual "would you rather"
 // interest tests, but no text comes from another test.
 //
-// The answers are scored here, not on the phone. Each account answers once;
-// the administration (Admin of the institution) or HNT can let someone
-// answer again (resetElectividad).
+// The answers are scored here, not on the phone. The test can be taken
+// again: each new attempt becomes the current result and the previous ones
+// stay in the person's history (decided 2026-11-03). The administration
+// (Admin of the institution) or HNT can delete someone's results
+// (resetElectividad).
 //
 // In hn-enrollmentdata, closed to the app (only these functions):
-//   electividadResults/{uid}
+//   electividadResults/{uid}            the latest attempt
 //     institutionId, courseId, answers { questionId: "a" | "b" },
-//     durationSec, version, createdAt
+//     durationSec, version, createdAt, attempts (how many in total)
+//   electividadResults/{uid}/attempts/{id}   the earlier ones, same fields
 //
 // The module is per institution (institutions/{id}.modules, "electividad").
 // An institution without that list keeps it on, like the other modules.
@@ -29,6 +32,7 @@ const COLLECTION = "electividadResults";
 const RESET_ROLES = ["Admin", "HNT"];
 const VERSION = 1;
 const MAX_DURATION_SEC = 4 * 60 * 60;
+const HISTORY_LIMIT = 10;
 
 // The nine areas, in the order they are listed when tied.
 const AREAS = [
@@ -449,14 +453,19 @@ async function requireModule(getAdminApp, profile) {
 }
 
 function build(getAdminApp) {
-  // The questions (without their areas) and one's result, if there is one.
+  // The questions (without their areas), one's current result, if there is
+  // one, and the earlier attempts, newest first.
   const getElectividad = onCall({ invoker: "public" }, async (request) => {
     const profile = await requireProfile(getAdminApp, request);
     await requireModule(getAdminApp, profile);
-    const doc = await identityDb(getAdminApp).collection(COLLECTION).doc(profile.uid).get();
-    if (doc.exists) return { result: resultOut(doc.data()), questions: [] };
+    const ref = identityDb(getAdminApp).collection(COLLECTION).doc(profile.uid);
+    const [doc, earlier] = await Promise.all([
+      ref.get(),
+      ref.collection("attempts").orderBy("createdAt", "desc").limit(HISTORY_LIMIT).get(),
+    ]);
     return {
-      result: null,
+      result: doc.exists ? resultOut(doc.data()) : null,
+      history: earlier.docs.map(attempt => ({ id: attempt.id, ...resultOut(attempt.data()) })),
       questions: QUESTIONS.map(question => ({ id: question.id, a: question.aText, b: question.bText })),
     };
   });
@@ -484,20 +493,26 @@ function build(getAdminApp) {
       version: VERSION,
       createdAt: FieldValue.serverTimestamp(),
     };
+    // The current result, if any, moves to the history.
     await identityDb(getAdminApp).runTransaction(async (tx) => {
       const current = await tx.get(ref);
-      if (current.exists) throw new HttpsError("already-exists", "Ya respondiste el test.");
-      tx.set(ref, data);
+      let attempts = 1;
+      if (current.exists) {
+        const { attempts: count, ...previous } = current.data();
+        attempts = (count || 1) + 1;
+        tx.set(ref.collection("attempts").doc(), previous);
+      }
+      tx.set(ref, { ...data, attempts });
     });
     return { result: { ...score(answers), durationSec, answeredAt: Date.now() } };
   });
 
-  // Lets one person answer again: the administration of their institution
-  // or HNT. The previous answers are deleted.
+  // Deletes one person's results, current and earlier: the administration of
+  // their institution or HNT.
   const resetElectividad = onCall({ invoker: "public" }, async (request) => {
     const profile = await requireProfile(getAdminApp, request);
     if (!RESET_ROLES.includes(profile.role)) {
-      throw new HttpsError("permission-denied", "Solo la administración puede habilitar otro intento.");
+      throw new HttpsError("permission-denied", "Solo la administración puede borrar resultados.");
     }
     const uid = typeof request.data?.uid === "string" ? request.data.uid : "";
     if (!uid || uid.includes("/")) throw new HttpsError("invalid-argument", "Falta la persona.");
@@ -507,7 +522,11 @@ function build(getAdminApp) {
     if (profile.role !== "HNT" && doc.data().institutionId !== profile.institutionId) {
       throw new HttpsError("permission-denied", "Esa persona no es de tu institución.");
     }
-    await ref.delete();
+    const earlier = await ref.collection("attempts").get();
+    const batch = identityDb(getAdminApp).batch();
+    earlier.docs.forEach(attempt => batch.delete(attempt.ref));
+    batch.delete(ref);
+    await batch.commit();
     return { reset: true };
   });
 
@@ -539,6 +558,7 @@ function build(getAdminApp) {
         top: result.areas.slice(0, 3).map(area => ({ id: area.id, name: area.name, percent: area.percent })),
         profile: result.profile,
         consistency: result.consistency.percent,
+        attempts: data.attempts || 1,
       };
     });
     results.sort((x, y) => x.courseId.localeCompare(y.courseId) || x.name.localeCompare(y.name));
