@@ -7,7 +7,8 @@
       "items": [
         "Nuevo en el Home: Herramientas, con HaNet Electividad, un test de intereses para elegir tus electivos de 3° medio.",
         "Son 72 preguntas donde eliges entre dos actividades. Puedes pausar y seguir después, y repetirlo cuando quieras: tus resultados anteriores quedan guardados para comparar.",
-        "Al terminar ves tus tres áreas de mayor interés con una animación, y después el detalle: todas las áreas, carreras relacionadas y tus comparaciones más claras."
+        "Al terminar ves tus tres áreas de mayor interés con una animación, y después el detalle: todas las áreas, carreras relacionadas y tus comparaciones más claras.",
+        "Docentes: ahora pueden compartir una tabla de especificaciones a HaNet desde cualquier app (Archivos, Drive, correo, WhatsApp). Eligen la clase y HaNet la lee como con \"Escanear T.E.\". Necesita la app instalada, no funciona en Expo Go."
       ]
     },
     {

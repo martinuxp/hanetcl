@@ -2085,6 +2085,17 @@
     "tuDiaYTusPruebas": "Tu día y tus pruebas",
     "version": "Versión"
   },
+  "share": {
+    "agregarUnaTablaDeEspecificaciones": "Agregar una tabla de especificaciones",
+    "archivoName": "Archivo: {{name}}",
+    "compartirAHanet": "Compartir a HaNet",
+    "eligeLaClaseHanetLee": "Elige la clase. HaNet lee la tabla y te muestra la evaluación para que la revises antes de guardarla.",
+    "enQueClase": "¿En qué clase?",
+    "noLlegoNingunArchivoVuelve": "No llegó ningún archivo. Vuelve a compartirlo desde la otra app.",
+    "noPudimosAbrirEseArchivo": "No pudimos abrir ese archivo.",
+    "noPudimosLeerLaTabla": "No pudimos leer la tabla. Puedes agregarla a mano desde ClassHall.",
+    "paraAgregarUnaTE": "Para agregar una T.E. tienes que ser docente de una clase en ClassHall."
+  },
   "tools": {
     "comenzar": "Comenzar",
     "disponible": "Disponible",

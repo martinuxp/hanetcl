@@ -317,6 +317,22 @@ async function stageDocument(picked: PickedDocument): Promise<StagedDocument> {
 }
 
 /** Moves an uploaded file into the Hall, optionally attached to an announcement or as an evaluation's T.E. */
+/**
+ * A file shared to HaNet from another app (the system share sheet), checked
+ * as a T.E. for the scanner. Throws DocumentError when it can't be read.
+ */
+export function sharedSpecTable(file: { path: string; fileName?: string | null; mimeType?: string | null; size?: number | null }): PickedDocument {
+  const name = file.fileName || file.path.split('/').pop() || 'tabla';
+  const extension = name.split('.').pop()?.toLowerCase() ?? '';
+  const mimeType = SCAN_TYPES.includes(file.mimeType ?? '') ? file.mimeType as string : MIME_BY_EXTENSION[extension];
+  if (!mimeType || !SCAN_TYPES.includes(mimeType)) {
+    throw new DocumentError(t('services.classhallService.paraEscanearEligeLaTabla'));
+  }
+  if ((file.size ?? 0) > MAX_DOCUMENT_BYTES) throw new DocumentError(t('services.classhallService.elArchivoPesaMasDe'));
+  const uri = file.path.startsWith('/') ? `file://${file.path}` : file.path;
+  return { uri, name, mimeType, size: file.size ?? 0 };
+}
+
 export async function attachStagedDocument(hallId: string, staged: StagedDocument, attach: Attach = {}) {
   const result = await httpsCallable<object, HallDocument>(functions, 'attachHallDocument')({ hallId, uploadPath: staged.uploadPath, name: staged.name, ...attach });
   return result.data;

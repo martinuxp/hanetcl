@@ -149,7 +149,24 @@
         ]
       ],
       "./plugins/with-android-build-limits",
-      "./plugins/with-android-widget-refresh"
+      "./plugins/with-android-widget-refresh",
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsFileWithMaxCount": 1,
+            "NSExtensionActivationSupportsImageWithMaxCount": 1
+          },
+          "iosShareExtensionName": "HaNetShare",
+          "iosShareExtensionDisplayName": "HaNet",
+          "iosAppGroupIdentifier": "group.art.muxp.hanetcl",
+          "androidIntentFilters": [
+            "application/pdf",
+            "image/*",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

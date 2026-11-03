@@ -106,8 +106,14 @@ jobs:
             [[ -e "$appex" ]] || continue
             target_name="$(basename "$appex" .appex)"
             target_entitlements="$entitlements_dir/$target_name.plist"
-            if [[ -f "ios/$target_name/$target_name.entitlements" ]]; then
-              entitlements_for "ios/$target_name/$target_name.entitlements" "$target_entitlements"
+            # The widget keeps <target>.entitlements; the share extension
+            # (HaNetShare) names its file ShareExtension.entitlements.
+            source_entitlements="ios/$target_name/$target_name.entitlements"
+            if [[ ! -f "$source_entitlements" ]]; then
+              source_entitlements="$(find "ios/$target_name" -maxdepth 1 -name '*.entitlements' 2>/dev/null | head -n 1)"
+            fi
+            if [[ -n "$source_entitlements" && -f "$source_entitlements" ]]; then
+              entitlements_for "$source_entitlements" "$target_entitlements"
               codesign --force --sign - --timestamp=none --entitlements "$target_entitlements" "$appex"
             else
               codesign --force --sign - --timestamp=none "$appex"
