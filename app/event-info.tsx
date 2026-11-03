@@ -7,6 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -310,11 +311,11 @@ export default function EventInfoScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <FrostedScreen style={styles.container}>
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 132 }]}
+        contentContainerStyle={withTopInset([styles.scrollContent, { paddingBottom: insets.bottom + 132 }], insets.top)}
       >
         <View style={styles.topBar}>
           <ThemedText style={styles.topBarDate} numberOfLines={1}>{formatLongDate(event.startDate)}</ThemedText>
@@ -526,7 +527,7 @@ export default function EventInfoScreen() {
           </View>
         </View>
       </AlertModal>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

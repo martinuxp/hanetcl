@@ -19,7 +19,8 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
 
 // Horario: the course's week, block by block, with what is on now. The
 // course's Directiva, the administration and HNT edit it. Each student also
@@ -28,6 +29,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // "Editar horario" opens the full screen to edit there.
 
 export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
+  // On its own the screen has a frosted status bar; inside the Calendar the
+  // Calendar's frosted header sits over it instead.
+  const insets = useSafeAreaInsets();
+  const calendarTop = useFrostedInset();
+  const top = embedded ? calendarTop : insets.top;
+  const Screen = embedded ? View : FrostedScreen;
   const router = useRouter();
   const { user } = useSession();
   const [courseId, setCourseId] = useState<string | null>(null);
@@ -110,10 +117,10 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/calendar'));
 
   return (
-    <SafeAreaView style={styles.screen} edges={embedded ? [] : ['top']}>
+    <Screen style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={AppColors.accent} />}
+        contentContainerStyle={withTopInset(styles.content, top)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={AppColors.accent} progressViewOffset={top} />}
         keyboardShouldPersistTaps="handled"
       >
         {!embedded && (
@@ -246,7 +253,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
         />
       )}
       {guardDialog}
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -16,7 +16,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 function evaluationNotice(date: number) {
   const days = daysUntil(date);
@@ -109,6 +110,7 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
 }
 
 export default function ClassHallScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing } = useSession();
 
@@ -176,8 +178,8 @@ export default function ClassHallScreen() {
   const loading = halls === null && !error;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.container} bottom>
+      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
           <ThemedText style={styles.brand}>HaNet <ThemedText style={styles.brandSmall}>ClassHall</ThemedText></ThemedText>
         </View>
@@ -256,7 +258,7 @@ export default function ClassHallScreen() {
         {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>Electivos y dominios</ThemedText>}
         {joinedHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
       </ScrollView>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

@@ -23,6 +23,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen } from '@/components/ui/frosted-screen';
 
 // The countdown number grows in weight on a narrow cut, so it stays a number.
 const NUMBER_STEPS = ['GoogleSansFlex_300Light_ExtraCondensed', 'GoogleSansFlex_500Medium_Condensed', AppFlexFonts.numbers] as const;
@@ -415,7 +416,7 @@ export default function AnniversaryScreen() {
     : [];
 
   return (
-    <View style={styles.container}>
+    <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + AppSpacing.xl }]} showsVerticalScrollIndicator={false}>
         {!!anniversary && <EventGlow position="top" colors={glow} />}
         {content()}
@@ -432,7 +433,7 @@ export default function AnniversaryScreen() {
         </HanetDialogActions>
       </HanetDialog>
       <StoryShareSheet item={story} onClose={() => setStory(null)} />
-    </View>
+    </FrostedScreen>
   );
 }
 

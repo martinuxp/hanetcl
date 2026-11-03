@@ -7,6 +7,7 @@ import { isBreak } from '@/services/schedule-service';
 import type { ScheduleBlock } from '@/services/schedule-service';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
 
 export const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -49,6 +50,7 @@ type MonthViewProps = {
 
 /** The month as a grid: a dot per event (up to three), today ringed, and the month's agenda below. */
 export function MonthView({ month, events, selectedDate, bottomInset, onPickDay, onOpenEvent }: MonthViewProps) {
+  const top = useFrostedInset();
   const today = new Date();
   const cells = useMemo(() => monthCells(month), [month]);
 
@@ -63,7 +65,7 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
   }, [monthEvents]);
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={withTopInset([styles.scroll, { paddingBottom: bottomInset }], top)} showsVerticalScrollIndicator={false}>
       <View style={styles.grid} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {WEEKDAYS.map((weekday, index) => (
           <View key={`${weekday}-${index}`} style={styles.cell}>
@@ -150,13 +152,14 @@ type WeekViewProps = {
  * it has. Saturday and Sunday show up only when something falls on them.
  */
 export function WeekView({ days, events, blocksOn, selectedDate, bottomInset, onPickDay, onOpenEvent }: WeekViewProps) {
+  const top = useFrostedInset();
   const today = new Date();
   const rows = days
     .map((date, index) => ({ date, index, events: getEventsForDate(events, date), classes: blocksOn(date).filter(block => !isBreak(block)) }))
     .filter(row => row.index < 5 || row.events.length > 0);
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, styles.week, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={withTopInset([styles.scroll, styles.week, { paddingBottom: bottomInset }], top)} showsVerticalScrollIndicator={false}>
       {rows.map(row => {
         const isToday = isSameDay(row.date, today);
         const selected = isSameDay(row.date, selectedDate);
@@ -219,6 +222,7 @@ type YearViewProps = {
 
 /** Twelve months with how many events each holds; the current month is ringed. */
 export function YearView({ year, events, selectedMonth, bottomInset, onPickMonth }: YearViewProps) {
+  const top = useFrostedInset();
   const today = new Date();
   const counts = useMemo(() => {
     const perMonth = Array.from({ length: 12 }, () => 0);
@@ -229,7 +233,7 @@ export function YearView({ year, events, selectedMonth, bottomInset, onPickMonth
   }, [events, year]);
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, styles.yearGrid, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={withTopInset([styles.scroll, styles.yearGrid, { paddingBottom: bottomInset }], top)} showsVerticalScrollIndicator={false}>
       {MONTH_NAMES.map((name, index) => {
         const isCurrent = today.getFullYear() === year && today.getMonth() === index;
         const selected = selectedMonth.getFullYear() === year && selectedMonth.getMonth() === index;

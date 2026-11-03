@@ -21,6 +21,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen } from '@/components/ui/frosted-screen';
 
 function openLink(url: string) {
   if (url) void WebBrowser.openBrowserAsync(url);
@@ -179,7 +180,7 @@ export default function EventDetailScreen() {
   const reactions = event.reactions ?? [];
 
   return (
-    <View style={styles.container}>
+    <FrostedScreen style={styles.container}>
       <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
         <EventGlow position="top" colors={event.palette} />
         <EventGlow position="bottom" colors={event.palette} />
@@ -379,7 +380,7 @@ export default function EventDetailScreen() {
           <HanetButton label={busy ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={busy} onPress={() => void remove()} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
-    </View>
+    </FrostedScreen>
   );
 }
 

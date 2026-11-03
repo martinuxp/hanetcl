@@ -20,7 +20,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -46,6 +47,7 @@ function initialsOf(name: string) {
 }
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
 
@@ -116,11 +118,11 @@ export default function ProfileScreen() {
   }, [qrHandle, showQr, user]);
 
   const skeleton = (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.page}>
+    <FrostedScreen style={styles.screen}>
+      <View style={withTopInset(styles.page, insets.top)}>
         <ProfileSkeleton />
       </View>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 
   if (initializing) return skeleton;
@@ -172,8 +174,8 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.screen}>
+      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="HaNet ID">
             <Image source={ICONS.logo} style={styles.brandMark} contentFit="contain" />
@@ -266,7 +268,7 @@ export default function ProfileScreen() {
         {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.staleNote}>No pudimos actualizar tu perfil; puede que veas datos de hace un momento.</ThemedText>}
 
       </ScrollView>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

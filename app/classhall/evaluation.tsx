@@ -13,7 +13,8 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 /** For tables with many skills: each value under its column name, scrolling sideways. */
 function PointCells({ labels, values }: { labels: string[]; values: number[] }) {
@@ -44,6 +45,7 @@ function Points({ values, header }: { values: (string | number)[]; header?: bool
 }
 
 export default function HallEvaluationScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hallId, id } = useLocalSearchParams<{ hallId: string; id: string }>();
   const { user, initializing } = useSession();
@@ -123,8 +125,8 @@ export default function HallEvaluationScreen() {
   const legend = skills.filter(skill => skillAbbreviation(skill) !== skill.toLocaleUpperCase('es'));
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <FrostedScreen style={styles.container}>
+      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
           <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
           <ThemedText numberOfLines={1} style={styles.topTitle}>Contenidos a evaluar</ThemedText>
@@ -281,7 +283,7 @@ export default function HallEvaluationScreen() {
           <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={deleting} onPress={remove} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

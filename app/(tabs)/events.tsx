@@ -20,7 +20,8 @@ import { httpsCallable } from 'firebase/functions';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
 const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = [
   { value: 'regional', label: 'Cerca de mí', accessibilityLabel: 'Cerca de mí' },
@@ -31,6 +32,7 @@ const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = 
 const CITY = { name: 'Temuco', region: 'Región de la Araucanía' };
 
 export default function EventsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
   const { width } = useWindowDimensions();
@@ -214,7 +216,7 @@ export default function EventsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <FrostedScreen style={styles.container}>
       <FlatList
         data={visible}
         keyExtractor={item => item.id}
@@ -236,9 +238,9 @@ export default function EventsScreen() {
         ListEmptyComponent={empty ?? undefined}
         ListFooterComponent={<ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>}
         ItemSeparatorComponent={() => <View style={{ height: AppSpacing.lg }} />}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={withTopInset(styles.content, insets.top)}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.accent} progressViewOffset={insets.top} />}
       />
 
       <HanetDialog
@@ -263,7 +265,7 @@ export default function EventsScreen() {
           <HanetButton label="Jornada tarde" variant={list?.jornada === 'tarde' ? 'primary' : 'surface'} disabled={savingJornada} onPress={() => void chooseJornada('tarde')} />
         </View>
       </HanetDialog>
-    </SafeAreaView>
+    </FrostedScreen>
   );
 }
 

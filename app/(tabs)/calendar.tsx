@@ -1,7 +1,7 @@
 import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, useWindowDimensions, type ScrollViewInstance, type ViewInstance } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FrostedScreen, useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { CalendarDaysIcon } from '@/assets/animated-icons/calendar';
@@ -440,8 +440,10 @@ export default function CalendarScreen() {
   const today = new Date();
   const isTodaySelected = isSameDay(currentDayInfo.dateObj, today);
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+  // The header (and the day strip under it) float over the content as
+  // frosted glass: what scrolls under them shows through, blurred.
+  const header = (
+    <>
       {/* Header */}
       {view === 'schedule' ? (
         <View style={styles.header}>
@@ -552,17 +554,9 @@ export default function CalendarScreen() {
           </Pressable>
         </View>
       )}
-
-      <View ref={bodyRef} onLayout={measureBody} style={styles.body}>
-      <Animated.View
-        key={view}
-        entering={zoomMotion?.enter}
-        exiting={zoomMotion?.exit}
-        style={[styles.body, zoom && { transformOrigin: [zoom.origin[0], zoom.origin[1], 0] }]}
-      >
       {/* Day Selector */}
       {view === 'day' && (
-      <View style={styles.daySelectorWrap}>
+      <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(180)} exiting={reduceMotion ? undefined : FadeOut.duration(120)} style={styles.daySelectorWrap}>
       <Animated.View pointerEvents="none" style={[styles.dayIndicator, indicatorStyle]} />
       <Animated.View key={weekKey} entering={weekEntering} style={styles.daySelector}>
         {weekDays.map((day, index) => {
@@ -587,145 +581,157 @@ export default function CalendarScreen() {
           );
         })}
       </Animated.View>
-      </View>
-      )}
-
-      {/* Loading */}
-      {view === 'schedule' ? (
-        <ScheduleView embedded />
-      ) : loading || initializing ? (
-        <View style={styles.loadingContainer}>
-          <CalendarDaySkeleton />
-        </View>
-      ) : loadError ? (
-        <View accessibilityLiveRegion="polite" style={styles.statusContainer}>
-          <CalendarDaysIcon size={64} color={AppColors.surfaceSoft} />
-          <ThemedText style={styles.emptyTitle}>Calendario no disponible</ThemedText>
-          <ThemedText style={styles.statusText}>{loadError}</ThemedText>
-          <HanetButton
-            label={user ? 'Intentar de nuevo' : 'Iniciar sesión'}
-            onPress={() => user ? void loadEvents() : router.push('/auth')}
-            style={styles.statusButton}
-          />
-        </View>
-      ) : view === 'week' ? (
-        <GestureDetector gesture={levelSwipe}>
-        <Animated.View style={[styles.pagerView, swipeStyle]}>
-        <Animated.View key={`week-${weekKey}`} entering={weekEntering} style={styles.pagerView}>
-          <WeekView
-            days={weekDays.map(day => day.dateObj)}
-            events={allEvents}
-            blocksOn={date => blocksOn(week, scheduleDay(date))}
-            selectedDate={currentDayInfo.dateObj}
-            bottomInset={TAB_BAR_CLEARANCE}
-            onPickDay={pickDay}
-            onOpenEvent={openEvent}
-          />
-        </Animated.View>
-        </Animated.View>
-        </GestureDetector>
-      ) : view === 'month' ? (
-        <GestureDetector gesture={levelSwipe}>
-        <Animated.View style={[styles.pagerView, swipeStyle]}>
-        <Animated.View key={`month-${visibleMonth.toISOString()}`} entering={monthEntering} style={styles.pagerView}>
-          <MonthView
-            month={visibleMonth}
-            events={allEvents}
-            selectedDate={currentDayInfo.dateObj}
-            bottomInset={TAB_BAR_CLEARANCE}
-            onPickDay={pickDay}
-            onOpenEvent={openEvent}
-          />
-        </Animated.View>
-        </Animated.View>
-        </GestureDetector>
-      ) : view === 'year' ? (
-        <GestureDetector gesture={levelSwipe}>
-        <Animated.View style={[styles.pagerView, swipeStyle]}>
-        <Animated.View key={`year-${visibleMonth.getFullYear()}`} entering={monthEntering} style={styles.pagerView}>
-          <YearView
-            year={visibleMonth.getFullYear()}
-            events={allEvents}
-            selectedMonth={visibleMonth}
-            bottomInset={TAB_BAR_CLEARANCE}
-            onPickMonth={pickMonth}
-          />
-        </Animated.View>
-        </Animated.View>
-        </GestureDetector>
-      ) : (
-        /* Pages Swipe View */
-        <Animated.View key={weekKey} entering={pagesEntering} style={styles.pagerView}>
-          {Platform.OS === 'web' ? (
-            <ScrollView
-              ref={webPagerRef}
-              horizontal
-              pagingEnabled
-              onLayout={() => webPagerRef.current?.scrollTo({ x: (selectedPageIndex + 1) * width, animated: false })}
-              showsHorizontalScrollIndicator={false}
-              style={styles.pagerView}
-              scrollEventThrottle={16}
-              onScrollBeginDrag={startDragging}
-              onScroll={(e) => {
-                if (!draggingRef.current) return;
-                const page = e.nativeEvent.contentOffset.x / width;
-                trackPages(Math.floor(page), page - Math.floor(page));
-              }}
-              onMomentumScrollEnd={(e) => {
-                handlePageSelected(Math.round(e.nativeEvent.contentOffset.x / width));
-                stopDragging();
-              }}
-            >
-              {pageDates.map((date, page) => (
-                <View key={`${weekKey}-${page}`} style={[styles.page, { width }]}>
-                  <DailyTimeline
-                    isAdmin={canAddEvents}
-                    events={getEventsForDate(allEvents, date)}
-                    blocks={blocksOn(week, scheduleDay(date))}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    lastUpdated={lastUpdated}
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <PagerView
-              key={weekKey}
-              style={styles.pagerView}
-              initialPage={selectedPageIndex + 1}
-              ref={pagerRef}
-              onPageSelected={(e: { nativeEvent: { position: number } }) => handlePageSelected(e.nativeEvent.position)}
-              onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {
-                if (draggingRef.current) trackPages(e.nativeEvent.position, e.nativeEvent.offset);
-              }}
-              onPageScrollStateChanged={(e: { nativeEvent: { pageScrollState: string } }) => {
-                // While settling the pill keeps following the pages; it hands
-                // over to the spring only once they rest.
-                if (e.nativeEvent.pageScrollState === 'dragging') startDragging();
-                else if (e.nativeEvent.pageScrollState === 'idle') stopDragging();
-              }}
-            >
-              {pageDates.map((date, page) => (
-                <View key={`${weekKey}-${page}`} style={styles.page}>
-                  <DailyTimeline
-                    isAdmin={canAddEvents}
-                    events={getEventsForDate(allEvents, date)}
-                    blocks={blocksOn(week, scheduleDay(date))}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    lastUpdated={lastUpdated}
-                  />
-                </View>
-              ))}
-            </PagerView>
-          )}
-        </Animated.View>
-      )}
       </Animated.View>
-      </View>
+      )}
+    </>
+  );
 
-    </SafeAreaView>
+  return (
+    <FrostedScreen style={styles.container} header={header}>
+      {top => (
+        <View ref={bodyRef} onLayout={measureBody} style={styles.body}>
+        <Animated.View
+          key={view}
+          entering={zoomMotion?.enter}
+          exiting={zoomMotion?.exit}
+          style={[styles.body, zoom && { transformOrigin: [zoom.origin[0], zoom.origin[1], 0] }]}
+        >
+        {/* Loading */}
+        {view === 'schedule' ? (
+          <ScheduleView embedded />
+        ) : loading || initializing ? (
+          <View style={withTopInset(styles.loadingContainer, top)}>
+            <CalendarDaySkeleton />
+          </View>
+        ) : loadError ? (
+          <View accessibilityLiveRegion="polite" style={withTopInset(styles.statusContainer, top)}>
+            <CalendarDaysIcon size={64} color={AppColors.surfaceSoft} />
+            <ThemedText style={styles.emptyTitle}>Calendario no disponible</ThemedText>
+            <ThemedText style={styles.statusText}>{loadError}</ThemedText>
+            <HanetButton
+              label={user ? 'Intentar de nuevo' : 'Iniciar sesión'}
+              onPress={() => user ? void loadEvents() : router.push('/auth')}
+              style={styles.statusButton}
+            />
+          </View>
+        ) : view === 'week' ? (
+          <GestureDetector gesture={levelSwipe}>
+          <Animated.View style={[styles.pagerView, swipeStyle]}>
+          <Animated.View key={`week-${weekKey}`} entering={weekEntering} style={styles.pagerView}>
+            <WeekView
+              days={weekDays.map(day => day.dateObj)}
+              events={allEvents}
+              blocksOn={date => blocksOn(week, scheduleDay(date))}
+              selectedDate={currentDayInfo.dateObj}
+              bottomInset={TAB_BAR_CLEARANCE}
+              onPickDay={pickDay}
+              onOpenEvent={openEvent}
+            />
+          </Animated.View>
+          </Animated.View>
+          </GestureDetector>
+        ) : view === 'month' ? (
+          <GestureDetector gesture={levelSwipe}>
+          <Animated.View style={[styles.pagerView, swipeStyle]}>
+          <Animated.View key={`month-${visibleMonth.toISOString()}`} entering={monthEntering} style={styles.pagerView}>
+            <MonthView
+              month={visibleMonth}
+              events={allEvents}
+              selectedDate={currentDayInfo.dateObj}
+              bottomInset={TAB_BAR_CLEARANCE}
+              onPickDay={pickDay}
+              onOpenEvent={openEvent}
+            />
+          </Animated.View>
+          </Animated.View>
+          </GestureDetector>
+        ) : view === 'year' ? (
+          <GestureDetector gesture={levelSwipe}>
+          <Animated.View style={[styles.pagerView, swipeStyle]}>
+          <Animated.View key={`year-${visibleMonth.getFullYear()}`} entering={monthEntering} style={styles.pagerView}>
+            <YearView
+              year={visibleMonth.getFullYear()}
+              events={allEvents}
+              selectedMonth={visibleMonth}
+              bottomInset={TAB_BAR_CLEARANCE}
+              onPickMonth={pickMonth}
+            />
+          </Animated.View>
+          </Animated.View>
+          </GestureDetector>
+        ) : (
+          /* Pages Swipe View */
+          <Animated.View key={weekKey} entering={pagesEntering} style={styles.pagerView}>
+            {Platform.OS === 'web' ? (
+              <ScrollView
+                ref={webPagerRef}
+                horizontal
+                pagingEnabled
+                onLayout={() => webPagerRef.current?.scrollTo({ x: (selectedPageIndex + 1) * width, animated: false })}
+                showsHorizontalScrollIndicator={false}
+                style={styles.pagerView}
+                scrollEventThrottle={16}
+                onScrollBeginDrag={startDragging}
+                onScroll={(e) => {
+                  if (!draggingRef.current) return;
+                  const page = e.nativeEvent.contentOffset.x / width;
+                  trackPages(Math.floor(page), page - Math.floor(page));
+                }}
+                onMomentumScrollEnd={(e) => {
+                  handlePageSelected(Math.round(e.nativeEvent.contentOffset.x / width));
+                  stopDragging();
+                }}
+              >
+                {pageDates.map((date, page) => (
+                  <View key={`${weekKey}-${page}`} style={[styles.page, { width }]}>
+                    <DailyTimeline
+                      isAdmin={canAddEvents}
+                      events={getEventsForDate(allEvents, date)}
+                      blocks={blocksOn(week, scheduleDay(date))}
+                      refreshing={refreshing}
+                      onRefresh={onRefresh}
+                      lastUpdated={lastUpdated}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <PagerView
+                key={weekKey}
+                style={styles.pagerView}
+                initialPage={selectedPageIndex + 1}
+                ref={pagerRef}
+                onPageSelected={(e: { nativeEvent: { position: number } }) => handlePageSelected(e.nativeEvent.position)}
+                onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {
+                  if (draggingRef.current) trackPages(e.nativeEvent.position, e.nativeEvent.offset);
+                }}
+                onPageScrollStateChanged={(e: { nativeEvent: { pageScrollState: string } }) => {
+                  // While settling the pill keeps following the pages; it hands
+                  // over to the spring only once they rest.
+                  if (e.nativeEvent.pageScrollState === 'dragging') startDragging();
+                  else if (e.nativeEvent.pageScrollState === 'idle') stopDragging();
+                }}
+              >
+                {pageDates.map((date, page) => (
+                  <View key={`${weekKey}-${page}`} style={styles.page}>
+                    <DailyTimeline
+                      isAdmin={canAddEvents}
+                      events={getEventsForDate(allEvents, date)}
+                      blocks={blocksOn(week, scheduleDay(date))}
+                      refreshing={refreshing}
+                      onRefresh={onRefresh}
+                      lastUpdated={lastUpdated}
+                    />
+                  </View>
+                ))}
+              </PagerView>
+            )}
+          </Animated.View>
+        )}
+        </Animated.View>
+        </View>
+      )}
+    </FrostedScreen>
   );
 }
 
@@ -759,12 +765,13 @@ function dayItems(events: CalendarEvent[], blocks: ScheduleBlock[]): TimelineIte
 }
 
 function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[]; blocks: ScheduleBlock[]; refreshing: boolean; onRefresh: () => void; lastUpdated: Date | null }) {
+  const top = useFrostedInset();
   if (events.length === 0 && blocks.length === 0) {
     return (
       <ScrollView
-        contentContainerStyle={[styles.timelineScroll, styles.emptyContainer]}
+        contentContainerStyle={withTopInset([styles.timelineScroll, styles.emptyContainer], top)}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} progressViewOffset={top} />}
       >
         <CalendarDaysIcon size={72} color={AppColors.surfaceSoft} style={{ marginBottom: 12 }} />
         <ThemedText style={styles.emptyTitle}>Sin eventos</ThemedText>
@@ -776,9 +783,9 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
 
   return (
     <ScrollView
-      contentContainerStyle={styles.timelineScroll}
+      contentContainerStyle={withTopInset(styles.timelineScroll, top)}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} progressViewOffset={top} />}
     >
       {dayItems(events, blocks).map((item, index) => (
         <View key={item.kind === 'event' ? item.event.id : `block-${item.block.id}`} style={[styles.timelineRow, item.kind === 'block' && isBreak(item.block) && styles.timelineRowBreak]}>
