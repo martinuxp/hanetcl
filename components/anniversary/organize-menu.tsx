@@ -11,6 +11,7 @@ import type { Href } from 'expo-router';
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // What the Aniversario shares with the global bar: organizers get an
 // "Organizar" pill in its center, and the tools grow out of it as the
@@ -61,8 +62,8 @@ export function OrganizePill({ open }: { open: boolean }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Organizar"
-      accessibilityHint={open ? 'Cierra el menú' : 'Avisos, pruebas flash, puntos, actividades y plazos'}
+      accessibilityLabel={t('anniversary.welcome.organizar')}
+      accessibilityHint={open ? t('components.anniversary.organizeMenu.cierraElMenu') : t('components.anniversary.organizeMenu.avisosPruebasFlashPuntosActividades')}
       accessibilityState={{ expanded: open }}
       onPress={() => {
         tick();
@@ -72,7 +73,7 @@ export function OrganizePill({ open }: { open: boolean }) {
     >
       <Animated.View layout={reduceMotion ? undefined : LinearTransition.springify().stiffness(SPRING_SMOOTH.stiffness).damping(SPRING_SMOOTH.damping)} style={styles.pill}>
         <Ionicons name="options-outline" size={18} color={AppColors.textOnLight} />
-        <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.pillText}>Organizar</ThemedText>
+        <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.pillText}>{t('anniversary.welcome.organizar')}</ThemedText>
         <Animated.View style={chevronStyle}>
           <CustomIcon name="chevron-right" size={14} color={AppColors.textOnLight} />
         </Animated.View>
@@ -91,15 +92,15 @@ export function OrganizeMenu() {
   const { canPost } = useOrganizeBar();
 
   const main: Tool[] = [
-    ...(canPost ? [{ key: 'notice', label: 'Publicar un aviso', icon: <Ionicons name="megaphone-outline" size={22} color={ICON} />, href: { pathname: '/feed-post', params: { tag: ANNIVERSARY_TAG } } } as Tool] : []),
-    { key: 'flash', label: 'Prueba flash', icon: <BoltIcon size={22} color={ICON} />, href: '/anniversary/flash' },
-    { key: 'points', label: 'Sumar o descontar', icon: <Ionicons name="swap-vertical" size={22} color={ICON} />, href: '/anniversary/points' },
+    ...(canPost ? [{ key: 'notice', label: t('common.publicarUnAviso'), icon: <Ionicons name="megaphone-outline" size={22} color={ICON} />, href: { pathname: '/feed-post', params: { tag: ANNIVERSARY_TAG } } } as Tool] : []),
+    { key: 'flash', label: t('common.pruebaFlash'), icon: <BoltIcon size={22} color={ICON} />, href: '/anniversary/flash' },
+    { key: 'points', label: t('anniversary.points.sumarODescontar'), icon: <Ionicons name="swap-vertical" size={22} color={ICON} />, href: '/anniversary/points' },
   ];
   const setup: Tool[] = [
-    { key: 'activity', label: 'Nueva actividad', icon: <Ionicons name="add-circle-outline" size={22} color={ICON} />, href: '/anniversary/activity' },
-    { key: 'deadline', label: 'Nuevo plazo', icon: <Ionicons name="alarm-outline" size={22} color={ICON} />, href: '/anniversary/deadline' },
-    { key: 'leads', label: 'Jefes de alianza', icon: <CrownIcon size={22} color={ICON} />, href: '/anniversary/leads' },
-    { key: 'setup', label: 'Alianzas y fechas', icon: <Ionicons name="color-palette-outline" size={22} color={ICON} />, href: '/anniversary/setup' },
+    { key: 'activity', label: t('common.nuevaActividad'), icon: <Ionicons name="add-circle-outline" size={22} color={ICON} />, href: '/anniversary/activity' },
+    { key: 'deadline', label: t('anniversary.deadline.nuevoPlazo'), icon: <Ionicons name="alarm-outline" size={22} color={ICON} />, href: '/anniversary/deadline' },
+    { key: 'leads', label: t('common.jefesDeAlianza'), icon: <CrownIcon size={22} color={ICON} />, href: '/anniversary/leads' },
+    { key: 'setup', label: t('anniversary.setup.alianzasYFechas'), icon: <Ionicons name="color-palette-outline" size={22} color={ICON} />, href: '/anniversary/setup' },
   ];
 
   const row = (tool: Tool) => (

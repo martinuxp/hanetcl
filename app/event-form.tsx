@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 type GalleryItem = { type: 'keep' | 'url'; uri: string } | { type: 'upload'; uri: string; uploadPath: string };
 
@@ -57,14 +58,14 @@ function defaultStart() {
   return date.getTime();
 }
 
-const YES_NO = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Sí' }];
-const JORNADA_OPTIONS = [{ value: 'ambas', label: 'Ambas' }, { value: 'manana', label: 'Mañana' }, { value: 'tarde', label: 'Tarde' }];
-const SIGNUP_OPTIONS = [{ value: 'list', label: 'Con lista' }, { value: 'count', label: 'Solo contador' }, { value: 'none', label: 'Sin inscripción' }];
+const YES_NO = [{ value: 'no', label: t('classhall.taskForm.no') }, { value: 'yes', label: t('eventForm.si') }];
+const JORNADA_OPTIONS = [{ value: 'ambas', label: t('eventForm.ambas') }, { value: 'manana', label: t('common.manana') }, { value: 'tarde', label: t('eventForm.tarde') }];
+const SIGNUP_OPTIONS = [{ value: 'list', label: t('eventForm.conLista') }, { value: 'count', label: t('eventForm.soloContador') }, { value: 'none', label: t('eventForm.sinInscripcion') }];
 
 function Field({ label, optional, children }: { label: string; optional?: boolean; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>{label}{optional ? <ThemedText style={styles.optional}> (opcional)</ThemedText> : null}</ThemedText>
+      <ThemedText style={styles.label}>{label}{optional ? <ThemedText style={styles.optional}>{' '}{t('common.opcional')}</ThemedText> : null}</ThemedText>
       {children}
     </View>
   );
@@ -164,9 +165,9 @@ function EventFormScreen() {
       ].slice(0, MAX_EVENT_GALLERY));
       setImportWarnings(draft.warnings);
       const missing = [!draft.startsAt && 'la fecha', !draft.venueName && 'el lugar', !draft.priceFrom && 'el precio'].filter(Boolean);
-      setImportNote(missing.length ? `Listo. Revisa y completa ${missing.join(', ')}.` : 'Listo. Revisa los datos antes de publicar.');
+      setImportNote(missing.length ? t('eventForm.listoRevisaYCompletaJoin', { join: missing.join(', ') }) : t('eventForm.listoRevisaLosDatosAntes'));
     } catch (importError) {
-      setImportNote(describeAuthError(importError, 'No pudimos leer esa página. Carga el evento a mano.'));
+      setImportNote(describeAuthError(importError, t('eventForm.noPudimosLeerEsaPagina')));
     } finally {
       setImporting(false);
     }
@@ -179,7 +180,7 @@ function EventFormScreen() {
       const picked = await pickEventCover();
       if (picked) setCover(picked);
     } catch (pickError) {
-      setError(describeAuthError(pickError, 'No pudimos subir la imagen.'));
+      setError(describeAuthError(pickError, t('eventForm.noPudimosSubirLaImagen')));
     } finally {
       setUploading(false);
     }
@@ -192,7 +193,7 @@ function EventFormScreen() {
       const picked = await pickEventCover('gallery');
       if (picked) setGallery(current => [...current, { type: 'upload' as const, uri: picked.localUri, uploadPath: picked.uploadPath }].slice(0, MAX_EVENT_GALLERY));
     } catch (pickError) {
-      setError(describeAuthError(pickError, 'No pudimos subir la foto.'));
+      setError(describeAuthError(pickError, t('eventForm.noPudimosSubirLaFoto')));
     } finally {
       setAddingPhoto(false);
     }
@@ -204,13 +205,13 @@ function EventFormScreen() {
     try {
       const found = await fetchWikipediaSummary(form.editorialSubject);
       if (!found) {
-        setWiki({ busy: false, note: 'No encontramos un artículo con ese nombre. Prueba con el nombre completo.' });
+        setWiki({ busy: false, note: t('eventForm.noEncontramosUnArticuloCon') });
         return;
       }
       update({ editorialSummary: found.summary, editorialSourceName: 'Wikipedia', editorialSourceUrl: found.url });
-      setWiki({ busy: false, note: `Traído de «${found.title}». Revisa que sea la persona o el lugar correcto.` });
+      setWiki({ busy: false, note: t('eventForm.traidoDeTitleRevisaQue', { title: found.title }) });
     } catch {
-      setWiki({ busy: false, note: 'Wikipedia no responde. Inténtalo nuevamente.' });
+      setWiki({ busy: false, note: t('eventForm.wikipediaNoRespondeIntentaloNuevamente') });
     }
   };
 
@@ -255,19 +256,19 @@ function EventFormScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos publicar el evento. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('eventForm.noPudimosPublicarElEvento')));
       setSubmitting(false);
     }
   };
 
-  const label = params.id ? 'Guardar cambios' : 'Publicar evento';
+  const label = params.id ? t('common.guardarCambios') : t('eventForm.publicarEvento');
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: dirty && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready,
-    title: params.id ? '¿Descartar los cambios?' : '¿Descartar este evento?',
-    message: params.id ? 'El evento quedará como estaba.' : 'Todavía no lo has publicado.',
+    title: params.id ? t('common.descartarLosCambios') : t('eventForm.descartarEsteEvento'),
+    message: params.id ? t('eventForm.elEventoQuedaraComoEstaba') : t('classhall.announce.todaviaNoLoHasPublicado'),
   });
 
   const input = (key: keyof Form, placeholder: string, extra: Partial<React.ComponentProps<typeof TextInput>> = {}) => (
@@ -292,21 +293,21 @@ function EventFormScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <ThemedText accessibilityRole="header" style={styles.title}>
-        {params.id ? 'Editar evento' : regional ? 'Evento de la ciudad' : 'Evento del liceo'}
+        {params.id ? t('eventForm.editarEvento') : regional ? t('eventForm.eventoDeLaCiudad') : t('eventForm.eventoDelLiceo')}
       </ThemedText>
       <ThemedText style={styles.lead}>
         {regional
-          ? 'Aparece en "Cerca de mí" para toda la comunidad HaNet de la ciudad.'
-          : 'Aparece en "En mi institución" para los estudiantes de la jornada que elijas.'}
+          ? t('eventForm.apareceEnCercaDeMi')
+          : t('eventForm.apareceEnEnMiInstitucion')}
       </ThemedText>
 
       {regional && !params.id && (
         <View style={local.importCard}>
-          <ThemedText style={styles.label}>Importar desde link</ThemedText>
-          <ThemedText style={styles.hint}>TuAcceso, Portal Tickets, Ticketplus o Passline (Vamoh solo en prueba). Llenamos el formulario con los datos de la página; revisa todo antes de publicar.</ThemedText>
+          <ThemedText style={styles.label}>{t('eventForm.importarDesdeLink')}</ThemedText>
+          <ThemedText style={styles.hint}>{t('eventForm.tuaccesoPortalTicketsTicketplusO')}</ThemedText>
           <View style={local.importRow}>
             <TextInput
-              accessibilityLabel="Link del evento en la ticketera"
+              accessibilityLabel={t('eventForm.linkDelEventoEnLa')}
               value={importUrl}
               onChangeText={setImportUrl}
               placeholder="https://ticketplus.cl/events/…"
@@ -318,7 +319,7 @@ function EventFormScreen() {
               style={[styles.input, local.importInput]}
             />
             <Pressable accessibilityRole="button" disabled={importing || !importUrl.trim()} onPress={() => void runImport()} style={({ pressed }) => [local.pill, (importing || !importUrl.trim()) && styles.submitDisabled, pressed && styles.pressed]}>
-              {importing ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>Importar</ThemedText>}
+              {importing ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>{t('eventForm.importar')}</ThemedText>}
             </Pressable>
           </View>
           {!!importNote && <ThemedText accessibilityLiveRegion="polite" style={styles.hint}>{importNote}</ThemedText>}
@@ -328,113 +329,113 @@ function EventFormScreen() {
         </View>
       )}
 
-      <Field label="Imagen">
-        <Pressable accessibilityRole="button" accessibilityLabel={shownCover ? 'Cambiar la imagen' : 'Elegir una imagen'} disabled={uploading || submitting} onPress={() => void chooseCover()} style={({ pressed }) => [local.cover, pressed && styles.pressed]}>
+      <Field label={t('eventForm.imagen')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={shownCover ? t('eventForm.cambiarLaImagen') : t('eventForm.elegirUnaImagen')} disabled={uploading || submitting} onPress={() => void chooseCover()} style={({ pressed }) => [local.cover, pressed && styles.pressed]}>
           {shownCover ? <Image source={{ uri: shownCover }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
           <View style={local.coverLabel}>
-            {uploading ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>{shownCover ? 'Cambiar imagen' : 'Elegir imagen'}</ThemedText>}
+            {uploading ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>{shownCover ? t('eventForm.cambiarImagen') : t('eventForm.elegirImagen')}</ThemedText>}
           </View>
         </Pressable>
-        {regional && !!form.imageUrl && !cover && <ThemedText style={styles.hint}>Imagen de la ticketera. Si tienes una propia, súbela.</ThemedText>}
+        {regional && !!form.imageUrl && !cover && <ThemedText style={styles.hint}>{t('eventForm.imagenDeLaTicketeraSi')}</ThemedText>}
       </Field>
 
-      <Field label="Fotos" optional>
+      <Field label={t('eventForm.fotos')} optional>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.gallery}>
           {gallery.map((item, index) => (
             <View key={item.uri} style={local.thumb}>
               <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-              <Pressable accessibilityRole="button" accessibilityLabel={`Quitar la foto ${index + 1}`} hitSlop={8} disabled={submitting} onPress={() => setGallery(current => current.filter(other => other.uri !== item.uri))} style={({ pressed }) => [local.thumbRemove, pressed && styles.pressed]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('eventForm.quitarLaFotoNumber', { number: index + 1 })} hitSlop={8} disabled={submitting} onPress={() => setGallery(current => current.filter(other => other.uri !== item.uri))} style={({ pressed }) => [local.thumbRemove, pressed && styles.pressed]}>
                 <ThemedText style={local.thumbRemoveText}>✕</ThemedText>
               </Pressable>
             </View>
           ))}
           {gallery.length < MAX_EVENT_GALLERY && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Agregar foto" disabled={addingPhoto || submitting} onPress={() => void addPhoto()} style={({ pressed }) => [local.thumb, local.thumbAdd, pressed && styles.pressed]}>
-              {addingPhoto ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>+ Foto</ThemedText>}
+            <Pressable accessibilityRole="button" accessibilityLabel={t('eventForm.agregarFoto')} disabled={addingPhoto || submitting} onPress={() => void addPhoto()} style={({ pressed }) => [local.thumb, local.thumbAdd, pressed && styles.pressed]}>
+              {addingPhoto ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>{t('eventForm.foto')}</ThemedText>}
             </Pressable>
           )}
         </ScrollView>
-        <ThemedText style={styles.hint}>Hasta {MAX_EVENT_GALLERY} fotos del evento o del lugar. Aparecen bajo el botón de compra.</ThemedText>
+        <ThemedText style={styles.hint}>{t('eventForm.hastaMaxeventgalleryFotosDelEvento', { maxEventGallery: MAX_EVENT_GALLERY })}</ThemedText>
       </Field>
 
-      <Field label="Nombre">{input('title', regional ? 'Candelabro - Tour Chile' : 'Fiesta de aniversario 2026', { maxLength: 120, accessibilityLabel: 'Nombre del evento' })}</Field>
-      <Field label="Tipo">
-        <HanetSelect label="Tipo de evento" options={EVENT_CATEGORIES.map(item => ({ value: item.value, label: item.label }))} value={form.category} onChange={category => update({ category })} disabled={submitting} />
+      <Field label={t('common.nombre')}>{input('title', regional ? t('eventForm.candelabroTourChile') : t('eventForm.fiestaDeAniversario2026'), { maxLength: 120, accessibilityLabel: t('eventForm.nombreDelEvento') })}</Field>
+      <Field label={t('eventForm.tipo')}>
+        <HanetSelect label={t('common.tipoDeEvento')} options={EVENT_CATEGORIES.map(item => ({ value: item.value, label: item.label }))} value={form.category} onChange={category => update({ category })} disabled={submitting} />
       </Field>
 
-      <Field label="Empieza">
-        <Pressable accessibilityRole="button" accessibilityLabel={`Empieza: ${hallLongDate(form.startsAt)}. Cambiar`} disabled={submitting} onPress={() => setPicking('start')} style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}>
+      <Field label={t('common.empieza')}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('eventForm.empiezaHalllongdateCambiar', { hallLongDate: hallLongDate(form.startsAt) })} disabled={submitting} onPress={() => setPicking('start')} style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}>
           <ThemedText numberOfLines={1} style={local.dateText}>{hallLongDate(form.startsAt)}</ThemedText>
-          <ThemedText style={local.dateAction}>Cambiar</ThemedText>
+          <ThemedText style={local.dateAction}>{t('common.cambiar')}</ThemedText>
         </Pressable>
       </Field>
-      <Field label="Termina" optional>
-        <Pressable accessibilityRole="button" accessibilityLabel={form.endsAt ? `Termina: ${hallLongDate(form.endsAt)}. Cambiar` : 'Agregar término'} disabled={submitting} onPress={() => setPicking('end')} style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}>
-          <ThemedText numberOfLines={1} style={local.dateText}>{form.endsAt ? hallLongDate(form.endsAt) : 'Sin término (dura un día)'}</ThemedText>
-          <ThemedText style={local.dateAction}>{form.endsAt ? 'Cambiar' : 'Agregar'}</ThemedText>
+      <Field label={t('common.termina')} optional>
+        <Pressable accessibilityRole="button" accessibilityLabel={form.endsAt ? t('eventForm.terminaHalllongdateCambiar', { hallLongDate: hallLongDate(form.endsAt) }) : t('eventForm.agregarTermino')} disabled={submitting} onPress={() => setPicking('end')} style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}>
+          <ThemedText numberOfLines={1} style={local.dateText}>{form.endsAt ? hallLongDate(form.endsAt) : t('eventForm.sinTerminoDuraUnDia')}</ThemedText>
+          <ThemedText style={local.dateAction}>{form.endsAt ? t('common.cambiar') : t('common.agregar')}</ThemedText>
         </Pressable>
         {!!form.endsAt && (
-          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => update({ endsAt: null })} style={({ pressed }) => pressed && styles.pressed}><ThemedText style={styles.hint}>Quitar el término</ThemedText></Pressable>
+          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => update({ endsAt: null })} style={({ pressed }) => pressed && styles.pressed}><ThemedText style={styles.hint}>{t('eventForm.quitarElTermino')}</ThemedText></Pressable>
         )}
       </Field>
 
-      <Field label="Lugar">{input('venueName', regional ? 'Parque Arena Temuco' : 'Hall central', { maxLength: 120, accessibilityLabel: 'Lugar' })}</Field>
-      {regional && <Field label="Dirección" optional>{input('address', 'Av. Rudecindo Ortega 02351', { maxLength: 160, accessibilityLabel: 'Dirección' })}</Field>}
-      {regional && <Field label="Ciudad">{input('city', 'Temuco', { maxLength: 60, accessibilityLabel: 'Ciudad' })}</Field>}
+      <Field label={t('anniversary.activity.lugar')}>{input('venueName', regional ? t('eventForm.parqueArenaTemuco') : t('eventForm.hallCentral'), { maxLength: 120, accessibilityLabel: t('anniversary.activity.lugar') })}</Field>
+      {regional && <Field label={t('eventForm.direccion')} optional>{input('address', t('eventForm.avRudecindoOrtega02351'), { maxLength: 160, accessibilityLabel: t('eventForm.direccion') })}</Field>}
+      {regional && <Field label={t('events.ciudad')}>{input('city', 'Temuco', { maxLength: 60, accessibilityLabel: t('events.ciudad') })}</Field>}
 
-      <Field label="Descripción" optional>
-        {input('description', regional ? 'Lo que dice la ticketera del evento.' : 'Qué es, a qué hora y qué hay que traer.', { multiline: true, maxLength: 4000, style: [styles.input, styles.multiline], accessibilityLabel: 'Descripción' })}
+      <Field label={t('common.descripcion')} optional>
+        {input('description', regional ? t('eventForm.loQueDiceLaTicketera') : t('eventForm.queEsAQueHora'), { multiline: true, maxLength: 4000, style: [styles.input, styles.multiline], accessibilityLabel: t('common.descripcion') })}
       </Field>
 
       {regional ? (
         <>
-          <Field label="¿Es gratis?">
-            <HanetChoice label="¿Es gratis?" options={YES_NO} value={form.isFree ? 'yes' : 'no'} onChange={value => update({ isFree: value === 'yes' })} disabled={submitting} />
+          <Field label={t('eventForm.esGratis')}>
+            <HanetChoice label={t('eventForm.esGratis')} options={YES_NO} value={form.isFree ? 'yes' : 'no'} onChange={value => update({ isFree: value === 'yes' })} disabled={submitting} />
           </Field>
-          {!form.isFree && <Field label="Precio desde (CLP)" optional>{input('priceFrom', '20000', { keyboardType: 'number-pad', maxLength: 8, accessibilityLabel: 'Precio desde' })}</Field>}
-          <Field label="Link de compra" optional>{input('ticketUrl', 'https://…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: 'Link de compra' })}</Field>
-          <Field label="Fuente">{input('sourceName', 'Ticketplus', { maxLength: 60, accessibilityLabel: 'Nombre de la fuente' })}</Field>
-          <Field label="Beneficio de la ticketera" optional>{input('perk', 'Descuento estudiantil disponible', { maxLength: 80, accessibilityLabel: 'Beneficio' })}</Field>
-          <Field label="Cupón HaNet" optional>
-            {input('couponCode', 'HANET10', { maxLength: 40, autoCapitalize: 'characters', autoCorrect: false, accessibilityLabel: 'Código del cupón HaNet' })}
-            {!!form.couponCode.trim() && input('couponDescription', '10% de descuento en entrada general', { maxLength: 120, accessibilityLabel: 'Qué da el cupón' })}
-            <ThemedText style={styles.hint}>Solo si la ticketera le dio un código a HaNet. Aparece en «Opciones» del evento.</ThemedText>
+          {!form.isFree && <Field label={t('eventForm.precioDesdeClp')} optional>{input('priceFrom', '20000', { keyboardType: 'number-pad', maxLength: 8, accessibilityLabel: t('eventForm.precioDesde') })}</Field>}
+          <Field label={t('eventForm.linkDeCompra')} optional>{input('ticketUrl', 'https://…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: t('eventForm.linkDeCompra') })}</Field>
+          <Field label={t('eventForm.fuente')}>{input('sourceName', 'Ticketplus', { maxLength: 60, accessibilityLabel: t('eventForm.nombreDeLaFuente') })}</Field>
+          <Field label={t('eventForm.beneficioDeLaTicketera')} optional>{input('perk', t('eventForm.descuentoEstudiantilDisponible'), { maxLength: 80, accessibilityLabel: t('eventForm.beneficio') })}</Field>
+          <Field label={t('common.cuponHanet')} optional>
+            {input('couponCode', 'HANET10', { maxLength: 40, autoCapitalize: 'characters', autoCorrect: false, accessibilityLabel: t('eventForm.codigoDelCuponHanet') })}
+            {!!form.couponCode.trim() && input('couponDescription', t('eventForm.n10DeDescuentoEnEntrada'), { maxLength: 120, accessibilityLabel: t('eventForm.queDaElCupon') })}
+            <ThemedText style={styles.hint}>{t('eventForm.soloSiLaTicketeraLe')}</ThemedText>
           </Field>
-          <Field label="¿Patrocinado?">
-            <HanetChoice label="¿Patrocinado?" options={YES_NO} value={form.sponsored ? 'yes' : 'no'} onChange={value => update({ sponsored: value === 'yes' })} disabled={submitting} />
-            <ThemedText style={styles.hint}>Se marca «[Patrocinado]» y aparece primero en los destacados.</ThemedText>
+          <Field label={t('eventForm.patrocinado')}>
+            <HanetChoice label={t('eventForm.patrocinado')} options={YES_NO} value={form.sponsored ? 'yes' : 'no'} onChange={value => update({ sponsored: value === 'yes' })} disabled={submitting} />
+            <ThemedText style={styles.hint}>{t('eventForm.seMarcaPatrocinadoYAparece')}</ThemedText>
           </Field>
-          <Field label="Sobre el artista o el lugar" optional>
-            {input('editorialSubject', 'Candelabro', { maxLength: 80, accessibilityLabel: 'Sobre quién' })}
+          <Field label={t('eventForm.sobreElArtistaOEl')} optional>
+            {input('editorialSubject', 'Candelabro', { maxLength: 80, accessibilityLabel: t('eventForm.sobreQuien') })}
             {!!form.editorialSubject.trim() && (
               <>
                 <Pressable accessibilityRole="button" disabled={wiki.busy || submitting} onPress={() => void fillFromWikipedia()} style={({ pressed }) => [local.pill, local.wikiButton, wiki.busy && styles.submitDisabled, pressed && styles.pressed]}>
-                  {wiki.busy ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>Traer de Wikipedia</ThemedText>}
+                  {wiki.busy ? <ActivityIndicator color={AppColors.textPrimary} /> : <ThemedText style={local.pillText}>{t('eventForm.traerDeWikipedia')}</ThemedText>}
                 </Pressable>
                 {!!wiki.note && <ThemedText accessibilityLiveRegion="polite" style={styles.hint}>{wiki.note}</ThemedText>}
-                {input('editorialSummary', 'Un párrafo breve, con tus palabras o citado.', { multiline: true, maxLength: 2000, style: [styles.input, styles.multiline], accessibilityLabel: 'Resumen' })}
-                {input('editorialSourceName', 'Wikipedia', { maxLength: 60, accessibilityLabel: 'Fuente del resumen' })}
-                {input('editorialSourceUrl', 'https://es.wikipedia.org/wiki/…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: 'Link de la fuente del resumen' })}
+                {input('editorialSummary', t('eventForm.unParrafoBreveConTus'), { multiline: true, maxLength: 2000, style: [styles.input, styles.multiline], accessibilityLabel: t('eventForm.resumen') })}
+                {input('editorialSourceName', 'Wikipedia', { maxLength: 60, accessibilityLabel: t('eventForm.fuenteDelResumen') })}
+                {input('editorialSourceUrl', 'https://es.wikipedia.org/wiki/…', { autoCapitalize: 'none', keyboardType: 'url', accessibilityLabel: t('eventForm.linkDeLaFuenteDel') })}
               </>
             )}
           </Field>
         </>
       ) : (
         <>
-          <Field label="Jornada">
-            <HanetChoice label="Jornada" options={JORNADA_OPTIONS} value={form.jornada} onChange={value => update({ jornada: value as EventJornada })} disabled={submitting} />
+          <Field label={t('eventForm.jornada')}>
+            <HanetChoice label={t('eventForm.jornada')} options={JORNADA_OPTIONS} value={form.jornada} onChange={value => update({ jornada: value as EventJornada })} disabled={submitting} />
           </Field>
-          <Field label="Inscripción">
-            <HanetChoice label="Inscripción" options={SIGNUP_OPTIONS} value={form.signupMode} onChange={value => update({ signupMode: value as SignupMode })} disabled={submitting} />
+          <Field label={t('eventForm.inscripcion')}>
+            <HanetChoice label={t('eventForm.inscripcion')} options={SIGNUP_OPTIONS} value={form.signupMode} onChange={value => update({ signupMode: value as SignupMode })} disabled={submitting} />
             <ThemedText style={styles.hint}>
               {form.signupMode === 'list'
-                ? 'Los estudiantes se inscriben y tú ves la lista con nombre y curso.'
+                ? t('eventForm.losEstudiantesSeInscribenY')
                 : form.signupMode === 'count'
-                  ? 'Los estudiantes marcan «¡Participo!» y solo ves cuántos van.'
-                  : 'El evento solo informa.'}
+                  ? t('eventForm.losEstudiantesMarcanParticipoY')
+                  : t('eventForm.elEventoSoloInforma')}
             </ThemedText>
           </Field>
-          {form.signupMode === 'list' && <Field label="Cupos" optional>{input('capacity', 'Sin límite', { keyboardType: 'number-pad', maxLength: 5, accessibilityLabel: 'Cupos' })}</Field>}
+          {form.signupMode === 'list' && <Field label={t('eventForm.cupos')} optional>{input('capacity', t('eventForm.sinLimite'), { keyboardType: 'number-pad', maxLength: 5, accessibilityLabel: t('eventForm.cupos') })}</Field>}
         </>
       )}
 
@@ -447,10 +448,10 @@ function EventFormScreen() {
         onPress={() => void submit()}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? 'Publicando…' : label}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? t('common.publicando') : label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
 
       <HanetDateTimePickerModal

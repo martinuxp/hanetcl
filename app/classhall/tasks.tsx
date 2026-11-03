@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 type Filter = 'open' | 'done';
 
@@ -45,7 +46,7 @@ export default function TasksScreen() {
     let active = true;
     getHall(hallId)
       .then(result => { if (active) { setDetail(result); setError(null); } })
-      .catch(loadError => { if (active) setError(describeAuthError(loadError, 'No pudimos cargar las tareas. Inténtalo nuevamente.')); });
+      .catch(loadError => { if (active) setError(describeAuthError(loadError, t('classhall.tasks.noPudimosCargarLasTareas'))); });
     return () => { active = false; };
     // `attempt` re-runs the load from the retry button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,8 +67,8 @@ export default function TasksScreen() {
   const shown = filter === 'open' ? open : done;
 
   const filters = [
-    { value: 'open' as const, label: isTeacher ? `Abiertas${open.length ? ` (${open.length})` : ''}` : `Por entregar${open.length ? ` (${open.length})` : ''}`, accessibilityLabel: isTeacher ? 'Abiertas' : 'Por entregar' },
-    { value: 'done' as const, label: isTeacher ? 'Cerradas' : 'Entregadas y cerradas', accessibilityLabel: isTeacher ? 'Cerradas' : 'Entregadas y cerradas' },
+    { value: 'open' as const, label: isTeacher ? t('classhall.tasks.abiertasValue', { value: open.length ? ` (${open.length})` : '' }) : t('classhall.tasks.porEntregarValue', { value: open.length ? ` (${open.length})` : '' }), accessibilityLabel: isTeacher ? t('classhall.tasks.abiertas') : t('classhall.tasks.porEntregar') },
+    { value: 'done' as const, label: isTeacher ? t('classhall.tasks.cerradas') : t('classhall.tasks.entregadasYCerradas'), accessibilityLabel: isTeacher ? t('classhall.tasks.cerradas') : t('classhall.tasks.entregadasYCerradas') },
   ];
 
   const openTask = (task: HallTaskSummary) => router.push({ pathname: '/classhall/task', params: { hallId, id: task.id } });
@@ -76,13 +77,13 @@ export default function TasksScreen() {
     <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
-          <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/classhall/hall', params: { id: hallId } }))} />
-          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel="HaNet ClassHall" />
-          <TopBarButton icon={HALL_ICONS.calendar} label="Abrir el Calendar del curso" wide onPress={() => router.navigate('/calendar')} />
+          <TopBarButton icon={HALL_ICONS.back} label={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/classhall/hall', params: { id: hallId } }))} />
+          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel={t('common.hanetClasshall')} />
+          <TopBarButton icon={HALL_ICONS.calendar} label={t('common.abrirElCalendarDelCurso')} wide onPress={() => router.navigate('/calendar')} />
         </View>
 
         <View style={styles.header}>
-          <ThemedText accessibilityRole="header" style={styles.title}>Tareas</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{t('classhall.hall.tareas')}</ThemedText>
           {!!hall && <ThemedText style={styles.subtitle}>{hall.subject} · {hall.courseId}</ThemedText>}
         </View>
 
@@ -90,35 +91,35 @@ export default function TasksScreen() {
         {!!error && !detail && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
-            <HanetButton label="Reintentar" variant="surface" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
+            <HanetButton label={t('common.reintentar')} variant="surface" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
           </View>
         )}
 
         {!!detail && (
           <>
             {isTeacher && (
-              <HanetButton label="Nueva tarea" onPress={() => router.push({ pathname: '/classhall/task-form', params: { hallId } })} />
+              <HanetButton label={t('classhall.taskForm.nuevaTarea')} onPress={() => router.push({ pathname: '/classhall/task-form', params: { hallId } })} />
             )}
             {tasks.length > 0 && (
-              <HanetSegmented options={filters} value={filter} onChange={setFilter} accessibilityLabel="Filtrar tareas" background={AppColors.surface} />
+              <HanetSegmented options={filters} value={filter} onChange={setFilter} accessibilityLabel={t('classhall.tasks.filtrarTareas')} background={AppColors.surface} />
             )}
 
             {tasks.length === 0 ? (
               <View style={styles.card}>
-                <ThemedText style={styles.emptyTitle}>Sin tareas</ThemedText>
+                <ThemedText style={styles.emptyTitle}>{t('classhall.hall.sinTareas')}</ThemedText>
                 <ThemedText style={styles.body}>
                   {isTeacher
-                    ? 'Publica una tarea y revisa aquí lo que entreguen.'
-                    : 'Cuando tu docente publique una tarea, la entregas aquí.'}
+                    ? t('classhall.tasks.publicaUnaTareaYRevisa')
+                    : t('classhall.tasks.cuandoTuDocentePubliqueUna')}
                 </ThemedText>
               </View>
             ) : shown.length === 0 ? (
               <View style={styles.card}>
-                <ThemedText style={styles.emptyTitle}>{filter === 'open' ? (isTeacher ? 'Ninguna abierta' : 'Todo al día') : 'Nada por aquí'}</ThemedText>
+                <ThemedText style={styles.emptyTitle}>{filter === 'open' ? (isTeacher ? t('classhall.tasks.ningunaAbierta') : t('classhall.tasks.todoAlDia')) : t('classhall.tasks.nadaPorAqui')}</ThemedText>
                 <ThemedText style={styles.body}>
                   {filter === 'open'
-                    ? (isTeacher ? 'Las tareas que cerraron están en "Cerradas".' : 'No tienes tareas por entregar en este Hall.')
-                    : (isTeacher ? 'Aquí quedan las tareas cuyo plazo terminó.' : 'Aquí quedan las tareas que entregaste o que ya cerraron.')}
+                    ? (isTeacher ? t('classhall.tasks.lasTareasQueCerraronEstan') : t('classhall.tasks.noTienesTareasPorEntregar'))
+                    : (isTeacher ? t('classhall.tasks.aquiQuedanLasTareasCuyo') : t('classhall.tasks.aquiQuedanLasTareasQue'))}
                 </ThemedText>
               </View>
             ) : (
@@ -130,7 +131,7 @@ export default function TasksScreen() {
             )}
 
             <ThemedText style={styles.finePrint}>
-              Las tareas también aparecen en el Calendar del curso. Tu docente revisa cada entrega y puede dejarte un comentario.
+              {t('classhall.tasks.lasTareasTambienAparecenEn')}
             </ThemedText>
           </>
         )}

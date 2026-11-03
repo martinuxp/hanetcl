@@ -18,12 +18,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 function evaluationNotice(date: number) {
   const days = daysUntil(date);
-  if (days <= 0) return 'Tienes una evaluación programada hoy';
-  if (days === 1) return 'Tienes una evaluación programada mañana';
-  return `Tienes una evaluación programada en ${days} días`;
+  if (days <= 0) return t('classhall.tienesUnaEvaluacionProgramadaHoy');
+  if (days === 1) return t('classhall.tienesUnaEvaluacionProgramadaManana');
+  return t('classhall.tienesUnaEvaluacionProgramadaEn', { days });
 }
 
 /** "Hoy 10:00 · Sala 12", "Mar 08:00": the class's next block from now. */
@@ -35,7 +36,7 @@ function nextBlockLine(blocks: Pick<ScheduleBlock, 'day' | 'start' | 'room'>[], 
     const day = scheduleDay(date);
     const next = blocksOn(blocks as ScheduleBlock[], day).find(block => offset > 0 || minutesOf(block.start) > minute);
     if (next) {
-      const when = offset === 0 ? 'Hoy' : offset === 1 ? 'Mañana' : SCHEDULE_DAYS.find(item => item.day === day)?.name.slice(0, 3) ?? '';
+      const when = offset === 0 ? t('common.hoy2') : offset === 1 ? t('common.manana') : SCHEDULE_DAYS.find(item => item.day === day)?.name.slice(0, 3) ?? '';
       return [`${when} ${next.start}`, next.room || null].filter(Boolean).join(' · ');
     }
   }
@@ -58,14 +59,14 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
     setCopied(true);
   };
 
-  const students = hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`;
+  const students = t('classhall.hall.countEstudiantes', { count: hall.memberCount ?? 0 });
 
   return (
     <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${hall.subject}, ${hall.courseId}, ${hall.teacherName}`}
-        accessibilityHint="Abre el Hall"
+        accessibilityHint={t('classhall.abreElHall')}
         onPress={onOpen}
         style={({ pressed }) => [styles.cardArt, pressed && styles.pressed]}
       >
@@ -74,7 +75,7 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
         <View style={styles.cardShade} />
         <View style={styles.cardText}>
           <ThemedText numberOfLines={1} style={styles.cardSubject}>{hall.subject}</ThemedText>
-          <ThemedText numberOfLines={1} style={styles.cardCourse}>{hall.plan === 'comun' ? hall.courseId : hall.plan === 'dominio' ? 'Dominio' : 'Electivo'}{next ? ` · ${next}` : ''}</ThemedText>
+          <ThemedText numberOfLines={1} style={styles.cardCourse}>{hall.plan === 'comun' ? hall.courseId : hall.plan === 'dominio' ? t('common.dominio') : t('common.electivo')}{next ? ` · ${next}` : ''}</ThemedText>
           <ThemedText numberOfLines={1} style={styles.cardTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
         </View>
       </Pressable>
@@ -89,20 +90,20 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
       )}
       {hall.isTeacher && hall.plan === 'comun' && (
         <View style={styles.cardStrip}>
-          <ThemedText style={styles.stripText}>Plan común · todo el curso · {students}</ThemedText>
+          <ThemedText style={styles.stripText}>{t('classhall.planComunTodoElCurso', { students })}</ThemedText>
         </View>
       )}
       {hall.isTeacher && hall.plan !== 'comun' && hall.code && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Copiar el código del Hall, ${hall.code.split('').join(' ')}`}
+          accessibilityLabel={t('classhall.copiarElCodigoDelHall', { join: hall.code.split('').join(' ') })}
           onPress={copyCode}
           style={({ pressed }) => [styles.cardStrip, pressed && styles.pressed]}
         >
           <ThemedText style={styles.stripText}>
-            Código <ThemedText style={styles.stripCode}>{hall.code}</ThemedText> · {students}
+            {t('classhall.codigo')}{' '}<ThemedText style={styles.stripCode}>{hall.code}</ThemedText> · {students}
           </ThemedText>
-          <ThemedText style={styles.stripAction}>{copied ? 'Copiado' : 'Copiar'}</ThemedText>
+          <ThemedText style={styles.stripAction}>{copied ? t('common.copiado') : t('classhall.copiar')}</ThemedText>
         </Pressable>
       )}
     </View>
@@ -168,7 +169,7 @@ export default function ClassHallScreen() {
         setError(null);
       })
       .catch(loadError => {
-        if (active) setError(describeAuthError(loadError, 'No pudimos cargar tus clases. Inténtalo nuevamente.'));
+        if (active) setError(describeAuthError(loadError, t('classhall.noPudimosCargarTusClases')));
       });
     return () => { active = false; };
     // `attempt` re-runs the load from the retry button.
@@ -186,7 +187,7 @@ export default function ClassHallScreen() {
 
         <View style={styles.heading}>
           <ThemedText accessibilityRole="header" style={styles.title}>ClassHall</ThemedText>
-          <ThemedText style={styles.subtitle}>Mis clases y asignaturas</ThemedText>
+          <ThemedText style={styles.subtitle}>{t('classhall.misClasesYAsignaturas')}</ThemedText>
         </View>
 
         <View style={styles.actions}>
@@ -195,7 +196,7 @@ export default function ClassHallScreen() {
             onPress={() => router.push('/classhall/join')}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <ThemedText style={styles.actionText}>Unirse a un Hall</ThemedText>
+            <ThemedText style={styles.actionText}>{t('classhall.unirseAUnHall')}</ThemedText>
           </Pressable>
           {canCreate && (
             <Pressable
@@ -203,7 +204,7 @@ export default function ClassHallScreen() {
               onPress={() => router.push('/classhall/create')}
               style={({ pressed }) => [styles.action, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.actionText}>Crear un Hall</ThemedText>
+              <ThemedText style={styles.actionText}>{t('classhall.create.crearUnHall')}</ThemedText>
             </Pressable>
           )}
         </View>
@@ -211,16 +212,16 @@ export default function ClassHallScreen() {
         {/* Notifications are for students: teachers publish, they are not notified. */}
         {askPush && halls !== null && !canCreate && (
           <View style={styles.notice}>
-            <ThemedText style={styles.noticeTitle}>¿Te avisamos?</ThemedText>
+            <ThemedText style={styles.noticeTitle}>{t('classhall.teAvisamos')}</ThemedText>
             <ThemedText style={styles.noticeText}>
-              Te avisamos de anuncios, tareas y material nuevo, y te recordamos el día antes de entregar.
+              {t('classhall.teAvisamosDeAnunciosTareas')}
             </ThemedText>
             <View style={styles.pushActions}>
               <Pressable accessibilityRole="button" disabled={enabling} onPress={() => void turnOnPush()} style={({ pressed }) => [styles.retry, pressed && styles.pressed]}>
-                <ThemedText style={styles.retryText}>{enabling ? 'Activando…' : 'Activar'}</ThemedText>
+                <ThemedText style={styles.retryText}>{enabling ? t('classhall.activando') : t('classhall.activar')}</ThemedText>
               </Pressable>
               <Pressable accessibilityRole="button" disabled={enabling} onPress={notNow} style={({ pressed }) => [styles.later, pressed && styles.pressed]}>
-                <ThemedText style={styles.laterText}>Ahora no</ThemedText>
+                <ThemedText style={styles.laterText}>{t('classhall.ahoraNo')}</ThemedText>
               </Pressable>
             </View>
           </View>
@@ -236,26 +237,26 @@ export default function ClassHallScreen() {
               onPress={() => { setError(null); setAttempt(count => count + 1); }}
               style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.retryText}>Reintentar</ThemedText>
+              <ThemedText style={styles.retryText}>{t('common.reintentar')}</ThemedText>
             </Pressable>
           </View>
         )}
 
         {halls?.length === 0 && !error && (
           <View style={styles.notice}>
-            <ThemedText style={styles.noticeTitle}>Todavía no tienes clases</ThemedText>
+            <ThemedText style={styles.noticeTitle}>{t('classhall.todaviaNoTienesClases')}</ThemedText>
             <ThemedText style={styles.noticeText}>
               {canCreate
-                ? 'Crea un Hall para tu asignatura. Si es para todo el curso, todos entran solos.'
-                : 'Las clases de tu curso aparecen solas cuando tus docentes crean su Hall. Para un electivo o dominio, usa «Unirse a un Hall».'}
+                ? t('classhall.creaUnHallParaTu')
+                : t('classhall.lasClasesDeTuCurso')}
             </ThemedText>
           </View>
         )}
 
         {/* The course's classes first, then the ones joined with a code. */}
-        {courseHalls.length > 0 && joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>Tu curso</ThemedText>}
+        {courseHalls.length > 0 && joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.tuCurso')}</ThemedText>}
         {courseHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
-        {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>Electivos y dominios</ThemedText>}
+        {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.electivosYDominios')}</ThemedText>}
         {joinedHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
       </ScrollView>
     </FrostedScreen>

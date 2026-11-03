@@ -2,6 +2,7 @@ import { sameSubject } from '@/constants/subjects';
 import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
 import { blocksOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
 import type { ScheduleBlock } from './schedule-service';
+import { capitalize, monthsShort, t, weekdays, weekdaysShort } from '@/i18n';
 
 // What the Lock Screen widget "Calendar" (widgets/calendar-widget.tsx) shows
 // at each moment, like Apple Calendar's "A continuación": the class going on
@@ -28,9 +29,11 @@ type Entry = {
   tag: string;
 };
 
-const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+const DAYS = weekdaysShort().map(capitalize);
+const DAY_NAMES = weekdays();
+const MONTHS = monthsShort();
+// The tag of a class or event with a test in it; the widget marks those.
+const TEST_TAG = t('services.calendarWidget.prueba');
 
 const clock = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 const startOfDay = (date: Date) => {
@@ -50,14 +53,14 @@ const at = (day: Date, time: string) => {
 };
 
 function isTest(event: WidgetEvent) {
-  return event.eventType?.toLocaleLowerCase('es').startsWith('evaluación') ?? false;
+  return event.eventType?.toLocaleLowerCase('es').startsWith(t('common.evaluacion')) ?? false;
 }
 
 /** "Prueba" for an evaluation, else the first word of its type ("Tarea"). */
 function tagOf(events: WidgetEvent[]) {
-  if (events.some(isTest)) return 'Prueba';
+  if (events.some(isTest)) return TEST_TAG;
   const type = events.find(event => event.eventType)?.eventType;
-  return type ? type.split(/[.\s]/)[0] : events.length ? 'Evento' : '';
+  return type ? type.split(/[.\s]/)[0] : events.length ? t('services.calendarWidget.evento') : '';
 }
 
 /** One day's entries in order: its classes, with the events due in them, and the loose events. */
@@ -81,7 +84,7 @@ function dayEntries(blocks: ScheduleBlock[], events: WidgetEvent[], day: Date): 
     }
     // An all-day event has no time to wait for: the widget leaves it to the app.
     if (minute === 0 && end && end.getTime() - start.getTime() >= 23 * 3_600_000) continue;
-    loose.push({ start, end: end && end.getTime() > start.getTime() ? end : start, title: event.title, tag: isTest(event) ? 'Prueba' : '' });
+    loose.push({ start, end: end && end.getTime() > start.getTime() ? end : start, title: event.title, tag: isTest(event) ? TEST_TAG : '' });
   }
 
   return [
@@ -99,12 +102,14 @@ function dateText(date: Date) {
   return `${DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}.`;
 }
 
-function withEntry(base: Pick<CalendarWidgetProps, 'weekday' | 'day' | 'testToday'>, when: 'Ahora' | 'Hoy' | 'Mañana', entry: Entry): CalendarWidgetProps {
-  const header = entry.tag ? `${when} · ${entry.tag}` : when;
-  const inline = when === 'Ahora'
-    ? `Hasta las ${clock(entry.end)} · ${entry.title}`
-    : `${when === 'Mañana' ? 'Mañana ' : ''}${clock(entry.start)} ${entry.tag === 'Prueba' ? `Prueba de ${entry.title}` : entry.title}`;
-  return { ...base, state: 'entry', header, time: timeText(entry), title: entry.title, note: '', inline, test: entry.tag === 'Prueba' };
+function withEntry(base: Pick<CalendarWidgetProps, 'weekday' | 'day' | 'testToday'>, when: 'now' | 'today' | 'tomorrow', entry: Entry): CalendarWidgetProps {
+  const label = when === 'now' ? t('common.ahora') : when === 'today' ? t('common.hoy2') : t('common.manana');
+  const header = entry.tag ? `${label} · ${entry.tag}` : label;
+  const at = `${clock(entry.start)} ${entry.tag === TEST_TAG ? t('services.calendarWidget.pruebaDeTitle', { title: entry.title }) : entry.title}`;
+  const inline = when === 'now'
+    ? t('services.calendarWidget.hastaLasClockTitle', { clock: clock(entry.end), title: entry.title })
+    : when === 'tomorrow' ? `Mañana ${at}` : at;
+  return { ...base, state: 'entry', header, time: timeText(entry), title: entry.title, note: '', inline, test: entry.tag === TEST_TAG };
 }
 
 /** What the widget shows at `now`. */
@@ -114,32 +119,32 @@ export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[],
   const base = {
     weekday: DAYS[now.getDay()].toLocaleUpperCase('es'),
     day: String(now.getDate()),
-    testToday: todays.some(entry => entry.tag === 'Prueba' && entry.end.getTime() > now.getTime()),
+    testToday: todays.some(entry => entry.tag === TEST_TAG && entry.end.getTime() > now.getTime()),
   };
 
   const current = todays.find(entry => entry.start.getTime() <= now.getTime() && now.getTime() < entry.end.getTime());
-  if (current) return withEntry(base, 'Ahora', current);
+  if (current) return withEntry(base, 'now', current);
   const next = todays.find(entry => entry.start.getTime() > now.getTime());
-  if (next) return withEntry(base, 'Hoy', next);
+  if (next) return withEntry(base, 'today', next);
   const tomorrow = dayEntries(blocks, events, addDays(today, 1))[0];
-  if (tomorrow) return withEntry(base, 'Mañana', tomorrow);
+  if (tomorrow) return withEntry(base, 'tomorrow', tomorrow);
 
   const date = dateText(now);
   const empty = { ...base, header: date, time: '', test: false };
   if (!blocks.some(block => !isBreak(block)) && !todays.length) {
-    return { ...empty, state: 'empty', title: 'Sin horario', note: 'Abre HaNet para cargarlo', inline: 'Sin horario' };
+    return { ...empty, state: 'empty', title: t('services.calendarWidget.sinHorario'), note: t('services.calendarWidget.abreHanetParaCargarlo'), inline: t('services.calendarWidget.sinHorario') };
   }
   if (todays.length) {
     // The day is over and tomorrow is free: when classes come back.
     for (let offset = 2; offset <= 7; offset += 1) {
       const first = dayEntries(blocks, events, addDays(today, offset))[0];
       if (first) {
-        return { ...empty, state: 'empty', title: 'Sin más clases hoy', note: `El ${DAY_NAMES[first.start.getDay()]} a las ${clock(first.start)}`, inline: 'Sin más clases hoy' };
+        return { ...empty, state: 'empty', title: t('services.calendarWidget.sinMasClasesHoy'), note: t('services.calendarWidget.elDaynamesALasClock', { dayNames: DAY_NAMES[first.start.getDay()], clock: clock(first.start) }), inline: t('services.calendarWidget.sinMasClasesHoy') };
       }
     }
-    return { ...empty, state: 'empty', title: 'Sin más clases hoy', note: 'Tienes el resto del día libre', inline: 'Sin más clases hoy' };
+    return { ...empty, state: 'empty', title: t('services.calendarWidget.sinMasClasesHoy'), note: t('services.calendarWidget.tienesElRestoDelDia'), inline: t('services.calendarWidget.sinMasClasesHoy') };
   }
-  return { ...empty, state: 'empty', title: 'Sin clases hoy', note: 'Tienes el día libre', inline: 'Sin clases hoy' };
+  return { ...empty, state: 'empty', title: t('services.calendarWidget.sinClasesHoy'), note: t('services.calendarWidget.tienesElDiaLibre'), inline: t('services.calendarWidget.sinClasesHoy') };
 }
 
 /**

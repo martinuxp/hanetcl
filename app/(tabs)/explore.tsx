@@ -22,6 +22,7 @@ import QRCode from 'react-native-qrcode-svg';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { months, t } from '@/i18n';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -30,13 +31,13 @@ const ICONS = {
 
 const ROLE_LABELS: Record<string, string> = {
   Estudiante: 'Estudiante',
-  Directiva: 'Directiva de curso',
-  CEE: 'Centro de estudiantes',
-  Admin: 'Administración',
-  HNT: 'Equipo HaNet',
+  Directiva: t('explore.directivaDeCurso'),
+  CEE: t('explore.centroDeEstudiantes'),
+  Admin: t('explore.administracion'),
+  HNT: t('explore.equipoHanet'),
 };
 
-const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const MONTHS = months();
 
 function initialsOf(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -87,7 +88,7 @@ export default function ProfileScreen() {
           setError(null);
         })
         .catch(loadError => {
-          if (active) setError(describeAuthError(loadError, 'No pudimos cargar tu perfil. Revisa tu conexión.'));
+          if (active) setError(describeAuthError(loadError, t('explore.noPudimosCargarTuPerfil')));
         });
       // The photo is optional: failing to load it must not hide the profile.
       getProfilePhotoUrl(user.uid)
@@ -131,9 +132,9 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={[styles.screen, styles.centered]}>
         <Image source={ICONS.logo} style={styles.emptyLogo} contentFit="contain" />
-        <ThemedText style={styles.emptyTitle}>Tu HaNet ID</ThemedText>
-        <ThemedText style={styles.emptyText}>Inicia sesión para ver tu perfil.</ThemedText>
-        <HanetButton label="Iniciar sesión" onPress={() => router.push('/auth')} style={styles.emptyButton} />
+        <ThemedText style={styles.emptyTitle}>{t('explore.tuHanetId')}</ThemedText>
+        <ThemedText style={styles.emptyText}>{t('explore.iniciaSesionParaVerTu')}</ThemedText>
+        <HanetButton label={t('common.iniciarSesion')} onPress={() => router.push('/auth')} style={styles.emptyButton} />
       </SafeAreaView>
     );
   }
@@ -145,9 +146,9 @@ export default function ProfileScreen() {
     if (!error) return skeleton;
     return (
       <SafeAreaView style={[styles.screen, styles.centered]}>
-        <ThemedText style={styles.emptyTitle}>Perfil no disponible</ThemedText>
+        <ThemedText style={styles.emptyTitle}>{t('explore.perfilNoDisponible')}</ThemedText>
         <ThemedText accessibilityLiveRegion="polite" style={styles.emptyText}>{error}</ThemedText>
-        <HanetButton label="Cerrar sesión" variant="surface" onPress={() => void signOut()} style={styles.emptyButton} />
+        <HanetButton label={t('common.cerrarSesion')} variant="surface" onPress={() => void signOut()} style={styles.emptyButton} />
       </SafeAreaView>
     );
   }
@@ -166,7 +167,7 @@ export default function ProfileScreen() {
   const swap = reducedMotion ? undefined : FadeIn.duration(150);
 
   const shareProfile = async () => {
-    await Share.share({ message: `Soy ${name}${handle ? ` (${handle})` : ''} en HaNet.` });
+    await Share.share({ message: t('explore.soyNameValueEnHanet', { name, value: handle ? ` (${handle})` : '' }) });
   };
 
   const finishJoining = async () => {
@@ -180,9 +181,9 @@ export default function ProfileScreen() {
           <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="HaNet ID">
             <Image source={ICONS.logo} style={styles.brandMark} contentFit="contain" />
             <ThemedText style={styles.brandName}>HaNet</ThemedText>
-            <ThemedText style={styles.brandId}>ID</ThemedText>
+            <ThemedText style={styles.brandId}>{t('explore.id')}</ThemedText>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Configuraciones" hitSlop={6} onPress={() => router.push('/settings')} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.configuraciones')} hitSlop={6} onPress={() => router.push('/settings')} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
             <Ionicons name="settings-outline" size={20} color={AppColors.textPrimary} />
           </Pressable>
         </View>
@@ -191,7 +192,7 @@ export default function ProfileScreen() {
           <Image source={ICONS.mark} style={styles.cardMark} tintColor={AppColors.textOnLight} contentFit="contain" />
 
           {showQr ? (
-            <Animated.View key="qr" entering={swap} style={styles.qrWrap} accessible accessibilityLabel={`Código QR de tu HaNet ID${handle ? `, ${handle}` : ''}`}>
+            <Animated.View key="qr" entering={swap} style={styles.qrWrap} accessible accessibilityLabel={t('explore.codigoQrDeTuHanet', { value: handle ? `, ${handle}` : '' })}>
               <QRCode
                 value={qrValue ?? `hanet://id/${current.username ?? user.uid}`}
                 size={236}
@@ -202,7 +203,7 @@ export default function ProfileScreen() {
             </Animated.View>
           ) : (
             // Without a photo, the account's blobatar stands in for the picture.
-            <Animated.View key="portrait" entering={swap} style={[styles.portrait, myAlliance && [styles.portraitAlliance, { borderColor: allianceColor(myAlliance).fill }]]} accessible accessibilityLabel={photoUrl ? `Foto de perfil de ${name}` : `Blobatar de ${name}`}>
+            <Animated.View key="portrait" entering={swap} style={[styles.portrait, myAlliance && [styles.portraitAlliance, { borderColor: allianceColor(myAlliance).fill }]]} accessible accessibilityLabel={photoUrl ? t('explore.fotoDePerfilDeName', { name }) : t('explore.blobatarDeName', { name })}>
               {photoUrl ? (
                 <Image source={{ uri: photoUrl }} style={styles.portraitPhoto} contentFit="cover" transition={150} />
               ) : photoChecked && current.avatarSeed ? (
@@ -232,23 +233,23 @@ export default function ProfileScreen() {
             {!!current.courseId && <ThemedText style={styles.detail}>{current.courseId}</ThemedText>}
             {!!role && <ThemedText style={styles.detail}>{role}{handle ? ` · ${handle}` : ''}</ThemedText>}
             {!role && !!handle && <ThemedText style={styles.detail}>{handle}</ThemedText>}
-            {!!since && <ThemedText style={styles.accountAge}>En HaNet desde {MONTHS[since.getMonth()]} de {since.getFullYear()}</ThemedText>}
+            {!!since && <ThemedText style={styles.accountAge}>{t('explore.enHanetDesdeMonthsDe', { months: MONTHS[since.getMonth()], fullYear: since.getFullYear() })}</ThemedText>}
           </View>
         </View>
 
         <View style={styles.actionPanel}>
-          <ProfileAction label="Compartir" icon="share-outline" onPress={shareProfile} />
-          <ProfileAction label="Editar" icon="pencil-outline" onPress={() => router.push('/edit-profile')} />
-          <ProfileAction label="Mi HN-QR" icon="qr-code-outline" selected={showQr} onPress={() => setShowQr(value => !value)} />
+          <ProfileAction label={t('common.compartir')} icon="share-outline" onPress={shareProfile} />
+          <ProfileAction label={t('common.editar')} icon="pencil-outline" onPress={() => router.push('/edit-profile')} />
+          <ProfileAction label={t('explore.miHnQr')} icon="qr-code-outline" selected={showQr} onPress={() => setShowQr(value => !value)} />
         </View>
 
         {current.linked ? (
-          <View style={styles.linkCard} accessible accessibilityLabel={`Vinculado a ${current.institutionFullName ?? 'tu institución'}`}>
+          <View style={styles.linkCard} accessible accessibilityLabel={t('explore.vinculadoAInstitutionfullname', { institutionFullName: current.institutionFullName ?? 'tu institución' })}>
             <View style={styles.linkBadge}>
               <Ionicons name="school-outline" size={20} color={AppColors.controlOnActive} />
             </View>
             <View style={styles.linkCopy}>
-              <ThemedText style={styles.linkEyebrow}>Vinculado a</ThemedText>
+              <ThemedText style={styles.linkEyebrow}>{t('explore.vinculadoA')}</ThemedText>
               <ThemedText style={styles.linkTitle}>{current.institutionFullName ?? 'Tu institución'}</ThemedText>
             </View>
           </View>
@@ -258,14 +259,14 @@ export default function ProfileScreen() {
               <Ionicons name="school-outline" size={20} color={AppColors.controlOnActive} />
             </View>
             <View style={styles.linkCopy}>
-              <ThemedText style={styles.linkEyebrow}>Aún sin institución</ThemedText>
-              <ThemedText style={styles.linkTitle}>Termina de unirte</ThemedText>
+              <ThemedText style={styles.linkEyebrow}>{t('explore.aunSinInstitucion')}</ThemedText>
+              <ThemedText style={styles.linkTitle}>{t('explore.terminaDeUnirte')}</ThemedText>
             </View>
             <Ionicons name="arrow-forward" size={20} color={AppColors.textSecondary} />
           </Pressable>
         )}
 
-        {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.staleNote}>No pudimos actualizar tu perfil; puede que veas datos de hace un momento.</ThemedText>}
+        {!!error && <ThemedText accessibilityLiveRegion="polite" style={styles.staleNote}>{t('explore.noPudimosActualizarTuPerfil')}</ThemedText>}
 
       </ScrollView>
     </FrostedScreen>
@@ -276,7 +277,7 @@ function ProfileAction({ label, icon, selected = false, soon = false, onPress }:
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={soon ? `${label}, próximamente` : label}
+      accessibilityLabel={soon ? t('explore.labelProximamente', { label }) : label}
       accessibilityState={{ selected, disabled: soon }}
       disabled={soon}
       onPress={onPress}
@@ -284,7 +285,7 @@ function ProfileAction({ label, icon, selected = false, soon = false, onPress }:
     >
       <Ionicons name={icon} size={24} color={selected ? AppColors.controlOnActive : AppColors.textPrimary} />
       <ThemedText style={[styles.profileActionText, selected && styles.profileActionTextSelected]}>{label}</ThemedText>
-      {soon && <ThemedText style={styles.profileActionSoonText}>Pronto</ThemedText>}
+      {soon && <ThemedText style={styles.profileActionSoonText}>{t('explore.pronto')}</ThemedText>}
     </Pressable>
   );
 }

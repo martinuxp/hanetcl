@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { t } from '@/i18n';
 
 // What the Calendar shares with the global bar: the view on screen, which the
 // bar's center pill names, and the menu that grows out of that pill to change
@@ -7,11 +8,11 @@ import { useSyncExternalStore } from 'react';
 export type CalendarView = 'day' | 'week' | 'month' | 'year' | 'schedule';
 
 export const CALENDAR_VIEWS: { view: CalendarView; label: string }[] = [
-  { view: 'day', label: 'Día' },
-  { view: 'week', label: 'Semana' },
-  { view: 'month', label: 'Mes' },
-  { view: 'year', label: 'Año' },
-  { view: 'schedule', label: 'Horario' },
+  { view: 'day', label: t('components.calendar.calendarBarStore.dia') },
+  { view: 'week', label: t('components.calendar.calendarBarStore.semana') },
+  { view: 'month', label: t('components.calendar.calendarBarStore.mes') },
+  { view: 'year', label: t('components.calendar.calendarBarStore.ano') },
+  { view: 'schedule', label: t('common.horario') },
 ];
 
 export const viewLabel = (view: CalendarView) => CALENDAR_VIEWS.find(item => item.view === view)?.label ?? '';

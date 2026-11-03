@@ -2,6 +2,7 @@ import { Skeleton, SkeletonGroup, SkeletonLines } from '@/components/ui/skeleton
 import { AppRadii, AppSpacing } from '@/constants/design-tokens';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 // What each screen looks like while it loads: the same blocks in the same
 // places as the content, so nothing jumps when it arrives.
@@ -45,7 +46,7 @@ function EventCardSkeleton() {
 /** HaNet Eventos: the featured card (city events only) and a couple of events. */
 export function EventsSkeleton({ featured }: { featured: boolean }) {
   return (
-    <SkeletonGroup label="Cargando eventos" style={styles.events}>
+    <SkeletonGroup label={t('components.skeletons.cargandoEventos')} style={styles.events}>
       {featured && <Skeleton height={220} radius={AppRadii.xl} style={styles.eventsFeatured} />}
       <EventCardSkeleton />
       <EventCardSkeleton />
@@ -56,7 +57,7 @@ export function EventsSkeleton({ featured }: { featured: boolean }) {
 /** A day of the Calendar: time badges beside event cards. */
 export function CalendarDaySkeleton() {
   return (
-    <SkeletonGroup label="Cargando eventos" style={styles.day}>
+    <SkeletonGroup label={t('components.skeletons.cargandoEventos')} style={styles.day}>
       {[132, 104, 132].map((height, index) => (
         <View key={index} style={styles.dayRow}>
           <View style={styles.dayTime}>
@@ -72,7 +73,7 @@ export function CalendarDaySkeleton() {
 /** The HaNet ID: the identity card, the three actions and the link card. */
 export function ProfileSkeleton() {
   return (
-    <SkeletonGroup label="Cargando tu perfil" style={styles.profile}>
+    <SkeletonGroup label={t('components.skeletons.cargandoTuPerfil')} style={styles.profile}>
       <View style={styles.profileHeader}>
         <Skeleton width={96} height={24} radius={12} />
         <Skeleton width={56} height={40} radius={AppRadii.pill} />
@@ -96,7 +97,7 @@ export function ProfileSkeleton() {
 /** "Mis clases": a few Hall cards. */
 export function HallListSkeleton() {
   return (
-    <SkeletonGroup label="Cargando tus clases" style={styles.list}>
+    <SkeletonGroup label={t('components.skeletons.cargandoTusClases')} style={styles.list}>
       {[0, 1, 2].map(index => (
         <Skeleton key={index} height={172} radius={AppRadii.lg}>
           <Skeleton height={116} radius={0} tone="muted" />
@@ -130,7 +131,7 @@ export function HallSkeleton({ hero = true }: { hero?: boolean }) {
 /** An event's page: the photo, its name and when, and the main button. */
 export function EventDetailSkeleton() {
   return (
-    <SkeletonGroup label="Cargando evento" style={styles.detail}>
+    <SkeletonGroup label={t('components.skeletons.cargandoEvento')} style={styles.detail}>
       <Skeleton height={208} radius={AppRadii.lg} tone="raised" />
       <View style={styles.detailHeading}>
         <Skeleton height={34} width="80%" radius={12} />

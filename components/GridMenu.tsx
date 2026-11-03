@@ -19,6 +19,7 @@ import { CelebrationTile } from '@/components/anniversary/celebration-tile';
 import { anniversaryDay, daysTo, formatPoints, phaseOf, ranking, todaysActivities } from '@/services/anniversary-service';
 import { useWelcomeSeen } from '@/services/anniversary-welcome';
 import type { AnniversaryState } from '@/services/anniversary-service';
+import { t } from '@/i18n';
 
 type SideBadge = { main: string; sub: string; label: string; onPress: () => void };
 
@@ -42,7 +43,7 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityHint={href ? `Abrir ${title}` : 'Próximamente'}
+      accessibilityHint={href ? t('components.gridMenu.abrirTitle', { title }) : t('common.proximamente')}
       accessibilityState={{ disabled: !href }}
       disabled={!href}
       style={({ pressed }) => [styles.gridItem, { minHeight: height }, pressed && styles.gridItemPressed, !href && styles.gridItemUnavailable]}
@@ -100,7 +101,7 @@ function PromoStrip({ event }: { event: HnEvent }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${event.sponsored ? 'Evento promocionado' : 'Próximo evento'}: ${event.title}, ${when}, ${event.venueName || event.city}. Abrir`}
+      accessibilityLabel={t('components.gridMenu.valueTitleWhenVenuenameAbrir', { value: event.sponsored ? t('components.gridMenu.eventoPromocionado') : t('components.gridMenu.proximoEvento'), title: event.title, when, venueName: event.venueName || event.city })}
       onPress={() => router.push({ pathname: '/event-detail', params: { id: event.id } })}
       style={({ pressed }) => [styles.promoStrip, pressed && styles.sideBadgePressed]}
     >
@@ -125,24 +126,24 @@ function anniversaryBand(state: AnniversaryState | null | undefined, now: number
   const phase = phaseOf(anniversary, now);
   if (phase === 'before') {
     const days = daysTo(anniversary.startsAt, now);
-    const when = days <= 0 ? '¡Empieza hoy!' : days === 1 ? 'Empieza mañana' : `Faltan ${days} días`;
+    const when = days <= 0 ? t('components.gridMenu.empiezaHoy') : t('components.gridMenu.faltanCountDias', { count: days });
     return { text: mine ? `${mine.name} - ${when}` : when, alliance: mine };
   }
   if (phase === 'after') {
-    return scored ? { text: `¡Ganó ${leader.name}!`, alliance: leader } : { text: 'Terminó el aniversario', alliance: mine };
+    return scored ? { text: t('components.gridMenu.ganoName', { name: leader.name }), alliance: leader } : { text: t('anniversary.terminoElAniversario'), alliance: mine };
   }
   // The Home's carousel already shows the score: one's alianza and the time left.
   if (mine) {
     const left = daysTo(anniversary.endsAt, now);
-    return { text: `${mine.name} - ${left <= 0 ? '¡Último día!' : left === 1 ? 'Queda 1 día' : `Quedan ${left} días`}`, alliance: mine };
+    return { text: `${mine.name} - ${left <= 0 ? t('components.gridMenu.ultimoDia') : t('components.gridMenu.quedanCountDias', { count: left })}`, alliance: mine };
   }
-  if (scored) return { text: `${leader.name} lidera · ${formatPoints(leader.total ?? 0)}`, alliance: leader };
+  if (scored) return { text: t('components.gridMenu.nameLideraPoints', { name: leader.name, points: formatPoints(leader.total ?? 0) }), alliance: leader };
   const [next] = todaysActivities(anniversary, now).filter(activity => (activity.startsAt ?? 0) >= now - 60 * 60 * 1000);
   if (next?.startsAt) {
     const date = new Date(next.startsAt);
-    return { text: `Hoy ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} · ${next.name}`, alliance: mine };
+    return { text: t('components.gridMenu.hoyHoursMinutesName', { hours: String(date.getHours()).padStart(2, '0'), minutes: String(date.getMinutes()).padStart(2, '0'), name: next.name }), alliance: mine };
   }
-  return { text: '¡Estamos de aniversario!', alliance: mine };
+  return { text: t('components.gridMenu.estamosDeAniversario'), alliance: mine };
 }
 
 // Tilted and sliding like the Eventos strip, in Google Sans Flex.
@@ -164,12 +165,12 @@ function AnniversaryStrip({ text, alliance }: NonNullable<ReturnType<typeof anni
 // Figma "Alerta (próximo evento evaluación)": how many days to the course's
 // next evaluation, or to whatever comes next when there is none.
 function calendarBadge(item: NextCalendarItem, open: () => void): SideBadge {
-  const main = item.days === 0 ? 'Hoy' : item.days === 1 ? 'Mañana' : `${item.days} días`;
+  const main = item.days === 0 ? t('common.hoy2') : t('components.gridMenu.countDias', { count: item.days });
   const when = item.days > 1 ? `en ${main}` : main.toLocaleLowerCase('es');
   return {
     main,
-    sub: item.isEvaluation ? 'Próx. eval.' : 'Próx.',
-    label: `Próxima ${item.isEvaluation ? 'evaluación' : 'actividad'}: ${item.event.title}, ${when}. Abrir`,
+    sub: item.isEvaluation ? t('components.gridMenu.proxEval') : t('components.gridMenu.prox'),
+    label: t('components.gridMenu.proximaValueTitleWhenAbrir', { value: item.isEvaluation ? t('common.evaluacion') : t('components.gridMenu.actividad'), title: item.event.title, when }),
     onPress: open,
   };
 }
@@ -194,7 +195,7 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
       {/* Left Column */}
       <View style={styles.column}>
         <GridItem
-          title="Eventos"
+          title={t('layout.eventos')}
           IconComponent={SparklesIcon}
           height={148}
           href="/events"
@@ -207,7 +208,7 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
           href="/classhall"
         />
         <GridItem
-          title="En construcción"
+          title={t('components.gridMenu.enConstruccion')}
           IconComponent={HammerIcon}
           height={82}
           iconSize={26}
@@ -217,14 +218,14 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
       {/* Right Column */}
       <View style={styles.column}>
         <GridItem
-          title="Feed y comunidad"
+          title={t('components.gridMenu.feedYComunidad')}
           IconComponent={MessageCircleIcon}
           height={125}
           href="/feed"
           iconSize={25}
         />
         <GridItem
-          title="Calendario"
+          title={t('components.gridMenu.calendario')}
           IconComponent={CalendarDaysIcon}
           height={74}
           layout="side-badge"
@@ -235,12 +236,12 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
         {celebrate ? (
           <CelebrationTile
             anniversary={celebrate}
-            day={(({ day, total }) => `Día ${day} de ${total}`)(anniversaryDay(celebrate, now))}
+            day={(({ day, total }) => t('components.gridMenu.diaDayDeTotal', { day, total }))(anniversaryDay(celebrate, now))}
             height={133}
           />
         ) : (
           <GridItem
-            title="Aniversario"
+            title={t('common.aniversario')}
             IconComponent={TrophyIcon}
             height={133}
             href="/anniversary"

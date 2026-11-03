@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 // Sooner first; those without a date go last, by name.
 const byWhen = (a: AnniversaryActivity, b: AnniversaryActivity) =>
@@ -32,7 +33,7 @@ export default function AnniversaryActivities() {
 
   // Opened on its own (a link, a reload), it loads what the page would have.
   useEffect(() => {
-    if (user && !state) getAnniversary().catch(loadError => setError(describeAuthError(loadError, 'No pudimos cargar las actividades.')));
+    if (user && !state) getAnniversary().catch(loadError => setError(describeAuthError(loadError, t('anniversary.activities.noPudimosCargarLasActividades'))));
   }, [state, user]);
 
   const anniversary = state?.anniversary ?? null;
@@ -54,7 +55,7 @@ export default function AnniversaryActivities() {
     try {
       await addPresetActivities();
     } catch (presetError) {
-      setError(describeAuthError(presetError, 'No pudimos cargar las actividades. Inténtalo nuevamente.'));
+      setError(describeAuthError(presetError, t('anniversary.activities.noPudimosCargarLasActividades2')));
     } finally {
       setBusy(false);
     }
@@ -67,18 +68,17 @@ export default function AnniversaryActivities() {
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + AppSpacing.xl }]} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           {!!anniversary && <ThemedText style={styles.kicker}>{anniversary.title}</ThemedText>}
-          <FlexText accessibilityRole="header" style={styles.title}>Actividades</FlexText>
+          <FlexText accessibilityRole="header" style={styles.title}>{t('anniversary.activities.actividades')}</FlexText>
           {!!anniversary && (
             <ThemedText style={styles.summary}>
-              {activities.length === 1 ? '1 actividad' : `${activities.length} actividades`}
-              {withResult ? ` · ${withResult} con resultado` : ''}
+              {t('anniversary.activities.countActividadesValue', { count: activities.length, value: withResult ? t('anniversary.activities.withresultConResultado', { withResult }) : '' })}
             </ThemedText>
           )}
         </View>
 
         {!state ? (
           error ? <ThemedText style={styles.error}>{error}</ThemedText> : (
-            <SkeletonGroup style={styles.skeleton} label="Cargando las actividades">
+            <SkeletonGroup style={styles.skeleton} label={t('anniversary.activities.cargandoLasActividades')}>
               <Skeleton height={36} width="70%" radius={AppRadii.pill} />
               <Skeleton height={240} radius={AppRadii.lg} />
             </SkeletonGroup>
@@ -87,7 +87,7 @@ export default function AnniversaryActivities() {
           <>
             {groups.length > 1 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.filters}>
-                <HanetChip label="Todas" selected={!group} onPress={() => choose(null)} />
+                <HanetChip label={t('anniversary.activities.todas')} selected={!group} onPress={() => choose(null)} />
                 {groups.map(item => (
                   <HanetChip
                     key={item.value}
@@ -112,15 +112,15 @@ export default function AnniversaryActivities() {
 
             {anniversary && activities.length === 0 && (
               <ThemedText style={styles.emptyText}>
-                {organizer ? 'Todavía no hay actividades. Carga las típicas o crea una.' : 'El CEE todavía no ha cargado las actividades.'}
+                {organizer ? t('anniversary.activities.todaviaNoHayActividadesCarga') : t('anniversary.activities.elCeeTodaviaNoHa')}
               </ThemedText>
             )}
 
             {organizer && anniversary && (
               <View style={styles.actions}>
-                <HanetButton label="Nueva actividad" variant="accent" onPress={() => router.push('/anniversary/activity')} />
+                <HanetButton label={t('common.nuevaActividad')} variant="accent" onPress={() => router.push('/anniversary/activity')} />
                 <HanetButton
-                  label={busy ? 'Cargando…' : activities.length ? 'Agregar las típicas que falten' : 'Cargar actividades típicas'}
+                  label={busy ? t('common.cargando') : activities.length ? t('anniversary.activities.agregarLasTipicasQueFalten') : t('anniversary.activities.cargarActividadesTipicas')}
                   variant="surface"
                   disabled={busy}
                   onPress={loadPresets}

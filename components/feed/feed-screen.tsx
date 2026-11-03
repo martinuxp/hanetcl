@@ -19,6 +19,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, RefreshControl, ScrollView, Share, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const MAX_WIDTH = 480;
 
@@ -63,7 +64,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
       setNow(Date.now());
       setError(null);
     } catch (loadError) {
-      setError(describeAuthError(loadError, 'No pudimos cargar el feed. Desliza hacia abajo para reintentar.'));
+      setError(describeAuthError(loadError, t('components.feed.feedScreen.noPudimosCargarElFeed')));
     }
   }, [tag]);
 
@@ -92,7 +93,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
   useFocusEffect(useCallback(() => {
     if (!canPublish) return;
     eventBar.setCompose({
-      label: tag ? 'Publicar un aviso' : 'Crear publicación',
+      label: tag ? t('common.publicarUnAviso') : t('components.feed.feedScreen.crearPublicacion'),
       onPress: () => router.push(tag ? { pathname: '/feed-post', params: { tag } } : '/feed-post'),
     });
     return () => eventBar.setCompose(null);
@@ -126,7 +127,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
       }));
     } catch (reactError) {
       updatePost(post.id, item => ({ ...item, reactions: before }));
-      setNotice(describeAuthError(reactError, 'No pudimos guardar tu reacción. Inténtalo nuevamente.'));
+      setNotice(describeAuthError(reactError, t('components.feed.feedScreen.noPudimosGuardarTuReaccion')));
     } finally {
       setBusy(null);
     }
@@ -141,7 +142,7 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
       updatePost(post.id, item => ({ ...item, poll }));
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (voteError) {
-      setNotice(describeAuthError(voteError, 'No pudimos guardar tu voto. Inténtalo nuevamente.'));
+      setNotice(describeAuthError(voteError, t('components.feed.feedScreen.noPudimosGuardarTuVoto')));
     } finally {
       setVoting(null);
     }
@@ -216,18 +217,18 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
     <View style={styles.empty}>
       <CustomIcon name="feed" size={40} color={AppColors.textSecondary} />
       <ThemedText style={styles.emptyTitle}>
-        {term ? 'No encontramos coincidencias' : selectedSpace ? `${selectedSpace.name} todavía no ha publicado nada` : tag ? 'Todavía no hay avisos' : 'Todavía no hay publicaciones'}
+        {term ? t('events.noEncontramosCoincidencias') : selectedSpace ? t('components.feed.feedScreen.nameTodaviaNoHaPublicado', { name: selectedSpace.name }) : tag ? t('components.anniversary.noticesPreview.todaviaNoHayAvisos') : t('components.feed.feedScreen.todaviaNoHayPublicaciones')}
       </ThemedText>
       <ThemedText style={styles.emptyText}>
         {term
-          ? 'Prueba con otra palabra o un tag.'
+          ? t('components.feed.feedScreen.pruebaConOtraPalabraO')
           : tag
             ? canPublish
-              ? `Toca Avisos en la barra para publicar el primero. Lleva el tag #${tag} y también sale en el Feed.`
-              : 'Cuando el CEE o tu liceo publiquen un aviso, aparecerá aquí.'
+              ? t('components.feed.feedScreen.tocaAvisosEnLaBarra', { tag })
+              : t('components.feed.feedScreen.cuandoElCeeOTu')
             : canPublish
-              ? 'Toca Feed en la barra para publicar la primera.'
-              : 'Cuando tu liceo, el CEE o tu directiva publiquen algo, aparecerá aquí.'}
+              ? t('components.feed.feedScreen.tocaFeedEnLaBarra')
+              : t('components.feed.feedScreen.cuandoTuLiceoElCee')}
       </ThemedText>
     </View>
   );
@@ -271,23 +272,23 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
       >
         <View style={styles.dialogButtons}>
           {current?.canEdit && (
-            <HanetButton label="Editar" variant="surface" disabled={working} onPress={() => { setDialog(null); router.push({ pathname: '/feed-post', params: { id: current.id } }); }} />
+            <HanetButton label={t('common.editar')} variant="surface" disabled={working} onPress={() => { setDialog(null); router.push({ pathname: '/feed-post', params: { id: current.id } }); }} />
           )}
           {current?.canPin && (
             <HanetButton
-              label={current.pinned ? 'Quitar de arriba' : 'Fijar arriba'}
+              label={current.pinned ? t('components.feed.feedScreen.quitarDeArriba') : t('feedPost.fijarArriba')}
               variant="surface"
               disabled={working}
-              onPress={() => void run(() => setFeedPostPinned(current.id, !current.pinned), 'No pudimos cambiar la publicación fijada.')}
+              onPress={() => void run(() => setFeedPostPinned(current.id, !current.pinned), t('components.feed.feedScreen.noPudimosCambiarLaPublicacion'))}
             />
           )}
           {current?.canEdit && (
-            <HanetButton label="Eliminar" variant="surface" disabled={working} onPress={() => setDialog({ kind: 'delete', post: current })} />
+            <HanetButton label={t('common.eliminar')} variant="surface" disabled={working} onPress={() => setDialog({ kind: 'delete', post: current })} />
           )}
           {current && !current.canEdit && (
-            <HanetButton label="Reportar" variant="surface" disabled={working} onPress={() => setDialog({ kind: 'report', post: current })} />
+            <HanetButton label={t('components.feed.feedScreen.reportar')} variant="surface" disabled={working} onPress={() => setDialog({ kind: 'report', post: current })} />
           )}
-          <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setDialog(null)} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={working} onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
 
@@ -295,12 +296,12 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
         visible={dialog?.kind === 'share'}
         onRequestClose={() => setDialog(null)}
         dismissOnBackdrop
-        title="Compartir publicación"
+        title={t('components.feed.feedScreen.compartirPublicacion')}
       >
         <View style={styles.dialogButtons}>
-          <HanetButton label="Como historia" variant="primary" onPress={() => { if (current) setStory({ kind: 'post', post: current }); setDialog(null); }} />
-          <HanetButton label="Como texto" variant="surface" onPress={() => { if (current) shareText(current); setDialog(null); }} />
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setDialog(null)} />
+          <HanetButton label={t('eventDetail.comoHistoria')} variant="primary" onPress={() => { if (current) setStory({ kind: 'post', post: current }); setDialog(null); }} />
+          <HanetButton label={t('components.feed.feedScreen.comoTexto')} variant="surface" onPress={() => { if (current) shareText(current); setDialog(null); }} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
 
@@ -310,17 +311,17 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
         visible={dialog?.kind === 'delete'}
         onRequestClose={() => !working && setDialog(null)}
         dismissOnBackdrop={!working}
-        title="¿Eliminar esta publicación?"
-        body="Desaparece del feed para todos, con sus reacciones e imágenes."
+        title={t('components.feed.feedScreen.eliminarEstaPublicacion')}
+        body={t('components.feed.feedScreen.desapareceDelFeedParaTodos')}
       >
         <View style={styles.dialogButtons}>
           <HanetButton
-            label={working ? 'Eliminando…' : 'Eliminar'}
+            label={working ? t('common.eliminando') : t('common.eliminar')}
             variant="accent"
             disabled={working}
-            onPress={() => current && void run(() => deleteFeedPost(current.id), 'No pudimos eliminar la publicación.')}
+            onPress={() => current && void run(() => deleteFeedPost(current.id), t('components.feed.feedScreen.noPudimosEliminarLaPublicacion'))}
           />
-          <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setDialog(null)} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={working} onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
 
@@ -328,8 +329,8 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
         visible={dialog?.kind === 'report'}
         onRequestClose={() => !working && setDialog(null)}
         dismissOnBackdrop={!working}
-        title="¿Por qué la reportas?"
-        body="Lo revisa la administración de tu liceo o el equipo HaNet. Nadie más sabe que la reportaste."
+        title={t('components.feed.feedScreen.porQueLaReportas')}
+        body={t('components.feed.feedScreen.loRevisaLaAdministracionDe')}
       >
         <View style={styles.dialogButtons}>
           {REPORT_REASONS.map(reason => (
@@ -338,10 +339,10 @@ export function FeedScreen({ tag, title }: { tag?: string; title?: string }) {
               label={reason.label}
               variant="surface"
               disabled={working}
-              onPress={() => current && void run(() => reportFeedPost(current.id, reason.value), 'No pudimos enviar el reporte.', 'Gracias. Enviamos tu reporte.')}
+              onPress={() => current && void run(() => reportFeedPost(current.id, reason.value), t('components.feed.feedScreen.noPudimosEnviarElReporte'), t('components.feed.feedScreen.graciasEnviamosTuReporte'))}
             />
           ))}
-          <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setDialog(null)} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={working} onPress={() => setDialog(null)} />
         </View>
       </HanetDialog>
     </FrostedScreen>

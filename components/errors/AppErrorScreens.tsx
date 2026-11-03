@@ -8,6 +8,7 @@ import * as Updates from 'expo-updates';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
 import { DevSettings, Linking, Platform, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 export const SUPPORT_EMAIL = 'muxp@muxp.art';
 export const STATUS_PAGE = 'status.hanet.muxp.art';
@@ -50,8 +51,8 @@ export function BlockedScreen({ onDismiss, preview }: Props) {
 
   const openMail = () => {
     setAppealing(false);
-    const subject = encodeURIComponent('Apelación de bloqueo en HaNet');
-    const body = encodeURIComponent('Hola, quiero apelar el bloqueo de mi cuenta de HaNet.\n\nCorreo de mi cuenta:\nPor qué creo que es un error:\n');
+    const subject = encodeURIComponent(t('components.errors.appErrorScreens.apelacionDeBloqueoEnHanet'));
+    const body = encodeURIComponent(t('components.errors.appErrorScreens.holaQuieroApelarElBloqueo'));
     void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
   };
 
@@ -59,22 +60,22 @@ export function BlockedScreen({ onDismiss, preview }: Props) {
     <>
       <ErrorScreen
         icon={ERROR_ICONS.lock}
-        title="Se bloqueó tu acceso a HaNet"
-        body={<>Tu cuenta fue bloqueada por <Strong>incumplimiento de los Términos y Condiciones.</Strong> Si crees que es un error, puedes apelar escribiéndonos.</>}
-        note="Crear otra cuenta para evitar el bloqueo puede hacer que esa cuenta también se bloquee."
-        primary={{ label: 'Apelar', onPress: () => setAppealing(true) }}
-        secondary={{ label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) }}
+        title={t('components.errors.appErrorScreens.seBloqueoTuAccesoA')}
+        body={<>{t('components.errors.appErrorScreens.tuCuentaFueBloqueadaPor')}{' '}<Strong>{t('components.errors.appErrorScreens.incumplimientoDeLosTerminosY')}</Strong>{' '}{t('components.errors.appErrorScreens.siCreesQueEsUn')}</>}
+        note={t('components.errors.appErrorScreens.crearOtraCuentaParaEvitar')}
+        primary={{ label: t('components.errors.appErrorScreens.apelar'), onPress: () => setAppealing(true) }}
+        secondary={{ label: t('common.cerrarSesion'), onPress: () => endSession(onDismiss, preview) }}
       />
       <HanetDialog
         visible={appealing}
         onRequestClose={() => setAppealing(false)}
         dismissOnBackdrop
-        title="Se abrirá tu app de correo"
-        body={`Desde ahí podrás escribir a ${SUPPORT_EMAIL} para apelar el bloqueo. Cuéntanos con qué correo creaste tu cuenta.`}
+        title={t('components.errors.appErrorScreens.seAbriraTuAppDe')}
+        body={t('components.errors.appErrorScreens.desdeAhiPodrasEscribirA', { supportEmail: SUPPORT_EMAIL })}
       >
         <View style={styles.dialogActions}>
-          <HanetButton label="Abrir correo" onPress={openMail} />
-          <HanetButton label="Volver" variant="surface" onPress={() => setAppealing(false)} />
+          <HanetButton label={t('components.errors.appErrorScreens.abrirCorreo')} onPress={openMail} />
+          <HanetButton label={t('common.volver')} variant="surface" onPress={() => setAppealing(false)} />
         </View>
       </HanetDialog>
     </>
@@ -87,16 +88,16 @@ export function ServerScreen({ onDismiss, onRetry, retrying, signedIn, preview }
   return (
     <ErrorScreen
       icon={ERROR_ICONS.server}
-      title="Parece que las oficinas se están quemando…"
-      body="¡No te preocupes, no se está quemando nada! Los servidores de HaNet no responden. Vuelve a intentarlo en unos minutos."
+      title={t('components.errors.appErrorScreens.pareceQueLasOficinasSe')}
+      body={t('components.errors.appErrorScreens.noTePreocupesNoSe')}
       note={
         <>
-          Mantente al tanto de errores e interrupciones de la red HaNet en{' '}
+          {t('components.errors.appErrorScreens.mantenteAlTantoDeErrores')}{' '}
           <Strong onPress={() => void Linking.openURL(`https://${STATUS_PAGE}`)}>{STATUS_PAGE}</Strong>
         </>
       }
-      primary={{ label: retrying ? 'Probando…' : 'Reintentar', onPress: onRetry, disabled: retrying }}
-      secondary={signedIn ? { label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) } : undefined}
+      primary={{ label: retrying ? t('components.errors.appErrorScreens.probando') : t('common.reintentar'), onPress: onRetry, disabled: retrying }}
+      secondary={signedIn ? { label: t('common.cerrarSesion'), onPress: () => endSession(onDismiss, preview) } : undefined}
     />
   );
 }
@@ -105,10 +106,10 @@ export function OfflineScreen({ onDismiss, onRetry, retrying, signedIn, preview 
   return (
     <ErrorScreen
       icon={ERROR_ICONS.offline}
-      title="Parece que no hay internet"
-      body="Revisa el wifi o los datos móviles y vuelve a intentarlo."
-      primary={{ label: retrying ? 'Probando…' : 'Reintentar', onPress: onRetry, disabled: retrying }}
-      secondary={signedIn ? { label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) } : undefined}
+      title={t('components.errors.appErrorScreens.pareceQueNoHayInternet')}
+      body={t('components.errors.appErrorScreens.revisaElWifiOLos')}
+      primary={{ label: retrying ? t('components.errors.appErrorScreens.probando') : t('common.reintentar'), onPress: onRetry, disabled: retrying }}
+      secondary={signedIn ? { label: t('common.cerrarSesion'), onPress: () => endSession(onDismiss, preview) } : undefined}
     />
   );
 }
@@ -118,10 +119,10 @@ export function FatalScreen({ onDismiss, preview }: { onDismiss: () => void; pre
   return (
     <ErrorScreen
       icon=":("
-      title="Ups, algo falló"
-      body={<>HaNet tuvo que detenerse. Si vuelve a pasar después de reiniciar, escríbenos a <Strong>{SUPPORT_EMAIL}</Strong> y cuéntanos qué estabas haciendo. ¡Gracias por probar la beta!</>}
-      primary={{ label: 'Reiniciar', onPress: () => (preview ? onDismiss() : void restartApp()) }}
-      secondary={{ label: 'Cerrar sesión', onPress: () => endSession(onDismiss, preview) }}
+      title={t('components.errors.appErrorScreens.upsAlgoFallo')}
+      body={<>{t('components.errors.appErrorScreens.hanetTuvoQueDetenerseSi')}{' '}<Strong>{SUPPORT_EMAIL}</Strong>{' '}{t('components.errors.appErrorScreens.yCuentanosQueEstabasHaciendo')}</>}
+      primary={{ label: t('components.errors.appErrorScreens.reiniciar'), onPress: () => (preview ? onDismiss() : void restartApp()) }}
+      secondary={{ label: t('common.cerrarSesion'), onPress: () => endSession(onDismiss, preview) }}
     />
   );
 }

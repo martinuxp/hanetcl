@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { KeyboardEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollViewProps, ViewStyle, StyleProp } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // The keyboard covers the bottom of the screen without moving anything: on
 // iOS the form sheet stays where it is, and on Android (edge to edge) the
@@ -55,13 +56,13 @@ export function KeyboardDismissButton({ bottom }: { bottom: number }) {
     <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(100)} pointerEvents="box-none" style={[styles.dismissLayer, { bottom: bottom + AppSpacing.sm }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Bajar el teclado"
+        accessibilityLabel={t('components.ui.keyboard.bajarElTeclado')}
         hitSlop={8}
         onPress={() => Keyboard.dismiss()}
         style={({ pressed }) => [styles.dismiss, pressed && AppPressed]}
       >
         <Ionicons name="chevron-down" size={16} color={AppColors.controlOnActive} />
-        <ThemedText style={styles.dismissText}>Bajar teclado</ThemedText>
+        <ThemedText style={styles.dismissText}>{t('components.ui.keyboard.bajarTeclado')}</ThemedText>
       </Pressable>
     </Animated.View>
   );

@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 function openItem(item: SubmissionItem) {
   void openHallDocument({ url: item.url });
@@ -24,7 +25,7 @@ function openItem(item: SubmissionItem) {
 
 /** "lunes 27 de abril, 10:15" of a submission, or "Ahora" right after handing it in. */
 function submittedLabel(submission: HallSubmission) {
-  return submission.submittedAt ? hallLongDate(submission.submittedAt) : 'Ahora';
+  return submission.submittedAt ? hallLongDate(submission.submittedAt) : t('common.ahora');
 }
 
 export default function TaskScreen() {
@@ -51,7 +52,7 @@ export default function TaskScreen() {
     let active = true;
     getHallTask(hallId, id)
       .then(result => { if (active) { setDetail(result); setError(null); } })
-      .catch(loadError => { if (active) setError(describeAuthError(loadError, 'No pudimos abrir esta tarea. Inténtalo nuevamente.')); });
+      .catch(loadError => { if (active) setError(describeAuthError(loadError, t('classhall.task.noPudimosAbrirEstaTarea'))); });
     return () => { active = false; };
     // `attempt` re-runs the load from the retry button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,7 +91,7 @@ export default function TaskScreen() {
       setDetail(current => current && { ...current, mySubmission: null });
       setConfirming(null);
     } catch (actionFailure) {
-      setActionError(describeAuthError(actionFailure, confirming === 'delete' ? 'No pudimos eliminar la tarea.' : 'No pudimos retirar la entrega.'));
+      setActionError(describeAuthError(actionFailure, confirming === 'delete' ? t('classhall.task.noPudimosEliminarLaTarea') : t('classhall.task.noPudimosRetirarLaEntrega')));
     } finally {
       setWorking(false);
     }
@@ -100,70 +101,70 @@ export default function TaskScreen() {
     <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
-          <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/classhall/tasks', params: { hallId } }))} />
-          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel="HaNet ClassHall" />
-          <TopBarButton icon={HALL_ICONS.calendar} label="Abrir el Calendar del curso" wide onPress={() => router.navigate('/calendar')} />
+          <TopBarButton icon={HALL_ICONS.back} label={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/classhall/tasks', params: { hallId } }))} />
+          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel={t('common.hanetClasshall')} />
+          <TopBarButton icon={HALL_ICONS.calendar} label={t('common.abrirElCalendarDelCurso')} wide onPress={() => router.navigate('/calendar')} />
         </View>
 
         {!detail && !error && <HallSkeleton />}
         {!!error && !detail && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
-            <HanetButton label="Reintentar" variant="surface" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
+            <HanetButton label={t('common.reintentar')} variant="surface" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
           </View>
         )}
 
         {!!detail && !!task && (
           <>
             <View style={styles.hero}>
-              <ThemedText style={styles.kicker}>Tarea · {detail.subject}</ThemedText>
+              <ThemedText style={styles.kicker}>{t('classhall.task.tareaSubject', { subject: detail.subject })}</ThemedText>
               <ThemedText accessibilityRole="header" style={styles.title}>{task.title}</ThemedText>
               <View style={styles.dueRow}>
                 <View style={styles.dueText}>
                   <ThemedText style={styles.dueLabel}>{dueLabel(task.dueAt, now)}</ThemedText>
-                  <ThemedText style={styles.dueDate}>Hasta el {hallLongDate(task.dueAt)}</ThemedText>
+                  <ThemedText style={styles.dueDate}>{t('classhall.task.hastaElHalllongdate', { hallLongDate: hallLongDate(task.dueAt) })}</ThemedText>
                 </View>
                 {!isTeacher && status && <StatusPill label={status.label} tone={status.tone} />}
               </View>
-              {task.acceptLate && <ThemedText style={styles.heroNote}>Acepta entregas atrasadas.</ThemedText>}
+              {task.acceptLate && <ThemedText style={styles.heroNote}>{t('classhall.task.aceptaEntregasAtrasadas')}</ThemedText>}
             </View>
 
             {(!!task.instructions || !!detail.attachment) && (
               <View style={styles.card}>
-                <ThemedText style={styles.cardTitle}>Instrucciones</ThemedText>
+                <ThemedText style={styles.cardTitle}>{t('classhall.taskForm.instrucciones')}</ThemedText>
                 {!!task.instructions && <ThemedText selectable style={styles.body}>{task.instructions}</ThemedText>}
-                {!!detail.attachment && <DocumentTile document={detail.attachment} tone="accent" label="Material de la tarea" />}
-                <ThemedText style={styles.byline}>Publicada por {task.authorName}{task.createdAt ? ` el ${hallDay(task.createdAt)}` : ''}</ThemedText>
+                {!!detail.attachment && <DocumentTile document={detail.attachment} tone="accent" label={t('classhall.task.materialDeLaTarea')} />}
+                <ThemedText style={styles.byline}>{t('classhall.task.publicadaPorAuthornameValue', { authorName: task.authorName, value: task.createdAt ? ` el ${hallDay(task.createdAt)}` : '' })}</ThemedText>
               </View>
             )}
 
             {!isTeacher && (
               <View style={styles.card}>
-                <ThemedText style={styles.cardTitle}>Tu entrega</ThemedText>
+                <ThemedText style={styles.cardTitle}>{t('classhall.task.tuEntrega')}</ThemedText>
                 {mine ? (
                   <>
                     <ThemedText style={styles.meta}>
-                      Entregada el {submittedLabel(mine)}{mine.late ? ' · con atraso' : ''}
+                      {t('classhall.task.entregadaElSubmittedlabelValue', { submittedLabel: submittedLabel(mine), value: mine.late ? t('classhall.task.conAtraso') : '' })}
                     </ThemedText>
                     <View style={styles.items}>
                       {mine.items.map(item => <SubmissionItemRow key={item.id} item={item} onOpen={() => openItem(item)} />)}
                     </View>
                     {!!mine.note && (
                       <View style={styles.note}>
-                        <ThemedText style={styles.noteLabel}>Tu comentario</ThemedText>
+                        <ThemedText style={styles.noteLabel}>{t('classhall.submission.tuComentario')}</ThemedText>
                         <ThemedText selectable style={styles.body}>{mine.note}</ThemedText>
                       </View>
                     )}
                     {mine.reviewed && (
                       <View style={styles.feedback}>
-                        <ThemedText style={styles.feedbackLabel}>Revisada por tu docente</ThemedText>
+                        <ThemedText style={styles.feedbackLabel}>{t('classhall.task.revisadaPorTuDocente')}</ThemedText>
                         {!!mine.feedback && <ThemedText selectable style={styles.feedbackText}>{mine.feedback}</ThemedText>}
                       </View>
                     )}
-                    {canSubmit && <HanetButton label="Editar entrega" variant="surface" onPress={openSubmit} />}
+                    {canSubmit && <HanetButton label={t('classhall.submit.editarEntrega')} variant="surface" onPress={openSubmit} />}
                     {!mine.reviewed && canSubmit && (
                       <Pressable accessibilityRole="button" onPress={() => { setActionError(null); setConfirming('withdraw'); }} style={({ pressed }) => [styles.textButton, pressed && AppPressed]}>
-                        <ThemedText style={styles.textButtonLabel}>Retirar entrega</ThemedText>
+                        <ThemedText style={styles.textButtonLabel}>{t('classhall.task.retirarEntrega')}</ThemedText>
                       </Pressable>
                     )}
                   </>
@@ -171,13 +172,13 @@ export default function TaskScreen() {
                   <>
                     <ThemedText style={styles.body}>
                       {closed
-                        ? 'El plazo terminó, pero tu docente todavía recibe esta tarea. Quedará marcada como atrasada.'
-                        : 'Sube archivos, fotos o vínculos. Puedes cambiar tu entrega hasta que venza el plazo.'}
+                        ? t('classhall.task.elPlazoTerminoPeroTu')
+                        : t('classhall.task.subeArchivosFotosOVinculos')}
                     </ThemedText>
-                    <HanetButton label="Entregar tarea" variant="accent" onPress={openSubmit} />
+                    <HanetButton label={t('classhall.submit.entregarTarea')} variant="accent" onPress={openSubmit} />
                   </>
                 ) : (
-                  <ThemedText style={styles.body}>El plazo terminó y esta tarea ya no recibe entregas. Si tuviste un problema, habla con tu docente.</ThemedText>
+                  <ThemedText style={styles.body}>{t('classhall.task.elPlazoTerminoYEsta')}</ThemedText>
                 )}
               </View>
             )}
@@ -187,22 +188,22 @@ export default function TaskScreen() {
                 <View style={styles.stats}>
                   <View style={styles.stat}>
                     <ThemedText style={styles.statValue}>{submissions.length}{expected ? <ThemedText style={styles.statOf}>/{expected}</ThemedText> : null}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Entregaron</ThemedText>
+                    <ThemedText style={styles.statLabel}>{t('classhall.task.entregaron')}</ThemedText>
                   </View>
                   <View style={styles.stat}>
                     <ThemedText style={styles.statValue}>{reviewedCount}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Revisadas</ThemedText>
+                    <ThemedText style={styles.statLabel}>{t('classhall.task.revisadas')}</ThemedText>
                   </View>
                   <View style={styles.stat}>
                     <ThemedText style={styles.statValue}>{lateCount}</ThemedText>
-                    <ThemedText style={styles.statLabel}>Atrasadas</ThemedText>
+                    <ThemedText style={styles.statLabel}>{t('classhall.task.atrasadas')}</ThemedText>
                   </View>
                 </View>
 
-                <ThemedText style={styles.sectionLabel}>Entregas</ThemedText>
+                <ThemedText style={styles.sectionLabel}>{t('classhall.task.entregas')}</ThemedText>
                 {submissions.length === 0 ? (
                   <View style={styles.card}>
-                    <ThemedText style={styles.body}>Nadie ha entregado esta tarea todavía.</ThemedText>
+                    <ThemedText style={styles.body}>{t('classhall.task.nadieHaEntregadoEstaTarea')}</ThemedText>
                   </View>
                 ) : (
                   <View style={styles.list}>
@@ -211,7 +212,7 @@ export default function TaskScreen() {
                       <Pressable
                         key={item.uid}
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.studentName}, ${submittedLabel(item)}${item.late ? ', atrasada' : ''}${item.reviewed ? ', revisada' : ', por revisar'}`}
+                        accessibilityLabel={`${item.studentName}, ${submittedLabel(item)}${item.late ? t('classhall.task.atrasada') : ''}${item.reviewed ? t('classhall.task.revisada') : t('classhall.task.porRevisar')}`}
                         onPress={() => openSubmission(item)}
                         style={({ pressed }) => [styles.submission, pressed && AppPressed]}
                       >
@@ -219,20 +220,20 @@ export default function TaskScreen() {
                         <View style={styles.submissionText}>
                           <ThemedText numberOfLines={1} style={styles.submissionName}>{item.studentName}</ThemedText>
                           <ThemedText numberOfLines={1} style={styles.meta}>
-                            {[item.courseId, submittedLabel(item), `${item.items.length} ${item.items.length === 1 ? 'archivo' : 'archivos'}`].filter(Boolean).join(' · ')}
+                            {[item.courseId, submittedLabel(item), t('classhall.task.countArchivos', { count: item.items.length })].filter(Boolean).join(' · ')}
                           </ThemedText>
                         </View>
                         {item.reviewed
-                          ? <StatusPill label="Revisada" tone="done" />
-                          : <StatusPill label={item.late ? 'Atrasada' : 'Por revisar'} tone={item.late ? 'late' : 'pending'} />}
+                          ? <StatusPill label={t('classhall.task.revisada2')} tone="done" />
+                          : <StatusPill label={item.late ? t('common.atrasada') : t('classhall.task.porRevisar2')} tone={item.late ? 'late' : 'pending'} />}
                       </Pressable>
                     ))}
                   </View>
                 )}
 
                 <View style={styles.teacherRow}>
-                  <HallPill label="Editar tarea" tone="light" onPress={() => router.push({ pathname: '/classhall/task-form', params: { hallId, id } })} />
-                  <HallPill label="Eliminar" onPress={() => { setActionError(null); setConfirming('delete'); }} />
+                  <HallPill label={t('classhall.taskForm.editarTarea')} tone="light" onPress={() => router.push({ pathname: '/classhall/task-form', params: { hallId, id } })} />
+                  <HallPill label={t('common.eliminar')} onPress={() => { setActionError(null); setConfirming('delete'); }} />
                 </View>
               </>
             )}
@@ -244,16 +245,16 @@ export default function TaskScreen() {
         visible={!!confirming}
         onRequestClose={() => !working && setConfirming(null)}
         dismissOnBackdrop={!working}
-        title={confirming === 'delete' ? '¿Eliminar esta tarea?' : '¿Retirar tu entrega?'}
+        title={confirming === 'delete' ? t('classhall.task.eliminarEstaTarea') : t('classhall.task.retirarTuEntrega')}
         body={confirming === 'delete'
-          ? `Se borran también las ${submissions.length === 1 ? 'entrega' : `${submissions.length} entregas`} y sus archivos, y sale del Calendar del curso. No se puede deshacer.`
-          : 'Tus archivos se borran y la tarea vuelve a quedar pendiente. Puedes entregarla de nuevo mientras esté abierta.'}
+          ? t('classhall.task.seBorranTambienLasCount', { count: submissions.length })
+          : t('classhall.task.tusArchivosSeBorranY')}
       >
         {!!actionError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</ThemedText>}
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" disabled={working} onPress={() => setConfirming(null)} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={working} onPress={() => setConfirming(null)} style={dialogStyles.action} />
           <HanetButton
-            label={working ? (confirming === 'delete' ? 'Eliminando…' : 'Retirando…') : confirming === 'delete' ? 'Eliminar' : 'Retirar'}
+            label={working ? (confirming === 'delete' ? t('common.eliminando') : t('classhall.task.retirando')) : confirming === 'delete' ? t('common.eliminar') : t('classhall.task.retirar')}
             variant="accent"
             disabled={working}
             onPress={confirmAction}

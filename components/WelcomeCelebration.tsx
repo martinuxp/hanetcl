@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 export type WelcomeTreatment = 'ella' | 'el' | 'neutro';
 
@@ -70,26 +71,26 @@ function makeParticles(): Particle[] {
 }
 
 function greeting(treatment: WelcomeTreatment) {
-  if (treatment === 'ella') return 'Bienvenida a HaNet';
-  if (treatment === 'el') return 'Bienvenido a HaNet';
-  return 'Te damos la bienvenida a HaNet';
+  if (treatment === 'ella') return t('components.welcomeCelebration.bienvenidaAHanet');
+  if (treatment === 'el') return t('components.welcomeCelebration.bienvenidoAHanet');
+  return t('components.welcomeCelebration.teDamosLaBienvenidaA');
 }
 
 function Confetti({ particle, flight, originX, originY }: { particle: Particle; flight: SharedValue<number>; originX: number; originY: number }) {
   const style = useAnimatedStyle(() => {
-    const t = Math.max(0, flight.get() * FLIGHT_SECONDS - particle.delay);
-    const travelled = (1 - Math.exp(-DRAG * t)) / DRAG;
+    const elapsed = Math.max(0, flight.get() * FLIGHT_SECONDS - particle.delay);
+    const travelled = (1 - Math.exp(-DRAG * elapsed)) / DRAG;
     const x = originX + particle.vx * travelled;
-    const y = originY - particle.vy * travelled + 0.5 * GRAVITY * 0.5 * t * t;
+    const y = originY - particle.vy * travelled + 0.5 * GRAVITY * 0.5 * elapsed * elapsed;
 
     return {
-      opacity: t <= 0 ? 0 : interpolate(flight.get(), [0, 0.7, 1], [1, 1, 0]),
+      opacity: elapsed <= 0 ? 0 : interpolate(flight.get(), [0, 0.7, 1], [1, 1, 0]),
       transform: [
         { translateX: x },
         { translateY: y },
-        { rotate: `${particle.spin * t}rad` },
+        { rotate: `${particle.spin * elapsed}rad` },
         // Squashing one axis reads as the paper tumbling toward the viewer.
-        { scaleY: Math.cos(particle.flutter * t) },
+        { scaleY: Math.cos(particle.flutter * elapsed) },
       ],
     };
   });
@@ -167,7 +168,7 @@ function Celebration({ firstName, treatment, institutionName, onDone }: Omit<Pro
     <Animated.View style={[styles.backdrop, backdropStyle]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${firstName ? `${firstName}, ` : ''}${greeting(treatment)}. Toca para continuar.`}
+        accessibilityLabel={t('components.welcomeCelebration.valueGreetingTocaParaContinuar', { value: firstName ? `${firstName}, ` : '', greeting: greeting(treatment) })}
         onPress={close}
         style={styles.content}
       >
@@ -185,11 +186,11 @@ function Celebration({ firstName, treatment, institutionName, onDone }: Omit<Pro
         </Animated.View>
         {!!institutionName && (
           <Animated.View style={detailStyle}>
-            <ThemedText style={styles.detail}>Ya eres parte de {institutionName}.</ThemedText>
+            <ThemedText style={styles.detail}>{t('components.welcomeCelebration.yaEresParteDeInstitutionname', { institutionName })}</ThemedText>
           </Animated.View>
         )}
         <Animated.View style={[styles.hintWrap, detailStyle]}>
-          <ThemedText style={styles.hint}>Toca para continuar</ThemedText>
+          <ThemedText style={styles.hint}>{t('components.welcomeCelebration.tocaParaContinuar')}</ThemedText>
         </Animated.View>
       </Pressable>
     </Animated.View>

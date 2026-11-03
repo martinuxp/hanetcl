@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 const MAX_LENGTH = 2000;
 
@@ -41,7 +42,7 @@ function AnnounceScreen() {
       const picked = await pickHallDocument();
       if (picked) setFile(picked);
     } catch (pickError) {
-      setError(pickError instanceof DocumentError ? pickError.message : 'No pudimos abrir el archivo.');
+      setError(pickError instanceof DocumentError ? pickError.message : t('common.noPudimosAbrirElArchivo'));
     }
   };
 
@@ -58,19 +59,19 @@ function AnnounceScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos publicar el anuncio. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('classhall.announce.noPudimosPublicarElAnuncio')));
       setSubmitting(false);
     }
   };
 
-  const label = id ? 'Guardar cambios' : 'Publicar';
+  const label = id ? t('common.guardarCambios') : t('common.publicar');
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: (body.trim() !== initial.trim() || fileChanged) && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready,
-    title: id ? '¿Descartar los cambios?' : '¿Descartar este anuncio?',
-    message: id ? 'El anuncio quedará como estaba.' : 'Todavía no lo has publicado.',
+    title: id ? t('common.descartarLosCambios') : t('classhall.announce.descartarEsteAnuncio'),
+    message: id ? t('classhall.announce.elAnuncioQuedaraComoEstaba') : t('classhall.announce.todaviaNoLoHasPublicado'),
   });
 
   return (
@@ -79,16 +80,16 @@ function AnnounceScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar anuncio' : 'Nuevo anuncio'}</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{id ? t('classhall.announce.editarAnuncio') : t('classhall.announce.nuevoAnuncio')}</ThemedText>
       <ThemedText style={styles.lead}>
-        {subject ? `Lo verán todos los estudiantes del Hall de ${subject}.` : 'Lo verán todos los estudiantes del Hall.'}
+        {subject ? t('classhall.announce.loVeranTodosLosEstudiantes', { subject }) : t('classhall.announce.loVeranTodosLosEstudiantes2')}
       </ThemedText>
 
       <TextInput
-        accessibilityLabel="Anuncio"
+        accessibilityLabel={t('classhall.announce.anuncio')}
         value={body}
         onChangeText={(text) => { setBody(text); setError(null); }}
-        placeholder="Cuestionario de estudio. Presentarlo terminado en el cuaderno el lunes."
+        placeholder={t('classhall.announce.cuestionarioDeEstudioPresentarloTerminado')}
         placeholderTextColor={AppColors.surfaceMuted}
         multiline
         maxLength={MAX_LENGTH}
@@ -98,36 +99,36 @@ function AnnounceScreen() {
         style={[styles.input, styles.multiline]}
       />
       {body.length > MAX_LENGTH - 200 && (
-        <ThemedText style={styles.hint}>{MAX_LENGTH - body.length} caracteres disponibles</ThemedText>
+        <ThemedText style={styles.hint}>{t('classhall.announce.valueCaracteresDisponibles', { value: MAX_LENGTH - body.length })}</ThemedText>
       )}
 
       <View style={local.attachment}>
         {file || (existing && !removeExisting) ? (
           <>
             <View style={local.attachmentText}>
-              <ThemedText style={styles.label}>Archivo adjunto</ThemedText>
+              <ThemedText style={styles.label}>{t('classhall.announce.archivoAdjunto')}</ThemedText>
               <ThemedText numberOfLines={1} style={styles.hint}>{file ? file.name : existing?.name}</ThemedText>
             </View>
             <Pressable accessibilityRole="button" disabled={submitting} onPress={chooseFile} style={({ pressed }) => [local.pill, pressed && styles.pressed]}>
-              <ThemedText style={local.pillText}>Cambiar</ThemedText>
+              <ThemedText style={local.pillText}>{t('common.cambiar')}</ThemedText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Quitar el archivo adjunto"
+              accessibilityLabel={t('classhall.announce.quitarElArchivoAdjunto')}
               disabled={submitting}
               onPress={() => { if (file) setFile(null); else setRemoveExisting(true); }}
               style={({ pressed }) => [local.pill, pressed && styles.pressed]}
             >
-              <ThemedText style={local.pillText}>Quitar</ThemedText>
+              <ThemedText style={local.pillText}>{t('common.quitar')}</ThemedText>
             </Pressable>
           </>
         ) : (
           <Pressable accessibilityRole="button" disabled={submitting} onPress={chooseFile} style={({ pressed }) => [local.attach, pressed && styles.pressed]}>
-            <ThemedText style={local.pillText}>Adjuntar un archivo (opcional)</ThemedText>
+            <ThemedText style={local.pillText}>{t('classhall.announce.adjuntarUnArchivoOpcional')}</ThemedText>
           </Pressable>
         )}
       </View>
-      <ThemedText style={[styles.hint, local.hint]}>PDF, Word, PowerPoint, Excel o imagen, hasta 10 MB. También aparece en Documentos.</ThemedText>
+      <ThemedText style={[styles.hint, local.hint]}>{t('classhall.announce.pdfWordPowerpointExcelO')}</ThemedText>
 
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
 
@@ -138,10 +139,10 @@ function AnnounceScreen() {
         onPress={submit}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? (file ? 'Subiendo…' : 'Publicando…') : label}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? (file ? t('common.subiendo') : t('common.publicando')) : label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
       {dialog}
     </KeyboardScroll>

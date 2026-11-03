@@ -7,10 +7,12 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeScrollEvent, ScrollViewInstance, NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
+import { capitalize, months, t, weekdayLetters, weekdays } from '@/i18n';
 
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const WEEKDAYS = weekdayLetters();
+// From Monday, like the grid.
+const WEEKDAY_NAMES = [...weekdays().slice(1), weekdays()[0]];
+const MONTHS = months().map(capitalize);
 const MINUTE_STEP = 5;
 const WHEEL_ITEM_HEIGHT = 36;
 const WHEEL_SETTLE_MS = 120;
@@ -44,13 +46,13 @@ function PickerDialog({ value, onConfirm, onCancel }: Omit<ModalProps, 'visible'
 
   return (
     <View style={styles.backdrop}>
-      <Pressable accessibilityLabel="Cerrar sin cambiar la fecha" style={StyleSheet.absoluteFill} onPress={onCancel} />
+      <Pressable accessibilityLabel={t('components.ui.hanetDateTimePicker.cerrarSinCambiarLaFecha')} style={StyleSheet.absoluteFill} onPress={onCancel} />
       <View style={styles.dialog} accessibilityViewIsModal accessibilityRole="alert">
-        <ThemedText style={styles.dialogTitle}>Fecha y hora</ThemedText>
+        <ThemedText style={styles.dialogTitle}>{t('createEvent.fechaYHora')}</ThemedText>
         <HanetDateTimePicker value={draft} onChange={setDraft} style={styles.dialogPicker} />
         <View style={styles.dialogActions}>
-          <HanetButton label="Cancelar" variant="surface" onPress={onCancel} style={styles.dialogButton} />
-          <HanetButton label="Listo" onPress={() => onConfirm(draft)} style={styles.dialogButton} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={onCancel} style={styles.dialogButton} />
+          <HanetButton label={t('common.listo')} onPress={() => onConfirm(draft)} style={styles.dialogButton} />
         </View>
       </View>
     </View>
@@ -113,13 +115,13 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
   return (
     <View style={[styles.panel, style]}>
       <View style={styles.monthHeader}>
-        <RoundButton label="Mes anterior" onPress={() => shiftMonth(-1)}>
+        <RoundButton label={t('calendar.mesAnterior')} onPress={() => shiftMonth(-1)}>
           <CustomIcon name="chevron-left" size={18} color={AppColors.textPrimary} />
         </RoundButton>
         <ThemedText accessibilityLiveRegion="polite" style={styles.monthTitle}>
           {MONTHS[visibleMonth.getMonth()]} {visibleMonth.getFullYear()}
         </ThemedText>
-        <RoundButton label="Mes siguiente" onPress={() => shiftMonth(1)}>
+        <RoundButton label={t('calendar.mesSiguiente')} onPress={() => shiftMonth(1)}>
           <CustomIcon name="chevron-right" size={18} color={AppColors.textPrimary} />
         </RoundButton>
       </View>
@@ -141,7 +143,7 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
             <View key={day.toISOString()} style={styles.cell}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${WEEKDAY_NAMES[index % 7]} ${day.getDate()} de ${MONTHS[day.getMonth()]}${isToday ? ', hoy' : ''}`}
+                accessibilityLabel={`${WEEKDAY_NAMES[index % 7]} ${day.getDate()} de ${MONTHS[day.getMonth()]}${isToday ? t('common.hoy') : ''}`}
                 accessibilityState={{ selected }}
                 onPress={() => selectDay(day)}
                 style={({ pressed }) => [
@@ -161,11 +163,11 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
       <View style={styles.divider} />
 
       <View style={styles.timeRow}>
-        <ThemedText style={styles.timeLabel}>Hora</ThemedText>
+        <ThemedText style={styles.timeLabel}>{t('components.ui.hanetDateTimePicker.hora')}</ThemedText>
         <View style={styles.timeControls}>
-          <Wheel label="Hora" values={HOURS} selectedIndex={value.getHours()} onSelect={index => setHours(HOURS[index])} />
+          <Wheel label={t('components.ui.hanetDateTimePicker.hora')} values={HOURS} selectedIndex={value.getHours()} onSelect={index => setHours(HOURS[index])} />
           <ThemedText style={styles.timeColon}>:</ThemedText>
-          <Wheel label="Minutos" values={MINUTES} selectedIndex={minuteIndex} onSelect={index => setMinutes(MINUTES[index])} />
+          <Wheel label={t('components.ui.hanetDateTimePicker.minutos')} values={MINUTES} selectedIndex={minuteIndex} onSelect={index => setMinutes(MINUTES[index])} />
         </View>
       </View>
     </View>
@@ -173,14 +175,14 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
 }
 
 /** Just the hour and minute wheels, for a time of day as minutes since midnight. */
-export function HanetTimeWheels({ minutes, onChange, label = 'Hora' }: { minutes: number; onChange: (minutes: number) => void; label?: string }) {
+export function HanetTimeWheels({ minutes, onChange, label = t('components.ui.hanetDateTimePicker.hora') }: { minutes: number; onChange: (minutes: number) => void; label?: string }) {
   const hours = Math.floor(minutes / 60) % 24;
   const minuteIndex = Math.round((minutes % 60) / MINUTE_STEP) % MINUTES.length;
   return (
     <View style={styles.timeControls} accessibilityLabel={label}>
-      <Wheel label={`${label}: hora`} values={HOURS} selectedIndex={hours} onSelect={index => onChange(HOURS[index] * 60 + MINUTES[minuteIndex])} />
+      <Wheel label={t('components.ui.hanetDateTimePicker.labelHora', { label })} values={HOURS} selectedIndex={hours} onSelect={index => onChange(HOURS[index] * 60 + MINUTES[minuteIndex])} />
       <ThemedText style={styles.timeColon}>:</ThemedText>
-      <Wheel label={`${label}: minutos`} values={MINUTES} selectedIndex={minuteIndex} onSelect={index => onChange(hours * 60 + MINUTES[index])} />
+      <Wheel label={t('components.ui.hanetDateTimePicker.labelMinutos', { label })} values={MINUTES} selectedIndex={minuteIndex} onSelect={index => onChange(hours * 60 + MINUTES[index])} />
     </View>
   );
 }

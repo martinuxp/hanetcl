@@ -16,6 +16,7 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 const MAX_CONTENTS = 12;
 const MAX_SKILLS = 8;
@@ -95,7 +96,7 @@ function scannedSections(draft: SpecTableDraft) {
 function RemoveButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled: boolean }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={8} disabled={disabled} onPress={onPress} style={({ pressed }) => [local.remove, pressed && styles.pressed]}>
-      <ThemedText style={local.removeText}>Quitar</ThemedText>
+      <ThemedText style={local.removeText}>{t('common.quitar')}</ThemedText>
     </Pressable>
   );
 }
@@ -177,7 +178,7 @@ function EvaluationFormScreen() {
       setScanNotes(draft.warnings);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (readError) {
-      setScanError(readError instanceof DocumentError ? readError.message : describeAuthError(readError, 'No pudimos leer la tabla. Complétala a mano.'));
+      setScanError(readError instanceof DocumentError ? readError.message : describeAuthError(readError, t('classhall.evaluationForm.noPudimosLeerLaTabla')));
     } finally {
       setScanning(false);
     }
@@ -246,31 +247,31 @@ function EvaluationFormScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar la evaluación. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('classhall.evaluationForm.noPudimosGuardarLaEvaluacion')));
       setSubmitting(false);
     }
   };
 
-  const label = id ? 'Guardar cambios' : fromEvent ? 'Guardar en mi Hall' : 'Agendar evaluación';
+  const label = id ? t('common.guardarCambios') : fromEvent ? t('classhall.evaluationForm.guardarEnMiHall') : t('classhall.evaluationForm.agendarEvaluacion');
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: dirty && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready,
-    title: id ? '¿Descartar los cambios?' : '¿Descartar esta evaluación?',
-    message: id ? 'La evaluación quedará como estaba.' : 'Todavía no la has agendado.',
+    title: id ? t('common.descartarLosCambios') : t('classhall.evaluationForm.descartarEstaEvaluacion'),
+    message: id ? t('classhall.evaluationForm.laEvaluacionQuedaraComoEstaba') : t('classhall.evaluationForm.todaviaNoLaHasAgendado'),
   });
 
   const filledRows = form.rows.filter(row => row.name.trim()).length;
   const objectiveCodes = form.objectives.filter(objective => objective.code.trim()).map(objective => objective.code.trim());
   const filledObjectives = form.objectives.filter(objective => objective.code.trim() || objective.text.trim()).length;
   const tableSummary = filledRows
-    ? `${filledRows} ${filledRows === 1 ? 'contenido' : 'contenidos'}${total ? ` · ${total} pts.` : ''}`
-    : 'Contenidos y puntajes';
+    ? t('classhall.evaluationForm.countContenidosValue', { count: filledRows, value: total ? t('classhall.evaluationForm.totalPts', { total }) : '' })
+    : t('classhall.evaluationForm.contenidosYPuntajes');
   const objectivesSummary = objectiveCodes.length
     ? objectiveCodes.join(' · ')
-    : filledObjectives ? `${filledObjectives} ${filledObjectives === 1 ? 'objetivo' : 'objetivos'}` : 'Opcional';
-  const moreSummary = [exigency !== null ? `Exigencia ${exigency} %` : 'Sin exigencia', form.prep.trim() ? 'Cómo prepararse' : null].filter(Boolean).join(' · ');
+    : filledObjectives ? t('classhall.evaluationForm.countObjetivos', { count: filledObjectives }) : t('classhall.evaluationForm.opcional');
+  const moreSummary = [exigency !== null ? t('classhall.evaluationForm.exigenciaExigency', { exigency }) : t('classhall.evaluationForm.sinExigencia'), form.prep.trim() ? t('classhall.evaluationForm.comoPrepararse') : null].filter(Boolean).join(' · ');
 
   // The native iOS sheet needs the ScrollView as the screen's root; a view
   // around it leaves the sheet blank. While reading a T.E. the same
@@ -279,8 +280,8 @@ function EvaluationFormScreen() {
     return (
       <ScrollView style={styles.sheet} contentContainerStyle={local.scanningLayer} scrollEnabled={false}>
         <ActivityIndicator size="large" color={AppColors.textPrimary} />
-        <ThemedText accessibilityLiveRegion="polite" style={local.scanningText}>Leyendo la tabla…</ThemedText>
-        <ThemedText style={local.scanningHint}>Buscamos los contenidos, los puntajes y los objetivos.</ThemedText>
+        <ThemedText accessibilityLiveRegion="polite" style={local.scanningText}>{t('classhall.evaluationForm.leyendoLaTabla')}</ThemedText>
+        <ThemedText style={local.scanningHint}>{t('classhall.evaluationForm.buscamosLosContenidosLosPuntajes')}</ThemedText>
       </ScrollView>
     );
   }
@@ -291,33 +292,33 @@ function EvaluationFormScreen() {
       contentContainerStyle={[styles.content, local.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar evaluación' : fromEvent ? 'Completar evaluación' : 'Agendar evaluación'}</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{id ? t('classhall.evaluationForm.editarEvaluacion') : fromEvent ? t('classhall.evaluationForm.completarEvaluacion') : t('classhall.evaluationForm.agendarEvaluacion')}</ThemedText>
       <ThemedText style={styles.lead}>
         {fromEvent
-          ? 'La agendó el curso en el Calendar. Al guardarla pasa a tu Hall y queda verificada por ti.'
-          : 'Solo el nombre y el día son obligatorios. También aparece en el Calendar del curso.'}
+          ? t('classhall.evaluationForm.laAgendoElCursoEn')
+          : t('classhall.evaluationForm.soloElNombreYEl')}
       </ThemedText>
 
       {staged || scanError ? (
         <View style={local.scanCard}>
           <View style={local.scanRow}>
             <View style={local.scanCopy}>
-              <ThemedText style={local.scanTitle}>{staged ? 'Tabla leída' : 'No pudimos leer la tabla'}</ThemedText>
+              <ThemedText style={local.scanTitle}>{staged ? t('classhall.evaluationForm.tablaLeida') : t('classhall.evaluationForm.noPudimosLeerLaTabla2')}</ThemedText>
               <ThemedText numberOfLines={2} style={local.scanText}>{staged ? staged.name : scanError}</ThemedText>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Escanear otra tabla"
+              accessibilityLabel={t('classhall.evaluationForm.escanearOtraTabla')}
               disabled={scanning || submitting}
               onPress={() => void scan()}
               style={({ pressed }) => [local.scanButton, (scanning || submitting) && styles.submitDisabled, pressed && styles.pressed]}
             >
-              <ThemedText style={local.scanButtonText}>{staged ? 'Otra' : 'Reintentar'}</ThemedText>
+              <ThemedText style={local.scanButtonText}>{staged ? t('classhall.evaluationForm.otra') : t('common.reintentar')}</ThemedText>
             </Pressable>
           </View>
           {!!scanNotes && (
             <View accessibilityLiveRegion="polite" style={local.notes}>
-              <ThemedText style={local.notesTitle}>{scanNotes.length ? 'Revisa esto antes de guardar' : 'Listo. Revisa los datos antes de guardar.'}</ThemedText>
+              <ThemedText style={local.notesTitle}>{scanNotes.length ? t('classhall.evaluationForm.revisaEstoAntesDeGuardar') : t('classhall.evaluationForm.listoRevisaLosDatosAntes')}</ThemedText>
               {scanNotes.map((note, index) => <ThemedText key={index} style={local.note}>• {note}</ThemedText>)}
             </View>
           )}
@@ -325,22 +326,22 @@ function EvaluationFormScreen() {
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityHint="Sube la T.E. (PDF, Word o foto) y llenamos el formulario por ti"
+          accessibilityHint={t('classhall.evaluationForm.subeLaTEPdf')}
           disabled={scanning || submitting}
           onPress={() => void scan()}
           style={({ pressed }) => [local.scanLink, pressed && styles.pressed]}
         >
-          <ThemedText style={local.scanLinkText}>¿Tienes la T.E.? <ThemedText style={local.scanLinkStrong}>Escanearla</ThemedText></ThemedText>
+          <ThemedText style={local.scanLinkText}>{t('classhall.evaluationForm.tienesLaTE')}{' '}<ThemedText style={local.scanLinkStrong}>{t('classhall.evaluationForm.escanearla')}</ThemedText></ThemedText>
         </Pressable>
       )}
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Nombre</ThemedText>
+        <ThemedText style={styles.label}>{t('common.nombre')}</ThemedText>
         <TextInput
-          accessibilityLabel="Nombre de la evaluación"
+          accessibilityLabel={t('classhall.evaluationForm.nombreDeLaEvaluacion')}
           value={form.title}
           onChangeText={title => update({ title })}
-          placeholder="Evaluación sumativa 2"
+          placeholder={t('classhall.evaluationForm.evaluacionSumativa2')}
           placeholderTextColor={AppColors.surfaceMuted}
           maxLength={80}
           editable={!submitting}
@@ -350,39 +351,39 @@ function EvaluationFormScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Día y hora</ThemedText>
+        <ThemedText style={styles.label}>{t('anniversary.activity.diaYHora')}</ThemedText>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Día y hora: ${hallLongDate(form.date)}. Cambiar`}
+          accessibilityLabel={t('classhall.evaluationForm.diaYHoraHalllongdateCambiar', { hallLongDate: hallLongDate(form.date) })}
           disabled={submitting}
           onPress={() => setPicking(true)}
           style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
         >
           <ThemedText numberOfLines={1} style={local.dateText}>{hallLongDate(form.date)}</ThemedText>
-          <ThemedText style={local.dateAction}>Cambiar</ThemedText>
+          <ThemedText style={local.dateAction}>{t('common.cambiar')}</ThemedText>
         </Pressable>
       </View>
 
-      <Section title="Tabla de especificaciones" summary={tableSummary} open={openSections.includes('table')} onToggle={() => toggleSection('table')}>
+      <Section title={t('common.tablaDeEspecificaciones')} summary={tableSummary} open={openSections.includes('table')} onToggle={() => toggleSection('table')}>
         <View style={local.skillsBar}>
           <View style={local.skillsCopy}>
-            <ThemedText style={local.smallLabel}>Habilidades</ThemedText>
+            <ThemedText style={local.smallLabel}>{t('classhall.evaluationForm.habilidades')}</ThemedText>
             <ThemedText numberOfLines={2} style={local.skillsList}>{form.skills.map(skill => skill.trim() || 'Sin nombre').join(' · ')}</ThemedText>
           </View>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: editingSkills }} onPress={() => setEditingSkills(value => !value)} style={({ pressed }) => [local.linkButton, pressed && styles.pressed]}>
-            <ThemedText style={local.linkText}>{editingSkills ? 'Listo' : 'Cambiar'}</ThemedText>
+            <ThemedText style={local.linkText}>{editingSkills ? t('common.listo') : t('common.cambiar')}</ThemedText>
           </Pressable>
         </View>
         {editingSkills && (
           <Animated.View entering={FadeIn.duration(120)} style={local.skillsEditor}>
-            <ThemedText style={styles.hint}>Las columnas de puntos, con los nombres que usa tu tabla.</ThemedText>
+            <ThemedText style={styles.hint}>{t('classhall.evaluationForm.lasColumnasDePuntosCon')}</ThemedText>
             {form.skills.map((skill, column) => (
               <View key={column} style={local.skillRow}>
                 <TextInput
-                  accessibilityLabel={`Habilidad ${column + 1}`}
+                  accessibilityLabel={t('classhall.evaluationForm.habilidadNumber', { number: column + 1 })}
                   value={skill}
                   onChangeText={name => renameSkill(column, name)}
-                  placeholder="Comprensión"
+                  placeholder={t('classhall.evaluationForm.comprension')}
                   placeholderTextColor={AppColors.surfaceMuted}
                   maxLength={40}
                   editable={!submitting}
@@ -390,14 +391,14 @@ function EvaluationFormScreen() {
                   style={[styles.input, local.skillInput]}
                 />
                 {form.skills.length > 1 && (
-                  <RemoveButton label={`Quitar la habilidad ${skill || column + 1}`} disabled={submitting} onPress={() => removeSkill(column)} />
+                  <RemoveButton label={t('classhall.evaluationForm.quitarLaHabilidadSkill', { skill: skill || column + 1 })} disabled={submitting} onPress={() => removeSkill(column)} />
                 )}
               </View>
             ))}
-            {form.skills.length < MAX_SKILLS && <AddButton label="Agregar habilidad" disabled={submitting} onPress={addSkill} />}
+            {form.skills.length < MAX_SKILLS && <AddButton label={t('classhall.evaluationForm.agregarHabilidad')} disabled={submitting} onPress={addSkill} />}
           </Animated.View>
         )}
-        {!namedSkills && <ThemedText style={styles.error}>Ponle nombre a cada habilidad.</ThemedText>}
+        {!namedSkills && <ThemedText style={styles.error}>{t('classhall.evaluationForm.ponleNombreACadaHabilidad')}</ThemedText>}
 
         {form.rows.map((row, index) => {
           const detailShown = !!row.detail || detailRows.includes(index);
@@ -405,10 +406,10 @@ function EvaluationFormScreen() {
             <View key={index} style={local.block}>
               <View style={local.blockHead}>
                 <TextInput
-                  accessibilityLabel={`Nombre del contenido ${index + 1}`}
+                  accessibilityLabel={t('classhall.evaluationForm.nombreDelContenidoNumber', { number: index + 1 })}
                   value={row.name}
                   onChangeText={name => updateRow(index, { name })}
-                  placeholder={`Contenido ${index + 1}`}
+                  placeholder={t('classhall.evaluationForm.contenidoNumber', { number: index + 1 })}
                   placeholderTextColor={AppColors.surfaceMuted}
                   maxLength={80}
                   editable={!submitting}
@@ -416,15 +417,15 @@ function EvaluationFormScreen() {
                   style={[styles.input, local.rowInput, local.grow]}
                 />
                 {form.rows.length > 1 && (
-                  <RemoveButton label={`Quitar el contenido ${index + 1}`} disabled={submitting} onPress={() => update({ rows: form.rows.filter((_, at) => at !== index) })} />
+                  <RemoveButton label={t('classhall.evaluationForm.quitarElContenidoNumber', { number: index + 1 })} disabled={submitting} onPress={() => update({ rows: form.rows.filter((_, at) => at !== index) })} />
                 )}
               </View>
               {detailShown ? (
                 <TextInput
-                  accessibilityLabel={`Detalle del contenido ${index + 1}, opcional`}
+                  accessibilityLabel={t('classhall.evaluationForm.detalleDelContenidoNumberOpcional', { number: index + 1 })}
                   value={row.detail}
                   onChangeText={detail => updateRow(index, { detail })}
-                  placeholder="Detalle (opcional)"
+                  placeholder={t('classhall.evaluationForm.detalleOpcional')}
                   placeholderTextColor={AppColors.surfaceMuted}
                   maxLength={160}
                   editable={!submitting}
@@ -433,7 +434,7 @@ function EvaluationFormScreen() {
                 />
               ) : (
                 <Pressable accessibilityRole="button" onPress={() => setDetailRows(list => [...list, index])} style={({ pressed }) => [local.inlineLink, pressed && styles.pressed]}>
-                  <ThemedText style={local.linkText}>+ Agregar detalle</ThemedText>
+                  <ThemedText style={local.linkText}>{t('classhall.evaluationForm.agregarDetalle')}</ThemedText>
                 </Pressable>
               )}
               <View style={local.points}>
@@ -441,7 +442,7 @@ function EvaluationFormScreen() {
                   <View key={column} style={local.point}>
                     <ThemedText numberOfLines={1} style={local.pointLabel}>{skill ? skillAbbreviation(skill) : `H${column + 1}`}</ThemedText>
                     <TextInput
-                      accessibilityLabel={`Puntos de ${skill || `la habilidad ${column + 1}`}, contenido ${index + 1}`}
+                      accessibilityLabel={t('classhall.evaluationForm.puntosDeSkillContenidoNumber', { skill: skill || `la habilidad ${column + 1}`, number: index + 1 })}
                       value={row.points[column] ?? ''}
                       onChangeText={value => setPoint(index, column, value)}
                       placeholder="0"
@@ -458,19 +459,19 @@ function EvaluationFormScreen() {
           );
         })}
         {form.rows.length < MAX_CONTENTS && (
-          <AddButton label="Agregar contenido" disabled={submitting} onPress={() => update({ rows: [...form.rows, emptyRow(form.skills.length)] })} />
+          <AddButton label={t('classhall.evaluationForm.agregarContenido')} disabled={submitting} onPress={() => update({ rows: [...form.rows, emptyRow(form.skills.length)] })} />
         )}
       </Section>
 
-      <Section title="Objetivos de aprendizaje" summary={objectivesSummary} open={openSections.includes('objectives')} onToggle={() => toggleSection('objectives')}>
+      <Section title={t('classhall.evaluationForm.objetivosDeAprendizaje')} summary={objectivesSummary} open={openSections.includes('objectives')} onToggle={() => toggleSection('objectives')}>
         {form.objectives.map((objective, index) => (
           <View key={index} style={local.block}>
             <View style={local.blockHead}>
               <TextInput
-                accessibilityLabel={`Código del objetivo ${index + 1}`}
+                accessibilityLabel={t('classhall.evaluationForm.codigoDelObjetivoNumber', { number: index + 1 })}
                 value={objective.code}
                 onChangeText={code => updateObjective(index, { code })}
-                placeholder="OA 3"
+                placeholder={t('classhall.evaluationForm.oa3')}
                 placeholderTextColor={AppColors.surfaceMuted}
                 autoCapitalize="characters"
                 maxLength={40}
@@ -479,14 +480,14 @@ function EvaluationFormScreen() {
                 style={[styles.input, local.rowInput, local.grow]}
               />
               {form.objectives.length > 1 && (
-                <RemoveButton label={`Quitar el objetivo ${index + 1}`} disabled={submitting} onPress={() => update({ objectives: form.objectives.filter((_, at) => at !== index) })} />
+                <RemoveButton label={t('classhall.evaluationForm.quitarElObjetivoNumber', { number: index + 1 })} disabled={submitting} onPress={() => update({ objectives: form.objectives.filter((_, at) => at !== index) })} />
               )}
             </View>
             <TextInput
-              accessibilityLabel={`Texto del objetivo ${index + 1}, opcional`}
+              accessibilityLabel={t('classhall.evaluationForm.textoDelObjetivoNumberOpcional', { number: index + 1 })}
               value={objective.text}
               onChangeText={text => updateObjective(index, { text })}
-              placeholder="Qué se espera que aprendan (opcional)"
+              placeholder={t('classhall.evaluationForm.queSeEsperaQueAprendan')}
               placeholderTextColor={AppColors.surfaceMuted}
               multiline
               maxLength={600}
@@ -497,16 +498,16 @@ function EvaluationFormScreen() {
           </View>
         ))}
         {form.objectives.length < MAX_OBJECTIVES && (
-          <AddButton label="Agregar objetivo" disabled={submitting} onPress={() => update({ objectives: [...form.objectives, { code: '', text: '' }] })} />
+          <AddButton label={t('classhall.evaluationForm.agregarObjetivo')} disabled={submitting} onPress={() => update({ objectives: [...form.objectives, { code: '', text: '' }] })} />
         )}
       </Section>
 
-      <Section title="Más detalles" summary={moreSummary} open={openSections.includes('more')} onToggle={() => toggleSection('more')}>
+      <Section title={t('classhall.evaluationForm.masDetalles')} summary={moreSummary} open={openSections.includes('more')} onToggle={() => toggleSection('more')}>
         <View style={styles.field}>
-          <ThemedText style={styles.label}>Exigencia</ThemedText>
+          <ThemedText style={styles.label}>{t('classhall.evaluationForm.exigencia')}</ThemedText>
           <View style={local.exigency}>
             <TextInput
-              accessibilityLabel="Exigencia en porcentaje"
+              accessibilityLabel={t('classhall.evaluationForm.exigenciaEnPorcentaje')}
               value={form.exigency}
               onChangeText={text => update({ exigency: digits(text) })}
               placeholder="60"
@@ -518,15 +519,15 @@ function EvaluationFormScreen() {
             />
             <ThemedText style={local.percent} pointerEvents="none">%</ThemedText>
           </View>
-          {!exigencyValid && <ThemedText style={styles.error}>La exigencia va de 1 a 100 %.</ThemedText>}
+          {!exigencyValid && <ThemedText style={styles.error}>{t('classhall.evaluationForm.laExigenciaVaDe1')}</ThemedText>}
         </View>
         <View style={styles.field}>
-          <ThemedText style={styles.label}>Cómo prepararse</ThemedText>
+          <ThemedText style={styles.label}>{t('classhall.evaluationForm.comoPrepararse')}</ThemedText>
           <TextInput
-            accessibilityLabel="Cómo prepararse, opcional"
+            accessibilityLabel={t('classhall.evaluationForm.comoPrepararseOpcional')}
             value={form.prep}
             onChangeText={prep => update({ prep })}
-            placeholder="Apuntes de clases, guía de contenidos, libro del Ministerio pp. 38-50…"
+            placeholder={t('classhall.evaluationForm.apuntesDeClasesGuiaDe')}
             placeholderTextColor={AppColors.surfaceMuted}
             multiline
             maxLength={1500}
@@ -546,10 +547,10 @@ function EvaluationFormScreen() {
         onPress={submit}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? 'Guardando…' : label}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? t('common.guardando') : label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
 
       <HanetDateTimePickerModal

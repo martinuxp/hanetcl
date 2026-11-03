@@ -27,6 +27,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 
 type Access = 'checking' | 'granted' | 'denied';
@@ -92,7 +93,7 @@ export default function HntAdminScreen() {
       const url = await uploadBrandingImage(institution.id, kind, localUri);
       setInstitutions(list => list.map(item => (item.id === institution.id ? { ...item, [`${kind}Url`]: url } : item)));
     } catch (uploadError) {
-      setBrandingError({ id: institution.id, message: describeAuthError(uploadError, 'No pudimos guardar la imagen. Revisa tu conexión e inténtalo nuevamente.') });
+      setBrandingError({ id: institution.id, message: describeAuthError(uploadError, t('hntAdmin.noPudimosGuardarLaImagen')) });
     } finally {
       setBrandingBusy(null);
     }
@@ -106,7 +107,7 @@ export default function HntAdminScreen() {
       await removeBrandingImage(institution.id, kind);
       setInstitutions(list => list.map(item => (item.id === institution.id ? { ...item, [`${kind}Url`]: null } : item)));
     } catch (removeError) {
-      setBrandingError({ id: institution.id, message: describeAuthError(removeError, 'No pudimos quitar la imagen. Inténtalo nuevamente.') });
+      setBrandingError({ id: institution.id, message: describeAuthError(removeError, t('hntAdmin.noPudimosQuitarLaImagen')) });
     } finally {
       setBrandingBusy(null);
     }
@@ -118,7 +119,7 @@ export default function HntAdminScreen() {
     try {
       setInstitutions(await listInstitutions());
     } catch (loadError) {
-      setError(describeAuthError(loadError, 'No pudimos cargar las instituciones. Inténtalo nuevamente.'));
+      setError(describeAuthError(loadError, t('hntAdmin.noPudimosCargarLasInstituciones')));
     } finally {
       setLoading(false);
     }
@@ -158,7 +159,7 @@ export default function HntAdminScreen() {
   const handleCreate = async () => {
     setCreateError(null);
     if (name.trim().length < 2) {
-      setCreateError('Escribe el nombre corto de la institución.');
+      setCreateError(t('hntAdmin.escribeElNombreCortoDe'));
       return;
     }
     setCreating(true);
@@ -168,7 +169,7 @@ export default function HntAdminScreen() {
       setFullName('');
       await load();
     } catch (createFailure) {
-      setCreateError(describeAuthError(createFailure, 'No pudimos crear la institución.'));
+      setCreateError(describeAuthError(createFailure, t('hntAdmin.noPudimosCrearLaInstitucion')));
     } finally {
       setCreating(false);
     }
@@ -182,7 +183,7 @@ export default function HntAdminScreen() {
       setCodeDialog({ kind: 'shown', institution, words, copied: false });
       void load();
     } catch (rotateFailure) {
-      setCodeError(describeAuthError(rotateFailure, 'No pudimos generar el código.'));
+      setCodeError(describeAuthError(rotateFailure, t('hntAdmin.noPudimosGenerarElCodigo')));
     } finally {
       setRotating(false);
     }
@@ -219,7 +220,7 @@ export default function HntAdminScreen() {
       if (result.rejectedCount === 0) setRosterText('');
       void load();
     } catch (importFailure) {
-      setImportError(describeAuthError(importFailure, 'No pudimos cargar la lista. Inténtalo nuevamente.'));
+      setImportError(describeAuthError(importFailure, t('hntAdmin.noPudimosCargarLaLista')));
     } finally {
       setImporting(false);
     }
@@ -235,14 +236,14 @@ export default function HntAdminScreen() {
       if (pendingInstitution) void handleCreate();
       else if (rosterFor) void handleImport(rosterFor);
     },
-    saveLabel: pendingInstitution ? 'Crear institución' : 'Cargar lista',
+    saveLabel: pendingInstitution ? t('hntAdmin.crearInstitucion') : t('hntAdmin.cargarLista'),
     canSave: pendingInstitution !== pendingRoster && (pendingInstitution ? name.trim().length >= 2 : parsed.rows.length > 0),
-    title: '¿Salir sin guardar?',
+    title: t('hntAdmin.salirSinGuardar'),
     message: pendingInstitution && pendingRoster
-      ? 'Hay una institución nueva y una lista pegada que todavía no se han guardado.'
+      ? t('hntAdmin.hayUnaInstitucionNuevaY')
       : pendingInstitution
-        ? 'La institución nueva todavía no se ha creado.'
-        : 'La lista que pegaste todavía no se ha cargado.',
+        ? t('hntAdmin.laInstitucionNuevaTodaviaNo')
+        : t('hntAdmin.laListaQuePegasteTodavia'),
   });
 
   if (initializing || access === 'checking') {
@@ -256,9 +257,9 @@ export default function HntAdminScreen() {
   if (access === 'denied') {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
-        <ThemedText style={styles.deniedTitle}>Panel no disponible</ThemedText>
-        <ThemedText style={styles.muted}>Esta sección es solo para el equipo HaNet.</ThemedText>
-        <HanetButton label="Volver" onPress={goBack} style={styles.deniedButton} />
+        <ThemedText style={styles.deniedTitle}>{t('hntAdmin.panelNoDisponible')}</ThemedText>
+        <ThemedText style={styles.muted}>{t('hntAdmin.estaSeccionEsSoloPara')}</ThemedText>
+        <HanetButton label={t('common.volver')} onPress={goBack} style={styles.deniedButton} />
       </SafeAreaView>
     );
   }
@@ -268,28 +269,28 @@ export default function HntAdminScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>Panel HNT</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.topBarTitle}>{t('index.panelHnt')}</ThemedText>
           </View>
 
-          <HanetButton label="Sistema HaNet UI" variant="surface" onPress={() => router.push('/ui-showcase')} />
-          <HanetButton label="Ver onboarding" variant="surface" onPress={() => router.push({ pathname: '/onboarding', params: { preview: '1' } })} />
+          <HanetButton label={t('hntAdmin.sistemaHanetUi')} variant="surface" onPress={() => router.push('/ui-showcase')} />
+          <HanetButton label={t('hntAdmin.verOnboarding')} variant="surface" onPress={() => router.push({ pathname: '/onboarding', params: { preview: '1' } })} />
 
           <PushTestCard />
 
-          <ThemedText style={styles.sectionTitle}>Instituciones</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('hntAdmin.instituciones')}</ThemedText>
 
           {loading && institutions.length === 0 && <ActivityIndicator color={AppColors.textSecondary} style={styles.spinner} />}
           {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
           {!loading && !error && institutions.length === 0 && (
-            <ThemedText style={styles.muted}>Todavía no hay instituciones. Crea la primera más abajo.</ThemedText>
+            <ThemedText style={styles.muted}>{t('hntAdmin.todaviaNoHayInstitucionesCrea')}</ThemedText>
           )}
 
           {institutions.length > 5 && (
             <TextInput
-              accessibilityLabel="Buscar institución"
+              accessibilityLabel={t('hntAdmin.buscarInstitucion')}
               value={institutionSearch}
               onChangeText={text => { setInstitutionSearch(text); setInstitutionLimit(INSTITUTIONS_PAGE); }}
-              placeholder="Buscar institución"
+              placeholder={t('hntAdmin.buscarInstitucion')}
               placeholderTextColor="rgba(221,221,226,0.4)"
               autoCapitalize="none"
               autoCorrect={false}
@@ -297,7 +298,7 @@ export default function HntAdminScreen() {
             />
           )}
           {institutions.length > 0 && filteredInstitutions.length === 0 && (
-            <ThemedText style={styles.muted}>Ninguna institución coincide con esa búsqueda.</ThemedText>
+            <ThemedText style={styles.muted}>{t('hntAdmin.ningunaInstitucionCoincideConEsa')}</ThemedText>
           )}
 
           {filteredInstitutions.slice(0, institutionLimit).map(institution => {
@@ -310,7 +311,7 @@ export default function HntAdminScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ expanded }}
-                  accessibilityHint={expanded ? 'Cierra la institución' : 'Abre la identidad, el código y la lista de la institución'}
+                  accessibilityHint={expanded ? t('hntAdmin.cierraLaInstitucion') : t('hntAdmin.abreLaIdentidadElCodigo')}
                   onPress={() => setExpandedId(current => (current === institution.id ? null : institution.id))}
                   style={({ pressed }) => [styles.rowHeader, pressed && styles.pressed]}
                 >
@@ -322,8 +323,7 @@ export default function HntAdminScreen() {
                   <View style={styles.rowText}>
                     <ThemedText style={styles.cardTitle} numberOfLines={1}>{institution.name}</ThemedText>
                     <ThemedText style={styles.muted} numberOfLines={1}>
-                      {institution.rosterCount === 1 ? '1 persona' : `${institution.rosterCount} personas`}
-                      {institution.hasInviteCode ? ' · con código' : ' · sin código'}
+                      {t('hntAdmin.countPersonasValue', { count: institution.rosterCount, value: institution.hasInviteCode ? t('hntAdmin.conCodigo') : t('hntAdmin.sinCodigo') })}
                     </ThemedText>
                   </View>
                   <ThemedText style={styles.chevron}>{expanded ? '−' : '+'}</ThemedText>
@@ -335,21 +335,21 @@ export default function HntAdminScreen() {
 
                 {/* Identity shown in Home, the identity link and its emails. */}
                 <View style={styles.branding}>
-                  <ThemedText style={styles.brandingTitle}>Identidad</ThemedText>
+                  <ThemedText style={styles.brandingTitle}>{t('hntAdmin.identidad')}</ThemedText>
                   <InstitutionBanner title={institution.name} logoUrl={institution.logoUrl} bannerUrl={institution.bannerUrl} />
                   <ThemedText style={styles.muted}>
-                    Se ve en el inicio de sus miembros, al unirse a la institución y en el correo de verificación institucional.
+                    {t('hntAdmin.seVeEnElInicio')}
                   </ThemedText>
                   <View style={styles.actions}>
                     <HanetButton
-                      label={busyKind === 'logo' ? 'Guardando…' : institution.logoUrl ? 'Cambiar escudo' : 'Subir escudo'}
+                      label={busyKind === 'logo' ? t('common.guardando') : institution.logoUrl ? t('hntAdmin.cambiarEscudo') : t('hntAdmin.subirEscudo')}
                       variant="surface"
                       onPress={() => changeBranding(institution, 'logo')}
                       disabled={!!brandingBusy}
                       style={styles.action}
                     />
                     <HanetButton
-                      label={busyKind === 'banner' ? 'Guardando…' : institution.bannerUrl ? 'Cambiar banner' : 'Subir banner'}
+                      label={busyKind === 'banner' ? t('common.guardando') : institution.bannerUrl ? t('hntAdmin.cambiarBanner') : t('hntAdmin.subirBanner')}
                       variant="surface"
                       onPress={() => changeBranding(institution, 'banner')}
                       disabled={!!brandingBusy}
@@ -360,12 +360,12 @@ export default function HntAdminScreen() {
                     <View style={styles.brandingRemove}>
                       {!!institution.logoUrl && (
                         <Pressable accessibilityRole="button" disabled={!!brandingBusy} onPress={() => clearBranding(institution, 'logo')} hitSlop={8} style={({ pressed }) => pressed && styles.pressed}>
-                          <ThemedText style={styles.link}>Quitar escudo</ThemedText>
+                          <ThemedText style={styles.link}>{t('hntAdmin.quitarEscudo')}</ThemedText>
                         </Pressable>
                       )}
                       {!!institution.bannerUrl && (
                         <Pressable accessibilityRole="button" disabled={!!brandingBusy} onPress={() => clearBranding(institution, 'banner')} hitSlop={8} style={({ pressed }) => pressed && styles.pressed}>
-                          <ThemedText style={styles.link}>Quitar banner</ThemedText>
+                          <ThemedText style={styles.link}>{t('hntAdmin.quitarBanner')}</ThemedText>
                         </Pressable>
                       )}
                     </View>
@@ -377,23 +377,23 @@ export default function HntAdminScreen() {
 
                 <View style={styles.facts}>
                   <ThemedText style={styles.fact}>
-                    {institution.rosterCount === 1 ? '1 persona en la lista' : `${institution.rosterCount} personas en la lista`}
+                    {t('hntAdmin.countPersonasEnLaLista', { count: institution.rosterCount })}
                   </ThemedText>
                   <ThemedText style={styles.fact}>
-                    {institution.inviteUpdatedAt ? `Código generado el ${formatDate(institution.inviteUpdatedAt)}` : 'Sin código de invitación'}
+                    {institution.inviteUpdatedAt ? t('hntAdmin.codigoGeneradoElDate', { date: formatDate(institution.inviteUpdatedAt) }) : t('hntAdmin.sinCodigoDeInvitacion')}
                   </ThemedText>
                 </View>
 
                 <View style={styles.actions}>
                   <HanetButton
-                    label={institution.hasInviteCode ? 'Cambiar código' : 'Generar código'}
+                    label={institution.hasInviteCode ? t('hntAdmin.cambiarCodigo') : t('hntAdmin.generarCodigo')}
                     variant="surface"
                     onPress={() => askForCode(institution)}
                     disabled={rotating}
                     style={styles.action}
                   />
                   <HanetButton
-                    label={rosterOpen ? 'Cerrar lista' : 'Cargar lista'}
+                    label={rosterOpen ? t('hntAdmin.cerrarLista') : t('hntAdmin.cargarLista')}
                     variant={rosterOpen ? 'surface' : 'primary'}
                     onPress={() => toggleRoster(institution.id)}
                     style={styles.action}
@@ -402,7 +402,7 @@ export default function HntAdminScreen() {
                 {!!codeError && !codeDialog && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{codeError}</ThemedText>}
 
                 <HanetButton
-                  label={membersFor === institution.id ? 'Ocultar personas' : 'Personas y roles'}
+                  label={membersFor === institution.id ? t('hntAdmin.ocultarPersonas') : t('hntAdmin.personasYRoles')}
                   variant="surface"
                   onPress={() => setMembersFor(current => (current === institution.id ? null : institution.id))}
                 />
@@ -413,36 +413,36 @@ export default function HntAdminScreen() {
                 {rosterOpen && (
                   <View style={styles.roster}>
                     <ThemedText style={styles.rosterHelp}>
-                      Pega la planilla tal como está en Excel o Sheets, una persona por línea, con estas columnas en orden: RUT, nombres, apellidos, curso y correo institucional.
+                      {t('hntAdmin.pegaLaPlanillaTalComo')}
                     </ThemedText>
                     <TextInput
-                      accessibilityLabel="Lista de personas"
+                      accessibilityLabel={t('hntAdmin.listaDePersonas')}
                       value={rosterText}
                       onChangeText={(value) => { setRosterText(value); setImportResult(null); setImportError(null); }}
                       multiline
                       autoCapitalize="none"
                       autoCorrect={false}
                       spellCheck={false}
-                      placeholder={'12.345.678-5\tAna María\tPérez Soto\tSegundo Medio K\tana.perez@liceo.cl'}
+                      placeholder={t('hntAdmin.n123456785Ana')}
                       placeholderTextColor="rgba(221,221,226,0.35)"
                       editable={!importing}
                       style={styles.rosterInput}
                     />
                     <ThemedText style={styles.muted}>
                       {parsed.rows.length === 0
-                        ? 'Aún no hay filas.'
-                        : `${parsed.rows.length} ${parsed.rows.length === 1 ? 'fila detectada' : 'filas detectadas'}${parsed.headerRows ? ', sin contar el encabezado' : ''}.`}
+                        ? t('hntAdmin.aunNoHayFilas')
+                        : t('hntAdmin.countFilasDetectadasValue', { count: parsed.rows.length, value: parsed.headerRows ? t('hntAdmin.sinContarElEncabezado') : '' })}
                     </ThemedText>
 
                     {parsed.rows.length > 0 && (
                       <View style={styles.preview}>
-                        <ThemedText style={styles.previewTitle}>Así se leyó la primera fila. Revisa que cada dato esté en su lugar:</ThemedText>
+                        <ThemedText style={styles.previewTitle}>{t('hntAdmin.asiSeLeyoLaPrimera')}</ThemedText>
                         {([
                           ['RUT', parsed.rows[0].rut],
-                          ['Nombres', parsed.rows[0].nombres],
-                          ['Apellidos', parsed.rows[0].apellidos],
-                          ['Curso', parsed.rows[0].curso],
-                          ['Correo', parsed.rows[0].email],
+                          [t('hntAdmin.nombres'), parsed.rows[0].nombres],
+                          [t('hntAdmin.apellidos'), parsed.rows[0].apellidos],
+                          [t('common.curso'), parsed.rows[0].curso],
+                          [t('common.correo'), parsed.rows[0].email],
                         ] as const).map(([label, value]) => (
                           <View key={label} style={styles.previewRow}>
                             <ThemedText style={styles.previewLabel}>{label}</ThemedText>
@@ -456,16 +456,16 @@ export default function HntAdminScreen() {
                     {!!importResult && (
                       <View accessibilityLiveRegion="polite" style={styles.result}>
                         <ThemedText style={styles.resultTitle}>
-                          {importResult.imported === 1 ? 'Se cargó 1 persona.' : `Se cargaron ${importResult.imported} personas.`}
+                          {t('hntAdmin.seCargaronCountPersonas', { count: importResult.imported })}
                         </ThemedText>
                         {importResult.rejectedCount > 0 && (
                           <>
                             <ThemedText style={styles.error}>
-                              {importResult.rejectedCount === 1 ? '1 fila no se cargó:' : `${importResult.rejectedCount} filas no se cargaron:`}
+                              {t('hntAdmin.countFilasNoSeCargaron', { count: importResult.rejectedCount })}
                             </ThemedText>
                             {importResult.rejected.map(item => (
                               <ThemedText key={item.row} style={styles.muted}>
-                                Fila {item.row + importResult.headerRows}: {item.reason}
+                                {t('hntAdmin.filaValueReason', { value: item.row + importResult.headerRows, reason: item.reason })}
                               </ThemedText>
                             ))}
                           </>
@@ -474,7 +474,7 @@ export default function HntAdminScreen() {
                     )}
 
                     <HanetButton
-                      label={importing ? 'Cargando…' : parsed.rows.length > 0 ? `Cargar ${parsed.rows.length} ${parsed.rows.length === 1 ? 'persona' : 'personas'}` : 'Cargar lista'}
+                      label={importing ? t('common.cargando') : parsed.rows.length > 0 ? t('hntAdmin.cargarCountPersonas', { count: parsed.rows.length }) : t('hntAdmin.cargarLista')}
                       onPress={() => handleImport(institution.id)}
                       disabled={importing || parsed.rows.length === 0}
                     />
@@ -488,18 +488,18 @@ export default function HntAdminScreen() {
 
           {filteredInstitutions.length > institutionLimit && (
             <HanetButton
-              label={`Mostrar más (${filteredInstitutions.length - institutionLimit} ${filteredInstitutions.length - institutionLimit === 1 ? 'restante' : 'restantes'})`}
+              label={t('hntAdmin.mostrarMasCountRestantes', { count: filteredInstitutions.length - institutionLimit })}
               variant="surface"
               onPress={() => setInstitutionLimit(limit => limit + INSTITUTIONS_PAGE)}
             />
           )}
 
-          <ThemedText style={styles.sectionTitle}>Nueva institución</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('hntAdmin.nuevaInstitucion')}</ThemedText>
           <View style={styles.card}>
-            <HanetField label="Nombre corto" value={name} onChangeText={setName} placeholder="LCH Temuco" editable={!creating} />
-            <HanetField label="Nombre completo (opcional)" value={fullName} onChangeText={setFullName} placeholder="Liceo Camilo Henríquez de Temuco" editable={!creating} />
+            <HanetField label={t('hntAdmin.nombreCorto')} value={name} onChangeText={setName} placeholder={t('hntAdmin.lchTemuco')} editable={!creating} />
+            <HanetField label={t('hntAdmin.nombreCompletoOpcional')} value={fullName} onChangeText={setFullName} placeholder={t('hntAdmin.liceoCamiloHenriquezDeTemuco')} editable={!creating} />
             {!!createError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{createError}</ThemedText>}
-            <HanetButton label={creating ? 'Creando…' : 'Crear institución'} onPress={handleCreate} disabled={creating} />
+            <HanetButton label={creating ? t('classhall.create.creando') : t('hntAdmin.crearInstitucion')} onPress={handleCreate} disabled={creating} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -507,15 +507,15 @@ export default function HntAdminScreen() {
       <HanetDialog
         visible={!!codeDialog}
         onRequestClose={() => { if (!rotating && codeDialog?.kind === 'confirm') setCodeDialog(null); }}
-        title={codeDialog?.kind === 'confirm' ? `¿Cambiar el código de ${codeDialog.institution.name}?` : codeDialog ? `Código de ${codeDialog.institution.name}` : undefined}
-        body={codeDialog?.kind === 'confirm' ? 'El código actual dejará de funcionar de inmediato. Quienes ya se unieron no se ven afectados.' : undefined}
+        title={codeDialog?.kind === 'confirm' ? t('hntAdmin.cambiarElCodigoDeName', { name: codeDialog.institution.name }) : codeDialog ? t('hntAdmin.codigoDeName', { name: codeDialog.institution.name }) : undefined}
+        body={codeDialog?.kind === 'confirm' ? t('hntAdmin.elCodigoActualDejaraDe') : undefined}
       >
         {codeDialog?.kind === 'confirm' && (
           <>
             {!!codeError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{codeError}</ThemedText>}
             <HanetDialogActions>
-              <HanetButton label="Cancelar" variant="surface" onPress={() => setCodeDialog(null)} disabled={rotating} style={dialogStyles.action} />
-              <HanetButton label={rotating ? 'Generando…' : 'Cambiar'} variant="accent" onPress={() => generateCode(codeDialog.institution)} disabled={rotating} style={dialogStyles.action} />
+              <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setCodeDialog(null)} disabled={rotating} style={dialogStyles.action} />
+              <HanetButton label={rotating ? t('hntAdmin.generando') : t('common.cambiar')} variant="accent" onPress={() => generateCode(codeDialog.institution)} disabled={rotating} style={dialogStyles.action} />
             </HanetDialogActions>
           </>
         )}
@@ -531,11 +531,11 @@ export default function HntAdminScreen() {
               ))}
             </View>
             <ThemedText style={styles.dialogBody}>
-              Anótalo ahora: no podremos mostrarlo otra vez. Si se pierde, genera uno nuevo.
+              {t('hntAdmin.anotaloAhoraNoPodremosMostrarlo')}
             </ThemedText>
             <HanetDialogActions>
-              <HanetButton label={codeDialog.copied ? 'Copiado' : 'Copiar'} variant="surface" onPress={copyCode} style={dialogStyles.action} />
-              <HanetButton label="Ya lo anoté" onPress={() => setCodeDialog(null)} style={dialogStyles.action} />
+              <HanetButton label={codeDialog.copied ? t('common.copiado') : t('classhall.copiar')} variant="surface" onPress={copyCode} style={dialogStyles.action} />
+              <HanetButton label={t('hntAdmin.yaLoAnote')} onPress={() => setCodeDialog(null)} style={dialogStyles.action} />
             </HanetDialogActions>
           </>
         )}

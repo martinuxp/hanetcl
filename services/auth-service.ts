@@ -18,6 +18,7 @@ import { auth, db, functions } from './firebase';
 import { cached, clearCache } from './cache';
 import { unregisterDevice } from './push-service';
 import { useEffect, useState } from 'react';
+import { t } from '@/i18n';
 
 // Required for AuthSession to work in browser/modal (native only)
 if (Platform.OS !== 'web') {
@@ -206,19 +207,19 @@ export function describeAuthError(error: unknown, fallback: string) {
     case 'auth/invalid-credential':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return 'El correo o la contraseña no coinciden.';
+      return t('services.authService.elCorreoOLaContrasena');
     case 'auth/email-already-in-use':
-      return 'Ese correo ya tiene un HaNet ID. Entra en "Cuenta existente".';
+      return t('services.authService.eseCorreoYaTieneUn');
     case 'auth/invalid-email':
-      return 'Ese correo no parece válido.';
+      return t('auth.eseCorreoNoPareceValido');
     case 'auth/weak-password':
-      return 'La contraseña debe tener al menos 8 caracteres.';
+      return t('services.authService.laContrasenaDebeTenerAl');
     case 'auth/user-disabled':
-      return 'Esta cuenta está bloqueada.';
+      return t('services.authService.estaCuentaEstaBloqueada');
     case 'auth/too-many-requests':
-      return 'Hubo demasiados intentos. Espera un momento e inténtalo nuevamente.';
+      return t('services.authService.huboDemasiadosIntentosEsperaUn');
     case 'auth/network-request-failed':
-      return 'No pudimos conectarnos. Revisa tu conexión a internet.';
+      return t('services.authService.noPudimosConectarnosRevisaTu');
   }
 
   // Our callables already answer in Spanish; "internal" carries no message.

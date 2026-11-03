@@ -4,6 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { t } from '@/i18n';
 
 /** `transparent` lets what is behind show (the anniversary's glow). */
 export default function TopHeader({ transparent }: { transparent?: boolean } = {}) {
@@ -12,13 +13,13 @@ export default function TopHeader({ transparent }: { transparent?: boolean } = {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }, transparent && styles.transparent]}>
       <View style={styles.titleContainer}>
-        <ThemedText style={styles.titleText}>HaNet Beta</ThemedText>
+        <ThemedText style={styles.titleText}>{t('components.topHeader.hanetBeta')}</ThemedText>
         <ThemedText style={styles.superscript}>1</ThemedText>
       </View>
       {/* Search does not exist yet; the field says so instead of taking input. */}
-      <View style={styles.searchContainer} accessible accessibilityLabel="Buscar en HaNet, próximamente" accessibilityState={{ disabled: true }}>
+      <View style={styles.searchContainer} accessible accessibilityLabel={t('components.topHeader.buscarEnHanetProximamente')} accessibilityState={{ disabled: true }}>
         <IconSymbol name="magnifyingglass" size={20} color="rgba(226,225,218,0.5)" />
-        <ThemedText style={styles.searchInput} numberOfLines={1}>Buscar · Próximamente</ThemedText>
+        <ThemedText style={styles.searchInput} numberOfLines={1}>{t('components.topHeader.buscarProximamente')}</ThemedText>
       </View>
     </View>
   );

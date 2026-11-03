@@ -4,6 +4,7 @@ import type { CheckIn } from '@/services/events-service';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 export type CheckInResult = { kind: 'ok'; checkIn: CheckIn } | { kind: 'error'; message: string };
 
@@ -19,10 +20,10 @@ export function CheckInResultCard({ result }: { result: CheckInResult }) {
     >
       {result.kind === 'ok' ? (
         <>
-          <ThemedText style={[styles.title, result.checkIn.already && styles.titleAlready]}>{result.checkIn.already ? 'Ya estaba registrado' : '¡Llegó!'}</ThemedText>
+          <ThemedText style={[styles.title, result.checkIn.already && styles.titleAlready]}>{result.checkIn.already ? t('components.events.checkinResult.yaEstabaRegistrado') : t('components.events.checkinResult.llego')}</ThemedText>
           <ThemedText style={styles.name}>{result.checkIn.name}</ThemedText>
           <ThemedText style={styles.text}>
-            {[result.checkIn.courseId, result.checkIn.signedUp === false ? 'No estaba inscrito' : result.checkIn.signedUp ? 'Inscrito' : null].filter(Boolean).join(' · ')}
+            {[result.checkIn.courseId, result.checkIn.signedUp === false ? t('components.events.checkinResult.noEstabaInscrito') : result.checkIn.signedUp ? t('components.events.checkinResult.inscrito') : null].filter(Boolean).join(' · ')}
           </ThemedText>
         </>
       ) : (

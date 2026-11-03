@@ -9,6 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 /**
  * iOS: the half sheet of an event's "Opciones" when it can be bought and has
@@ -29,26 +30,26 @@ function EventOptionsScreen() {
 
   return (
     <View style={[styles.sheet, styles.content, local.content, { paddingTop: AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.lg }]}>
-      <ThemedText accessibilityRole="header" numberOfLines={2} style={styles.title}>{view === 'coupon' ? 'Cupón HaNet' : actions?.title ?? 'Opciones'}</ThemedText>
+      <ThemedText accessibilityRole="header" numberOfLines={2} style={styles.title}>{view === 'coupon' ? t('common.cuponHanet') : actions?.title ?? 'Opciones'}</ThemedText>
 
       {!actions ? (
-        <ThemedText style={styles.lead}>Vuelve al evento e inténtalo nuevamente.</ThemedText>
+        <ThemedText style={styles.lead}>{t('eventOptions.vuelveAlEventoEIntentalo')}</ThemedText>
       ) : view === 'coupon' && actions.coupon ? (
         <>
           <CouponPanel coupon={actions.coupon} />
-          {!!actions.ticketUrl && <HanetButton label="Ir a comprar" variant="accent" onPress={buy} />}
+          {!!actions.ticketUrl && <HanetButton label={t('eventOptions.irAComprar')} variant="accent" onPress={buy} />}
         </>
       ) : (
         <>
           {!!actions.ticketUrl && (
             <Pressable accessibilityRole="button" onPress={buy} style={({ pressed }) => [optionStyles.option, optionStyles.optionAccent, pressed && styles.pressed]}>
               <ThemedText style={optionStyles.optionTitle}>{buyLabel(actions)}</ThemedText>
-              <ThemedText style={[optionStyles.optionText, optionStyles.onAccent]}>Se abre la página de la ticketera para elegir tus entradas.</ThemedText>
+              <ThemedText style={[optionStyles.optionText, optionStyles.onAccent]}>{t('eventOptions.seAbreLaPaginaDe')}</ThemedText>
             </Pressable>
           )}
           {!!actions.coupon && (
             <Pressable accessibilityRole="button" onPress={() => setView('coupon')} style={({ pressed }) => [optionStyles.option, pressed && styles.pressed]}>
-              <ThemedText style={optionStyles.optionTitle}>Reclamar cupón HaNet</ThemedText>
+              <ThemedText style={optionStyles.optionTitle}>{t('eventOptions.reclamarCuponHanet')}</ThemedText>
               <ThemedText style={optionStyles.optionText}>{actions.coupon.description || 'Un descuento para la comunidad HaNet.'}</ThemedText>
             </Pressable>
           )}

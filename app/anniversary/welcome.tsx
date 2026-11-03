@@ -29,6 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // The Aniversario's welcome, the first time this device opens it (before or
 // during the week): a few pages in the manner of Spotify Wrapped, each lit by
@@ -117,16 +118,16 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
     render: active => (
       <>
         {active && during && <Confetti colors={all} count={48} />}
-        <ThemedText style={styles.kicker}>{dayText(anniversary.startsAt)} al {dayText(anniversary.endsAt)}</ThemedText>
+        <ThemedText style={styles.kicker}>{t('anniversary.daytextAlDaytext2', { dayText: dayText(anniversary.startsAt), dayText2: dayText(anniversary.endsAt) })}</ThemedText>
         <FlexText key={`intro-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>
-          {during ? '¡Empezó el aniversario!' : 'Se viene el aniversario'}
+          {during ? t('anniversary.welcome.empezoElAniversario') : t('anniversary.welcome.seVieneElAniversario')}
         </FlexText>
         <View style={styles.bigRow}>
           <FlexText key={`n-${active}`} delay={200} steps={NUMBER_STEPS} style={styles.bigNumber}>
             {during ? String(day) : String(Math.max(0, days))}
           </FlexText>
           <ThemedText style={styles.bigLabel}>
-            {during ? `de ${total} días\n¡de aniversario!` : days === 1 ? 'día para\nempezar' : 'días para\nempezar'}
+            {during ? t('anniversary.deTotalDiasDeAniversario', { total }) : t('anniversary.diasParaEmpezar', { count: days })}
           </ThemedText>
         </View>
       </>
@@ -140,7 +141,7 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
       colors: [color.fill],
       render: active => (
         <>
-          <ThemedText style={styles.kicker}>Tu alianza</ThemedText>
+          <ThemedText style={styles.kicker}>{t('common.tuAlianza')}</ThemedText>
           <View style={styles.badgeWrap}>
             <AllianceBadge alliance={mine} size={128} />
           </View>
@@ -150,7 +151,7 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
           {anniversary.isLead && (
             <View style={styles.leadPill}>
               <CrownIcon size={16} color={AppColors.textOnLight} />
-              <ThemedText style={styles.leadPillText}>Eres jefe de alianza</ThemedText>
+              <ThemedText style={styles.leadPillText}>{t('anniversary.welcome.eresJefeDeAlianza')}</ThemedText>
             </View>
           )}
         </>
@@ -162,8 +163,8 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
       colors: all,
       render: active => (
         <>
-          <ThemedText style={styles.kicker}>{anniversary.alliances.length} alianzas</ThemedText>
-          <FlexText key={`all-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>Las alianzas</FlexText>
+          <ThemedText style={styles.kicker}>{t('anniversary.welcome.alliancescountAlianzas', { alliancesCount: anniversary.alliances.length })}</ThemedText>
+          <FlexText key={`all-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>{t('anniversary.welcome.lasAlianzas')}</FlexText>
           <View style={styles.badges}>
             {anniversary.alliances.map(alliance => (
               <View key={alliance.id} style={styles.badgeItem}>
@@ -172,7 +173,7 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
               </View>
             ))}
           </View>
-          <ThemedText style={styles.lead}>Cada estudiante juega por la de su curso.</ThemedText>
+          <ThemedText style={styles.lead}>{t('anniversary.welcome.cadaEstudianteJuegaPorLa')}</ThemedText>
         </>
       ),
     });
@@ -183,13 +184,13 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
     colors: all.slice(0, 2).reverse(),
     render: active => (
       <>
-        <ThemedText style={styles.kicker}>El marcador</ThemedText>
-        <FlexText key={`score-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>Una carrera de puntos</FlexText>
+        <ThemedText style={styles.kicker}>{t('anniversary.welcome.elMarcador')}</ThemedText>
+        <FlexText key={`score-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>{t('anniversary.welcome.unaCarreraDePuntos')}</FlexText>
         <RaceBars alliances={ranking(anniversary)} active={active} />
         <ThemedText style={styles.lead}>
           {hidden
-            ? 'Cada actividad suma según el lugar. Esta vez el marcador está oculto: la ganadora se revela en la premiación.'
-            : 'Cada actividad suma según el lugar, y cada descuento lleva su motivo. Todo queda en Movimientos de puntos.'}
+            ? t('anniversary.welcome.cadaActividadSumaSegunEl')
+            : t('anniversary.welcome.cadaActividadSumaSegunEl2')}
         </ThemedText>
       </>
     ),
@@ -200,13 +201,13 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
     colors: [mine ? allianceColor(mine).fill : AppColors.accent, AppColors.accentYellow],
     render: active => (
       <>
-        <ThemedText style={styles.kicker}>Qué pasa aquí</ThemedText>
-        <FlexText key={`how-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>Atento a todo</FlexText>
+        <ThemedText style={styles.kicker}>{t('anniversary.welcome.quePasaAqui')}</ThemedText>
+        <FlexText key={`how-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>{t('anniversary.welcome.atentoATodo')}</FlexText>
         <View style={styles.features}>
-          <Feature icon={<Ionicons name="today-outline" size={22} color={AppColors.textPrimary} />} title="Lo de hoy, arriba" text="Las actividades del día, con su hora y lugar. Toca una para ver su podio." />
-          <Feature icon={<BoltIcon size={22} color={AppColors.textPrimary} animated={active} />} title="Pruebas flash" text="Llegan por notificación y gana la alianza más rápida." />
-          <Feature icon={<Ionicons name="megaphone-outline" size={22} color={AppColors.textPrimary} />} title="Avisos del CEE" text="Cambios de horario y lo que tengas que saber." />
-          <Feature icon={<Ionicons name="alarm-outline" size={22} color={AppColors.textPrimary} />} title="Plazos" text="Te avisamos 24 h y 2 h antes de cada uno." />
+          <Feature icon={<Ionicons name="today-outline" size={22} color={AppColors.textPrimary} />} title={t('anniversary.welcome.loDeHoyArriba')} text={t('anniversary.welcome.lasActividadesDelDiaCon')} />
+          <Feature icon={<BoltIcon size={22} color={AppColors.textPrimary} animated={active} />} title={t('anniversary.welcome.pruebasFlash')} text={t('anniversary.welcome.lleganPorNotificacionYGana')} />
+          <Feature icon={<Ionicons name="megaphone-outline" size={22} color={AppColors.textPrimary} />} title={t('anniversary.welcome.avisosDelCee')} text={t('anniversary.welcome.cambiosDeHorarioYLo')} />
+          <Feature icon={<Ionicons name="alarm-outline" size={22} color={AppColors.textPrimary} />} title={t('anniversary.plazos')} text={t('anniversary.welcome.teAvisamos24HY')} />
         </View>
       </>
     ),
@@ -218,13 +219,13 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
       colors: [AppColors.surfaceRaised, AppColors.accent],
       render: active => (
         <>
-          <ThemedText style={styles.kicker}>Tú organizas</ThemedText>
-          <FlexText key={`org-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>Todo está en la barra</FlexText>
+          <ThemedText style={styles.kicker}>{t('anniversary.welcome.tuOrganizas')}</ThemedText>
+          <FlexText key={`org-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>{t('anniversary.welcome.todoEstaEnLaBarra')}</FlexText>
           <View style={styles.organizePill}>
             <Ionicons name="options-outline" size={18} color={AppColors.textOnLight} />
-            <ThemedText style={styles.organizePillText}>Organizar</ThemedText>
+            <ThemedText style={styles.organizePillText}>{t('anniversary.welcome.organizar')}</ThemedText>
           </View>
-          <ThemedText style={styles.lead}>Al centro de la barra: avisos, pruebas flash, sumar o descontar, actividades, plazos y jefes de alianza.</ThemedText>
+          <ThemedText style={styles.lead}>{t('anniversary.welcome.alCentroDeLaBarra')}</ThemedText>
         </>
       ),
     });
@@ -236,8 +237,8 @@ function pagesFor(anniversary: Anniversary, organizer: boolean, now: number): Pa
     render: active => (
       <>
         {mine && <View style={styles.badgeWrap}><AllianceBadge alliance={mine} size={96} /></View>}
-        <FlexText key={`go-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>¡A darlo todo{mine ? `, ${mine.name}` : ''}!</FlexText>
-        <ThemedText style={styles.lead}>Fotos y videos, en el Instagram de cada alianza. Aquí, los puntos.</ThemedText>
+        <FlexText key={`go-${active}`} accessibilityRole="header" steps={TITLE_STEPS} style={styles.hero}>{t('anniversary.welcome.aDarloTodoValue', { value: mine ? `, ${mine.name}` : '' })}</FlexText>
+        <ThemedText style={styles.lead}>{t('anniversary.welcome.fotosYVideosEnEl')}</ThemedText>
       </>
     ),
   });
@@ -303,7 +304,7 @@ export default function AnniversaryWelcome() {
   if (!anniversary) {
     return (
       <View style={[styles.container, styles.center]}>
-        <HanetButton label="Entrar" variant="accent" onPress={close} />
+        <HanetButton label={t('anniversary.welcome.entrar')} variant="accent" onPress={close} />
       </View>
     );
   }
@@ -359,17 +360,17 @@ export default function AnniversaryWelcome() {
       <View style={[styles.top, { top: insets.top + AppSpacing.md }]} pointerEvents="box-none">
         {!last && (
           <Pressable accessibilityRole="button" onPress={close} hitSlop={10} style={({ pressed }) => [styles.skip, pressed && AppPressed]}>
-            <ThemedText style={styles.skipText}>Saltar</ThemedText>
+            <ThemedText style={styles.skipText}>{t('anniversary.welcome.saltar')}</ThemedText>
           </Pressable>
         )}
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + AppSpacing.lg }]} pointerEvents="box-none">
-        <View style={styles.dots} accessibilityLabel={`Página ${page + 1} de ${pages.length}`}>
+        <View style={styles.dots} accessibilityLabel={t('anniversary.welcome.paginaNumberDePagescount', { number: page + 1, pagesCount: pages.length })}>
           {pages.map((item, index) => <Dot key={item.key} index={index} width={width} scrollX={scrollX} />)}
         </View>
         <Pressable accessibilityRole="button" onPress={advance} style={({ pressed }) => [styles.next, pressed && AppPressed]}>
-          <ThemedText style={styles.nextText}>{last ? 'Entrar' : 'Siguiente'}</ThemedText>
+          <ThemedText style={styles.nextText}>{last ? t('anniversary.welcome.entrar') : t('anniversary.welcome.siguiente')}</ThemedText>
         </Pressable>
       </View>
     </View>

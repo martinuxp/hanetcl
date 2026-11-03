@@ -6,6 +6,7 @@ import { listEvents } from '@/services/events-service';
 import type { EventList, HnEvent } from '@/services/events-service';
 import { fetchCalendarEvents, restoreCalendarEvents } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
+import { t } from '@/i18n';
 
 // What the Home tiles point at (Figma "[home] beta", 10587:1792): the
 // course's next evaluation on the Calendario tile and an event of the city
@@ -22,7 +23,7 @@ function daysUntil(date: Date, now: Date) {
   return Math.round((new Date(date).setHours(0, 0, 0, 0) - today.getTime()) / DAY);
 }
 
-const isEvaluation = (event: CalendarEvent) => event.eventType?.toLocaleLowerCase('es').startsWith('evaluación') ?? false;
+const isEvaluation = (event: CalendarEvent) => event.eventType?.toLocaleLowerCase('es').startsWith(t('common.evaluacion')) ?? false;
 
 /** The next evaluation; without one, the next thing on the course's agenda. */
 export function pickNextCalendarItem(events: CalendarEvent[], now = new Date()): NextCalendarItem | null {

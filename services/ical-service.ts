@@ -2,6 +2,7 @@ import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, updateDoc
 import type { DocumentData } from 'firebase/firestore';
 import { cached, restoreCached } from './cache';
 import { calendarDb } from './firebase';
+import { capitalize, months, t } from '@/i18n';
 
 export interface CalendarEvent {
   id: string;
@@ -57,10 +58,10 @@ function toCalendarEvent(id: string, data: DocumentData): CalendarEvent {
     verificationRequested: data.verificationRequested === true,
     subject: data.subject,
     // "Off Topic" was renamed "Otro"; older events keep the old value.
-    eventType: data.type === 'Off Topic' ? 'Otro' : data.type,
+    eventType: data.type === 'Off Topic' ? 'Otro' : data.type, // i18n-ignore
     outstanding: data.outstanding || false,
     // Older events were cancelled by renaming them.
-    cancelled: data.cancelled === true || data.title?.toUpperCase().includes('CANCELADA') || false,
+    cancelled: data.cancelled === true || data.title?.toUpperCase().includes('CANCELADA') || false, // i18n-ignore
     hallId: data.source === 'classhall' && typeof data.hallId === 'string' ? data.hallId : undefined,
     evaluationId: typeof data.evaluationId === 'string' ? data.evaluationId : undefined,
     taskId: typeof data.taskId === 'string' ? data.taskId : undefined,
@@ -159,7 +160,7 @@ export function formatTime(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
-const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MONTH_NAMES = months().map(capitalize);
 
 /** "Hoy, 12 de Marzo, 2026" — the prefix only appears for today and tomorrow. */
 export function formatLongDate(date: Date): string {
@@ -169,7 +170,7 @@ export function formatLongDate(date: Date): string {
   day.setHours(0, 0, 0, 0);
   const diffDays = Math.round((day.getTime() - today.getTime()) / 86400000);
 
-  const prefix = diffDays === 0 ? 'Hoy, ' : diffDays === 1 ? 'Mañana, ' : '';
+  const prefix = diffDays === 0 ? t('services.icalService.hoy') : diffDays === 1 ? t('services.icalService.manana') : '';
   return `${prefix}${date.getDate()} de ${MONTH_NAMES[date.getMonth()]}, ${date.getFullYear()}`;
 }
 
@@ -179,8 +180,8 @@ export function formatDuration(start: Date, end: Date): string {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   const parts: string[] = [];
-  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
-  if (minutes > 0 || hours === 0) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+  if (hours > 0) parts.push(t('services.icalService.countHoras', { count: hours }));
+  if (minutes > 0 || hours === 0) parts.push(t('services.icalService.countMinutos', { count: minutes }));
   return parts.join(' y ');
 }
 

@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 const MAX_LEADS = 4;
 
@@ -31,7 +32,7 @@ function LeadsScreen() {
     let active = true;
     listLeadCandidates(allianceId)
       .then(list => { if (active) setLoaded({ allianceId, people: list }); })
-      .catch(failure => { if (active) setLoadError({ allianceId, message: describeAuthError(failure, 'No pudimos cargar a los estudiantes.') }); });
+      .catch(failure => { if (active) setLoadError({ allianceId, message: describeAuthError(failure, t('anniversary.leads.noPudimosCargarALos')) }); });
     return () => { active = false; };
   }, [allianceId]);
   const people = loaded?.allianceId === allianceId ? loaded.people : null;
@@ -59,20 +60,20 @@ function LeadsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSubmitting(false);
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar a los jefes. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.leads.noPudimosGuardarALos')));
       setSubmitting(false);
     }
   };
 
   return (
-    <SheetBody title="Jefes de alianza" lead={`Hasta ${MAX_LEADS} por alianza, de sus propios cursos. Les llegan las pruebas flash y los plazos.`}>
+    <SheetBody title={t('common.jefesDeAlianza')} lead={t('anniversary.leads.hastaMaxleadsPorAlianzaDe', { maxLeads: MAX_LEADS })}>
       <AlliancePicker alliances={alliances} value={allianceId} onChange={pick} disabled={submitting} />
       {!alliance?.courseIds.length ? (
-        <ThemedText style={styles.hint}>Esta alianza todavía no tiene cursos. Agrégalos en “Alianzas y fechas”.</ThemedText>
+        <ThemedText style={styles.hint}>{t('anniversary.leads.estaAlianzaTodaviaNoTiene')}</ThemedText>
       ) : people === null ? (
-        <ThemedText style={styles.hint}>{loadError?.allianceId === allianceId ? loadError.message : 'Cargando a los estudiantes…'}</ThemedText>
+        <ThemedText style={styles.hint}>{loadError?.allianceId === allianceId ? loadError.message : t('anniversary.leads.cargandoALosEstudiantes')}</ThemedText>
       ) : people.length === 0 ? (
-        <ThemedText style={styles.hint}>Nadie de esos cursos tiene cuenta en HaNet todavía.</ThemedText>
+        <ThemedText style={styles.hint}>{t('anniversary.leads.nadieDeEsosCursosTiene')}</ThemedText>
       ) : (
         <View style={local.list}>
           {people.map(person => {
@@ -97,8 +98,8 @@ function LeadsScreen() {
           })}
         </View>
       )}
-      <SheetActions label="Guardar jefes" busyLabel="Guardando…" ready={dirty} busy={submitting} onSubmit={submit} error={error} />
-      {!dirty && <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />}
+      <SheetActions label={t('anniversary.leads.guardarJefes')} busyLabel={t('common.guardando')} ready={dirty} busy={submitting} onSubmit={submit} error={error} />
+      {!dirty && <HanetButton label={t('common.listo')} variant="surface" onPress={() => router.back()} />}
     </SheetBody>
   );
 }

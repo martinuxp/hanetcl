@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 // Pasar lista: the organizer of an institution event scans each attendee's
 // HN-QR at the door (functions/events.js checks the code, which changes every
@@ -42,7 +43,7 @@ export default function EventCheckinScreen() {
       setCount(checkIn.count);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(checkIn.already ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      setResult({ kind: 'error', message: describeAuthError(error, 'No pudimos registrar a esa persona.') });
+      setResult({ kind: 'error', message: describeAuthError(error, t('eventCheckin.noPudimosRegistrarAEsa')) });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       busy.current = false;
@@ -54,8 +55,8 @@ export default function EventCheckinScreen() {
   if (Platform.OS === 'web') {
     return (
       <SafeAreaView style={[styles.screen, styles.center]}>
-        <ThemedText style={styles.title}>Pasar lista funciona en el teléfono</ThemedText>
-        <HanetButton label="Volver" variant="surface" onPress={close} />
+        <ThemedText style={styles.title}>{t('eventCheckin.pasarListaFuncionaEnEl')}</ThemedText>
+        <HanetButton label={t('common.volver')} variant="surface" onPress={close} />
       </SafeAreaView>
     );
   }
@@ -63,14 +64,14 @@ export default function EventCheckinScreen() {
   if (!permission?.granted) {
     return (
       <SafeAreaView style={[styles.screen, styles.center]}>
-        <ThemedText style={styles.title}>HaNet necesita la cámara para escanear los HN-QR</ThemedText>
-        <ThemedText style={styles.text}>Solo se usa mientras pasas lista. No guardamos fotos.</ThemedText>
+        <ThemedText style={styles.title}>{t('eventCheckin.hanetNecesitaLaCamaraPara')}</ThemedText>
+        <ThemedText style={styles.text}>{t('eventCheckin.soloSeUsaMientrasPasas')}</ThemedText>
         {permission && !permission.canAskAgain ? (
-          <HanetButton label="Abrir ajustes" variant="accent" onPress={() => void Linking.openSettings()} />
+          <HanetButton label={t('common.abrirAjustes')} variant="accent" onPress={() => void Linking.openSettings()} />
         ) : (
-          <HanetButton label="Permitir la cámara" variant="accent" onPress={() => void requestPermission()} />
+          <HanetButton label={t('eventCheckin.permitirLaCamara')} variant="accent" onPress={() => void requestPermission()} />
         )}
-        <HanetButton label="Volver" variant="surface" onPress={close} />
+        <HanetButton label={t('common.volver')} variant="surface" onPress={close} />
       </SafeAreaView>
     );
   }
@@ -85,22 +86,22 @@ export default function EventCheckinScreen() {
       />
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Terminar" onPress={close} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('eventCheckin.terminar')} onPress={close} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
             <Image source={require('@/assets/icons/event/arrow-left-long.svg')} style={styles.icon} contentFit="contain" tintColor={AppColors.textPrimary} />
           </Pressable>
           <View style={styles.counter}>
             <ThemedText numberOfLines={1} style={styles.counterTitle}>{event?.title ?? 'Pasar lista'}</ThemedText>
-            {count !== null && <ThemedText style={styles.counterText}>{count} {count === 1 ? 'llegó' : 'llegaron'}</ThemedText>}
+            {count !== null && <ThemedText style={styles.counterText}>{t('eventCheckin.countLlegaron', { count })}</ThemedText>}
           </View>
         </View>
 
-        <View style={styles.frame} accessible accessibilityLabel="Apunta al HN-QR del perfil de la persona" />
+        <View style={styles.frame} accessible accessibilityLabel={t('eventCheckin.apuntaAlHnQrDel')} />
 
         <View style={styles.bottom}>
           {result ? (
             <CheckInResultCard result={result} />
           ) : (
-            <ThemedText style={styles.hint}>Pídele a cada persona que abra Perfil → Mi HN-QR.</ThemedText>
+            <ThemedText style={styles.hint}>{t('eventCheckin.pideleACadaPersonaQue')}</ThemedText>
           )}
         </View>
       </SafeAreaView>

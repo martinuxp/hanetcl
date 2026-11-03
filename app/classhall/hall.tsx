@@ -21,13 +21,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 type Tab = 'announcements' | 'evaluations' | 'documents';
 
 const TABS: { value: Tab; label: string; accessibilityLabel: string }[] = [
-  { value: 'announcements', label: 'Anuncios', accessibilityLabel: 'Anuncios' },
-  { value: 'evaluations', label: 'Evaluaciones', accessibilityLabel: 'Evaluaciones' },
-  { value: 'documents', label: 'Documentos', accessibilityLabel: 'Documentos' },
+  { value: 'announcements', label: t('classhall.hall.anuncios'), accessibilityLabel: t('classhall.hall.anuncios') },
+  { value: 'evaluations', label: t('classhall.hall.evaluaciones'), accessibilityLabel: t('classhall.hall.evaluaciones') },
+  { value: 'documents', label: t('classhall.hall.documentos'), accessibilityLabel: t('classhall.hall.documentos') },
 ];
 
 function initials(name: string) {
@@ -48,7 +49,7 @@ function Byline({ name, date, seed }: { name: string; date: string; seed?: strin
       <View style={styles.bylineText}>
         <View style={styles.nameRow}>
           <ThemedText numberOfLines={1} style={styles.name}>{shortName(name)}</ThemedText>
-          <Image source={HALL_ICONS.verified} style={styles.verified} contentFit="contain" tintColor={AppColors.accent} accessibilityLabel="Docente verificado" />
+          <Image source={HALL_ICONS.verified} style={styles.verified} contentFit="contain" tintColor={AppColors.accent} accessibilityLabel={t('classhall.hall.docenteVerificado')} />
         </View>
         <ThemedText style={styles.date}>{date}</ThemedText>
       </View>
@@ -75,7 +76,7 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
       setOpen(undefined);
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar el horario del Hall.'));
+      setError(describeAuthError(saveError, t('classhall.hall.noPudimosGuardarElHorario')));
     } finally {
       setSaving(false);
     }
@@ -83,11 +84,11 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
 
   return (
     <View style={styles.scheduleCard}>
-      <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
-      {fromCourse && sorted.length > 0 && <ThemedText style={styles.sectionHint}>Viene del Horario del curso.</ThemedText>}
+      <ThemedText style={styles.sectionLabel}>{t('common.horario')}</ThemedText>
+      {fromCourse && sorted.length > 0 && <ThemedText style={styles.sectionHint}>{t('classhall.hall.vieneDelHorarioDelCurso')}</ThemedText>}
       {sorted.length === 0 && (
         <ThemedText style={styles.sectionHint}>
-          {fromCourse ? 'Todavía no está en el Horario del curso.' : canEdit ? 'Agrega los días y horas de este Hall. Aparecen en el Horario de tus estudiantes.' : 'Tu docente todavía no ha cargado los días y horas.'}
+          {fromCourse ? t('classhall.hall.todaviaNoEstaEnEl') : canEdit ? t('classhall.hall.agregaLosDiasYHoras') : t('classhall.hall.tuDocenteTodaviaNoHa')}
         </ThemedText>
       )}
       {sorted.map(({ block, index }) => {
@@ -97,7 +98,7 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
             key={block.id}
             accessibilityRole={canEdit ? 'button' : undefined}
             accessibilityLabel={`${dayName}, ${block.start} a ${block.end}${block.room ? `, ${block.room}` : ''}`}
-            accessibilityHint={canEdit ? 'Editar el bloque' : undefined}
+            accessibilityHint={canEdit ? t('classhall.hall.editarElBloque') : undefined}
             disabled={!canEdit}
             onPress={() => setOpen(index)}
             style={({ pressed }) => [styles.scheduleRow, pressed && AppPressed]}
@@ -107,7 +108,7 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
           </Pressable>
         );
       })}
-      {canEdit && <HallPill label="Agregar bloque" onPress={() => setOpen(null)} />}
+      {canEdit && <HallPill label={t('classhall.hall.agregarBloque')} onPress={() => setOpen(null)} />}
       {open !== undefined && (
         <BlockEditor
           block={open !== null ? blocks[open] : null}
@@ -125,24 +126,24 @@ function HallSchedule({ hallId, subject, blocks, canEdit, fromCourse, onSaved }:
   );
 }
 
-const DOCUMENTS_NOTICE = 'Estos documentos son solo para tu clase. No los compartas salvo que tu docente lo permita.';
+const DOCUMENTS_NOTICE = t('classhall.hall.estosDocumentosSonSoloPara');
 
 function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete, seed }: { item: HallAnnouncement; attachment?: HallDocument; canEdit: boolean; onEdit: () => void; onDelete: () => void; seed?: string | null }) {
-  const date = item.createdAt ? hallDay(item.createdAt) : 'Ahora';
+  const date = item.createdAt ? hallDay(item.createdAt) : t('common.ahora');
   return (
     <View style={styles.card}>
-      <Byline name={item.authorName} seed={seed} date={item.updatedAt ? `${date} · editado` : date} />
+      <Byline name={item.authorName} seed={seed} date={item.updatedAt ? t('classhall.hall.dateEditado', { date }) : date} />
       <ThemedText selectable style={styles.body}>{item.body}</ThemedText>
       {!!attachment && (
         <>
-          <DocumentTile document={attachment} tone="accent" label="Archivo adjunto" />
+          <DocumentTile document={attachment} tone="accent" label={t('classhall.announce.archivoAdjunto')} />
           <ThemedText style={styles.cardNotice}>{DOCUMENTS_NOTICE}</ThemedText>
         </>
       )}
       {canEdit && (
         <View style={styles.cardActions}>
-          <HallPill label="Editar" onPress={onEdit} />
-          <HallPill label="Eliminar" onPress={onDelete} />
+          <HallPill label={t('common.editar')} onPress={onEdit} />
+          <HallPill label={t('common.eliminar')} onPress={onDelete} />
         </View>
       )}
     </View>
@@ -152,7 +153,7 @@ function AnnouncementCard({ item, attachment, canEdit, onEdit, onDelete, seed }:
 function EvaluationRow({ item, onPress }: { item: HallEvaluation; onPress: () => void }) {
   const days = daysUntil(item.date);
   const past = item.date < startOfToday();
-  const when = past ? 'Ya pasó' : days === 0 ? 'Hoy' : days === 1 ? 'Mañana' : `En ${days} días`;
+  const when = past ? t('classhall.hall.yaPaso') : days === 0 ? t('common.hoy2') : t('classhall.hall.enCountDias', { count: days });
   return (
     <Pressable
       accessibilityRole="button"
@@ -181,7 +182,7 @@ function isEvaluationType(type: string) {
 function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: () => void }) {
   const past = item.startDate < startOfToday();
   const days = daysUntil(item.startDate);
-  const when = item.cancelled ? 'Cancelado' : past ? 'Ya pasó' : days === 0 ? 'Hoy' : days === 1 ? 'Mañana' : `En ${days} días`;
+  const when = item.cancelled ? t('classhall.hall.cancelado') : past ? t('classhall.hall.yaPaso') : days === 0 ? t('common.hoy2') : t('classhall.hall.enCountDias', { count: days });
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
@@ -198,9 +199,9 @@ function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: ()
         <ThemedText numberOfLines={2} style={[styles.evaluationTitle, item.cancelled && styles.cancelled]}>{item.title}</ThemedText>
         <ThemedText numberOfLines={1} style={styles.evaluationMeta}>{[item.type, hallLongDate(item.startDate)].filter(Boolean).join(' · ')}</ThemedText>
         {item.verified ? (
-          <ThemedText numberOfLines={1} style={styles.verifiedNote}>Confirmada por {item.verifier ?? 'un docente'}</ThemedText>
+          <ThemedText numberOfLines={1} style={styles.verifiedNote}>{t('classhall.hall.confirmadaPorVerifier', { verifier: item.verifier ?? 'un docente' })}</ThemedText>
         ) : item.verificationRequested ? (
-          <ThemedText numberOfLines={1} style={styles.pendingNote}>Por confirmar por un docente</ThemedText>
+          <ThemedText numberOfLines={1} style={styles.pendingNote}>{t('classhall.hall.porConfirmarPorUnDocente')}</ThemedText>
         ) : null}
       </View>
       <ThemedText style={styles.evaluationWhen}>{when}</ThemedText>
@@ -259,7 +260,7 @@ export default function HallScreen() {
           setDetail(null);
           setGone(true);
         }
-        setError(describeAuthError(loadError, 'No pudimos abrir este Hall. Inténtalo nuevamente.'));
+        setError(describeAuthError(loadError, t('classhall.hall.noPudimosAbrirEsteHall')));
       });
     return () => { active = false; };
     // `attempt` re-runs the load from the retry button.
@@ -279,8 +280,8 @@ export default function HallScreen() {
   const openTasks = tasks.filter(task => task.dueAt >= now);
   const toHandIn = tasks.filter(task => !task.mySubmission && (task.dueAt >= now || task.acceptLate));
   const tasksSubtitle = isTeacher
-    ? (openTasks.length ? `${openTasks.length} ${openTasks.length === 1 ? 'abierta' : 'abiertas'}` : 'Publicar')
-    : (toHandIn.length ? `${toHandIn.length} por entregar` : tasks.length ? 'Al día' : 'Sin tareas');
+    ? (openTasks.length ? t('classhall.hall.countAbiertas', { count: openTasks.length }) : t('common.publicar'))
+    : (toHandIn.length ? t('classhall.hall.tohandincountPorEntregar', { toHandInCount: toHandIn.length }) : tasks.length ? t('classhall.hall.alDia') : t('classhall.hall.sinTareas'));
   const next = hallNext && (!nextCourse || hallNext.date <= nextCourse.startDate) ? hallNext : undefined;
   const nextFromCourse = !next ? nextCourse : undefined;
 
@@ -300,7 +301,7 @@ export default function HallScreen() {
       setDetail(current => current && { ...current, announcements: current.announcements.filter(item => item.id !== pendingDelete.id) });
       setPendingDelete(null);
     } catch (removeError) {
-      setDeleteError(describeAuthError(removeError, 'No pudimos eliminar el anuncio. Inténtalo nuevamente.'));
+      setDeleteError(describeAuthError(removeError, t('classhall.hall.noPudimosEliminarElAnuncio')));
     } finally {
       setDeleting(false);
     }
@@ -333,7 +334,7 @@ export default function HallScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setDetail(current => current && { ...current, documents: [added, ...(current.documents ?? [])] });
     } catch (uploadError) {
-      setDocumentError(uploadError instanceof DocumentError ? uploadError.message : describeAuthError(uploadError, 'No pudimos subir el documento. Inténtalo nuevamente.'));
+      setDocumentError(uploadError instanceof DocumentError ? uploadError.message : describeAuthError(uploadError, t('classhall.hall.noPudimosSubirElDocumento')));
     } finally {
       setUploading(false);
     }
@@ -348,7 +349,7 @@ export default function HallScreen() {
       setDetail(current => current && { ...current, documents: current.documents?.filter(item => item.id !== pendingDocument.id) });
       setPendingDocument(null);
     } catch (removeError) {
-      setDeleteError(describeAuthError(removeError, 'No pudimos eliminar el documento. Inténtalo nuevamente.'));
+      setDeleteError(describeAuthError(removeError, t('classhall.hall.noPudimosEliminarElDocumento')));
     } finally {
       setDeleting(false);
     }
@@ -368,13 +369,13 @@ export default function HallScreen() {
       });
       setCourseEvent(null);
     } catch (confirmError) {
-      setVerifyError(describeAuthError(confirmError, 'No pudimos confirmar la información. Inténtalo nuevamente.'));
+      setVerifyError(describeAuthError(confirmError, t('classhall.hall.noPudimosConfirmarLaInformacion')));
     } finally {
       setVerifying(false);
     }
   };
-  const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : nextFromCourse ? `Evaluación ${hallDay(nextFromCourse.startDate)}` : 'Sin evaluaciones';
-  const nextSubtitle = next ? 'Abrir T.E.' : nextFromCourse ? (isTeacher ? 'Revisar' : 'Ver en Calendar') : isTeacher ? 'Agendar una' : 'por ahora';
+  const nextTitle = next ? `Evaluación ${hallDay(next.date)}` : nextFromCourse ? `Evaluación ${hallDay(nextFromCourse.startDate)}` : t('classhall.hall.sinEvaluaciones');
+  const nextSubtitle = next ? t('classhall.evaluation.abrirTE') : nextFromCourse ? (isTeacher ? t('classhall.hall.revisar') : t('classhall.hall.verEnCalendar')) : isTeacher ? t('classhall.hall.agendarUna') : t('classhall.hall.porAhora');
   const nextPress = next
     ? () => openEvaluation(next)
     : nextFromCourse
@@ -385,9 +386,9 @@ export default function HallScreen() {
     <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
-          <TopBarButton icon={HALL_ICONS.back} label="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
-          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel="HaNet ClassHall" />
-          <TopBarButton icon={HALL_ICONS.calendar} label="Abrir el Calendar del curso" wide onPress={() => router.navigate('/calendar')} />
+          <TopBarButton icon={HALL_ICONS.back} label={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
+          <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel={t('common.hanetClasshall')} />
+          <TopBarButton icon={HALL_ICONS.calendar} label={t('common.abrirElCalendarDelCurso')} wide onPress={() => router.navigate('/calendar')} />
         </View>
 
         {!detail && !error && <HallSkeleton />}
@@ -395,7 +396,7 @@ export default function HallScreen() {
         {!!error && !detail && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
-            <HallPill label="Reintentar" tone="light" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
+            <HallPill label={t('common.reintentar')} tone="light" onPress={() => { setError(null); setAttempt(count => count + 1); }} />
           </View>
         )}
 
@@ -407,9 +408,9 @@ export default function HallScreen() {
               <HallTile
                 icon={HALL_ICONS.tasks}
                 tone="primary"
-                title="Tareas"
+                title={t('classhall.hall.tareas')}
                 subtitle={tasksSubtitle}
-                accessibilityLabel={`Tareas, ${tasksSubtitle}. Abrir`}
+                accessibilityLabel={t('classhall.hall.tareasTaskssubtitleAbrir', { tasksSubtitle })}
                 onPress={() => router.push({ pathname: '/classhall/tasks', params: { hallId: id } })}
                 compact
                 style={styles.summaryTasks}
@@ -420,8 +421,8 @@ export default function HallScreen() {
                 title={nextTitle}
                 subtitle={nextSubtitle}
                 accessibilityLabel={next
-                  ? `Próxima evaluación: ${next.title}, ${hallLongDate(next.date)}. Abrir la tabla de especificaciones`
-                  : nextFromCourse ? `Próxima evaluación: ${nextFromCourse.title}, ${hallLongDate(nextFromCourse.startDate)}, del Calendar del curso` : undefined}
+                  ? t('classhall.hall.proximaEvaluacionTitleHalllongdateAbrir', { title: next.title, hallLongDate: hallLongDate(next.date) })
+                  : nextFromCourse ? t('classhall.hall.proximaEvaluacionTitleHalllongdateDel', { title: nextFromCourse.title, hallLongDate: hallLongDate(nextFromCourse.startDate) }) : undefined}
                 onPress={nextPress}
                 style={styles.summaryNext}
               />
@@ -440,16 +441,16 @@ export default function HallScreen() {
 
             <View style={styles.divider} />
 
-            <HanetSegmented options={TABS} value={tab} onChange={setTab} accessibilityLabel="Secciones del Hall" background={AppColors.surface} />
+            <HanetSegmented options={TABS} value={tab} onChange={setTab} accessibilityLabel={t('classhall.hall.seccionesDelHall')} background={AppColors.surface} />
 
             {tab === 'announcements' && (
               <>
-                {isTeacher && <HanetButton label="Publicar un anuncio" variant="surface" onPress={() => announce()} />}
+                {isTeacher && <HanetButton label={t('classhall.hall.publicarUnAnuncio')} variant="surface" onPress={() => announce()} />}
                 {detail.announcements.length === 0 && (
                   <View style={styles.card}>
-                    <ThemedText style={styles.emptyTitle}>Sin anuncios</ThemedText>
+                    <ThemedText style={styles.emptyTitle}>{t('classhall.hall.sinAnuncios')}</ThemedText>
                     <ThemedText style={styles.body}>
-                      {isTeacher ? 'Lo que publiques aquí lo verán todos los estudiantes del Hall.' : 'Cuando tu docente publique algo, aparecerá aquí.'}
+                      {isTeacher ? t('classhall.hall.loQuePubliquesAquiLo') : t('classhall.hall.cuandoTuDocentePubliqueAlgo')}
                     </ThemedText>
                   </View>
                 )}
@@ -469,14 +470,14 @@ export default function HallScreen() {
 
             {tab === 'evaluations' && (
               <>
-                {isTeacher && <HanetButton label="Agendar una evaluación" variant="surface" onPress={newEvaluation} />}
+                {isTeacher && <HanetButton label={t('classhall.hall.agendarUnaEvaluacion')} variant="surface" onPress={newEvaluation} />}
                 {detail.evaluations.length === 0 ? (courseEvents.length === 0 && (
                   <View style={styles.card}>
-                    <ThemedText style={styles.emptyTitle}>Sin evaluaciones</ThemedText>
+                    <ThemedText style={styles.emptyTitle}>{t('classhall.hall.sinEvaluaciones')}</ThemedText>
                     <ThemedText style={styles.body}>
                       {isTeacher
-                        ? 'También aparecen en el Calendar del curso, con su tabla de especificaciones.'
-                        : 'Cuando tu docente agende una evaluación, verás aquí la fecha y los contenidos.'}
+                        ? t('classhall.hall.tambienAparecenEnElCalendar')
+                        : t('classhall.hall.cuandoTuDocenteAgendeUna')}
                     </ThemedText>
                   </View>
                 )) : (
@@ -488,9 +489,9 @@ export default function HallScreen() {
                 )}
                 {courseEvents.length > 0 && (
                   <>
-                    <ThemedText style={styles.sectionLabel}>Del Calendar del curso</ThemedText>
+                    <ThemedText style={styles.sectionLabel}>{t('classhall.hall.delCalendarDelCurso')}</ThemedText>
                     {isTeacher && (
-                      <ThemedText style={styles.sectionHint}>Toca un evento para confirmar su información o, si es una evaluación, completarla en tu Hall.</ThemedText>
+                      <ThemedText style={styles.sectionHint}>{t('classhall.hall.tocaUnEventoParaConfirmar')}</ThemedText>
                     )}
                     <View style={styles.list}>
                       {courseEvents.map(item => (
@@ -500,7 +501,7 @@ export default function HallScreen() {
                   </>
                 )}
                 <ThemedText style={styles.finePrint}>
-                  Las evaluaciones del Hall también aparecen en el Calendar del curso, y lo que el curso agende para {hall.subject} aparece aquí.
+                  {t('classhall.hall.lasEvaluacionesDelHallTambien', { subject: hall.subject })}
                 </ThemedText>
               </>
             )}
@@ -508,28 +509,28 @@ export default function HallScreen() {
             {tab === 'documents' && (
               <>
                 {isTeacher && (
-                  <HanetButton label={uploading ? 'Subiendo…' : 'Subir un documento'} variant="surface" disabled={uploading} onPress={addDocument} />
+                  <HanetButton label={uploading ? t('common.subiendo') : t('classhall.hall.subirUnDocumento')} variant="surface" disabled={uploading} onPress={addDocument} />
                 )}
                 {!!documentError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{documentError}</ThemedText>}
                 {documents.length === 0 ? (
                   <View style={styles.card}>
-                    <ThemedText style={styles.emptyTitle}>Sin documentos</ThemedText>
+                    <ThemedText style={styles.emptyTitle}>{t('classhall.hall.sinDocumentos')}</ThemedText>
                     <ThemedText style={styles.body}>
                       {isTeacher
-                        ? 'PDF, Word, PowerPoint, Excel o imagen, hasta 10 MB. Solo los ven los estudiantes del Hall.'
-                        : 'Aquí estarán las guías, presentaciones y documentos que comparta tu docente.'}
+                        ? t('classhall.hall.pdfWordPowerpointExcelO')
+                        : t('classhall.hall.aquiEstaranLasGuiasPresentaciones')}
                     </ThemedText>
                   </View>
                 ) : documents.map(item => (
                   <View key={item.id} style={styles.card}>
-                    <Byline name={item.authorName} seed={hall.teacherAvatarSeed} date={item.createdAt ? hallDay(item.createdAt) : 'Ahora'} />
+                    <Byline name={item.authorName} seed={hall.teacherAvatarSeed} date={item.createdAt ? hallDay(item.createdAt) : t('common.ahora')} />
                     <DocumentTile
                       document={item}
-                      label={item.evaluationId ? 'Tabla de especificaciones' : item.taskId ? 'Material de tarea' : undefined}
+                      label={item.evaluationId ? t('common.tablaDeEspecificaciones') : item.taskId ? t('classhall.hall.materialDeTarea') : undefined}
                     />
                     {isTeacher && (
                       <View style={styles.cardActions}>
-                        <HallPill label="Eliminar" onPress={() => { setDeleteError(null); setPendingDocument(item); }} />
+                        <HallPill label={t('common.eliminar')} onPress={() => { setDeleteError(null); setPendingDocument(item); }} />
                       </View>
                     )}
                   </View>
@@ -540,17 +541,17 @@ export default function HallScreen() {
 
             {isTeacher && hall.plan === 'comun' && (
               <ThemedText style={styles.finePrint}>
-                Plan común: todo {hall.courseId} está en este Hall · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`} en la nómina
+                {t('classhall.hall.planComunTodoCourseidEsta', { count: hall.memberCount ?? 0, courseId: hall.courseId })}
               </ThemedText>
             )}
             {isTeacher && hall.plan !== 'comun' && !!hall.code && (
               <ThemedText style={styles.finePrint}>
-                {hall.plan === 'dominio' ? 'Dominio' : 'Electivo'} · Código del Hall: <ThemedText style={styles.code}>{hall.code}</ThemedText> · {hall.memberCount === 1 ? '1 estudiante' : `${hall.memberCount ?? 0} estudiantes`}
+                {hall.plan === 'dominio' ? t('common.dominio') : t('common.electivo')}{' '}{t('classhall.hall.codigoDelHall')}{' '}<ThemedText style={styles.code}>{hall.code}</ThemedText> · {t('classhall.hall.countEstudiantes', { count: hall.memberCount ?? 0 })}
               </ThemedText>
             )}
             {isTeacher && (
               <View style={styles.teacherRow}>
-                <HallPill label="Editar Hall" tone="light" onPress={() => router.push({ pathname: '/classhall/create', params: { id: hall.id } })} />
+                <HallPill label={t('classhall.create.editarHall')} tone="light" onPress={() => router.push({ pathname: '/classhall/create', params: { id: hall.id } })} />
               </View>
             )}
           </>
@@ -564,28 +565,28 @@ export default function HallScreen() {
         title={courseEvent?.title}
         body={courseEvent ? [
           [courseEvent.type, hallLongDate(courseEvent.startDate)].filter(Boolean).join(' · '),
-          courseEvent.authorName ? `Lo publicó ${courseEvent.authorName} en el Calendar del curso.` : 'Está en el Calendar del curso.',
+          courseEvent.authorName ? t('classhall.hall.loPublicoAuthornameEnEl', { authorName: courseEvent.authorName }) : t('classhall.hall.estaEnElCalendarDel'),
           courseEvent.verified
-            ? `Ya la confirmó ${courseEvent.verifier ?? 'un docente'}.`
+            ? t('classhall.hall.yaLaConfirmoVerifier', { verifier: courseEvent.verifier ?? 'un docente' })
             : courseEvent.verificationRequested
-              ? 'La directiva pidió que un docente confirme esta información.'
-              : 'Si está bien, confírmala para que el curso sepa que la revisaste.',
+              ? t('classhall.hall.laDirectivaPidioQueUn')
+              : t('classhall.hall.siEstaBienConfirmalaPara'),
         ].join('\n\n') : undefined}
       >
         {!!verifyError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{verifyError}</ThemedText>}
         <View style={styles.dialogButtons}>
           {!!courseEvent && !courseEvent.verified && (
-            <HanetButton label={verifying ? 'Confirmando…' : 'Confirmar información'} disabled={verifying} onPress={confirmCourseEvent} />
+            <HanetButton label={verifying ? t('classhall.hall.confirmando') : t('classhall.hall.confirmarInformacion')} disabled={verifying} onPress={confirmCourseEvent} />
           )}
           {!!courseEvent && isEvaluationType(courseEvent.type) && (
             <HanetButton
-              label="Completar en mi Hall"
+              label={t('classhall.hall.completarEnMiHall')}
               variant="surface"
               disabled={verifying}
               onPress={() => { const event = courseEvent; setCourseEvent(null); adoptCourseEvent(event); }}
             />
           )}
-          <HanetButton label="Cerrar" variant="surface" disabled={verifying} onPress={() => setCourseEvent(null)} />
+          <HanetButton label={t('common.cerrar')} variant="surface" disabled={verifying} onPress={() => setCourseEvent(null)} />
         </View>
       </HanetDialog>
 
@@ -593,13 +594,13 @@ export default function HallScreen() {
         visible={!!pendingDocument}
         onRequestClose={() => !deleting && setPendingDocument(null)}
         dismissOnBackdrop={!deleting}
-        title="¿Eliminar este documento?"
-        body={pendingDocument ? `${pendingDocument.name}. Los estudiantes del Hall dejarán de verlo${pendingDocument.announcementId ? ' y se quitará del anuncio' : ''}. No se puede deshacer.` : undefined}
+        title={t('classhall.hall.eliminarEsteDocumento')}
+        body={pendingDocument ? t('classhall.hall.nameLosEstudiantesDelHall', { name: pendingDocument.name, value: pendingDocument.announcementId ? t('classhall.hall.ySeQuitaraDelAnuncio') : '' }) : undefined}
       >
         {!!deleteError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{deleteError}</ThemedText>}
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" disabled={deleting} onPress={() => setPendingDocument(null)} style={dialogStyles.action} />
-          <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={deleting} onPress={removeDocument} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={deleting} onPress={() => setPendingDocument(null)} style={dialogStyles.action} />
+          <HanetButton label={deleting ? t('common.eliminando') : t('common.eliminar')} variant="accent" disabled={deleting} onPress={removeDocument} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
 
@@ -607,13 +608,13 @@ export default function HallScreen() {
         visible={!!pendingDelete}
         onRequestClose={() => !deleting && setPendingDelete(null)}
         dismissOnBackdrop={!deleting}
-        title="¿Eliminar este anuncio?"
-        body="Los estudiantes del Hall dejarán de verlo. No se puede deshacer."
+        title={t('classhall.hall.eliminarEsteAnuncio')}
+        body={t('classhall.hall.losEstudiantesDelHallDejaran')}
       >
         {!!deleteError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{deleteError}</ThemedText>}
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" disabled={deleting} onPress={() => setPendingDelete(null)} style={dialogStyles.action} />
-          <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={deleting} onPress={confirmDelete} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={deleting} onPress={() => setPendingDelete(null)} style={dialogStyles.action} />
+          <HanetButton label={deleting ? t('common.eliminando') : t('common.eliminar')} variant="accent" disabled={deleting} onPress={confirmDelete} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
     </FrostedScreen>

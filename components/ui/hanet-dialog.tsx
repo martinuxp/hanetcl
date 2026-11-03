@@ -3,6 +3,7 @@ import { AlertModal } from '@/components/ui/alert-modal';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 type Props = {
   visible: boolean;
@@ -22,7 +23,7 @@ export function HanetDialog({ visible, onRequestClose, dismissOnBackdrop = false
   return (
     <AlertModal visible={visible} onRequestClose={onRequestClose}>
       <View style={styles.overlay}>
-        {dismissOnBackdrop && <Pressable accessibilityLabel="Cerrar" style={StyleSheet.absoluteFill} onPress={onRequestClose} />}
+        {dismissOnBackdrop && <Pressable accessibilityLabel={t('common.cerrar')} style={StyleSheet.absoluteFill} onPress={onRequestClose} />}
         <View accessibilityViewIsModal style={styles.dialog}>
           {!!title && <ThemedText accessibilityRole="header" style={styles.title}>{title}</ThemedText>}
           {!!body && <ThemedText style={styles.body}>{body}</ThemedText>}

@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
+import { t } from '@/i18n';
 
 const TAPS = 5;
 const TAP_WINDOW_MS = 1600;
@@ -122,7 +123,7 @@ function EggScene({ version, stage, onClose }: { version: string; stage: string;
     <Animated.View style={[styles.scene, sceneStyle]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`HaNet versión ${version}${stage ? ` ${stage}` : ''}. Toca para cerrar.`}
+        accessibilityLabel={t('components.settings.versionEasterEgg.hanetVersionVersionValueToca', { version, value: stage ? ` ${stage}` : '' })}
         onPress={close}
         style={styles.fill}
       >
@@ -157,7 +158,7 @@ function EggScene({ version, stage, onClose }: { version: string; stage: string;
           </Animated.View>
         </View>
 
-        <ThemedText style={styles.hint}>Toca para cerrar</ThemedText>
+        <ThemedText style={styles.hint}>{t('components.settings.versionEasterEgg.tocaParaCerrar')}</ThemedText>
       </Pressable>
     </Animated.View>
   );

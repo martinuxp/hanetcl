@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
 import { cached, peekCached } from './cache';
 import { auth, functions, storage } from './firebase';
+import { monthsShort, t, weekdaysShort } from '@/i18n';
 
 // HaNet Eventos (functions/events.js): city events loaded by the HaNet team
 // and the institution's own, with sign-ups.
@@ -13,18 +14,18 @@ export type Jornada = 'manana' | 'tarde';
 export type EventJornada = Jornada | 'ambas';
 export type SignupMode = 'list' | 'count' | 'none';
 
-export const JORNADA_LABELS: Record<EventJornada, string> = { manana: 'Jornada mañana', tarde: 'Jornada tarde', ambas: 'Ambas jornadas' };
+export const JORNADA_LABELS: Record<EventJornada, string> = { manana: t('common.jornadaManana'), tarde: t('common.jornadaTarde'), ambas: t('services.eventsService.ambasJornadas') };
 
 export const EVENT_CATEGORIES = [
-  { value: 'concert', label: 'Concierto' },
-  { value: 'music', label: 'Música' },
-  { value: 'exhibition', label: 'Exposición' },
-  { value: 'theatre', label: 'Teatro' },
-  { value: 'sports', label: 'Deporte' },
-  { value: 'family', label: 'Familiar' },
-  { value: 'academic', label: 'Académico' },
-  { value: 'community', label: 'Comunidad' },
-  { value: 'other', label: 'Otro' },
+  { value: 'concert', label: t('services.eventsService.concierto') },
+  { value: 'music', label: t('services.eventsService.musica') },
+  { value: 'exhibition', label: t('services.eventsService.exposicion') },
+  { value: 'theatre', label: t('services.eventsService.teatro') },
+  { value: 'sports', label: t('services.eventsService.deporte') },
+  { value: 'family', label: t('services.eventsService.familiar') },
+  { value: 'academic', label: t('services.eventsService.academico') },
+  { value: 'community', label: t('services.eventsService.comunidad') },
+  { value: 'other', label: t('services.eventsService.otro') },
 ] as const;
 
 export type HnEvent = {
@@ -169,7 +170,7 @@ export async function importEventFromUrl(url: string) {
 /** Picks a cover (cropped wide) or a gallery photo and uploads it to the staging folder; null when cancelled. */
 export async function pickEventCover(kind: 'cover' | 'gallery' = 'cover'): Promise<{ uploadPath: string; localUri: string } | null> {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('Inicia sesión para subir imágenes.');
+  if (!uid) throw new Error(t('services.eventsService.iniciaSesionParaSubirImagenes'));
   const result = await ImagePicker.launchImageLibraryAsync(kind === 'cover'
     ? { mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: 1 }
     : { mediaTypes: ['images'], quality: 1 });
@@ -192,7 +193,7 @@ export type WikipediaSummary = { title: string; summary: string; url: string };
 export async function fetchWikipediaSummary(subject: string): Promise<WikipediaSummary | null> {
   const headers = { 'Api-User-Agent': 'HaNetEventos/1.0 (muxp@muxp.art)' };
   const search = await fetch(`https://es.wikipedia.org/w/api.php?action=opensearch&limit=1&namespace=0&format=json&origin=*&search=${encodeURIComponent(subject.trim())}`, { headers });
-  if (!search.ok) throw new Error('Wikipedia no responde.');
+  if (!search.ok) throw new Error(t('services.eventsService.wikipediaNoResponde'));
   const [, titles] = await search.json() as [string, string[]];
   const title = titles?.[0];
   if (!title) return null;
@@ -203,8 +204,8 @@ export async function fetchWikipediaSummary(subject: string): Promise<WikipediaS
   return { title: data.title ?? title, summary: data.extract, url: data.content_urls?.mobile?.page ?? data.content_urls?.desktop?.page ?? '' };
 }
 
-const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+const WEEKDAYS = weekdaysShort();
+const MONTHS = monthsShort();
 
 function clock(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -232,7 +233,7 @@ export function eventSoon(startsAt: number, now: number) {
 
 /** "Hoy", "Mañana" or "sáb 18 oct.", and "Ahora" once it started; for the Home strip. */
 export function eventDay(startsAt: number, now: number) {
-  if (startsAt <= now) return 'Ahora';
+  if (startsAt <= now) return t('common.ahora');
   const soon = eventSoon(startsAt, now);
   if (soon) return soon.split(',')[0];
   const start = new Date(startsAt);
