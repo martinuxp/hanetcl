@@ -3,6 +3,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
 import { Linking, Platform } from 'react-native';
 import { functions } from './firebase';
+import { t } from '@/i18n';
 
 // ClassHall's push notifications (Expo's push service). The device's token is
 // registered with the backend (registerPushToken) after the person allows
@@ -50,13 +51,13 @@ export async function ensureChannel(module: NotificationsModule) {
   if (Platform.OS !== 'android') return;
   await module.setNotificationChannelAsync(ANDROID_CHANNEL, {
     name: 'ClassHall',
-    description: 'Anuncios, tareas, material nuevo y recordatorios de entrega.',
+    description: t('services.pushService.anunciosTareasMaterialNuevoY'),
     importance: module.AndroidImportance.HIGH,
     lightColor: '#EF2274',
   });
   await module.setNotificationChannelAsync(AGENDA_CHANNEL, {
-    name: 'Tu día y tus pruebas',
-    description: 'El resumen de las 7:00 y los avisos 24 y 4 horas antes de cada prueba.',
+    name: t('settings.tuDiaYTusPruebas'),
+    description: t('services.pushService.elResumenDeLas7'),
     importance: module.AndroidImportance.HIGH,
     lightColor: '#EF2274',
   });

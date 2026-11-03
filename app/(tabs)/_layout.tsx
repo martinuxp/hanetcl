@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { t } from '@/i18n';
 
 // The bar is drawn once by the root layout (GlobalTabBar), not by the tabs.
 // No `href: null` here: since expo-router 58 a hidden tab redirects to Home
@@ -16,11 +17,11 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
-        options={{ title: 'Inicio' }}
+        options={{ title: t('layout.inicio') }}
       />
       <Tabs.Screen
         name="explore"
-        options={{ title: 'Perfil' }}
+        options={{ title: t('layout.perfil') }}
       />
       <Tabs.Screen
         name="calendar"
@@ -28,11 +29,11 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="events"
-        options={{ title: 'Eventos' }}
+        options={{ title: t('layout.eventos') }}
       />
       <Tabs.Screen
         name="feed"
-        options={{ title: 'Feed' }}
+        options={{ title: t('layout.feed') }}
       />
     </Tabs>
   );

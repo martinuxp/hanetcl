@@ -38,6 +38,12 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 - **Licencias de código abierto** (Configuraciones → `app/licenses.tsx`): la lista sale de `constants/open-source-licenses.json`, que genera `node scripts/generate-licenses.js` con lo que de verdad va en la app (los source maps de un `expo export` más los módulos nativos). Volver a generarla al cambiar dependencias.
 - Quien no tiene foto aparece con su **blobatar** (blobatar.dev, versión fija 2.7.0) en `HanetAvatar` (`components/ui/hanet-avatar.tsx`): tono fijo 0.5, color libre, sobre el recuadro `surfaceRaised`. La semilla es aleatoria y vive en `accounts/{uid}.avatarSeed` (nunca el UID, correo ni nombre); "Otro blobatar" la cambia. Las fotos de perfil siguen siendo privadas: los demás ven el blobatar.
 
+## Textos e idiomas (i18n)
+
+- Desde v0.3.6 todos los textos de la interfaz están en `i18n/locales/es.json` (español = idioma fuente) y el código usa `t('clave')` de `@/i18n` (i18next). Detalle y cómo sumar un idioma: `i18n/README.md`.
+- Al escribir textos nuevos, escribirlos directo y correr `npm run i18n:extract`; el check "Textos traducibles" del PR falla si queda alguno sin pasar por `t()`. El copy de es.json es el de la app: cambiarlo ahí cambia la app.
+- Los tipos de evento del Calendar y los roles son datos guardados, no etiquetas: no pasarlos por `t()`.
+
 ## Producto
 
 - **Identidad:** el HaNet ID es el UID de Firebase Auth, con una sola institución activa.

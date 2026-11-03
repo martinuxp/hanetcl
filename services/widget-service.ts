@@ -8,6 +8,7 @@ import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
 import type { HomeWidgetProps } from '@/widgets/home-widget';
 import type { ExamActivityProps } from '@/widgets/exam-activity';
 import type { LiveActivityFactory, Widget } from 'expo-widgets';
+import { t, weekdays } from '@/i18n';
 
 // The iPhone's home screen widget and the evaluation's Live Activity
 // (widgets/). They exist only in a native build with expo-widgets: in Expo
@@ -55,7 +56,7 @@ let lastBlocks: ScheduleBlock[] | null = null;
 let lastExam: { subject: string; startsAt: number } | null = null;
 let lastEvents: WidgetEvent[] | null = null;
 
-const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DAY_NAMES = weekdays();
 
 function examLine(exam: { subject: string; startsAt: number } | null, at: Date) {
   if (!exam || exam.startsAt <= at.getTime()) return '';
@@ -64,9 +65,9 @@ function examLine(exam: { subject: string; startsAt: number } | null, at: Date) 
   today.setHours(0, 0, 0, 0);
   const days = Math.round((new Date(start).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000);
   const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-  if (days === 0) return `Prueba de ${exam.subject} hoy, ${time}`;
-  if (days === 1) return `Prueba de ${exam.subject} mañana, ${time}`;
-  return `Prueba de ${exam.subject} en ${days} días`;
+  if (days === 0) return t('services.widgetService.pruebaDeSubjectHoyTime', { subject: exam.subject, time });
+  if (days === 1) return t('services.widgetService.pruebaDeSubjectMananaTime', { subject: exam.subject, time });
+  return t('services.widgetService.pruebaDeSubjectEnDays', { subject: exam.subject, days });
 }
 
 /** What the widget shows at a given moment. */
@@ -75,19 +76,19 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
   const today = blocksOn(blocks, scheduleDay(at));
   const minute = at.getHours() * 60 + at.getMinutes();
   const current = today.find(block => minutesOf(block.start) <= minute && minute < minutesOf(block.end));
-  if (current) return { label: 'Ahora', subject: current.subject, detail: `Hasta las ${current.end}${current.room ? ` · ${current.room}` : ''}`, exam };
+  if (current) return { label: t('common.ahora'), subject: current.subject, detail: t('common.hastaLasEndValue', { end: current.end, value: current.room ? ` · ${current.room}` : '' }), exam };
   const next = today.find(block => !isBreak(block) && minutesOf(block.start) > minute);
-  if (next) return { label: 'Después', subject: next.subject, detail: `${next.start}${next.room ? ` · ${next.room}` : ''}`, exam };
+  if (next) return { label: t('common.despues'), subject: next.subject, detail: `${next.start}${next.room ? ` · ${next.room}` : ''}`, exam };
   // The day is over: the first block of the next school day.
   for (let offset = 1; offset <= 7; offset += 1) {
     const day = new Date(at);
     day.setDate(day.getDate() + offset);
     const first = blocksOn(blocks, scheduleDay(day)).find(block => !isBreak(block));
     if (first) {
-      return { label: offset === 1 ? 'Mañana' : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: `Entras a las ${first.start}`, exam };
+      return { label: offset === 1 ? t('common.manana') : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: t('services.widgetService.entrasALasStart', { start: first.start }), exam };
     }
   }
-  return { label: 'Hoy', subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? 'Disfruta el día' : 'Tu curso aún no tiene horario', exam };
+  return { label: t('common.hoy2'), subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? t('services.widgetService.disfrutaElDia') : t('services.widgetService.tuCursoAunNoTiene'), exam };
 }
 
 function publish() {

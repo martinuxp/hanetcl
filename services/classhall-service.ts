@@ -8,6 +8,7 @@ import { cached } from './cache';
 import { auth, functions, storage } from './firebase';
 import type { HallPlan } from '@/constants/subjects';
 import type { ScheduleBlock } from './schedule-service';
+import { t } from '@/i18n';
 
 export const HALL_CODE_LENGTH = 6;
 
@@ -51,7 +52,7 @@ export type HallEvaluationContent = {
 export type HallObjective = { code: string; text: string };
 
 /** The usual skill columns; each table can name its own. */
-export const DEFAULT_SKILLS = ['Conocimiento', 'Aplicación', 'Comprensión'];
+export const DEFAULT_SKILLS = [t('services.classhallService.conocimiento'), t('services.classhallService.aplicacion'), t('classhall.evaluationForm.comprension')];
 
 export type HallEvaluation = {
   id: string;
@@ -294,10 +295,10 @@ export async function pickHallDocument(purpose: 'document' | 'scan' = 'document'
   const mimeType = accepted.includes(asset.mimeType ?? '') ? asset.mimeType as string : MIME_BY_EXTENSION[extension];
   if (!mimeType || !accepted.includes(mimeType)) {
     throw new DocumentError(purpose === 'scan'
-      ? 'Para escanear, elige la tabla en PDF, Word (.docx) o una foto.'
-      : 'Ese tipo de archivo no se puede subir. Usa PDF, Word, PowerPoint, Excel o una imagen.');
+      ? t('services.classhallService.paraEscanearEligeLaTabla')
+      : t('services.classhallService.eseTipoDeArchivoNo'));
   }
-  if ((asset.size ?? 0) > MAX_DOCUMENT_BYTES) throw new DocumentError('El archivo pesa más de 10 MB.');
+  if ((asset.size ?? 0) > MAX_DOCUMENT_BYTES) throw new DocumentError(t('services.classhallService.elArchivoPesaMasDe'));
   return { uri: asset.uri, name: asset.name, mimeType, size: asset.size ?? 0, file: asset.file };
 }
 
@@ -308,7 +309,7 @@ export type StagedDocument = { uploadPath: string; name: string };
 
 async function stageDocument(picked: PickedDocument): Promise<StagedDocument> {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new DocumentError('Inicia sesión para subir documentos.');
+  if (!uid) throw new DocumentError(t('services.classhallService.iniciaSesionParaSubirDocumentos'));
   const blob = picked.file ?? await (await fetch(picked.uri)).blob();
   const uploadPath = `classhall-uploads/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await uploadBytes(ref(storage, uploadPath), blob, { contentType: picked.mimeType });
@@ -411,7 +412,7 @@ export type PendingFile = PickedDocument & { photo?: boolean };
 export async function pickSubmissionPhoto(source: 'camera' | 'library'): Promise<PendingFile | null> {
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) throw new DocumentError('HaNet no tiene permiso para usar la cámara. Actívalo en los ajustes del teléfono.');
+    if (!permission.granted) throw new DocumentError(t('services.classhallService.hanetNoTienePermisoPara'));
   }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
   const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
@@ -424,7 +425,7 @@ export async function pickSubmissionPhoto(source: 'camera' | 'library'): Promise
     { compress: 0.82, format: SaveFormat.JPEG },
   );
   const blob = await (await fetch(resized.uri)).blob();
-  if (blob.size > MAX_DOCUMENT_BYTES) throw new DocumentError('La foto pesa más de 10 MB.');
+  if (blob.size > MAX_DOCUMENT_BYTES) throw new DocumentError(t('services.classhallService.laFotoPesaMasDe'));
   const stamp = new Date();
   const two = (value: number) => String(value).padStart(2, '0');
   const name = `Foto ${stamp.getFullYear()}-${two(stamp.getMonth() + 1)}-${two(stamp.getDate())} ${two(stamp.getHours())}.${two(stamp.getMinutes())}.${two(stamp.getSeconds())}.jpg`;
@@ -446,7 +447,7 @@ export function cleanSubmissionLink(value: string) {
 
 async function stageSubmissionFile(file: PendingFile) {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new DocumentError('Inicia sesión para entregar.');
+  if (!uid) throw new DocumentError(t('services.classhallService.iniciaSesionParaEntregar'));
   const blob = file.file ?? await (await fetch(file.uri)).blob();
   const uploadPath = `classhall-submissions/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await uploadBytes(ref(storage, uploadPath), blob, { contentType: file.mimeType });
@@ -493,19 +494,19 @@ export async function reviewHallSubmission(hallId: string, taskId: string, stude
 
 /** "Entregada", "Atrasada"… for a student's task. */
 export function taskStatus(task: Pick<HallTask, 'dueAt' | 'acceptLate'>, submission: { late: boolean; reviewed: boolean } | null | undefined, now: number) {
-  if (submission?.reviewed) return { label: 'Revisada', tone: 'done' as const };
-  if (submission) return { label: submission.late ? 'Entregada con atraso' : 'Entregada', tone: 'done' as const };
-  if (now <= task.dueAt) return { label: 'Pendiente', tone: 'pending' as const };
-  return task.acceptLate ? { label: 'Atrasada', tone: 'late' as const } : { label: 'No entregada', tone: 'closed' as const };
+  if (submission?.reviewed) return { label: t('classhall.task.revisada2'), tone: 'done' as const };
+  if (submission) return { label: submission.late ? t('services.classhallService.entregadaConAtraso') : t('services.classhallService.entregada'), tone: 'done' as const };
+  if (now <= task.dueAt) return { label: t('services.classhallService.pendiente'), tone: 'pending' as const };
+  return task.acceptLate ? { label: t('common.atrasada'), tone: 'late' as const } : { label: t('services.classhallService.noEntregada'), tone: 'closed' as const };
 }
 
 export const DOCUMENT_LABELS: Record<HallDocumentKind, string> = {
-  pdf: 'Documento PDF',
-  word: 'Documento Word',
-  powerpoint: 'Presentación PowerPoint',
-  excel: 'Planilla Excel',
-  image: 'Imagen',
-  file: 'Documento',
+  pdf: t('services.classhallService.documentoPdf'),
+  word: t('services.classhallService.documentoWord'),
+  powerpoint: t('services.classhallService.presentacionPowerpoint'),
+  excel: t('services.classhallService.planillaExcel'),
+  image: t('eventForm.imagen'),
+  file: t('services.classhallService.documento'),
 };
 
 export async function deleteHallAnnouncement(hallId: string, announcementId: string) {

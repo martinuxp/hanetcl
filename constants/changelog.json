@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.3.6-beta",
+      "date": "2026-11-03",
+      "title": "",
+      "items": [
+        "Por dentro, todos los textos de la app quedaron en un solo lugar, listos para traducirse a otros idiomas. Lo que lees no cambia."
+      ]
+    },
+    {
       "version": "0.3.5-beta",
       "date": "2026-11-03",
       "title": "",

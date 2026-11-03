@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 const CONTACT = 'muxp@muxp.art';
 
@@ -61,7 +62,7 @@ export default function SettingsScreen() {
         setAnniversaryOn(profile.anniversaryNotifications !== false);
         setPermission(await pushPermission());
       } catch (error) {
-        if (active) setNotificationsError(describeAuthError(error, 'No pudimos cargar tus ajustes. Revisa tu conexión.'));
+        if (active) setNotificationsError(describeAuthError(error, t('settings.noPudimosCargarTusAjustes')));
       } finally {
         if (active) setLoadingNotifications(false);
       }
@@ -80,7 +81,7 @@ export default function SettingsScreen() {
       await setAppIcon(next);
     } catch {
       setIcon(previous);
-      setIconError('No pudimos cambiar el ícono. Inténtalo nuevamente.');
+      setIconError(t('settings.noPudimosCambiarElIcono'));
     } finally {
       setSavingIcon(false);
     }
@@ -98,7 +99,7 @@ export default function SettingsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setClasshallOn(!on);
-      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
     } finally {
       setSavingNotifications(false);
     }
@@ -115,7 +116,7 @@ export default function SettingsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setMorningOn(!on);
-      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
     } finally {
       setSavingDay(false);
     }
@@ -132,7 +133,7 @@ export default function SettingsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setAnniversaryOn(!on);
-      setNotificationsError(describeAuthError(error, 'No pudimos guardar el cambio. Inténtalo nuevamente.'));
+      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
     } finally {
       setSavingDay(false);
     }
@@ -159,10 +160,10 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <ThemedText style={styles.eyebrow}>HaNet ID</ThemedText>
-          <ThemedText accessibilityRole="header" style={styles.title}>Configuraciones</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{t('common.configuraciones')}</ThemedText>
         </View>
 
-        <Section title="Ícono de la app">
+        <Section title={t('settings.iconoDeLaApp')}>
           <View accessibilityRole="radiogroup" style={styles.icons}>
             {APP_ICONS.map(option => {
               const selected = iconsAvailable && option.id === icon;
@@ -170,7 +171,7 @@ export default function SettingsScreen() {
                 <Pressable
                   key={option.label}
                   accessibilityRole="radio"
-                  accessibilityLabel={`Ícono ${option.label}${option.id === null ? ', predeterminado' : ''}`}
+                  accessibilityLabel={t('settings.iconoLabelValue', { label: option.label, value: option.id === null ? t('settings.predeterminado') : '' })}
                   accessibilityState={{ checked: selected, disabled: !iconsAvailable }}
                   disabled={!iconsAvailable}
                   onPress={() => void chooseIcon(option.id)}
@@ -192,17 +193,17 @@ export default function SettingsScreen() {
           {!!iconError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{iconError}</ThemedText>}
           <ThemedText style={styles.note}>
             {iconsAvailable
-              ? 'El ícono cambia en tu pantalla de inicio. Fractal es el de siempre.'
+              ? t('settings.elIconoCambiaEnTu')
               : Platform.OS === 'web'
-                ? 'El ícono se cambia desde la app del teléfono.'
-                : 'Para cambiar el ícono necesitas la app de HaNet instalada; Expo Go no puede hacerlo.'}
+                ? t('settings.elIconoSeCambiaDesde')
+                : t('settings.paraCambiarElIconoNecesitas')}
           </ThemedText>
         </Section>
 
-        <Section title="Notificaciones de ClassHall" plain>
+        <Section title={t('settings.notificacionesDeClasshall')} plain>
           <HanetChoice
-            label="Notificaciones de ClassHall"
-            options={[{ value: 'on', label: 'Activadas' }, { value: 'off', label: 'Desactivadas' }]}
+            label={t('settings.notificacionesDeClasshall')}
+            options={[{ value: 'on', label: t('settings.activadas') }, { value: 'off', label: t('settings.desactivadas') }]}
             value={classhallOn ? 'on' : 'off'}
             onChange={value => void chooseClasshall(value === 'on')}
             disabled={savingNotifications || loadingNotifications}
@@ -210,71 +211,71 @@ export default function SettingsScreen() {
           {!!notificationsError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{notificationsError}</ThemedText>}
           <ThemedText style={styles.note}>
             {support === 'web'
-              ? 'Las notificaciones llegan a la app del teléfono, no a la web.'
+              ? t('settings.lasNotificacionesLleganALa')
               : support === 'expo-go-android'
-                ? 'En Android, las notificaciones necesitan la app de HaNet instalada; Expo Go no las recibe.'
-                : 'Anuncios, tareas y material nuevo, recordatorios de entrega y cuando revisan lo que entregaste.'}
+                ? t('settings.enAndroidLasNotificacionesNecesitan')
+                : t('settings.anunciosTareasYMaterialNuevo')}
           </ThemedText>
           {support === 'supported' && classhallOn && permission === 'denied' && (
             <>
-              <ThemedText style={styles.note}>Están bloqueadas en los ajustes del teléfono, así que no te llegarán.</ThemedText>
-              <HanetButton label="Abrir ajustes" variant="surface" onPress={openNotificationSettings} />
+              <ThemedText style={styles.note}>{t('settings.estanBloqueadasEnLosAjustes')}</ThemedText>
+              <HanetButton label={t('common.abrirAjustes')} variant="surface" onPress={openNotificationSettings} />
             </>
           )}
           {support === 'supported' && classhallOn && permission === 'undetermined' && (
-            <HanetButton label="Permitir en este teléfono" variant="surface" onPress={() => void enablePush().then(setPermission)} />
+            <HanetButton label={t('settings.permitirEnEsteTelefono')} variant="surface" onPress={() => void enablePush().then(setPermission)} />
           )}
         </Section>
 
-        <Section title="Tu día y tus pruebas" plain>
+        <Section title={t('settings.tuDiaYTusPruebas')} plain>
           <HanetChoice
-            label="Resumen de las 7:00"
-            options={[{ value: 'on', label: 'Activado' }, { value: 'off', label: 'Desactivado' }]}
+            label={t('settings.resumenDeLas700')}
+            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
             value={morningOn ? 'on' : 'off'}
             onChange={value => void chooseMorning(value === 'on')}
             disabled={savingDay || loadingNotifications}
           />
-          <ThemedText style={styles.note}>De lunes a viernes a las 7:00: tu primera clase y las pruebas y entregas del día.</ThemedText>
+          <ThemedText style={styles.note}>{t('settings.deLunesAViernesA')}</ThemedText>
           <HanetChoice
-            label="Avisos de pruebas"
-            options={[{ value: 'on', label: 'Activados' }, { value: 'off', label: 'Desactivados' }]}
+            label={t('settings.avisosDePruebas')}
+            options={[{ value: 'on', label: t('settings.activados') }, { value: 'off', label: t('settings.desactivados') }]}
             value={examsOn ? 'on' : 'off'}
             onChange={value => void chooseExams(value === 'on')}
             disabled={savingDay || support === 'web'}
           />
           <ThemedText style={styles.note}>
             {support === 'web'
-              ? 'Los avisos llegan a la app del teléfono, no a la web.'
+              ? t('settings.losAvisosLleganALa')
               : widgetsAvailable
-                ? '24 y 4 horas antes de cada prueba, con cuenta regresiva en la pantalla bloqueada. Solo en este teléfono.'
-                : '24 y 4 horas antes de cada prueba. Solo en este teléfono.'}
+                ? t('settings.n24Y4HorasAntes')
+                : t('settings.n24Y4HorasAntes2')}
           </ThemedText>
           <HanetChoice
-            label="Aniversario"
-            options={[{ value: 'on', label: 'Activado' }, { value: 'off', label: 'Desactivado' }]}
+            label={t('common.aniversario')}
+            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
             value={anniversaryOn ? 'on' : 'off'}
             onChange={value => void chooseAnniversary(value === 'on')}
             disabled={savingDay || loadingNotifications}
           />
-          <ThemedText style={styles.note}>Las pruebas flash y los plazos de tu alianza, cuando el CEE los manda.</ThemedText>
+          <ThemedText style={styles.note}>{t('settings.lasPruebasFlashYLos')}</ThemedText>
         </Section>
 
-        <Section title="Cuenta">
-          <Row icon="pencil-outline" label="Editar perfil" detail="Foto, blobatar y letra de tu nombre" onPress={() => router.push('/edit-profile')} />
-          {!!user?.email && <Row icon="mail-outline" label="Correo" detail={user.email} />}
+        <Section title={t('settings.cuenta')}>
+          <Row icon="pencil-outline" label={t('editProfile.editarPerfil')} detail={t('settings.fotoBlobatarYLetraDe')} onPress={() => router.push('/edit-profile')} />
+          {!!user?.email && <Row icon="mail-outline" label={t('common.correo')} detail={user.email} />}
         </Section>
 
-        <Section title="Acerca de HaNet">
-          <Row icon="information-circle-outline" label="Versión" detail={APP_VERSION_LABEL} onTap={tapVersion} />
-          <Row icon="sparkles-outline" label="Novedades" detail={`Qué cambió en ${APP_VERSION_LABEL}`} onPress={() => router.push('/whats-new')} />
-          <Row icon="chatbubble-ellipses-outline" label="Contacto" detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
-          <Row icon="document-text-outline" label="Licencias de código abierto" detail="Las bibliotecas con que está hecha HaNet" onPress={() => router.push('/licenses')} />
+        <Section title={t('settings.acercaDeHanet')}>
+          <Row icon="information-circle-outline" label={t('settings.version')} detail={APP_VERSION_LABEL} onTap={tapVersion} />
+          <Row icon="sparkles-outline" label={t('settings.novedades')} detail={t('settings.queCambioEnAppversionlabel', { appVersionLabel: APP_VERSION_LABEL })} onPress={() => router.push('/whats-new')} />
+          <Row icon="chatbubble-ellipses-outline" label={t('settings.contacto')} detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
+          <Row icon="document-text-outline" label={t('licenses.licenciasDeCodigoAbierto')} detail={t('settings.lasBibliotecasConQueEsta')} onPress={() => router.push('/licenses')} />
         </Section>
 
         <HanetButton
-          label="Cerrar sesión"
+          label={t('common.cerrarSesion')}
           variant="surface"
-          accessibilityHint={user?.email ? `Sesión iniciada como ${user.email}` : undefined}
+          accessibilityHint={user?.email ? t('settings.sesionIniciadaComoEmail', { email: user.email }) : undefined}
           onPress={() => void signOut()}
         />
       </ScrollView>

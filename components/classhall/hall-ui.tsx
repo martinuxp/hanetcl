@@ -8,6 +8,7 @@ import type { ImageSource } from 'expo-image';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { months, t } from '@/i18n';
 
 export const HALL_ICONS = {
   back: require('@/assets/icons/event/arrow-left-long.svg'),
@@ -20,7 +21,7 @@ export const HALL_ICONS = {
   logotype: require('@/assets/icons/classhall/logotype-classhall.svg'),
 } as const;
 
-const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const MONTHS = months();
 
 function capitalize(text: string) {
   return text.charAt(0).toLocaleUpperCase('es') + text.slice(1);
@@ -150,7 +151,7 @@ export function DocumentTile({ document, tone = 'primary', label }: { document: 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${document.name}. Abrir`}
+      accessibilityLabel={t('components.classhall.hallUi.titleNameAbrir', { title, name: document.name })}
       onPress={() => void openHallDocument(document)}
       style={({ pressed }) => [styles.tile, styles.documentTile, tone === 'accent' ? styles.tileAccent : styles.tilePrimary, pressed && AppPressed]}
     >

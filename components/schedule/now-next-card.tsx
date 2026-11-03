@@ -3,6 +3,7 @@ import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import type { ScheduleBlock } from '@/services/schedule-service';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 /** The class going on now and the one after it, on top of the Horario. */
 export function NowNextCard({ current, next }: { current: ScheduleBlock | null; next: ScheduleBlock | null }) {
@@ -11,18 +12,18 @@ export function NowNextCard({ current, next }: { current: ScheduleBlock | null; 
     <View
       style={styles.card}
       accessible
-      accessibilityLabel={[current ? `Ahora: ${current.subject} hasta las ${current.end}` : null, next ? `Después: ${next.subject} a las ${next.start}` : null].filter(Boolean).join('. ')}
+      accessibilityLabel={[current ? t('components.schedule.nowNextCard.ahoraSubjectHastaLasEnd', { subject: current.subject, end: current.end }) : null, next ? t('components.schedule.nowNextCard.despuesSubjectALasStart', { subject: next.subject, start: next.start }) : null].filter(Boolean).join('. ')}
     >
       {!!current && (
         <View style={styles.row}>
-          <ThemedText style={styles.label}>Ahora</ThemedText>
+          <ThemedText style={styles.label}>{t('common.ahora')}</ThemedText>
           <ThemedText style={styles.subject}>{current.subject}</ThemedText>
-          <ThemedText style={styles.meta}>Hasta las {current.end}{current.room ? ` · ${current.room}` : ''}</ThemedText>
+          <ThemedText style={styles.meta}>{t('common.hastaLasEndValue', { end: current.end, value: current.room ? ` · ${current.room}` : '' })}</ThemedText>
         </View>
       )}
       {!!next && (
         <View style={styles.row}>
-          <ThemedText style={[styles.label, styles.nextLabel]}>Después</ThemedText>
+          <ThemedText style={[styles.label, styles.nextLabel]}>{t('common.despues')}</ThemedText>
           <ThemedText style={styles.nextSubject}>{next.subject}</ThemedText>
           <ThemedText style={styles.meta}>{next.start}{next.room ? ` · ${next.room}` : ''}</ThemedText>
         </View>

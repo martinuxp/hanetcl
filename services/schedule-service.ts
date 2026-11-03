@@ -1,6 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { cached, restoreCached } from './cache';
 import { functions } from './firebase';
+import { capitalize, weekdayLetters, weekdays } from '@/i18n';
 
 // The course's weekly timetable (functions/schedule.js): the plan común,
 // plus the blocks of the electivos and dominios each student is in, which
@@ -33,14 +34,8 @@ export type CourseSchedule = {
   courses: string[];
 };
 
-export const SCHEDULE_DAYS = [
-  { day: 1, short: 'L', name: 'Lunes' },
-  { day: 2, short: 'M', name: 'Martes' },
-  { day: 3, short: 'M', name: 'Miércoles' },
-  { day: 4, short: 'J', name: 'Jueves' },
-  { day: 5, short: 'V', name: 'Viernes' },
-  { day: 6, short: 'S', name: 'Sábado' },
-];
+// Monday to Saturday, with the letter and the name of each day.
+export const SCHEDULE_DAYS = [1, 2, 3, 4, 5, 6].map(day => ({ day, short: weekdayLetters()[day - 1], name: capitalize(weekdays()[day]) }));
 
 const keyFor = (courseId?: string | null) => `schedule:${courseId ?? 'mine'}`;
 

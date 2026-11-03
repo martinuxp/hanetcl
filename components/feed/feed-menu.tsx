@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // The feed's center pill for those who publish: like the Calendar's views and
 // the Aniversario's "Organizar", a menu grows out of the bar with "Crear" and
@@ -33,7 +34,7 @@ export function FeedMenuPill({ label, open }: { label: string; open: boolean }) 
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint={open ? 'Cierra el menú' : 'Publicar o buscar'}
+      accessibilityHint={open ? t('components.anniversary.organizeMenu.cierraElMenu') : t('components.feed.feedMenu.publicarOBuscar')}
       accessibilityState={{ expanded: open }}
       onPress={() => {
         tick();

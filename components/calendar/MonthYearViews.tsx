@@ -8,11 +8,13 @@ import type { ScheduleBlock } from '@/services/schedule-service';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
+import { capitalize, months, t, weekdayLetters, weekdays, weekdaysShort } from '@/i18n';
 
-export const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const WEEKDAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+export const MONTH_NAMES = months().map(capitalize);
+const WEEKDAYS = weekdayLetters();
+// From Monday, like the grid.
+const WEEKDAY_NAMES = [...weekdays().slice(1), weekdays()[0]];
+const WEEKDAY_SHORT = [...weekdaysShort().slice(1), weekdaysShort()[0]].map(capitalize);
 const MAX_DOTS = 3;
 
 export type ScreenPoint = { x: number; y: number };
@@ -84,8 +86,8 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
             <View key={dayKey(day)} style={styles.cell}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${WEEKDAY_NAMES[index % 7]} ${day.getDate()} de ${MONTH_NAMES[day.getMonth()]}${isToday ? ', hoy' : ''}${count ? `, ${count === 1 ? '1 evento' : `${count} eventos`}` : ''}`}
-                accessibilityHint="Abre ese día en la semana"
+                accessibilityLabel={`${WEEKDAY_NAMES[index % 7]} ${day.getDate()} de ${MONTH_NAMES[day.getMonth()]}${isToday ? t('common.hoy') : ''}${count ? t('components.calendar.monthYearViews.countEventos', { count }) : ''}`}
+                accessibilityHint={t('components.calendar.monthYearViews.abreEseDiaEnLa')}
                 accessibilityState={{ selected }}
                 onPress={event => onPickDay(day, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
                 style={({ pressed }) => [styles.day, isToday && styles.dayToday, selected && styles.daySelected, pressed && styles.pressed]}
@@ -104,7 +106,7 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
 
       <View style={styles.agenda}>
         <ThemedText accessibilityRole="header" style={styles.agendaTitle}>
-          {monthEvents.length === 0 ? `Sin eventos en ${MONTH_NAMES[month.getMonth()]}` : `${monthEvents.length === 1 ? '1 evento' : `${monthEvents.length} eventos`} en ${MONTH_NAMES[month.getMonth()]}`}
+          {monthEvents.length === 0 ? t('components.calendar.monthYearViews.sinEventosEnMonthnames', { monthNames: MONTH_NAMES[month.getMonth()] }) : t('components.calendar.monthYearViews.countEventosEnMonthnames', { count: monthEvents.length, monthNames: MONTH_NAMES[month.getMonth()] })}
         </ThemedText>
         {monthEvents.map(event => {
           const weekday = (event.startDate.getDay() + 6) % 7;
@@ -112,8 +114,8 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
             <Pressable
               key={event.id}
               accessibilityRole="button"
-              accessibilityLabel={`${event.title}, ${WEEKDAY_NAMES[weekday]} ${event.startDate.getDate()}, ${formatTime(event.startDate)}${event.cancelled ? ', cancelado' : ''}`}
-              accessibilityHint="Abre el detalle del evento"
+              accessibilityLabel={`${event.title}, ${WEEKDAY_NAMES[weekday]} ${event.startDate.getDate()}, ${formatTime(event.startDate)}${event.cancelled ? t('calendar.cancelado') : ''}`}
+              accessibilityHint={t('calendar.abreElDetalleDelEvento')}
               onPress={() => onOpenEvent(event)}
               style={({ pressed }) => [styles.agendaRow, event.cancelled && styles.agendaRowCancelled, pressed && styles.pressed]}
             >
@@ -124,7 +126,7 @@ export function MonthView({ month, events, selectedDate, bottomInset, onPickDay,
               <View style={styles.agendaCopy}>
                 <ThemedText numberOfLines={2} style={[styles.agendaEvent, event.cancelled && styles.cancelledText]}>{event.title}</ThemedText>
                 <ThemedText style={styles.agendaMeta}>
-                  {formatTime(event.startDate)} - {formatTime(event.endDate)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? ' · Cancelado' : ''}
+                  {formatTime(event.startDate)} - {formatTime(event.endDate)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? t('components.calendar.monthYearViews.cancelado') : ''}
                 </ThemedText>
               </View>
             </Pressable>
@@ -165,13 +167,13 @@ export function WeekView({ days, events, blocksOn, selectedDate, bottomInset, on
         const selected = isSameDay(row.date, selectedDate);
         const classes = row.classes.length === 0
           ? null
-          : `${row.classes.length === 1 ? '1 clase' : `${row.classes.length} clases`} · ${row.classes[0].start} a ${row.classes[row.classes.length - 1].end}`;
+          : t('components.calendar.monthYearViews.countClasesStartAEnd', { count: row.classes.length, start: row.classes[0].start, end: row.classes[row.classes.length - 1].end });
         return (
           <View key={dayKey(row.date)} style={styles.weekRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${WEEKDAY_NAMES[row.index]} ${row.date.getDate()}${isToday ? ', hoy' : ''}, ${row.events.length === 0 ? 'sin eventos' : row.events.length === 1 ? '1 evento' : `${row.events.length} eventos`}`}
-              accessibilityHint="Abre ese día"
+              accessibilityLabel={`${WEEKDAY_NAMES[row.index]} ${row.date.getDate()}${isToday ? t('common.hoy') : ''}, ${row.events.length === 0 ? t('components.calendar.monthYearViews.sinEventos') : t('components.calendar.monthYearViews.countEventos2', { count: row.events.length })}`}
+              accessibilityHint={t('components.calendar.monthYearViews.abreEseDia')}
               accessibilityState={{ selected }}
               onPress={event => onPickDay(row.date, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
               style={({ pressed }) => [styles.weekDate, isToday && styles.dayToday, selected && styles.daySelected, pressed && styles.pressed]}
@@ -182,7 +184,7 @@ export function WeekView({ days, events, blocksOn, selectedDate, bottomInset, on
             <View style={styles.weekItems}>
               {!!classes && <ThemedText style={styles.weekClasses}>{classes}</ThemedText>}
               {row.events.length === 0 ? (
-                <ThemedText style={styles.weekEmpty}>Sin eventos</ThemedText>
+                <ThemedText style={styles.weekEmpty}>{t('calendar.sinEventos')}</ThemedText>
               ) : (
                 row.events.map(event => {
                   const start = new Date(event.startDate);
@@ -191,14 +193,14 @@ export function WeekView({ days, events, blocksOn, selectedDate, bottomInset, on
                     <Pressable
                       key={event.id}
                       accessibilityRole="button"
-                      accessibilityLabel={`${event.title}, ${formatTime(start)}${event.cancelled ? ', cancelado' : ''}`}
-                      accessibilityHint="Abre el detalle del evento"
+                      accessibilityLabel={`${event.title}, ${formatTime(start)}${event.cancelled ? t('calendar.cancelado') : ''}`}
+                      accessibilityHint={t('calendar.abreElDetalleDelEvento')}
                       onPress={() => onOpenEvent(event)}
                       style={({ pressed }) => [styles.weekEvent, event.cancelled && styles.agendaRowCancelled, pressed && styles.pressed]}
                     >
                       <ThemedText numberOfLines={2} style={[styles.agendaEvent, event.cancelled && styles.cancelledText]}>{event.title}</ThemedText>
                       <ThemedText style={styles.agendaMeta}>
-                        {formatTime(start)} - {formatTime(end)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? ' · Cancelado' : ''}
+                        {formatTime(start)} - {formatTime(end)}{event.subject ? ` · ${subjectName(event.subject)}` : ''}{event.cancelled ? t('components.calendar.monthYearViews.cancelado') : ''}
                       </ThemedText>
                     </Pressable>
                   );
@@ -242,15 +244,15 @@ export function YearView({ year, events, selectedMonth, bottomInset, onPickMonth
           <View key={name} style={styles.monthCell}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${name} ${year}${isCurrent ? ', mes actual' : ''}, ${count === 0 ? 'sin eventos' : count === 1 ? '1 evento' : `${count} eventos`}`}
-              accessibilityHint="Abre el mes"
+              accessibilityLabel={`${name} ${year}${isCurrent ? t('components.calendar.monthYearViews.mesActual') : ''}, ${count === 0 ? t('components.calendar.monthYearViews.sinEventos') : t('components.calendar.monthYearViews.countEventos2', { count })}`}
+              accessibilityHint={t('components.calendar.monthYearViews.abreElMes')}
               accessibilityState={{ selected }}
               onPress={event => onPickMonth(new Date(year, index, 1), { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })}
               style={({ pressed }) => [styles.monthTile, isCurrent && styles.monthTileCurrent, selected && styles.monthTileSelected, pressed && styles.pressed]}
             >
               <ThemedText style={[styles.monthName, selected && styles.onActive]}>{name}</ThemedText>
               <ThemedText style={[styles.monthCount, selected && styles.onActive]}>
-                {count === 0 ? 'Sin eventos' : count === 1 ? '1 evento' : `${count} eventos`}
+                {count === 0 ? t('calendar.sinEventos') : t('components.calendar.monthYearViews.countEventos2', { count })}
               </ThemedText>
             </Pressable>
           </View>

@@ -13,8 +13,9 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
-const PLACES = ['Primer lugar', 'Segundo lugar', 'Tercer lugar', 'Cuarto lugar', 'Quinto lugar', 'Sexto lugar', 'Séptimo lugar', 'Octavo lugar'];
+const PLACES = [t('anniversary.score.primerLugar'), t('anniversary.score.segundoLugar'), t('anniversary.score.tercerLugar'), t('anniversary.score.cuartoLugar'), t('anniversary.score.quintoLugar'), t('anniversary.score.sextoLugar'), t('anniversary.score.septimoLugar'), t('anniversary.score.octavoLugar')];
 
 type Filter = 'all' | 'mine' | 'plus' | 'minus';
 
@@ -25,13 +26,13 @@ function PlaceCell({ standing, mine, right, hidden }: { standing: Standing; mine
   return (
     <View
       accessible
-      accessibilityLabel={`${hidden ? '' : `${PLACES[standing.place] ?? `${standing.place + 1}° lugar`}, `}${standing.name}${mine ? ', tu alianza' : ''}${hidden ? '' : `: ${formatPoints(standing.total ?? 0)} puntos`}`}
+      accessibilityLabel={`${hidden ? '' : `${PLACES[standing.place] ?? `${standing.place + 1}° lugar`}, `}${standing.name}${mine ? t('anniversary.score.tuAlianza') : ''}${hidden ? '' : t('anniversary.score.pointsPuntos', { points: formatPoints(standing.total ?? 0) })}`}
       style={[styles.cell, right && styles.cellRight, small && styles.cellSmall]}
     >
       {(!hidden || mine) && (
         <View style={[styles.labelRow, right && styles.labelRowRight]}>
           {!hidden && <ThemedText style={styles.placeLabel}>{PLACES[standing.place] ?? `${standing.place + 1}° lugar`}</ThemedText>}
-          {mine && <View style={styles.mine}><ThemedText maxFontSizeMultiplier={1.2} style={styles.mineText}>Tu alianza</ThemedText></View>}
+          {mine && <View style={styles.mine}><ThemedText maxFontSizeMultiplier={1.2} style={styles.mineText}>{t('common.tuAlianza')}</ThemedText></View>}
         </View>
       )}
       <ThemedText numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.name, small && styles.nameSmall, align]}>{standing.name}</ThemedText>
@@ -59,9 +60,9 @@ function ScoreScreen() {
   if (!anniversary) {
     return (
       <View style={[styles.empty, padding]}>
-        <ThemedText accessibilityRole="header" style={styles.title}>Registro de puntos</ThemedText>
-        <ThemedText style={styles.updated}>No hay un aniversario en curso.</ThemedText>
-        <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />
+        <ThemedText accessibilityRole="header" style={styles.title}>{t('anniversary.score.registroDePuntos')}</ThemedText>
+        <ThemedText style={styles.updated}>{t('anniversary.score.noHayUnAniversarioEn')}</ThemedText>
+        <HanetButton label={t('common.listo')} variant="surface" onPress={() => router.back()} />
       </View>
     );
   }
@@ -80,10 +81,10 @@ function ScoreScreen() {
           : (movement.points ?? 0) < 0
   ));
   const filters: { value: Filter; label: string }[] = [
-    { value: 'all', label: 'Todo' },
-    ...(mineId ? [{ value: 'mine' as const, label: 'Tu alianza' }] : []),
-    { value: 'plus', label: 'Sumas' },
-    { value: 'minus', label: 'Descuentos' },
+    { value: 'all', label: t('anniversary.score.todo') },
+    ...(mineId ? [{ value: 'mine' as const, label: t('common.tuAlianza') }] : []),
+    { value: 'plus', label: t('anniversary.score.sumas') },
+    { value: 'minus', label: t('anniversary.score.descuentos') },
   ];
   const pairs: Standing[][] = [];
   for (let index = 0; index < rows.length; index += 2) pairs.push(rows.slice(index, index + 2));
@@ -97,9 +98,9 @@ function ScoreScreen() {
     <GradientCard colors={allianceFills(rows)} style={styles.sheet}>
       <ScrollView contentContainerStyle={[styles.content, padding]} showsVerticalScrollIndicator={false}>
         <View style={styles.head}>
-          <ThemedText accessibilityRole="header" style={styles.title}>Registro de puntos</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{t('anniversary.score.registroDePuntos')}</ThemedText>
           <ThemedText style={styles.updated}>
-            {hidden ? 'Marcador oculto hasta la premiación' : latest?.at ? `Actualizado ${feedWhen(latest.at, now).toLocaleLowerCase('es')}` : 'Todavía no hay puntos'}
+            {hidden ? t('anniversary.score.marcadorOcultoHastaLaPremiacion') : latest?.at ? t('anniversary.score.actualizadoFeedwhen', { feedWhen: feedWhen(latest.at, now).toLocaleLowerCase('es') }) : t('anniversary.score.todaviaNoHayPuntos')}
           </ThemedText>
         </View>
 
@@ -108,7 +109,7 @@ function ScoreScreen() {
             <View key={index} style={styles.pair}>
               <PlaceCell standing={pair[0]} mine={pair[0].id === mineId} right={false} hidden={hidden} />
               {index === 0 && gap !== null && (
-                <ThemedText style={styles.gap}>{gap === 0 ? 'Empatadas' : `${formatPoints(gap)} pts de diferencia`}</ThemedText>
+                <ThemedText style={styles.gap}>{gap === 0 ? t('anniversary.score.empatadas') : t('anniversary.score.pointsPtsDeDiferencia', { points: formatPoints(gap) })}</ThemedText>
               )}
               {pair[1] ? <PlaceCell standing={pair[1]} mine={pair[1].id === mineId} right hidden={hidden} /> : <View style={styles.cell} />}
             </View>
@@ -117,12 +118,12 @@ function ScoreScreen() {
         {hidden && (
           <View style={styles.hiddenNote}>
             <Ionicons name="eye-off-outline" size={18} color={AppColors.textPrimary} />
-            <ThemedText style={styles.hiddenText}>El CEE guarda los puntos para revelar a la ganadora en la premiación.</ThemedText>
+            <ThemedText style={styles.hiddenText}>{t('anniversary.score.elCeeGuardaLosPuntos')}</ThemedText>
           </View>
         )}
 
         <View style={styles.table}>
-          <ThemedText accessibilityRole="header" style={styles.tableTitle}>Movimientos</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.tableTitle}>{t('anniversary.score.movimientos')}</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {filters.map(item => (
               <HanetChip key={item.value} label={item.label} compact selected={filter === item.value} onPress={() => setFilter(item.value)} />
@@ -131,12 +132,12 @@ function ScoreScreen() {
           {shown.length ? shown.slice(0, 60).map((movement, index) => (
             <MovementRow key={movement.id} movement={movement} alliance={byId.get(movement.allianceId)} now={now} first={index === 0} />
           )) : (
-            <ThemedText style={styles.tableEmpty}>{all.length ? 'Nada con este filtro.' : 'Los puntos aparecen aquí con cada resultado.'}</ThemedText>
+            <ThemedText style={styles.tableEmpty}>{all.length ? t('anniversary.score.nadaConEsteFiltro') : t('anniversary.score.losPuntosAparecenAquiCon')}</ThemedText>
           )}
         </View>
 
         <Pressable accessibilityRole="link" hitSlop={8} onPress={openAnniversary} style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
-          <ThemedText style={styles.linkText}>Ver el aniversario</ThemedText>
+          <ThemedText style={styles.linkText}>{t('anniversary.score.verElAniversario')}</ThemedText>
           <Ionicons name="chevron-forward" size={16} color={AppColors.textPrimary} />
         </Pressable>
       </ScrollView>
@@ -149,14 +150,14 @@ function MovementRow({ movement, alliance, now, first }: { movement: Movement; a
   return (
     <View
       accessible
-      accessibilityLabel={`${alliance?.name ?? 'Alianza'}, ${movement.reason}${points !== null ? `, ${signedPoints(points)} puntos` : movement.place !== null ? `, ${movement.place + 1}° lugar` : ''}`}
+      accessibilityLabel={`${alliance?.name ?? 'Alianza'}, ${movement.reason}${points !== null ? t('anniversary.score.signedpointsPuntos', { signedPoints: signedPoints(points) }) : movement.place !== null ? t('anniversary.score.numberLugar', { number: movement.place + 1 }) : ''}`}
       style={[styles.row, !first && styles.rowBorder]}
     >
       {alliance ? <AllianceBadge alliance={alliance} size={30} /> : <View style={styles.dotSpace} />}
       <View style={styles.rowText}>
         <ThemedText numberOfLines={2} style={styles.rowName}>{movement.reason}</ThemedText>
         <ThemedText numberOfLines={1} style={styles.rowReason}>
-          {[alliance?.name ?? 'Alianza', movement.place !== null ? `${movement.place + 1}° lugar` : points !== null && points < 0 ? 'Descuento' : 'Suma', movement.at ? feedWhen(movement.at, now).toLocaleLowerCase('es') : null].filter(Boolean).join(' · ')}
+          {[alliance?.name ?? 'Alianza', movement.place !== null ? t('anniversary.score.numberLugar2', { number: movement.place + 1 }) : points !== null && points < 0 ? t('anniversary.score.descuento') : t('anniversary.score.suma'), movement.at ? feedWhen(movement.at, now).toLocaleLowerCase('es') : null].filter(Boolean).join(' · ')}
         </ThemedText>
       </View>
       {points !== null ? (

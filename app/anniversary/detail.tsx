@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 const PODIUM_HEIGHT = 120;
 
@@ -32,9 +33,9 @@ function DetailScreen() {
   if (!anniversary || !activity) {
     return (
       <ScrollView style={formStyles.sheet} contentContainerStyle={[formStyles.content, padding]}>
-        <ThemedText accessibilityRole="header" style={styles.missingTitle}>Actividad</ThemedText>
-        <ThemedText style={formStyles.hint}>Esta actividad ya no existe.</ThemedText>
-        <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />
+        <ThemedText accessibilityRole="header" style={styles.missingTitle}>{t('anniversary.detail.actividad')}</ThemedText>
+        <ThemedText style={formStyles.hint}>{t('anniversary.detail.estaActividadYaNoExiste')}</ThemedText>
+        <HanetButton label={t('common.listo')} variant="surface" onPress={() => router.back()} />
       </ScrollView>
     );
   }
@@ -55,7 +56,7 @@ function DetailScreen() {
           <View style={styles.groupTile}>
             <GroupIcon group={activity.group} color={AppColors.textOnLight} animated={activity.flash} />
           </View>
-          <ThemedText style={styles.kicker}>{activity.flash ? 'Prueba flash' : group}</ThemedText>
+          <ThemedText style={styles.kicker}>{activity.flash ? t('common.pruebaFlash') : group}</ThemedText>
         </View>
         <FlexText key={activity.id} accessibilityRole="header" style={styles.name}>{activity.name}</FlexText>
         {(!!activity.startsAt || !!activity.place) && (
@@ -79,15 +80,15 @@ function DetailScreen() {
       {!!activity.text && <ThemedText style={styles.text}>{activity.text}</ThemedText>}
 
       <View style={styles.block}>
-        <ThemedText accessibilityRole="header" style={styles.blockTitle}>Puntos</ThemedText>
+        <ThemedText accessibilityRole="header" style={styles.blockTitle}>{t('anniversary.detail.puntos')}</ThemedText>
         {isSolidarity(activity) ? (
           <SolidarityInfo />
         ) : activity.mode === 'manual' ? (
-          <ThemedText style={formStyles.hint}>Se ponen a mano según lo que logre cada alianza, como dicen las bases.</ThemedText>
+          <ThemedText style={formStyles.hint}>{t('anniversary.detail.sePonenAManoSegun')}</ThemedText>
         ) : podium.length === 0 ? (
-          <ThemedText style={formStyles.hint}>{hidden ? 'Los puntajes se ven en la premiación.' : 'Esta actividad todavía no tiene puntajes.'}</ThemedText>
+          <ThemedText style={formStyles.hint}>{hidden ? t('anniversary.detail.losPuntajesSeVenEn') : t('anniversary.detail.estaActividadTodaviaNoTiene')}</ThemedText>
         ) : (
-          <View style={styles.podium} accessibilityLabel={podium.map((points, place) => `${place + 1}° lugar, ${formatPoints(points)} puntos`).join('. ')}>
+          <View style={styles.podium} accessibilityLabel={podium.map((points, place) => t('anniversary.detail.numberLugarPointsPuntos', { number: place + 1, points: formatPoints(points) })).join('. ')}>
             {podium.map((points, place) => {
               const alliance: Alliance | undefined = byPlace[place];
               const color = alliance ? allianceColor(alliance) : null;
@@ -106,7 +107,7 @@ function DetailScreen() {
       </View>
 
       <View style={styles.block}>
-        <ThemedText accessibilityRole="header" style={styles.blockTitle}>Resultado</ThemedText>
+        <ThemedText accessibilityRole="header" style={styles.blockTitle}>{t('anniversary.detail.resultado')}</ThemedText>
         {summary.length ? (
           <View style={styles.results}>
             {summary.map(item => (
@@ -116,7 +117,7 @@ function DetailScreen() {
                 <View style={styles.resultText}>
                   <ThemedText numberOfLines={1} style={styles.resultName}>{item.alliance.name}</ThemedText>
                   {!!activity.tally?.[item.alliance.id]?.baskets && (
-                    <ThemedText style={styles.resultDetail}>{activity.tally[item.alliance.id].baskets} canastas</ThemedText>
+                    <ThemedText style={styles.resultDetail}>{t('anniversary.detail.basketsCanastas', { baskets: activity.tally[item.alliance.id].baskets })}</ThemedText>
                   )}
                 </View>
                 {item.points !== null && <ThemedText style={styles.resultPoints}>{signedPoints(item.points)}</ThemedText>}
@@ -124,21 +125,21 @@ function DetailScreen() {
             ))}
           </View>
         ) : (
-          <ThemedText style={formStyles.hint}>Todavía no hay resultado.</ThemedText>
+          <ThemedText style={formStyles.hint}>{t('anniversary.detail.todaviaNoHayResultado')}</ThemedText>
         )}
       </View>
 
       {organizer && (
         <View style={styles.actions}>
           <HanetButton
-            label={summary.length ? 'Cambiar el resultado' : 'Poner el resultado'}
+            label={summary.length ? t('anniversary.detail.cambiarElResultado') : t('anniversary.detail.ponerElResultado')}
             variant="accent"
             onPress={() => router.push({ pathname: '/anniversary/result', params: { id: activity.id } })}
           />
-          <HanetButton label="Editar la actividad" variant="surface" onPress={() => router.push({ pathname: '/anniversary/activity', params: { id: activity.id } })} />
+          <HanetButton label={t('anniversary.detail.editarLaActividad')} variant="surface" onPress={() => router.push({ pathname: '/anniversary/activity', params: { id: activity.id } })} />
         </View>
       )}
-      <HanetButton label="Listo" variant="surface" onPress={() => router.back()} />
+      <HanetButton label={t('common.listo')} variant="surface" onPress={() => router.back()} />
     </ScrollView>
   );
 }
@@ -150,27 +151,27 @@ function SolidarityInfo() {
       <View style={styles.tiers}>
         <View style={styles.tier}>
           <ThemedText style={styles.tierPoints}>{formatPoints(SOLIDARITY.minimumPoints)}</ThemedText>
-          <ThemedText style={styles.tierText}>al llegar a {SOLIDARITY.minimum} canastas</ThemedText>
+          <ThemedText style={styles.tierText}>{t('anniversary.detail.alLlegarAMinimumCanastas', { minimum: SOLIDARITY.minimum })}</ThemedText>
         </View>
         <View style={styles.tier}>
           <ThemedText style={styles.tierPoints}>+500</ThemedText>
-          <ThemedText style={styles.tierText}>cada una, de la 11 a la 30</ThemedText>
+          <ThemedText style={styles.tierText}>{t('anniversary.detail.cadaUnaDeLa11')}</ThemedText>
         </View>
         <View style={styles.tier}>
           <ThemedText style={styles.tierPoints}>+200</ThemedText>
-          <ThemedText style={styles.tierText}>cada una desde la 31</ThemedText>
+          <ThemedText style={styles.tierText}>{t('anniversary.detail.cadaUnaDesdeLa31')}</ThemedText>
         </View>
       </View>
-      <ThemedText style={styles.listTitle}>Cada canasta lleva</ThemedText>
+      <ThemedText style={styles.listTitle}>{t('anniversary.detail.cadaCanastaLleva')}</ThemedText>
       <ThemedText style={styles.listText}>{SOLIDARITY.basket.join('\n')}</ThemedText>
-      <ThemedText style={styles.listTitle}>Bonus por cada ítem</ThemedText>
+      <ThemedText style={styles.listTitle}>{t('anniversary.detail.bonusPorCadaItem')}</ThemedText>
       {SOLIDARITY.bonus.map(item => (
         <View key={item.key} style={styles.bonusRow}>
           <ThemedText style={styles.bonusLabel}>{item.label}</ThemedText>
           <ThemedText style={styles.bonusPoints}>+{formatPoints(item.points)}</ThemedText>
         </View>
       ))}
-      <ThemedText style={formStyles.hint}>Todo sellado, en buen estado y en cajas de cartón abiertas.</ThemedText>
+      <ThemedText style={formStyles.hint}>{t('anniversary.detail.todoSelladoEnBuenEstado')}</ThemedText>
     </View>
   );
 }

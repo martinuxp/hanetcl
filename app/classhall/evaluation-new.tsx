@@ -10,6 +10,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
 
 /**
  * The first step of a new evaluation, as a half-height sheet: scan the
@@ -44,38 +45,38 @@ function NewEvaluationScreen() {
       openForm();
     } catch (readError) {
       setScanning(false);
-      setError(readError instanceof DocumentError ? readError.message : describeAuthError(readError, 'No pudimos leer la tabla. Agrégala a mano.'));
+      setError(readError instanceof DocumentError ? readError.message : describeAuthError(readError, t('classhall.evaluationNew.noPudimosLeerLaTabla')));
     }
   };
 
   return (
     // A fixed view: the two choices fit the half sheet without scrolling.
     <View style={[styles.sheet, styles.content, local.content, { paddingTop: AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.lg }]}>
-      <ThemedText accessibilityRole="header" style={styles.title}>{params.fromEvent ? 'Completar evaluación' : 'Nueva evaluación'}</ThemedText>
-      <ThemedText style={styles.lead}>¿Cómo quieres agregar la tabla de especificaciones?</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{params.fromEvent ? t('classhall.evaluationForm.completarEvaluacion') : t('classhall.evaluationNew.nuevaEvaluacion')}</ThemedText>
+      <ThemedText style={styles.lead}>{t('classhall.evaluationNew.comoQuieresAgregarLaTabla')}</ThemedText>
 
       <Pressable accessibilityRole="button" disabled={scanning} onPress={() => void scan()} style={({ pressed }) => [local.option, local.optionAccent, pressed && styles.pressed]}>
-        <ThemedText style={[local.optionTitle, local.onAccent]}>Escanear T.E.</ThemedText>
-        <ThemedText style={[local.optionText, local.onAccent]}>Elige la tabla en PDF, Word o foto y llenamos todo por ti. Después la revisas.</ThemedText>
+        <ThemedText style={[local.optionTitle, local.onAccent]}>{t('classhall.evaluationNew.escanearTE')}</ThemedText>
+        <ThemedText style={[local.optionText, local.onAccent]}>{t('classhall.evaluationNew.eligeLaTablaEnPdf')}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" disabled={scanning} onPress={openForm} style={({ pressed }) => [local.option, pressed && styles.pressed]}>
-        <ThemedText style={local.optionTitle}>Agregar a mano</ThemedText>
-        <ThemedText style={local.optionText}>Escribe el nombre, el día y, si quieres, la tabla.</ThemedText>
+        <ThemedText style={local.optionTitle}>{t('classhall.evaluationNew.agregarAMano')}</ThemedText>
+        <ThemedText style={local.optionText}>{t('classhall.evaluationNew.escribeElNombreElDia')}</ThemedText>
       </Pressable>
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
 
       {/* On iOS the sheet is closed by swiping it down, so there is no Cancel button to push the choices out of view. */}
       {Platform.OS !== 'ios' && (
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-          <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+          <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
         </Pressable>
       )}
 
       <HanetDialog visible={scanning} onRequestClose={() => {}}>
         <View style={local.loading}>
           <ActivityIndicator size="large" color={AppColors.textPrimary} />
-          <ThemedText accessibilityLiveRegion="polite" style={local.loadingTitle}>Leyendo la tabla…</ThemedText>
-          <ThemedText style={local.loadingText}>Buscamos los contenidos, los puntajes y los objetivos. Puede tardar unos segundos.</ThemedText>
+          <ThemedText accessibilityLiveRegion="polite" style={local.loadingTitle}>{t('classhall.evaluationForm.leyendoLaTabla')}</ThemedText>
+          <ThemedText style={local.loadingText}>{t('classhall.evaluationNew.buscamosLosContenidosLosPuntajes')}</ThemedText>
         </View>
       </HanetDialog>
     </View>

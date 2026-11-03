@@ -13,6 +13,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { Extrapolation, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, Rect, RadialGradient, Stop } from 'react-native-svg';
+import { t } from '@/i18n';
 
 // The Home during alianza week: the top lit by the alianzas' colors and,
 // under the banner, a carousel of two cards. The first is one's own alianza
@@ -104,12 +105,12 @@ export function AnniversaryGlow({ alliances, width, waving }: { alliances: Pick<
 /** The card's bottom line: when it starts, the last movement while it runs, the winner after. */
 function liveLine(anniversary: Anniversary, phase: AnniversaryPhase, rows: Standing[], now: number) {
   if (phase === 'before') {
-    return { text: `${anniversary.alliances.length} alianzas · Empieza el ${dayText(anniversary.startsAt)}`, live: false };
+    return { text: t('components.anniversary.homeAnniversary.alliancescountAlianzasEmpiezaElDaytext', { alliancesCount: anniversary.alliances.length, dayText: dayText(anniversary.startsAt) }), live: false };
   }
   if (phase === 'after') {
     const [leader] = rows;
-    if (leader && leader.total !== null && leader.total > 0) return { text: `¡Ganó ${leader.name}!`, live: false };
-    return { text: '¡Gracias por este aniversario!', live: false };
+    if (leader && leader.total !== null && leader.total > 0) return { text: t('components.gridMenu.ganoName', { name: leader.name }), live: false };
+    return { text: t('components.anniversary.homeAnniversary.graciasPorEsteAniversario'), live: false };
   }
   const [last] = movements(anniversary);
   const alliance = last ? anniversary.alliances.find(item => item.id === last.allianceId) : undefined;
@@ -123,7 +124,7 @@ function liveLine(anniversary: Anniversary, phase: AnniversaryPhase, rows: Stand
     return { text: `${what}${when}`, live: true };
   }
   const { day, total } = anniversaryDay(anniversary, now);
-  return { text: `Día ${day} de ${total} · Todavía no hay puntos`, live: false };
+  return { text: t('components.anniversary.homeAnniversary.diaDayDeTotalTodavia', { day, total }), live: false };
 }
 
 /** A mascot inside a ring in the alianza's two colors. */
@@ -158,15 +159,15 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
   const shown = mine ?? (scored ? rows[0] : null);
   const line = liveLine(anniversary, phase, rows, now);
   const kicker = mine
-    ? `Tu alianza${scored && phase !== 'before' ? ` · ${mine.place + 1}° lugar` : ''}`
-    : shown ? (phase === 'after' ? 'Ganadora' : 'Va ganando') : anniversary.title;
+    ? t('components.anniversary.homeAnniversary.tuAlianzaValue', { value: scored && phase !== 'before' ? t('components.anniversary.homeAnniversary.numberLugar', { number: mine.place + 1 }) : '' })
+    : shown ? (phase === 'after' ? t('components.anniversary.homeAnniversary.ganadora') : t('components.anniversary.anniversaryUi.vaGanando')) : anniversary.title;
   const name = shown?.name ?? `${anniversary.alliances.length} alianzas`;
   const points = scored && shown && phase !== 'before' ? formatPoints(shown.total ?? 0) : null;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${kicker}, ${name}${points ? `, ${points} puntos` : ''}. ${line.text}. Ver el registro de puntos`}
+      accessibilityLabel={t('components.anniversary.homeAnniversary.kickerNameValueTextVer', { kicker, name, value: points ? t('components.anniversary.homeAnniversary.pointsPuntos', { points }) : '', text: line.text })}
       onPress={onOpen}
       style={({ pressed }) => [styles.page, pressed && styles.pressed]}
     >
@@ -181,17 +182,17 @@ function MineCard({ anniversary, phase, rows, scored, hidden, onOpen }: CardProp
           {phase === 'before' ? (
             <View style={styles.cardRight}>
               <ThemedText style={styles.countdown}>{countdown(anniversary.startsAt - now)}</ThemedText>
-              <ThemedText style={styles.unit}>para empezar</ThemedText>
+              <ThemedText style={styles.unit}>{t('components.anniversary.homeAnniversary.paraEmpezar')}</ThemedText>
             </View>
           ) : points ? (
             <View style={styles.cardRight}>
               <ThemedText style={styles.points}>{points}</ThemedText>
-              <ThemedText style={styles.unit}>puntos</ThemedText>
+              <ThemedText style={styles.unit}>{t('components.anniversary.homeAnniversary.puntos')}</ThemedText>
             </View>
           ) : hidden ? (
             <View style={styles.cardRight}>
               <Ionicons name="eye-off-outline" size={22} color={AppColors.textPrimary} />
-              <ThemedText style={styles.unit}>Marcador oculto</ThemedText>
+              <ThemedText style={styles.unit}>{t('components.anniversary.anniversaryUi.marcadorOculto')}</ThemedText>
             </View>
           ) : null}
         </View>
@@ -217,13 +218,13 @@ function RingItem({ standing, index, count, size, mine, leader, scored, progress
   // that follows the finger (and goes back if the swipe does).
   const from = 0.2 + (index / Math.max(1, count)) * 0.4;
   const style = useAnimatedStyle(() => {
-    const t = still ? 1 : interpolate(progress.value, [from, from + 0.4], [0, 1], Extrapolation.CLAMP);
-    const eased = t * t * (3 - 2 * t);
+    const p = still ? 1 : interpolate(progress.value, [from, from + 0.4], [0, 1], Extrapolation.CLAMP);
+    const eased = p * p * (3 - 2 * p);
     return { opacity: eased, transform: [{ translateY: (1 - eased) * 14 }, { scale: 0.7 + 0.3 * eased }] };
   });
   const crown = useAnimatedStyle(() => {
-    const t = still ? 1 : interpolate(progress.value, [0.75, 1], [0, 1], Extrapolation.CLAMP);
-    return { opacity: t, transform: [{ translateY: (1 - t) * 6 }, { rotate: `${(1 - t) * -20}deg` }] };
+    const p = still ? 1 : interpolate(progress.value, [0.75, 1], [0, 1], Extrapolation.CLAMP);
+    return { opacity: p, transform: [{ translateY: (1 - p) * 6 }, { rotate: `${(1 - p) * -20}deg` }] };
   });
   return (
     <Animated.View style={[styles.ringItem, style]}>
@@ -236,7 +237,7 @@ function RingItem({ standing, index, count, size, mine, leader, scored, progress
         )}
         {mine && (
           <View style={styles.you}>
-            <ThemedText maxFontSizeMultiplier={1} style={styles.youText}>Tú</ThemedText>
+            <ThemedText maxFontSizeMultiplier={1} style={styles.youText}>{t('components.anniversary.homeAnniversary.tu')}</ThemedText>
           </View>
         )}
       </View>
@@ -258,7 +259,7 @@ function RingsCard({ anniversary, phase, rows, scored, hidden, onOpen, progress,
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Alianzas: ${label}. Ver el registro de puntos`}
+      accessibilityLabel={t('components.anniversary.homeAnniversary.alianzasLabelVerElRegistro', { label })}
       onPress={onOpen}
       style={({ pressed }) => [styles.page, pressed && styles.pressed]}
     >
@@ -336,10 +337,10 @@ export function AnniversaryCarousel({ anniversary, phase, onOpen }: { anniversar
 
 /** The banner's small line over the institution's name. */
 export function anniversaryKicker(anniversary: Anniversary, phase: AnniversaryPhase, now = Date.now()) {
-  if (phase === 'during') return '¡Estamos de aniversario!';
+  if (phase === 'during') return t('components.gridMenu.estamosDeAniversario');
   if (phase === 'after') return anniversary.title;
   const days = daysTo(anniversary.startsAt, now);
-  return days <= 0 ? `Hoy empieza ${anniversary.title}` : days === 1 ? `Mañana empieza ${anniversary.title}` : `Faltan ${days} días para ${anniversary.title}`;
+  return days <= 0 ? t('components.anniversary.homeAnniversary.hoyEmpiezaTitle', { title: anniversary.title }) : t('components.anniversary.homeAnniversary.faltanCountDiasParaTitle', { count: days, title: anniversary.title });
 }
 
 const styles = StyleSheet.create({

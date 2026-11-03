@@ -30,6 +30,7 @@ import { listMyHalls, verifyCalendarEvent } from '@/services/classhall-service';
 import type { Hall } from '@/services/classhall-service';
 import { sameSubject, subjectName } from '@/constants/subjects';
 import { doc, getDoc } from 'firebase/firestore';
+import { t } from '@/i18n';
 
 const ICONS = {
   date: require('@/assets/icons/event/calendar.svg'),
@@ -119,7 +120,7 @@ export default function EventInfoScreen() {
     return () => { active = false; };
   }, [event, initializing, params.id, user]);
 
-  const isEvaluation = event?.eventType?.toLocaleLowerCase().startsWith('evaluación') ?? false;
+  const isEvaluation = event?.eventType?.toLocaleLowerCase().startsWith(t('common.evaluacion')) ?? false;
 
   // The Hall of this subject, when the viewer is in one: Calendar and
   // ClassHall share the subject list, so an event leads to its class.
@@ -147,7 +148,7 @@ export default function EventInfoScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEvent({ ...event, verified: true, verifier: result.verifier, verificationRequested: false });
     } catch (confirmError) {
-      setVerifyError(describeAuthError(confirmError, 'No pudimos confirmar la información. Inténtalo nuevamente.'));
+      setVerifyError(describeAuthError(confirmError, t('classhall.hall.noPudimosConfirmarLaInformacion')));
     } finally {
       setVerifying(false);
     }
@@ -160,13 +161,13 @@ export default function EventInfoScreen() {
 
   const getCourseId = async (purpose: string) => {
     if (!user) {
-      Alert.alert('Inicia sesión', `Inicia sesión para ${purpose}.`);
+      Alert.alert(t('eventInfo.iniciaSesion'), t('eventInfo.iniciaSesionParaPurpose', { purpose }));
       return null;
     }
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const courseId = userDoc.data()?.courseId as string | undefined;
     if (!courseId) {
-      Alert.alert('Sin curso', 'Tu HaNet ID todavía no está vinculado a un curso.');
+      Alert.alert(t('eventInfo.sinCurso'), t('common.tuHanetIdTodaviaNo'));
       return null;
     }
     return courseId;
@@ -174,7 +175,7 @@ export default function EventInfoScreen() {
 
   const handleOpenIcalMenu = async () => {
     try {
-      const courseId = await getCourseId('consultar la fuente iCal de tu curso');
+      const courseId = await getCourseId(t('eventInfo.consultarLaFuenteIcalDe'));
       if (!courseId) return;
       setCourseIdState(courseId);
       setIcalModalVisible(true);
@@ -188,13 +189,13 @@ export default function EventInfoScreen() {
     await Clipboard.setStringAsync(`https://${ICAL_HOST}?courseId=${encodeURIComponent(courseIdState)}`);
     setIcalModalVisible(false);
     setTimeout(() => {
-      Alert.alert('Link copiado', 'Pégalo en tu app de calendario.');
+      Alert.alert(t('eventInfo.linkCopiado'), t('eventInfo.pegaloEnTuAppDe'));
     }, 500);
   };
 
   const handleSubscribe = async () => {
     try {
-      const courseId = await getCourseId('suscribirte al calendario de tu curso');
+      const courseId = await getCourseId(t('eventInfo.suscribirteAlCalendarioDeTu'));
       if (!courseId) return;
 
       const query = `?courseId=${encodeURIComponent(courseId)}`;
@@ -205,7 +206,7 @@ export default function EventInfoScreen() {
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('No pudimos abrir el calendario', 'Inténtalo nuevamente.');
+      Alert.alert(t('eventInfo.noPudimosAbrirElCalendario'), t('eventInfo.intentaloNuevamente'));
     }
   };
 
@@ -254,8 +255,8 @@ export default function EventInfoScreen() {
     } catch (e) {
       console.error(e);
       setManageError((e as { code?: string }).code === 'permission-denied'
-        ? 'Tu cuenta no tiene permiso para cambiar este evento.'
-        : 'No pudimos guardar el cambio. Revisa tu conexión e inténtalo nuevamente.');
+        ? t('eventInfo.tuCuentaNoTienePermiso')
+        : t('eventInfo.noPudimosGuardarElCambio'));
     } finally {
       setManaging(false);
     }
@@ -286,8 +287,8 @@ export default function EventInfoScreen() {
     } catch (e) {
       console.error(e);
       setDeleteError((e as { code?: string }).code === 'permission-denied'
-        ? 'Tu cuenta no tiene permiso para eliminar eventos de este curso.'
-        : 'No pudimos eliminar el evento. Revisa tu conexión e inténtalo nuevamente.');
+        ? t('eventInfo.tuCuentaNoTienePermiso2')
+        : t('eventInfo.noPudimosEliminarElEvento'));
       setDeleting(false);
     }
   };
@@ -303,9 +304,9 @@ export default function EventInfoScreen() {
   if (!event) {
     return (
       <SafeAreaView style={[styles.container, styles.missing]}>
-        <ThemedText style={styles.missingTitle}>Evento no disponible</ThemedText>
-        <ThemedText style={styles.missingText}>Vuelve al calendario y ábrelo de nuevo.</ThemedText>
-        <HanetButton label="Volver al calendario" onPress={goBack} style={styles.missingButton} />
+        <ThemedText style={styles.missingTitle}>{t('eventInfo.eventoNoDisponible')}</ThemedText>
+        <ThemedText style={styles.missingText}>{t('eventInfo.vuelveAlCalendarioYAbrelo')}</ThemedText>
+        <HanetButton label={t('eventInfo.volverAlCalendario')} onPress={goBack} style={styles.missingButton} />
       </SafeAreaView>
     );
   }
@@ -324,52 +325,52 @@ export default function EventInfoScreen() {
         <ThemedText accessibilityRole="header" style={[styles.title, event.cancelled && styles.titleCancelled]}>
           {event.title}
         </ThemedText>
-        {event.cancelled && <ThemedText style={styles.cancelledNote}>Este evento fue cancelado.</ThemedText>}
+        {event.cancelled && <ThemedText style={styles.cancelledNote}>{t('eventInfo.esteEventoFueCancelado')}</ThemedText>}
 
         <View style={styles.card}>
-          <InfoRow icon={ICONS.date} label="Fecha" value={formatLongDate(event.startDate)} />
+          <InfoRow icon={ICONS.date} label={t('eventInfo.fecha')} value={formatLongDate(event.startDate)} />
           {/* A task has no duration: it is handed in until that time. */}
           {event.taskId ? (
-            <InfoRow icon={ICONS.duration} label="Se entrega hasta" value={formatTime(event.startDate)} />
+            <InfoRow icon={ICONS.duration} label={t('classhall.taskForm.seEntregaHasta')} value={formatTime(event.startDate)} />
           ) : (
             <InfoRow
               icon={ICONS.duration}
-              label="Duración"
+              label={t('eventInfo.duracion')}
               value={`${formatTime(event.startDate)} - ${formatTime(event.endDate)} (${formatDuration(event.startDate, event.endDate)})`}
             />
           )}
-          {!!event.location && <InfoRow icon={ICONS.location} label="Ubicación" value={event.location} />}
+          {!!event.location && <InfoRow icon={ICONS.location} label={t('createEvent.ubicacion')} value={event.location} />}
           {!!event.eventType && (
-            <InfoRow icon={ICONS.type} label={isEvaluation ? 'Tipo de evaluación' : 'Tipo de evento'} value={event.eventType} />
+            <InfoRow icon={ICONS.type} label={isEvaluation ? t('eventInfo.tipoDeEvaluacion') : t('common.tipoDeEvento')} value={event.eventType} />
           )}
-          {!!event.subject && <InfoRow icon={ICONS.subject} label="Asignatura relacionada" value={subjectName(event.subject)} />}
-          {!!event.description && <InfoRow icon={ICONS.description} label="Descripción" value={event.description} />}
+          {!!event.subject && <InfoRow icon={ICONS.subject} label={t('createEvent.asignaturaRelacionada')} value={subjectName(event.subject)} />}
+          {!!event.description && <InfoRow icon={ICONS.description} label={t('common.descripcion')} value={event.description} />}
 
           <View style={styles.cardActions}>
             {event.hallId && event.taskId ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityHint="Abre la tarea en su Hall"
+                accessibilityHint={t('eventInfo.abreLaTareaEnSu')}
                 onPress={() => router.push({ pathname: '/classhall/task', params: { hallId: event.hallId, id: event.taskId } })}
                 style={({ pressed }) => [styles.actionButton, styles.actionButtonTall, pressed && styles.pressed]}
               >
-                <ThemedText style={styles.actionLabel}>Tarea</ThemedText>
-                <ThemedText style={styles.actionSoon}>Abrir y entregar en ClassHall</ThemedText>
+                <ThemedText style={styles.actionLabel}>{t('eventInfo.tarea')}</ThemedText>
+                <ThemedText style={styles.actionSoon}>{t('eventInfo.abrirYEntregarEnClasshall')}</ThemedText>
               </Pressable>
             ) : event.hallId && event.evaluationId ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityHint="Abre la evaluación en su Hall"
+                accessibilityHint={t('eventInfo.abreLaEvaluacionEnSu')}
                 onPress={() => router.push({ pathname: '/classhall/evaluation', params: { hallId: event.hallId, id: event.evaluationId } })}
                 style={({ pressed }) => [styles.actionButton, styles.actionButtonTall, pressed && styles.pressed]}
               >
-                <ThemedText style={styles.actionLabel}>Tabla de especificaciones</ThemedText>
-                <ThemedText style={styles.actionSoon}>Abrir en ClassHall</ThemedText>
+                <ThemedText style={styles.actionLabel}>{t('common.tablaDeEspecificaciones')}</ThemedText>
+                <ThemedText style={styles.actionSoon}>{t('eventInfo.abrirEnClasshall')}</ThemedText>
               </Pressable>
             ) : (
-              <ComingSoonButton label="Tabla de especificaciones" tall />
+              <ComingSoonButton label={t('common.tablaDeEspecificaciones')} tall />
             )}
-            <ComingSoonButton label="Ir a los documentos de la clase" dark />
+            <ComingSoonButton label={t('eventInfo.irALosDocumentosDe')} dark />
           </View>
 
         </View>
@@ -378,39 +379,39 @@ export default function EventInfoScreen() {
           <View style={styles.attribution}>
             <CustomIcon name="check-circle" size={21} color={AppColors.textSecondary} />
             <View style={styles.attributionText}>
-              <ThemedText style={styles.attributionLabel}>Publicado por la directiva:</ThemedText>
+              <ThemedText style={styles.attributionLabel}>{t('calendar.publicadoPorLaDirectiva')}</ThemedText>
               <ThemedText style={styles.attributionName}>{event.writer}</ThemedText>
             </View>
           </View>
         )}
 
         {!event.verified && event.verificationRequested && (
-          <ThemedText style={styles.pendingNote}>Pendiente de confirmación por un docente.</ThemedText>
+          <ThemedText style={styles.pendingNote}>{t('eventInfo.pendienteDeConfirmacionPorUn')}</ThemedText>
         )}
 
         {event.verified && !!event.verifier && (
           <View style={styles.attribution}>
             <Image source={ICONS.verified} style={styles.badge} contentFit="contain" />
             <View style={styles.attributionText}>
-              <ThemedText style={styles.attributionLabel}>Verificado por un docente:</ThemedText>
+              <ThemedText style={styles.attributionLabel}>{t('common.verificadoPorUnDocente')}</ThemedText>
               <ThemedText style={styles.attributionName}>{event.verifier}</ThemedText>
             </View>
           </View>
         )}
 
         <ThemedText style={styles.finePrint}>
-          Lo que publica la directiva puede no ser oficial. Lo que confirma un docente lleva el verificado azul.
+          {t('eventInfo.loQuePublicaLaDirectiva')}
         </ThemedText>
 
         <View style={styles.secondaryActions}>
           {!!subjectHall?.isTeacher && !event.hallId && !event.verified && !event.cancelled && (
-            <HanetButton label={verifying ? 'Confirmando…' : 'Confirmar información'} onPress={confirmInfo} disabled={verifying} />
+            <HanetButton label={verifying ? t('classhall.hall.confirmando') : t('classhall.hall.confirmarInformacion')} onPress={confirmInfo} disabled={verifying} />
           )}
           {!!verifyError && <ThemedText accessibilityLiveRegion="assertive" style={styles.pendingNote}>{verifyError}</ThemedText>}
           {!!subjectHall?.isTeacher && !event.hallId && isEvaluation && !event.cancelled && (
             <HanetButton
-              label="Completar en ClassHall"
-              accessibilityHint="Pasa esta evaluación a tu Hall para agregar su tabla de especificaciones"
+              label={t('eventInfo.completarEnClasshall')}
+              accessibilityHint={t('eventInfo.pasaEstaEvaluacionATu')}
               onPress={() => router.push({
                 pathname: '/classhall/evaluation-new',
                 params: { hallId: subjectHall.id, fromEvent: event.id, title: event.title, date: String(event.startDate.getTime()) },
@@ -419,35 +420,35 @@ export default function EventInfoScreen() {
           )}
           {!!subjectHall && (
             <HanetButton
-              label={`Ir al Hall de ${subjectHall.subject}`}
+              label={t('eventInfo.irAlHallDeSubject', { subject: subjectHall.subject })}
               variant="surface"
               onPress={() => router.push({ pathname: '/classhall/hall', params: { id: subjectHall.id } })}
             />
           )}
           {canEdit && (
-            <HanetButton label="Editar información" variant="surface" onPress={handleEdit} />
+            <HanetButton label={t('calendar.editarInformacion')} variant="surface" onPress={handleEdit} />
           )}
           {canEdit && (
-            <HanetButton label="Cancelar o cambiar evento" variant="surface" onPress={openManage} />
+            <HanetButton label={t('eventInfo.cancelarOCambiarEvento')} variant="surface" onPress={openManage} />
           )}
           <HanetButton
-            label="Suscribir mi calendario (iCal)"
+            label={t('eventInfo.suscribirMiCalendarioIcal')}
             variant="surface"
             icon={<CustomIcon name="calendar" size={18} color={AppColors.textPrimary} />}
             onPress={handleSubscribe}
           />
           <Pressable accessibilityRole="button" onPress={handleOpenIcalMenu} style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
-            <ThemedText style={styles.linkText}>Copiar fuente iCal</ThemedText>
+            <ThemedText style={styles.linkText}>{t('eventInfo.copiarFuenteIcal')}</ThemedText>
           </Pressable>
           {canEdit && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Eliminar evento"
-              accessibilityHint="Pide confirmación antes de eliminar"
+              accessibilityLabel={t('eventInfo.eliminarEvento')}
+              accessibilityHint={t('eventInfo.pideConfirmacionAntesDeEliminar')}
               onPress={() => setDeleteVisible(true)}
               style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
             >
-              <ThemedText style={styles.deleteText}>Eliminar evento</ThemedText>
+              <ThemedText style={styles.deleteText}>{t('eventInfo.eliminarEvento')}</ThemedText>
             </Pressable>
           )}
         </View>
@@ -455,37 +456,37 @@ export default function EventInfoScreen() {
 
       <AlertModal visible={manageStep !== 'closed'} onRequestClose={closeManage}>
         <View style={styles.modalOverlay}>
-          <Pressable accessibilityLabel="Cerrar sin cambios" style={StyleSheet.absoluteFill} onPress={closeManage} />
+          <Pressable accessibilityLabel={t('eventInfo.cerrarSinCambios')} style={StyleSheet.absoluteFill} onPress={closeManage} />
           <View accessibilityViewIsModal style={styles.deleteCard}>
             {manageStep === 'date' ? (
               <>
-                <ThemedText style={styles.deleteTitle}>Nueva fecha y hora</ThemedText>
-                <ThemedText style={styles.deleteBody}>La duración del evento se mantiene.</ThemedText>
+                <ThemedText style={styles.deleteTitle}>{t('eventInfo.nuevaFechaYHora')}</ThemedText>
+                <ThemedText style={styles.deleteBody}>{t('eventInfo.laDuracionDelEventoSe')}</ThemedText>
                 <HanetDateTimePicker value={draftDate} onChange={setDraftDate} style={styles.managePicker} />
                 {!!manageError && <ThemedText accessibilityLiveRegion="assertive" style={styles.deleteErrorText}>{manageError}</ThemedText>}
                 <View style={styles.deleteActions}>
-                  <HanetButton label="Atrás" variant="surface" onPress={() => setManageStep('menu')} disabled={managing} style={styles.deleteAction} />
-                  <HanetButton label={managing ? 'Guardando…' : 'Guardar'} onPress={saveNewDate} disabled={managing} style={styles.deleteAction} />
+                  <HanetButton label={t('eventInfo.atras')} variant="surface" onPress={() => setManageStep('menu')} disabled={managing} style={styles.deleteAction} />
+                  <HanetButton label={managing ? t('common.guardando') : t('common.guardar')} onPress={saveNewDate} disabled={managing} style={styles.deleteAction} />
                 </View>
               </>
             ) : (
               <>
-                <ThemedText style={styles.deleteTitle}>Cancelar o cambiar evento</ThemedText>
+                <ThemedText style={styles.deleteTitle}>{t('eventInfo.cancelarOCambiarEvento')}</ThemedText>
                 <ThemedText style={styles.deleteBody}>
                   {event.cancelled
-                    ? 'Este evento está cancelado. Puedes reactivarlo o moverlo a otra fecha.'
-                    : 'Mueve el evento a otra fecha o márcalo como cancelado. El curso lo verá de inmediato.'}
+                    ? t('eventInfo.esteEventoEstaCanceladoPuedes')
+                    : t('eventInfo.mueveElEventoAOtra')}
                 </ThemedText>
                 {!!manageError && <ThemedText accessibilityLiveRegion="assertive" style={styles.deleteErrorText}>{manageError}</ThemedText>}
                 <View style={styles.manageOptions}>
-                  <HanetButton label="Cambiar fecha y hora" onPress={() => setManageStep('date')} disabled={managing} />
+                  <HanetButton label={t('eventInfo.cambiarFechaYHora')} onPress={() => setManageStep('date')} disabled={managing} />
                   <HanetButton
-                    label={managing ? 'Guardando…' : event.cancelled ? 'Reactivar evento' : 'Cancelar evento'}
+                    label={managing ? t('common.guardando') : event.cancelled ? t('eventInfo.reactivarEvento') : t('eventInfo.cancelarEvento')}
                     variant="accent"
                     onPress={toggleCancelled}
                     disabled={managing}
                   />
-                  <HanetButton label="Cerrar" variant="surface" onPress={closeManage} disabled={managing} />
+                  <HanetButton label={t('common.cerrar')} variant="surface" onPress={closeManage} disabled={managing} />
                 </View>
               </>
             )}
@@ -495,18 +496,18 @@ export default function EventInfoScreen() {
 
       <AlertModal visible={deleteVisible} onRequestClose={closeDelete}>
         <View style={styles.modalOverlay}>
-          <Pressable accessibilityLabel="Cerrar sin eliminar" style={StyleSheet.absoluteFill} onPress={closeDelete} />
+          <Pressable accessibilityLabel={t('eventInfo.cerrarSinEliminar')} style={StyleSheet.absoluteFill} onPress={closeDelete} />
           <View accessibilityViewIsModal style={styles.deleteCard}>
-            <ThemedText style={styles.deleteTitle}>¿Eliminar este evento?</ThemedText>
+            <ThemedText style={styles.deleteTitle}>{t('eventDetail.eliminarEsteEvento')}</ThemedText>
             <ThemedText style={styles.deleteBody}>
-              {`"${event.title}" se borrará del calendario de todo el curso. No se puede deshacer.`}
+              {t('eventInfo.titleSeBorraraDelCalendario', { title: event.title })}
             </ThemedText>
             {!!deleteError && (
               <ThemedText accessibilityLiveRegion="assertive" style={styles.deleteErrorText}>{deleteError}</ThemedText>
             )}
             <View style={styles.deleteActions}>
-              <HanetButton label="Cancelar" variant="surface" onPress={closeDelete} disabled={deleting} style={styles.deleteAction} />
-              <HanetButton label={deleting ? 'Eliminando…' : 'Eliminar'} variant="accent" onPress={handleDelete} disabled={deleting} style={styles.deleteAction} />
+              <HanetButton label={t('common.cancelar')} variant="surface" onPress={closeDelete} disabled={deleting} style={styles.deleteAction} />
+              <HanetButton label={deleting ? t('common.eliminando') : t('common.eliminar')} variant="accent" onPress={handleDelete} disabled={deleting} style={styles.deleteAction} />
             </View>
           </View>
         </View>
@@ -517,13 +518,13 @@ export default function EventInfoScreen() {
           <View accessibilityViewIsModal style={styles.modalCard}>
             <CustomIcon name="calendar" size={24} color={AppColors.textOnLight} />
             <View style={styles.modalTextSection}>
-              <ThemedText style={styles.modalTitle}>Añadir calendario iCal</ThemedText>
+              <ThemedText style={styles.modalTitle}>{t('eventInfo.anadirCalendarioIcal')}</ThemedText>
               <ThemedText style={styles.modalSubtitle}>
-                Copia el link y agrégalo a Google Calendar, Calendario de Apple u Outlook para ver ahí los eventos de tu curso.
+                {t('eventInfo.copiaElLinkYAgregalo')}
               </ThemedText>
             </View>
-            <HanetButton label="Copiar al portapapeles" onPress={copyIcalToClipboard} />
-            <HanetButton label="Volver atrás" variant="surface" onPress={() => setIcalModalVisible(false)} />
+            <HanetButton label={t('eventInfo.copiarAlPortapapeles')} onPress={copyIcalToClipboard} />
+            <HanetButton label={t('eventInfo.volverAtras')} variant="surface" onPress={() => setIcalModalVisible(false)} />
           </View>
         </View>
       </AlertModal>
@@ -549,12 +550,12 @@ function ComingSoonButton({ label, tall, dark }: { label: string; tall?: boolean
     <View
       accessible
       accessibilityRole="button"
-      accessibilityLabel={`${label}, próximamente`}
+      accessibilityLabel={t('explore.labelProximamente', { label })}
       accessibilityState={{ disabled: true }}
       style={[styles.actionButton, tall && styles.actionButtonTall, dark && styles.actionButtonDark]}
     >
       <ThemedText style={[styles.actionLabel, dark && styles.actionLabelDark]}>{label}</ThemedText>
-      <ThemedText style={[styles.actionSoon, dark && styles.actionLabelDark]}>Próximamente</ThemedText>
+      <ThemedText style={[styles.actionSoon, dark && styles.actionLabelDark]}>{t('common.proximamente')}</ThemedText>
     </View>
   );
 }

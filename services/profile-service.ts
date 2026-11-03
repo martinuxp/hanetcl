@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { cached } from './cache';
 import { functions, storage } from './firebase';
+import { t } from '@/i18n';
 
 // One photo per account. The storage rules only let its owner read or write it.
 function photoRef(uid: string) {
@@ -61,7 +62,7 @@ export async function saveNameFont(nameFont: string) {
 
 export function describePhotoError(error: unknown) {
   const code = (error as { code?: string }).code ?? '';
-  if (code === 'storage/unauthorized') return 'No tienes permiso para cambiar esta foto.';
-  if (code === 'storage/retry-limit-exceeded' || code === 'storage/unknown') return 'No pudimos subir la foto. Revisa tu conexión.';
-  return 'No pudimos guardar la foto. Inténtalo nuevamente.';
+  if (code === 'storage/unauthorized') return t('services.profileService.noTienesPermisoParaCambiar');
+  if (code === 'storage/retry-limit-exceeded' || code === 'storage/unknown') return t('services.profileService.noPudimosSubirLaFoto');
+  return t('services.profileService.noPudimosGuardarLaFoto');
 }

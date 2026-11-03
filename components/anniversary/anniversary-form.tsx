@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 // Pieces shared by the anniversary's sheets, on top of the Hall's form look.
 
@@ -17,8 +18,8 @@ export { styles as formStyles };
 
 /** Who hears about a deadline or a flash test. */
 export const AUDIENCE_OPTIONS = [
-  { value: 'leads', label: 'Jefes de alianza' },
-  { value: 'all', label: 'Toda la alianza' },
+  { value: 'leads', label: t('common.jefesDeAlianza') },
+  { value: 'all', label: t('anniversary.todaLaAlianza') },
 ];
 
 /** The sheet's scrolling body, with its title and lead. */
@@ -56,7 +57,7 @@ export function SheetActions({ label, busyLabel, ready, busy, onSubmit, error }:
         <ThemedText style={styles.submitText}>{busy ? busyLabel : label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
     </>
   );
@@ -79,7 +80,7 @@ export function TextField({ label, optional, value, onChange, placeholder, multi
   const literal = keyboardType === 'url' || keyboardType === 'email-address';
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>{label}{optional && <ThemedText style={styles.optional}> (opcional)</ThemedText>}</ThemedText>
+      <ThemedText style={styles.label}>{label}{optional && <ThemedText style={styles.optional}>{' '}{t('common.opcional')}</ThemedText>}</ThemedText>
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -105,21 +106,21 @@ export function DateField({ label, value, onChange, optional, disabled }: { labe
   const [picking, setPicking] = useState(false);
   return (
     <View style={styles.field}>
-      <ThemedText style={styles.label}>{label}{optional && <ThemedText style={styles.optional}> (opcional)</ThemedText>}</ThemedText>
+      <ThemedText style={styles.label}>{label}{optional && <ThemedText style={styles.optional}>{' '}{t('common.opcional')}</ThemedText>}</ThemedText>
       <View style={local.dateRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${label}: ${value ? hallLongDate(value) : 'sin fecha'}. Cambiar`}
+          accessibilityLabel={t('components.anniversary.anniversaryForm.labelValueCambiar', { label, value: value ? hallLongDate(value) : t('components.anniversary.anniversaryForm.sinFecha') })}
           disabled={disabled}
           onPress={() => setPicking(true)}
           style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
         >
-          <ThemedText numberOfLines={1} style={local.dateText}>{value ? hallLongDate(value) : 'Sin fecha'}</ThemedText>
-          <ThemedText style={local.dateAction}>{value ? 'Cambiar' : 'Elegir'}</ThemedText>
+          <ThemedText numberOfLines={1} style={local.dateText}>{value ? hallLongDate(value) : t('components.anniversary.anniversaryForm.sinFecha2')}</ThemedText>
+          <ThemedText style={local.dateAction}>{value ? t('common.cambiar') : t('components.anniversary.anniversaryForm.elegir')}</ThemedText>
         </Pressable>
         {optional && value !== null && (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Quitar ${label.toLocaleLowerCase('es')}`} disabled={disabled} onPress={() => onChange(null)} style={({ pressed }) => [local.clear, pressed && styles.pressed]}>
-            <ThemedText style={local.dateAction}>Quitar</ThemedText>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('components.anniversary.anniversaryForm.quitarLabel', { label: label.toLocaleLowerCase('es') })} disabled={disabled} onPress={() => onChange(null)} style={({ pressed }) => [local.clear, pressed && styles.pressed]}>
+            <ThemedText style={local.dateAction}>{t('common.quitar')}</ThemedText>
           </Pressable>
         )}
       </View>
@@ -155,7 +156,7 @@ export function PointsFields({ label, points, count, onChange, disabled }: { lab
           <View key={index} style={local.pointCell}>
             <ThemedText style={local.place}>{placeLabel(index)}</ThemedText>
             <TextInput
-              accessibilityLabel={`Puntos del ${placeLabel(index)} lugar`}
+              accessibilityLabel={t('components.anniversary.anniversaryForm.puntosDelPlacelabelLugar', { placeLabel: placeLabel(index) })}
               value={points[index] ?? ''}
               onChangeText={text => {
                 const next = Array.from({ length: count }, (_, i) => points[i] ?? '');

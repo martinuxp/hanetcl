@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { t } from '@/i18n';
 
 export type SelectOption = { value: string; label: string };
 
@@ -35,7 +36,7 @@ function normalize(text: string) {
  * more than a handful of options, where a row of chips would get long.
  * Choosing an option closes the dialog.
  */
-export function HanetSelect({ label, options, value, onChange, placeholder = 'Elegir', disabled, style }: Props) {
+export function HanetSelect({ label, options, value, onChange, placeholder = t('components.anniversary.anniversaryForm.elegir'), disabled, style }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const selected = options.find(option => option.value === value);
@@ -59,8 +60,8 @@ export function HanetSelect({ label, options, value, onChange, placeholder = 'El
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${selected ? selected.label : 'sin elegir'}`}
-        accessibilityHint="Abre la lista de opciones"
+        accessibilityLabel={`${label}: ${selected ? selected.label : t('components.ui.hanetSelect.sinElegir')}`}
+        accessibilityHint={t('components.ui.hanetSelect.abreLaListaDeOpciones')}
         accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={show}
@@ -76,15 +77,15 @@ export function HanetSelect({ label, options, value, onChange, placeholder = 'El
 
       <AlertModal visible={open} onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
-          <Pressable accessibilityLabel="Cerrar sin elegir" style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
+          <Pressable accessibilityLabel={t('components.ui.hanetSelect.cerrarSinElegir')} style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           <View accessibilityViewIsModal style={styles.dialog}>
             <ThemedText accessibilityRole="header" style={styles.title}>{label}</ThemedText>
             {options.length >= SEARCH_FROM && (
               <TextInput
-                accessibilityLabel={`Buscar en ${label.toLocaleLowerCase('es')}`}
+                accessibilityLabel={t('components.ui.hanetSelect.buscarEnLabel', { label: label.toLocaleLowerCase('es') })}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Buscar"
+                placeholder={t('components.schedule.blockEditor.buscar')}
                 placeholderTextColor={AppColors.surfaceMuted}
                 autoCorrect={false}
                 selectionColor={AppColors.accent}
@@ -107,9 +108,9 @@ export function HanetSelect({ label, options, value, onChange, placeholder = 'El
                   </Pressable>
                 );
               })}
-              {filtered.length === 0 && <ThemedText style={styles.empty}>Nada coincide con “{query.trim()}”.</ThemedText>}
+              {filtered.length === 0 && <ThemedText style={styles.empty}>{t('components.ui.hanetSelect.nadaCoincideConQuery', { query: query.trim() })}</ThemedText>}
             </ScrollView>
-            <HanetButton label="Cancelar" variant="surface" onPress={() => setOpen(false)} />
+            <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setOpen(false)} />
           </View>
         </View>
       </AlertModal>

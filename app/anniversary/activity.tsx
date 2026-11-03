@@ -13,10 +13,11 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
+import { t } from '@/i18n';
 
 const MODES = [
-  { value: 'podium', label: 'Por lugares' },
-  { value: 'manual', label: 'Puntos a mano' },
+  { value: 'podium', label: t('anniversary.activity.porLugares') },
+  { value: 'manual', label: t('anniversary.activity.puntosAMano') },
 ];
 
 type Form = { name: string; group: ActivityGroup; startsAt: number | null; place: string; mode: ActivityMode; points: string[]; text: string };
@@ -67,7 +68,7 @@ function ActivityScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar la actividad. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.activity.noPudimosGuardarLaActividad')));
       setSubmitting(false);
     }
   };
@@ -82,45 +83,45 @@ function ActivityScreen() {
       router.back();
     } catch (deleteError) {
       setConfirming(false);
-      setError(describeAuthError(deleteError, 'No pudimos borrar la actividad. Inténtalo nuevamente.'));
+      setError(describeAuthError(deleteError, t('anniversary.activity.noPudimosBorrarLaActividad')));
       setSubmitting(false);
     }
   };
 
-  const label = existing ? 'Guardar cambios' : 'Crear actividad';
+  const label = existing ? t('common.guardarCambios') : t('anniversary.activity.crearActividad');
   const { allowLeave, dialog } = useUnsavedChangesGuard({ dirty: dirty && !submitting, onSave: submit, saveLabel: label, canSave: ready });
   const modeChanged = !!existing?.result && existing.mode !== form.mode;
 
   return (
-    <SheetBody title={existing ? 'Editar actividad' : 'Nueva actividad'} lead="Los puntos de cada lugar se suman solos cuando pones el resultado.">
-      <TextField label="Nombre" value={form.name} onChange={name => update({ name })} placeholder="Baile de alianza" disabled={submitting} autoFocus={!existing} />
-      <ThemedText style={styles.label}>Parte del aniversario</ThemedText>
-      <HanetChoice label="Parte del aniversario" options={ACTIVITY_GROUPS} value={form.group} onChange={group => update({ group: group as ActivityGroup })} disabled={submitting} scroll />
-      <DateField label="Día y hora" optional value={form.startsAt} onChange={startsAt => update({ startsAt })} disabled={submitting} />
-      <TextField label="Lugar" optional value={form.place} onChange={place => update({ place })} placeholder="Gimnasio" disabled={submitting} />
-      <TextField label="Descripción" optional value={form.text} onChange={text => update({ text })} placeholder="Mínimo 30 y máximo 50 integrantes, 4 a 6 minutos." multiline maxLength={500} disabled={submitting} />
+    <SheetBody title={existing ? t('anniversary.activity.editarActividad') : t('common.nuevaActividad')} lead={t('anniversary.activity.losPuntosDeCadaLugar')}>
+      <TextField label={t('common.nombre')} value={form.name} onChange={name => update({ name })} placeholder={t('anniversary.activity.baileDeAlianza')} disabled={submitting} autoFocus={!existing} />
+      <ThemedText style={styles.label}>{t('anniversary.activity.parteDelAniversario')}</ThemedText>
+      <HanetChoice label={t('anniversary.activity.parteDelAniversario')} options={ACTIVITY_GROUPS} value={form.group} onChange={group => update({ group: group as ActivityGroup })} disabled={submitting} scroll />
+      <DateField label={t('anniversary.activity.diaYHora')} optional value={form.startsAt} onChange={startsAt => update({ startsAt })} disabled={submitting} />
+      <TextField label={t('anniversary.activity.lugar')} optional value={form.place} onChange={place => update({ place })} placeholder={t('anniversary.activity.gimnasio')} disabled={submitting} />
+      <TextField label={t('common.descripcion')} optional value={form.text} onChange={text => update({ text })} placeholder={t('anniversary.activity.minimo30YMaximo50')} multiline maxLength={500} disabled={submitting} />
 
-      <ThemedText style={styles.label}>Cómo se puntúa</ThemedText>
-      <HanetChoice label="Cómo se puntúa" options={MODES} value={form.mode} onChange={mode => update({ mode: mode as ActivityMode })} disabled={submitting} />
+      <ThemedText style={styles.label}>{t('anniversary.activity.comoSePuntua')}</ThemedText>
+      <HanetChoice label={t('anniversary.activity.comoSePuntua')} options={MODES} value={form.mode} onChange={mode => update({ mode: mode as ActivityMode })} disabled={submitting} />
       {form.mode === 'podium' ? (
-        <PointsFields label="Puntos por lugar" points={form.points} count={places} onChange={next => update({ points: next })} disabled={submitting} />
+        <PointsFields label={t('anniversary.activity.puntosPorLugar')} points={form.points} count={places} onChange={next => update({ points: next })} disabled={submitting} />
       ) : (
-        <ThemedText style={styles.hint}>Para lo que se cuenta (canastas, fotos, objetos): al poner el resultado escribes los puntos de cada alianza.</ThemedText>
+        <ThemedText style={styles.hint}>{t('anniversary.activity.paraLoQueSeCuenta')}</ThemedText>
       )}
-      {modeChanged && <ThemedText style={styles.hint}>Al cambiar cómo se puntúa se borra el resultado que tenía.</ThemedText>}
+      {modeChanged && <ThemedText style={styles.hint}>{t('anniversary.activity.alCambiarComoSePuntua')}</ThemedText>}
 
-      <SheetActions label={label} busyLabel="Guardando…" ready={ready} busy={submitting} onSubmit={submit} error={error} />
-      {existing && <HanetButton label="Borrar la actividad" variant="surface" disabled={submitting} onPress={() => setConfirming(true)} />}
+      <SheetActions label={label} busyLabel={t('common.guardando')} ready={ready} busy={submitting} onSubmit={submit} error={error} />
+      {existing && <HanetButton label={t('anniversary.activity.borrarLaActividad')} variant="surface" disabled={submitting} onPress={() => setConfirming(true)} />}
 
       <HanetDialog
         visible={confirming}
         onRequestClose={() => setConfirming(false)}
-        title="¿Borrar la actividad?"
-        body="También se quitan los puntos que dio. No se puede deshacer."
+        title={t('anniversary.activity.borrarLaActividad2')}
+        body={t('anniversary.activity.tambienSeQuitanLosPuntos')}
       >
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setConfirming(false)} style={local.dialogButton} />
-          <HanetButton label={submitting ? 'Borrando…' : 'Borrar'} variant="accent" disabled={submitting} onPress={remove} style={local.dialogButton} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setConfirming(false)} style={local.dialogButton} />
+          <HanetButton label={submitting ? t('common.borrando') : t('common.borrar')} variant="accent" disabled={submitting} onPress={remove} style={local.dialogButton} />
         </HanetDialogActions>
       </HanetDialog>
       {dialog}

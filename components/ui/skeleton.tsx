@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 // A slow breath, so waiting reads as calm rather than busy.
 const PULSE_MS = 900;
@@ -27,7 +28,7 @@ function usePulse() {
  * The placeholder of a screen while its content loads: every block inside
  * breathes together, and the whole reads as one "Cargando" to a screen reader.
  */
-export function SkeletonGroup({ children, style, label = 'Cargando' }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; label?: string }) {
+export function SkeletonGroup({ children, style, label = t('components.ui.skeleton.cargando') }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; label?: string }) {
   const pulse = usePulse();
   return (
     <PulseContext.Provider value={pulse}>

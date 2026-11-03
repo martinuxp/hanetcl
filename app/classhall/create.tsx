@@ -15,6 +15,7 @@ import { HanetChoice } from '@/components/ui/hanet-select';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 function CreateHallScreen() {
   const router = useRouter();
@@ -52,7 +53,7 @@ function CreateHallScreen() {
       .catch(loadError => {
         if (!active) return;
         setCourses([]);
-        setError(describeAuthError(loadError, 'No pudimos cargar los cursos. Cierra y vuelve a intentarlo.'));
+        setError(describeAuthError(loadError, t('classhall.create.noPudimosCargarLosCursos')));
       });
     return () => { active = false; };
   }, [editing]);
@@ -93,7 +94,7 @@ function CreateHallScreen() {
       allowLeave();
       router.back();
     } catch (createError) {
-      setError(describeAuthError(createError, editing ? 'No pudimos guardar los cambios. Inténtalo nuevamente.' : 'No pudimos crear el Hall. Inténtalo nuevamente.'));
+      setError(describeAuthError(createError, editing ? t('classhall.create.noPudimosGuardarLosCambios') : t('classhall.create.noPudimosCrearElHall')));
       setSubmitting(false);
     }
   };
@@ -102,10 +103,10 @@ function CreateHallScreen() {
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: (editing ? changed : !!catalogId || !!course || themeTouched || plan !== 'comun') && !submitting,
     onSave: submit,
-    saveLabel: editing ? 'Guardar cambios' : 'Crear Hall',
+    saveLabel: editing ? t('common.guardarCambios') : t('classhall.create.crearHall'),
     canSave: ready,
-    title: editing ? '¿Descartar los cambios?' : '¿Descartar este Hall?',
-    message: editing ? 'El Hall quedará como estaba.' : ready ? 'Todavía no lo has creado.' : 'Todavía no lo has creado, y le faltan datos para hacerlo.',
+    title: editing ? t('common.descartarLosCambios') : t('classhall.create.descartarEsteHall'),
+    message: editing ? t('classhall.create.elHallQuedaraComoEstaba') : ready ? t('classhall.create.todaviaNoLoHasCreado') : t('classhall.create.todaviaNoLoHasCreado2'),
   });
 
   return (
@@ -114,17 +115,17 @@ function CreateHallScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{editing ? 'Editar Hall' : 'Crear un Hall'}</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{editing ? t('classhall.create.editarHall') : t('classhall.create.crearUnHall')}</ThemedText>
       <ThemedText style={styles.lead}>
         {editing
-          ? 'Cambia la asignatura o la portada. Tus estudiantes, anuncios y evaluaciones se mantienen.'
-          : 'Un Hall es tu asignatura en un curso.'}
+          ? t('classhall.create.cambiaLaAsignaturaOLa')
+          : t('classhall.create.unHallEsTuAsignatura')}
       </ThemedText>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Tipo de Hall</ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.create.tipoDeHall')}</ThemedText>
         <HanetChoice
-          label="Tipo de Hall"
+          label={t('classhall.create.tipoDeHall')}
           options={HALL_PLANS.map(item => ({ value: item.value, label: item.label }))}
           value={plan}
           onChange={pickPlan}
@@ -134,25 +135,25 @@ function CreateHallScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Asignatura</ThemedText>
-        <ThemedText style={styles.hint}>Las mismas del Calendar, para que las evaluaciones del curso aparezcan en tu Hall.</ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.create.asignatura')}</ThemedText>
+        <ThemedText style={styles.hint}>{t('classhall.create.lasMismasDelCalendarPara')}</ThemedText>
         <HanetChoice
-          label="Asignatura"
+          label={t('classhall.create.asignatura')}
           options={[
-            ...subjectsForPlan(plan).map(item => ({ value: item.id, label: item.area ? `${item.name} · Área ${item.area}` : item.name })),
-            { value: 'other', label: 'Otra asignatura' },
+            ...subjectsForPlan(plan).map(item => ({ value: item.id, label: item.area ? t('classhall.create.nameAreaArea', { name: item.name, area: item.area }) : item.name })),
+            { value: 'other', label: t('classhall.create.otraAsignatura') },
           ]}
           value={catalogId}
           onChange={pickSubject}
-          placeholder="Elegir asignatura"
+          placeholder={t('classhall.create.elegirAsignatura')}
           disabled={submitting}
         />
         {catalogId === 'other' && (
           <TextInput
-            accessibilityLabel="Nombre de la asignatura"
+            accessibilityLabel={t('classhall.create.nombreDeLaAsignatura')}
             value={otherSubject}
             onChangeText={(text) => { setOtherSubject(text); setError(null); }}
-            placeholder="Taller de robótica"
+            placeholder={t('classhall.create.tallerDeRobotica')}
             placeholderTextColor={AppColors.surfaceMuted}
             maxLength={60}
             autoFocus
@@ -164,31 +165,31 @@ function CreateHallScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Curso</ThemedText>
+        <ThemedText style={styles.label}>{t('common.curso')}</ThemedText>
         {courses === null && <ActivityIndicator style={styles.loader} color={AppColors.textSecondary} />}
         {courses?.length === 0 && !error && (
-          <ThemedText style={styles.hint}>Tu institución todavía no tiene cursos en su nómina.</ThemedText>
+          <ThemedText style={styles.hint}>{t('classhall.create.tuInstitucionTodaviaNoTiene')}</ThemedText>
         )}
         {editing && (
-          <ThemedText style={styles.hint}>{editing.courseId}. El curso no se puede cambiar.</ThemedText>
+          <ThemedText style={styles.hint}>{t('classhall.create.courseidElCursoNoSe', { courseId: editing.courseId })}</ThemedText>
         )}
         {!editing && plan !== 'comun' && (
-          <ThemedText style={styles.hint}>El curso principal del Hall. Estudiantes de otros cursos se pueden unir con el código.</ThemedText>
+          <ThemedText style={styles.hint}>{t('classhall.create.elCursoPrincipalDelHall')}</ThemedText>
         )}
         {!editing && !!courses?.length && (
           <HanetChoice
-            label="Curso"
+            label={t('common.curso')}
             options={courses.map(option => ({ value: option, label: option }))}
             value={course}
             onChange={(option) => { setCourse(option); setError(null); }}
-            placeholder="Elegir curso"
+            placeholder={t('classhall.create.elegirCurso')}
             disabled={submitting}
           />
         )}
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Portada</ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.create.portada')}</ThemedText>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.themes} accessibilityRole="radiogroup">
           {HALL_THEME_IDS.map((id, index) => {
             const selected = id === theme;
@@ -196,7 +197,7 @@ function CreateHallScreen() {
               <Pressable
                 key={id}
                 accessibilityRole="radio"
-                accessibilityLabel={`Portada ${index + 1}`}
+                accessibilityLabel={t('classhall.create.portadaNumber', { number: index + 1 })}
                 accessibilityState={{ selected }}
                 disabled={submitting}
                 onPress={() => { setTheme(id); setThemeTouched(true); }}
@@ -218,14 +219,14 @@ function CreateHallScreen() {
         onPress={submit}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? (editing ? 'Guardando…' : 'Creando…') : editing ? 'Guardar cambios' : 'Crear Hall'}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? (editing ? t('common.guardando') : t('classhall.create.creando')) : editing ? t('common.guardarCambios') : t('classhall.create.crearHall')}</ThemedText>
       </Pressable>
       <Pressable
         accessibilityRole="button"
         onPress={() => router.back()}
         style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
       {dialog}
     </KeyboardScroll>

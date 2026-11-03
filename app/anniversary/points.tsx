@@ -11,19 +11,20 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 const SIGNS = [
-  { value: 'plus', label: 'Sumar' },
-  { value: 'minus', label: 'Descontar' },
+  { value: 'plus', label: t('anniversary.points.sumar') },
+  { value: 'minus', label: t('anniversary.points.descontar') },
 ];
 
 // The deductions most rules spell out, to fill the form with one tap. The
 // points and the words can be changed before saving.
 const TYPICAL_DEDUCTIONS = [
-  { label: 'Plagio de coreografía', points: 5000 },
-  { label: 'Lienzo pintado fuera del liceo', points: 5000 },
-  { label: 'Pareja de reyes ausente', points: 1000 },
-  { label: 'Desfiló por otra alianza', points: 1000 },
+  { label: t('anniversary.points.plagioDeCoreografia'), points: 5000 },
+  { label: t('anniversary.points.lienzoPintadoFueraDelLiceo'), points: 5000 },
+  { label: t('anniversary.points.parejaDeReyesAusente'), points: 1000 },
+  { label: t('anniversary.points.desfiloPorOtraAlianza'), points: 1000 },
 ];
 
 /** An addition or a deduction, always with its reason, as the rules ask. */
@@ -51,21 +52,21 @@ function PointsScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar los puntos. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.points.noPudimosGuardarLosPuntos')));
       setSubmitting(false);
     }
   };
 
-  const label = sign === 'minus' ? 'Descontar' : 'Sumar';
+  const label = sign === 'minus' ? t('anniversary.points.descontar') : t('anniversary.points.sumar');
   const { allowLeave, dialog } = useUnsavedChangesGuard({ dirty: dirty && !submitting, onSave: submit, saveLabel: label, canSave: ready });
   const name = alliances.find(alliance => alliance.id === allianceId)?.name;
 
   return (
-    <SheetBody title="Sumar o descontar" lead="El motivo lo ve toda la alianza en sus movimientos. Nunca nombres a una persona.">
+    <SheetBody title={t('anniversary.points.sumarODescontar')} lead={t('anniversary.points.elMotivoLoVeToda')}>
       <AlliancePicker alliances={alliances} value={allianceId} onChange={id => { setAllianceId(id); setError(null); }} disabled={submitting} />
-      <HanetChoice label="Sumar o descontar" options={SIGNS} value={sign} onChange={value => setSign(value as 'plus' | 'minus')} disabled={submitting} />
+      <HanetChoice label={t('anniversary.points.sumarODescontar')} options={SIGNS} value={sign} onChange={value => setSign(value as 'plus' | 'minus')} disabled={submitting} />
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Descuentos típicos</ThemedText>
+        <ThemedText style={styles.label}>{t('anniversary.points.descuentosTipicos')}</ThemedText>
         <View style={local.chips}>
           {TYPICAL_DEDUCTIONS.map(item => (
             <HanetChip
@@ -79,19 +80,19 @@ function PointsScreen() {
           ))}
         </View>
       </View>
-      <TextField label="Puntos" value={amount} onChange={value => { setAmount(digitsOnly(value)); setError(null); }} placeholder="1000" keyboardType="number-pad" disabled={submitting} />
+      <TextField label={t('anniversary.detail.puntos')} value={amount} onChange={value => { setAmount(digitsOnly(value)); setError(null); }} placeholder="1000" keyboardType="number-pad" disabled={submitting} />
       <TextField
-        label="Motivo"
+        label={t('anniversary.points.motivo')}
         value={reason}
         onChange={value => { setReason(value); setError(null); }}
-        placeholder={sign === 'minus' ? 'Lienzo pintado fuera del liceo' : '14 canastas solidarias'}
+        placeholder={sign === 'minus' ? t('anniversary.points.lienzoPintadoFueraDelLiceo') : t('anniversary.points.n14CanastasSolidarias')}
         maxLength={160}
         disabled={submitting}
       />
       {ready && name && (
-        <ThemedText style={styles.hint}>{sign === 'minus' ? 'Se descuentan' : 'Se suman'} {formatPoints(Math.abs(points))} puntos a {name}.</ThemedText>
+        <ThemedText style={styles.hint}>{t('anniversary.points.valuePointsPuntosAName', { value: sign === 'minus' ? t('anniversary.points.seDescuentan') : t('anniversary.points.seSuman'), points: formatPoints(Math.abs(points)), name })}</ThemedText>
       )}
-      <SheetActions label={label} busyLabel="Guardando…" ready={ready} busy={submitting} onSubmit={submit} error={error} />
+      <SheetActions label={label} busyLabel={t('common.guardando')} ready={ready} busy={submitting} onSubmit={submit} error={error} />
       {dialog}
     </SheetBody>
   );

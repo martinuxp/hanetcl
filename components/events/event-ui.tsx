@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { t } from '@/i18n';
 
 export const HNE_ICONS = {
   globe: require('@/assets/icons/hne/globe.svg'),
@@ -15,11 +16,11 @@ export const HNE_ICONS = {
   album: require('@/assets/icons/hne/album.svg'),
 } as const;
 
-export const EVENTS_DISCLAIMER = 'HaNet Eventos reúne eventos de distintas fuentes.\nCada organizador responde por su evento, incluidas cancelaciones y devoluciones.';
+export const EVENTS_DISCLAIMER = t('components.events.eventUi.hanetEventosReuneEventosDe');
 
 /** What the price pill says. */
 export function priceLabel(event: Pick<HnEvent, 'isFree' | 'priceFrom'>) {
-  if (event.isFree) return 'Gratis';
+  if (event.isFree) return t('components.events.eventUi.gratis');
   return event.priceFrom ? `Desde ${formatClp(event.priceFrom)}` : null;
 }
 
@@ -103,7 +104,7 @@ export function FeaturedEventCard({ event, now, width, onPress }: { event: HnEve
   const when = eventSoon(event.startsAt, now) ?? eventWhen(event);
   const price = priceLabel(event);
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${event.title}, ${when}, ${event.venueName}. Abrir`} onPress={onPress} style={({ pressed }) => [styles.featured, { width }, pressed && AppPressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('components.events.eventUi.titleWhenVenuenameAbrir', { title: event.title, when, venueName: event.venueName })} onPress={onPress} style={({ pressed }) => [styles.featured, { width }, pressed && AppPressed]}>
       {event.imageUrl ? <Image source={{ uri: event.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
       <View style={styles.featuredShade} />
       <View style={styles.featuredTop}>
@@ -146,14 +147,14 @@ export function EventCard({ event, onPress, action }: CardProps) {
   const institution = event.kind === 'institution';
   const perkLine = institution
     ? event.signupMode === 'list'
-      ? `Requiere inscripción${event.signupCount ? ` · ${event.signupCount} ${event.signupCount === 1 ? 'inscrito' : 'inscritos'}` : ''}`
+      ? t('components.events.eventUi.requiereInscripcionValue', { value: event.signupCount ? t('components.events.eventUi.countInscritos', { count: event.signupCount }) : '' })
       : event.signupMode === 'count'
-        ? `No requiere inscripción${event.signupCount ? ` · ${event.signupCount} ${event.signupCount === 1 ? 'participa' : 'participan'}` : ''}`
+        ? t('components.events.eventUi.noRequiereInscripcionValue', { value: event.signupCount ? t('components.events.eventUi.countParticipan', { count: event.signupCount }) : '' })
         : ''
     : event.perk;
   return (
     <View style={styles.card}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${event.title}, ${eventWhen(event)}, ${event.venueName}. Ver más`} onPress={onPress} style={({ pressed }) => [styles.cardImageWrap, pressed && AppPressed]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('components.events.eventUi.titleEventwhenVenuenameVerMas', { title: event.title, eventWhen: eventWhen(event), venueName: event.venueName })} onPress={onPress} style={({ pressed }) => [styles.cardImageWrap, pressed && AppPressed]}>
         {event.imageUrl ? (
           <Image source={{ uri: event.imageUrl }} style={styles.cardImage} contentFit="cover" transition={150} />
         ) : (
@@ -161,8 +162,8 @@ export function EventCard({ event, onPress, action }: CardProps) {
             <CustomIcon name="calendar" size={40} color={AppColors.textSecondary} />
           </View>
         )}
-        {event.sponsored && <ThemedText style={styles.sponsored}>[Patrocinado]</ThemedText>}
-        <View style={styles.moreChip}><ThemedText style={styles.moreText}>Ver más</ThemedText></View>
+        {event.sponsored && <ThemedText style={styles.sponsored}>{t('eventDetail.patrocinado')}</ThemedText>}
+        <View style={styles.moreChip}><ThemedText style={styles.moreText}>{t('components.events.eventUi.verMas')}</ThemedText></View>
       </Pressable>
       <View style={styles.cardInfo}>
         <View style={styles.cardText}>
