@@ -1,11 +1,19 @@
 {
   "releases": [
     {
-      "version": "0.3.6-beta",
+      "version": "0.3.7-beta",
       "date": "2026-11-03",
       "title": "",
       "items": [
         "Por dentro, todos los textos de la app quedaron en un solo lugar, listos para traducirse a otros idiomas. Lo que lees no cambia."
+      ]
+    },
+    {
+      "version": "0.3.6-beta",
+      "date": "2026-11-03",
+      "title": "",
+      "items": [
+        "En Android llega el widget \"HaNet: tu día\" para la pantalla de inicio: tu clase de ahora o la siguiente y tu próxima prueba, en 2×2."
       ]
     },
     {

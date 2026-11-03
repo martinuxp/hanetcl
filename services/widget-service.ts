@@ -6,27 +6,36 @@ import { calendarWidgetTimeline } from './calendar-widget';
 import type { WidgetEvent } from './calendar-widget';
 import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
 import type { HomeWidgetProps } from '@/widgets/home-widget';
+import type { HomeWidgetAndroidProps } from '@/widgets/home-widget.android';
 import type { ExamActivityProps } from '@/widgets/exam-activity';
 import type { LiveActivityFactory, Widget } from 'expo-widgets';
 import { t, weekdays } from '@/i18n';
 
-// The iPhone's home screen widget and the evaluation's Live Activity
-// (widgets/). They exist only in a native build with expo-widgets: in Expo
-// Go, on Android and on the web these functions do nothing, and the app
-// never loads the widget files there.
+// The iPhone's home screen widget and the evaluation's Live Activity, and the
+// Android home screen widget (widgets/). They exist only in a native build
+// with expo-widgets: in Expo Go and on the web these functions do nothing, and
+// the app never loads the widget files there. On Android there is only "HaNet
+// hoy" (widgets/home-widget.android.tsx, which Metro picks for the same import).
 
-const widgetsModule = Platform.OS === 'ios' ? requireOptionalNativeModule<{ widgetsDirectory?: string | null }>('ExpoWidgets') : null;
+const widgetsModule = Platform.OS === 'ios' || Platform.OS === 'android'
+  ? requireOptionalNativeModule<{ widgetsDirectory?: string | null }>('ExpoWidgets')
+  : null;
 
-export const widgetsAvailable = !!widgetsModule;
+/** The iPhone's widgets and Live Activity. */
+export const widgetsAvailable = Platform.OS === 'ios' && !!widgetsModule;
+
+/** The Android home screen widget. */
+export const androidWidgetAvailable = Platform.OS === 'android' && !!widgetsModule;
 
 /**
  * Whether the app reaches the App Group it shares with the widget. Without it
  * (a build re-signed with a certificate that has no App Groups) the widget
  * keeps its first layout and the Live Activity shows up empty.
  */
-export const widgetsShareData = !!widgetsModule?.widgetsDirectory;
+export const widgetsShareData = widgetsAvailable && !!widgetsModule?.widgetsDirectory;
 
 let homeWidget: Widget<HomeWidgetProps> | null = null;
+let androidHomeWidget: Widget<HomeWidgetAndroidProps> | null = null;
 let calendarWidget: Widget<CalendarWidgetProps> | null = null;
 let examActivity: LiveActivityFactory<ExamActivityProps> | null = null;
 
@@ -35,6 +44,13 @@ function home() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded only where the native module exists
   homeWidget ??= require('@/widgets/home-widget').default as Widget<HomeWidgetProps>;
   return homeWidget;
+}
+
+function androidHome() {
+  if (!androidWidgetAvailable) return null;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro resolves it to home-widget.android.tsx
+  androidHomeWidget ??= require('@/widgets/home-widget').default as Widget<HomeWidgetAndroidProps>;
+  return androidHomeWidget;
 }
 
 function calendar() {
@@ -88,19 +104,21 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
       return { label: offset === 1 ? t('common.manana') : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: t('services.widgetService.entrasALasStart', { start: first.start }), exam };
     }
   }
-  return { label: t('common.hoy2'), subject: blocks.some(block => !isBreak(block)) ? 'Sin clases' : 'Sin horario', detail: blocks.some(block => !isBreak(block)) ? t('services.widgetService.disfrutaElDia') : t('services.widgetService.tuCursoAunNoTiene'), exam };
+  return { label: t('common.hoy2'), subject: blocks.some(block => !isBreak(block)) ? t('services.widgetService.sinClases') : t('services.widgetService.sinHorario'), detail: blocks.some(block => !isBreak(block)) ? t('services.widgetService.disfrutaElDia') : t('services.widgetService.tuCursoAunNoTiene'), exam };
 }
 
 function publish() {
   let widget: Widget<HomeWidgetProps> | null;
+  let androidWidget: Widget<HomeWidgetAndroidProps> | null;
   try {
     widget = home();
+    androidWidget = androidHome();
   } catch (error) {
     // The widget never stops the reminders that come right after it.
     console.warn('syncHomeWidget', error instanceof Error ? error.message : error);
     return;
   }
-  if (!widget) return;
+  if (!widget && !androidWidget) return;
   const blocks = lastBlocks ?? [];
   const now = new Date();
   // A change at every start and end of a block, today and tomorrow.
@@ -120,8 +138,12 @@ function publish() {
     midnight.setHours(24, 0, 0, 0);
     moments.add(midnight.getTime());
   }
+  const times = [...moments].sort((a, b) => a - b);
   try {
-    widget.updateTimeline([...moments].sort((a, b) => a - b).map(time => ({ date: new Date(time), props: propsAt(blocks, new Date(time)) })));
+    widget?.updateTimeline(times.map(time => ({ date: new Date(time), props: propsAt(blocks, new Date(time)) })));
+    // Android has no timeline: the widget gets every moment and picks the one
+    // that applies whenever it redraws.
+    androidWidget?.updateSnapshot({ entries: times.map(time => ({ at: time, ...propsAt(blocks, new Date(time)) })) });
   } catch (error) {
     console.warn('syncHomeWidget', error instanceof Error ? error.message : error);
   }

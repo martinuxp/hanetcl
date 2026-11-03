@@ -2036,6 +2036,8 @@
       "pruebaDeSubjectEnDays": "Prueba de {{subject}} en {{days}} días",
       "pruebaDeSubjectHoyTime": "Prueba de {{subject}} hoy, {{time}}",
       "pruebaDeSubjectMananaTime": "Prueba de {{subject}} mañana, {{time}}",
+      "sinClases": "Sin clases",
+      "sinHorario": "Sin horario",
       "tuCursoAunNoTiene": "Tu curso aún no tiene horario"
     }
   },

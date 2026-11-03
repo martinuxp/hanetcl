@@ -39,6 +39,6 @@ El script se salta lo que parece dato y no texto: comparaciones, `case`, claves 
 ## Lo que todavía no pasa por aquí
 
 - Los mensajes de error que vienen de las Cloud Functions (`functions/`), que llegan en español.
-- Los widgets de iPhone (`widgets/`): corren aparte y sus textos de respaldo ("Abre HaNet", "Tu día") siguen escritos en el widget. Lo demás se lo pasa la app ya traducido.
+- Los widgets (`widgets/`, de iPhone y Android): corren aparte y sus textos de respaldo ("Abre HaNet", "Tu día") siguen escritos en el widget. Lo demás se lo pasa la app ya traducido.
 - Las Novedades (`constants/changelog.json`) y los nombres de asignaturas (`constants/subjects.ts`, que son datos compartidos con las funciones).
 - Algunas fechas usan `toLocaleDateString('es-CL')` directo; para otro idioma conviene cambiarlas por `dateLocale()`.
