@@ -2,6 +2,9 @@ import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 import { blocksOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
 import type { ScheduleBlock } from './schedule-service';
+import { calendarWidgetTimeline } from './calendar-widget';
+import type { WidgetEvent } from './calendar-widget';
+import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
 import type { HomeWidgetProps } from '@/widgets/home-widget';
 import type { ExamActivityProps } from '@/widgets/exam-activity';
 import type { LiveActivityFactory, Widget } from 'expo-widgets';
@@ -23,6 +26,7 @@ export const widgetsAvailable = !!widgetsModule;
 export const widgetsShareData = !!widgetsModule?.widgetsDirectory;
 
 let homeWidget: Widget<HomeWidgetProps> | null = null;
+let calendarWidget: Widget<CalendarWidgetProps> | null = null;
 let examActivity: LiveActivityFactory<ExamActivityProps> | null = null;
 
 function home() {
@@ -30,6 +34,13 @@ function home() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded only where the native module exists
   homeWidget ??= require('@/widgets/home-widget').default as Widget<HomeWidgetProps>;
   return homeWidget;
+}
+
+function calendar() {
+  if (!widgetsAvailable) return null;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded only where the native module exists
+  calendarWidget ??= require('@/widgets/calendar-widget').default as Widget<CalendarWidgetProps>;
+  return calendarWidget;
 }
 
 export function examActivities() {
@@ -42,6 +53,7 @@ export function examActivities() {
 // What the widget last got, so the timetable and the exam can arrive apart.
 let lastBlocks: ScheduleBlock[] | null = null;
 let lastExam: { subject: string; startsAt: number } | null = null;
+let lastEvents: WidgetEvent[] | null = null;
 
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -114,10 +126,29 @@ function publish() {
   }
 }
 
+/** The Lock Screen "Calendar": the week's classes with the course's events inside them. */
+function publishCalendar() {
+  // Without the timetable it would say "Sin horario" for a moment: it waits for it.
+  if (!lastBlocks) return;
+  try {
+    const widget = calendar();
+    widget?.updateTimeline(calendarWidgetTimeline(lastBlocks, lastEvents ?? []));
+  } catch (error) {
+    console.warn('syncCalendarWidget', error instanceof Error ? error.message : error);
+  }
+}
+
 /** The course's timetable changed or loaded. */
 export function syncHomeWidget(blocks: ScheduleBlock[]) {
   lastBlocks = blocks;
   publish();
+  publishCalendar();
+}
+
+/** The course's Calendar events loaded (all of them, not only the tests). */
+export function syncCalendarWidget(events: WidgetEvent[]) {
+  lastEvents = events;
+  publishCalendar();
 }
 
 /** The next evaluation of the Calendar, or null when there is none. */

@@ -3,11 +3,11 @@ import { claimedCourse } from './auth-service';
 import { syncExamReminders } from './exam-reminders';
 import { fetchCalendarEvents, restoreCalendarEvents } from './ical-service';
 import { getCourseSchedule, myWeek, restoreCourseSchedule } from './schedule-service';
-import { syncHomeWidget } from './widget-service';
+import { syncCalendarWidget, syncHomeWidget } from './widget-service';
 
 // Opening HaNet (and coming back to it) brings the phone's own copies up to
 // date: the evaluation reminders and the Live Activity from the course's
-// Calendar, and the widget from the timetable. What the phone kept goes
+// Calendar, and the widgets from the timetable and the Calendar's events. What the phone kept goes
 // first, so a phone without signal still gets them right.
 
 let lastRun = 0;
@@ -22,10 +22,17 @@ export async function refreshDayWidgets(user: User) {
     const courseId = await claimedCourse(user);
     if (!courseId) return;
     const [keptEvents, keptSchedule] = await Promise.all([restoreCalendarEvents(courseId), restoreCourseSchedule()]);
-    if (keptEvents) void syncExamReminders(keptEvents);
+    // The Lock Screen Calendar shows the events whether or not the reminders are on.
+    if (keptEvents) {
+      syncCalendarWidget(keptEvents);
+      void syncExamReminders(keptEvents);
+    }
     if (keptSchedule) syncHomeWidget(myWeek(keptSchedule));
     const [events, schedule] = await Promise.allSettled([fetchCalendarEvents(courseId), getCourseSchedule()]);
-    if (events.status === 'fulfilled') void syncExamReminders(events.value);
+    if (events.status === 'fulfilled') {
+      syncCalendarWidget(events.value);
+      void syncExamReminders(events.value);
+    }
     if (schedule.status === 'fulfilled') syncHomeWidget(myWeek(schedule.value));
   } catch (error) {
     console.warn('refreshDayWidgets', error instanceof Error ? error.message : error);
