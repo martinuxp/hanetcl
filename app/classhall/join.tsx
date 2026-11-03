@@ -12,6 +12,7 @@ import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { Platform, Pressable, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 const LOGO = require('@/assets/images/ClassHall.svg');
 const BOXES = Array.from({ length: HALL_CODE_LENGTH }, (_, index) => index);
@@ -44,7 +45,7 @@ function JoinHallScreen() {
         const reason = hallErrorCode(error);
         if (reason === 'not-found') setStatus({ kind: 'invalid' });
         else if (reason === 'permission-denied') setStatus({ kind: 'rejected' });
-        else setStatus({ kind: 'failed', message: describeAuthError(error, 'No pudimos comprobar el código. Inténtalo nuevamente.') });
+        else setStatus({ kind: 'failed', message: describeAuthError(error, t('classhall.join.noPudimosComprobarElCodigo')) });
         if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       });
     return () => { active = false; };
@@ -70,29 +71,29 @@ function JoinHallScreen() {
       allowLeave();
       router.back();
     } catch (error) {
-      setStatus({ kind: 'failed', message: describeAuthError(error, 'No pudimos unirte al Hall. Inténtalo nuevamente.') });
+      setStatus({ kind: 'failed', message: describeAuthError(error, t('classhall.join.noPudimosUnirteAlHall')) });
       setJoining(false);
     }
   };
 
   const wrong = status.kind === 'invalid' || status.kind === 'rejected';
   const found = status.kind === 'found';
-  let buttonLabel = 'Unirse';
-  if (status.kind === 'checking') buttonLabel = 'Comprobando…';
-  else if (joining) buttonLabel = 'Uniéndote…';
-  else if (status.kind === 'invalid') buttonLabel = 'Código inválido';
-  else if (status.kind === 'rejected') buttonLabel = 'No puedes entrar a este Hall';
-  else if (found) buttonLabel = status.hall.alreadyMember ? `Ya estás en “${status.hall.subject}”` : `Unirse a “${status.hall.subject} - ${status.hall.courseId}”`;
+  let buttonLabel = t('classhall.join.unirse');
+  if (status.kind === 'checking') buttonLabel = t('classhall.join.comprobando');
+  else if (joining) buttonLabel = t('classhall.join.uniendote');
+  else if (status.kind === 'invalid') buttonLabel = t('classhall.join.codigoInvalido');
+  else if (status.kind === 'rejected') buttonLabel = t('classhall.join.noPuedesEntrarAEste');
+  else if (found) buttonLabel = status.hall.alreadyMember ? t('classhall.join.yaEstasEnSubject', { subject: status.hall.subject }) : t('classhall.join.unirseASubjectCourseid', { subject: status.hall.subject, courseId: status.hall.courseId });
 
   // Closing with a code typed asks first; a found Hall can be joined from there.
   const canJoin = status.kind === 'found' && !status.hall.alreadyMember;
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: code.length > 0 && !joining,
     onSave: join,
-    saveLabel: 'Unirse',
+    saveLabel: t('classhall.join.unirse'),
     canSave: canJoin,
-    title: '¿Salir sin unirte?',
-    message: canJoin ? 'El código es válido, pero todavía no te has unido al Hall.' : 'El código que escribiste se perderá.',
+    title: t('classhall.join.salirSinUnirte'),
+    message: canJoin ? t('classhall.join.elCodigoEsValidoPero') : t('classhall.join.elCodigoQueEscribisteSe'),
   });
 
   return (
@@ -101,15 +102,15 @@ function JoinHallScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Image source={LOGO} style={styles.logo} contentFit="contain" accessibilityLabel="HaNet ClassHall" />
-      <ThemedText accessibilityRole="header" style={styles.title}>Unirse a un Hall</ThemedText>
+      <Image source={LOGO} style={styles.logo} contentFit="contain" accessibilityLabel={t('common.hanetClasshall')} />
+      <ThemedText accessibilityRole="header" style={styles.title}>{t('classhall.unirseAUnHall')}</ThemedText>
       <ThemedText style={styles.lead}>
-        Pídele el código a tu docente.
+        {t('classhall.join.pideleElCodigoATu')}
       </ThemedText>
 
       <View style={styles.divider} />
 
-      <ThemedText style={styles.label}>Código del Hall</ThemedText>
+      <ThemedText style={styles.label}>{t('classhall.join.codigoDelHall')}</ThemedText>
       <Pressable accessible={false} onPress={() => input.current?.focus()} style={styles.boxes}>
         {BOXES.map(index => (
           <View key={index} style={[styles.box, index === code.length && styles.boxCurrent]}>
@@ -121,7 +122,7 @@ function JoinHallScreen() {
         {/* One real field under the boxes: typing, pasting and deleting just work. */}
         <TextInput
           ref={input}
-          accessibilityLabel="Código del Hall, 6 letras o números"
+          accessibilityLabel={t('classhall.join.codigoDelHall6Letras')}
           value={code}
           onChangeText={changeCode}
           onSubmitEditing={join}
@@ -151,12 +152,12 @@ function JoinHallScreen() {
 
       {status.kind === 'rejected' && (
         <ThemedText accessibilityLiveRegion="assertive" style={styles.footnote}>
-          Este Hall es de otro curso, así que no puedes entrar.
+          {t('classhall.join.esteHallEsDeOtro')}
         </ThemedText>
       )}
       {status.kind === 'invalid' && (
         <ThemedText accessibilityLiveRegion="assertive" style={styles.footnote}>
-          Ese código no corresponde a ningún Hall. Revísalo con tu docente.
+          {t('classhall.join.eseCodigoNoCorrespondeA')}
         </ThemedText>
       )}
       {status.kind === 'failed' && (
@@ -167,7 +168,7 @@ function JoinHallScreen() {
         onPress={() => router.back()}
         style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
       {dialog}
     </KeyboardScroll>

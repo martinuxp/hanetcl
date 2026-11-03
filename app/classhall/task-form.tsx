@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 const MAX_INSTRUCTIONS = 3000;
 
@@ -29,8 +30,8 @@ function defaultDue() {
 }
 
 const LATE_OPTIONS = [
-  { value: 'no', label: 'No' },
-  { value: 'yes', label: 'Sí, marcadas como atrasadas' },
+  { value: 'no', label: t('classhall.taskForm.no') },
+  { value: 'yes', label: t('classhall.taskForm.siMarcadasComoAtrasadas') },
 ];
 
 /** The teacher publishes a task or edits one: what to do, until when and an optional file. */
@@ -71,14 +72,14 @@ function TaskFormScreen() {
       const picked = await pickHallDocument();
       if (picked) setFile(picked);
     } catch (pickError) {
-      setError(pickError instanceof DocumentError ? pickError.message : 'No pudimos abrir el archivo.');
+      setError(pickError instanceof DocumentError ? pickError.message : t('common.noPudimosAbrirElArchivo'));
     }
   };
 
   const submit = async () => {
     if (!ready || submitting) return;
     if (pastDue) {
-      setError('La fecha de entrega ya pasó. Elige una fecha futura.');
+      setError(t('classhall.taskForm.laFechaDeEntregaYa'));
       return;
     }
     setSubmitting(true);
@@ -95,19 +96,19 @@ function TaskFormScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar la tarea. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('classhall.taskForm.noPudimosGuardarLaTarea')));
       setSubmitting(false);
     }
   };
 
-  const label = id ? 'Guardar cambios' : 'Publicar tarea';
+  const label = id ? t('common.guardarCambios') : t('classhall.taskForm.publicarTarea');
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: dirty && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready && !pastDue,
-    title: id ? '¿Descartar los cambios?' : '¿Descartar esta tarea?',
-    message: id ? 'La tarea quedará como estaba.' : 'Todavía no la has publicado.',
+    title: id ? t('common.descartarLosCambios') : t('classhall.taskForm.descartarEstaTarea'),
+    message: id ? t('classhall.taskForm.laTareaQuedaraComoEstaba') : t('classhall.taskForm.todaviaNoLaHasPublicado'),
   });
 
   const shownFile = file ? file.name : existing && !removeExisting ? existing.name : null;
@@ -118,16 +119,16 @@ function TaskFormScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{id ? 'Editar tarea' : 'Nueva tarea'}</ThemedText>
-      <ThemedText style={styles.lead}>Tus estudiantes la entregan en el Hall. También aparece en el Calendar del curso.</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{id ? t('classhall.taskForm.editarTarea') : t('classhall.taskForm.nuevaTarea')}</ThemedText>
+      <ThemedText style={styles.lead}>{t('classhall.taskForm.tusEstudiantesLaEntreganEn')}</ThemedText>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Nombre</ThemedText>
+        <ThemedText style={styles.label}>{t('common.nombre')}</ThemedText>
         <TextInput
-          accessibilityLabel="Nombre de la tarea"
+          accessibilityLabel={t('classhall.taskForm.nombreDeLaTarea')}
           value={form.title}
           onChangeText={title => update({ title })}
-          placeholder="Guía de ejercicios N°2"
+          placeholder={t('classhall.taskForm.guiaDeEjerciciosN2')}
           placeholderTextColor={AppColors.surfaceMuted}
           maxLength={80}
           editable={!submitting}
@@ -138,12 +139,12 @@ function TaskFormScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Instrucciones <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.taskForm.instrucciones')}{' '}<ThemedText style={styles.optional}>{t('common.opcional')}</ThemedText></ThemedText>
         <TextInput
-          accessibilityLabel="Instrucciones"
+          accessibilityLabel={t('classhall.taskForm.instrucciones')}
           value={form.instructions}
           onChangeText={instructions => update({ instructions })}
-          placeholder="Resolver los ejercicios 1 al 10 y subir una foto o el PDF de tu desarrollo."
+          placeholder={t('classhall.taskForm.resolverLosEjercicios1Al')}
           placeholderTextColor={AppColors.surfaceMuted}
           multiline
           maxLength={MAX_INSTRUCTIONS}
@@ -154,24 +155,24 @@ function TaskFormScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Se entrega hasta</ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.taskForm.seEntregaHasta')}</ThemedText>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Se entrega hasta: ${hallLongDate(form.dueAt)}. Cambiar`}
+          accessibilityLabel={t('classhall.taskForm.seEntregaHastaHalllongdateCambiar', { hallLongDate: hallLongDate(form.dueAt) })}
           disabled={submitting}
           onPress={() => setPicking(true)}
           style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
         >
           <ThemedText numberOfLines={1} style={local.dateText}>{hallLongDate(form.dueAt)}</ThemedText>
-          <ThemedText style={local.dateAction}>Cambiar</ThemedText>
+          <ThemedText style={local.dateAction}>{t('common.cambiar')}</ThemedText>
         </Pressable>
-        {pastDue && <ThemedText style={styles.hint}>Esa fecha ya pasó.</ThemedText>}
+        {pastDue && <ThemedText style={styles.hint}>{t('anniversary.deadline.esaFechaYaPaso')}</ThemedText>}
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>¿Recibir entregas atrasadas?</ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.taskForm.recibirEntregasAtrasadas')}</ThemedText>
         <HanetChoice
-          label="¿Recibir entregas atrasadas?"
+          label={t('classhall.taskForm.recibirEntregasAtrasadas')}
           options={LATE_OPTIONS}
           value={form.acceptLate ? 'yes' : 'no'}
           onChange={value => update({ acceptLate: value === 'yes' })}
@@ -180,29 +181,29 @@ function TaskFormScreen() {
       </View>
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Material <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.taskForm.material')}{' '}<ThemedText style={styles.optional}>{t('common.opcional')}</ThemedText></ThemedText>
         {shownFile ? (
           <View style={local.attachment}>
             <ThemedText numberOfLines={1} style={local.attachmentName}>{shownFile}</ThemedText>
             <Pressable accessibilityRole="button" disabled={submitting} onPress={chooseFile} style={({ pressed }) => [local.pill, pressed && styles.pressed]}>
-              <ThemedText style={local.pillText}>Cambiar</ThemedText>
+              <ThemedText style={local.pillText}>{t('common.cambiar')}</ThemedText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Quitar el material"
+              accessibilityLabel={t('classhall.taskForm.quitarElMaterial')}
               disabled={submitting}
               onPress={() => { if (file) setFile(null); else setRemoveExisting(true); }}
               style={({ pressed }) => [local.pill, pressed && styles.pressed]}
             >
-              <ThemedText style={local.pillText}>Quitar</ThemedText>
+              <ThemedText style={local.pillText}>{t('common.quitar')}</ThemedText>
             </Pressable>
           </View>
         ) : (
           <Pressable accessibilityRole="button" disabled={submitting} onPress={chooseFile} style={({ pressed }) => [local.attach, pressed && styles.pressed]}>
-            <ThemedText style={local.pillText}>Adjuntar una guía o archivo</ThemedText>
+            <ThemedText style={local.pillText}>{t('classhall.taskForm.adjuntarUnaGuiaOArchivo')}</ThemedText>
           </Pressable>
         )}
-        <ThemedText style={styles.hint}>PDF, Word, PowerPoint, Excel o imagen, hasta 10 MB. También aparece en Documentos.</ThemedText>
+        <ThemedText style={styles.hint}>{t('classhall.announce.pdfWordPowerpointExcelO')}</ThemedText>
       </View>
 
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
@@ -214,10 +215,10 @@ function TaskFormScreen() {
         onPress={submit}
         style={({ pressed }) => [styles.submit, (!ready || submitting) && styles.submitDisabled, pressed && styles.pressed]}
       >
-        <ThemedText style={styles.submitText}>{submitting ? 'Guardando…' : label}</ThemedText>
+        <ThemedText style={styles.submitText}>{submitting ? t('common.guardando') : label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
 
       <HanetDateTimePickerModal

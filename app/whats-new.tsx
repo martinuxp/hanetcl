@@ -6,11 +6,12 @@ import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { monthsShort, t } from '@/i18n';
 
 // Every PR adds its release on top (scripts/version.js keeps it in step with app.json).
 type Release = (typeof CHANGELOG.releases)[number];
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MONTHS = monthsShort();
 
 function formatDate(iso: string) {
   const [year, month, day] = iso.split('-').map(Number);
@@ -28,9 +29,9 @@ export default function WhatsNewScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.header}>
-            <ThemedText style={styles.eyebrow}>Configuraciones</ThemedText>
-            <ThemedText accessibilityRole="header" style={styles.title}>Novedades</ThemedText>
-            <ThemedText style={styles.intro}>Tienes HaNet {APP_VERSION_LABEL}. Esto es lo que cambió en cada versión.</ThemedText>
+            <ThemedText style={styles.eyebrow}>{t('common.configuraciones')}</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.title}>{t('settings.novedades')}</ThemedText>
+            <ThemedText style={styles.intro}>{t('whatsNew.tienesHanetAppversionlabelEstoEs', { appVersionLabel: APP_VERSION_LABEL })}</ThemedText>
           </View>
         }
         ItemSeparatorComponent={Separator}
@@ -47,7 +48,7 @@ function ReleaseCard({ release, current }: { release: Release; current: boolean 
         <ThemedText style={styles.version}>v{release.version}</ThemedText>
         {current && (
           <View style={styles.badge}>
-            <ThemedText style={styles.badgeText}>Actual</ThemedText>
+            <ThemedText style={styles.badgeText}>{t('whatsNew.actual')}</ThemedText>
           </View>
         )}
         <ThemedText style={styles.date}>{formatDate(release.date)}</ThemedText>

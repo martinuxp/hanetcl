@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 const MAX_ITEMS = 6;
 const MAX_NOTE = 1000;
@@ -30,7 +31,7 @@ function AddOption({ icon, label, onPress, disabled }: { icon: 'file-text' | 'ca
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Agregar ${label.toLocaleLowerCase('es')}`}
+      accessibilityLabel={t('classhall.submit.agregarLabel', { label: label.toLocaleLowerCase('es') })}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -85,7 +86,7 @@ function SubmitScreen() {
       const picked = await pickHallDocument();
       if (picked) addFile(picked);
     } catch (pickError) {
-      setError(pickError instanceof DocumentError ? pickError.message : 'No pudimos abrir el archivo.');
+      setError(pickError instanceof DocumentError ? pickError.message : t('common.noPudimosAbrirElArchivo'));
     }
   };
 
@@ -97,18 +98,18 @@ function SubmitScreen() {
       const photo = await pickSubmissionPhoto(source);
       if (photo) addFile(photo);
     } catch (pickError) {
-      setError(pickError instanceof DocumentError ? pickError.message : 'No pudimos abrir la foto.');
+      setError(pickError instanceof DocumentError ? pickError.message : t('classhall.submit.noPudimosAbrirLaFoto'));
     }
   };
 
   const addLink = () => {
     const url = cleanSubmissionLink(linkText);
     if (!url) {
-      setLinkError('Eso no parece una dirección web. Cópiala completa, por ejemplo docs.google.com/…');
+      setLinkError(t('classhall.submit.esoNoPareceUnaDireccion'));
       return;
     }
     if (links.some(link => link.url === url) || kept.some(item => item.kind === 'link' && item.url === url)) {
-      setLinkError('Ese vínculo ya está en tu entrega.');
+      setLinkError(t('classhall.submit.eseVinculoYaEstaEn'));
       return;
     }
     setLinks(list => [...list, { url, name: new URL(url).hostname.replace(/^www\./, '') + new URL(url).pathname.replace(/\/$/, '') }]);
@@ -138,18 +139,18 @@ function SubmitScreen() {
       router.back();
     } catch (submitError) {
       setProgress(null);
-      setError(submitError instanceof DocumentError ? submitError.message : describeAuthError(submitError, 'No pudimos entregar la tarea. Revisa tu conexión e inténtalo nuevamente.'));
+      setError(submitError instanceof DocumentError ? submitError.message : describeAuthError(submitError, t('classhall.submit.noPudimosEntregarLaTarea')));
     }
   };
 
-  const label = previous ? 'Actualizar entrega' : 'Entregar';
+  const label = previous ? t('classhall.submit.actualizarEntrega') : t('classhall.submit.entregar');
   const { allowLeave, dialog } = useUnsavedChangesGuard({
     dirty: changed && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready,
-    title: previous ? '¿Descartar los cambios?' : '¿Descartar esta entrega?',
-    message: previous ? 'Tu entrega quedará como estaba.' : 'Todavía no has entregado la tarea.',
+    title: previous ? t('common.descartarLosCambios') : t('classhall.submit.descartarEstaEntrega'),
+    message: previous ? t('classhall.submit.tuEntregaQuedaraComoEstaba') : t('classhall.submit.todaviaNoHasEntregadoLa'),
   });
 
   return (
@@ -158,20 +159,20 @@ function SubmitScreen() {
       contentContainerStyle={[styles.content, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.xxl, paddingBottom: insets.bottom + AppSpacing.xl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <ThemedText accessibilityRole="header" style={styles.title}>{previous ? 'Editar entrega' : 'Entregar tarea'}</ThemedText>
+      <ThemedText accessibilityRole="header" style={styles.title}>{previous ? t('classhall.submit.editarEntrega') : t('classhall.submit.entregarTarea')}</ThemedText>
       {!!loaded && (
         <ThemedText style={styles.lead}>
-          {loaded.task.title} · {dueLabel(loaded.task.dueAt, openedAt)}{late ? '. Quedará marcada como atrasada.' : '.'}
+          {loaded.task.title} · {dueLabel(loaded.task.dueAt, openedAt)}{late ? t('classhall.submit.quedaraMarcadaComoAtrasada') : '.'}
         </ThemedText>
       )}
 
       <View style={local.options}>
-        <AddOption icon="file-text" label="Archivo" disabled={full || submitting} onPress={() => void chooseFile()} />
-        <AddOption icon="camera" label="Foto" disabled={full || submitting} onPress={() => { setError(null); setChoosingPhoto(true); }} />
-        <AddOption icon="link" label="Vínculo" disabled={full || submitting} onPress={() => { setError(null); setLinkError(null); setAddingLink(true); }} />
+        <AddOption icon="file-text" label={t('classhall.submit.archivo')} disabled={full || submitting} onPress={() => void chooseFile()} />
+        <AddOption icon="camera" label={t('classhall.submit.foto')} disabled={full || submitting} onPress={() => { setError(null); setChoosingPhoto(true); }} />
+        <AddOption icon="link" label={t('classhall.submit.vinculo')} disabled={full || submitting} onPress={() => { setError(null); setLinkError(null); setAddingLink(true); }} />
       </View>
       <ThemedText style={[styles.hint, local.hint]}>
-        {full ? `Llegaste al máximo de ${MAX_ITEMS} archivos o vínculos.` : 'PDF, Word, PowerPoint, Excel o imagen, hasta 10 MB cada uno. Vínculos a Drive, Canva, YouTube u otros.'}
+        {full ? t('classhall.submit.llegasteAlMaximoDeMaxitems', { maxItems: MAX_ITEMS }) : t('classhall.submit.pdfWordPowerpointExcelO')}
       </ThemedText>
 
       {count > 0 ? (
@@ -193,17 +194,17 @@ function SubmitScreen() {
         </View>
       ) : (
         <View style={local.empty}>
-          <ThemedText style={local.emptyText}>Todavía no has agregado nada. Sube un archivo, una foto o un vínculo.</ThemedText>
+          <ThemedText style={local.emptyText}>{t('classhall.submit.todaviaNoHasAgregadoNada')}</ThemedText>
         </View>
       )}
 
       <View style={styles.field}>
-        <ThemedText style={styles.label}>Comentario para tu docente <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+        <ThemedText style={styles.label}>{t('classhall.submit.comentarioParaTuDocente')}{' '}<ThemedText style={styles.optional}>{t('common.opcional')}</ThemedText></ThemedText>
         <TextInput
-          accessibilityLabel="Comentario para tu docente"
+          accessibilityLabel={t('classhall.submit.comentarioParaTuDocente')}
           value={note}
           onChangeText={text => { setNote(text); setError(null); }}
-          placeholder="Por ejemplo, qué parte te costó."
+          placeholder={t('classhall.submit.porEjemploQueParteTe')}
           placeholderTextColor={AppColors.surfaceMuted}
           multiline
           maxLength={MAX_NOTE}
@@ -225,20 +226,20 @@ function SubmitScreen() {
         <ThemedText style={styles.submitText}>{label}</ThemedText>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
-        <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+        <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
       </Pressable>
 
-      <HanetDialog visible={choosingPhoto} onRequestClose={() => setChoosingPhoto(false)} dismissOnBackdrop title="Agregar una foto" body="Para tareas en el cuaderno o en papel: que se vea toda la hoja, con buena luz.">
+      <HanetDialog visible={choosingPhoto} onRequestClose={() => setChoosingPhoto(false)} dismissOnBackdrop title={t('classhall.submit.agregarUnaFoto')} body={t('classhall.submit.paraTareasEnElCuaderno')}>
         <View style={local.dialogButtons}>
-          {Platform.OS !== 'web' && <HanetButton label="Tomar foto" onPress={() => void choosePhoto('camera')} />}
-          <HanetButton label="Elegir de la galería" variant={Platform.OS === 'web' ? 'primary' : 'surface'} onPress={() => void choosePhoto('library')} />
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setChoosingPhoto(false)} />
+          {Platform.OS !== 'web' && <HanetButton label={t('classhall.submit.tomarFoto')} onPress={() => void choosePhoto('camera')} />}
+          <HanetButton label={t('classhall.submit.elegirDeLaGaleria')} variant={Platform.OS === 'web' ? 'primary' : 'surface'} onPress={() => void choosePhoto('library')} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setChoosingPhoto(false)} />
         </View>
       </HanetDialog>
 
-      <HanetDialog visible={addingLink} onRequestClose={() => setAddingLink(false)} title="Agregar un vínculo" body="Si es un documento de Google, Canva u otro, revisa que tu docente pueda abrirlo.">
+      <HanetDialog visible={addingLink} onRequestClose={() => setAddingLink(false)} title={t('classhall.submit.agregarUnVinculo')} body={t('classhall.submit.siEsUnDocumentoDe')}>
         <TextInput
-          accessibilityLabel="Dirección del vínculo"
+          accessibilityLabel={t('classhall.submit.direccionDelVinculo')}
           value={linkText}
           onChangeText={text => { setLinkText(text); setLinkError(null); }}
           placeholder="https://docs.google.com/…"
@@ -254,8 +255,8 @@ function SubmitScreen() {
         />
         {!!linkError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{linkError}</ThemedText>}
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setAddingLink(false)} style={dialogStyles.action} />
-          <HanetButton label="Agregar" disabled={!linkText.trim()} onPress={addLink} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setAddingLink(false)} style={dialogStyles.action} />
+          <HanetButton label={t('common.agregar')} disabled={!linkText.trim()} onPress={addLink} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
 
@@ -263,9 +264,9 @@ function SubmitScreen() {
         <View style={local.loading}>
           <ActivityIndicator size="large" color={AppColors.textPrimary} />
           <ThemedText accessibilityLiveRegion="polite" style={local.loadingTitle}>
-            {progress && progress.done < progress.total ? `Subiendo ${progress.done + 1} de ${progress.total}…` : 'Entregando…'}
+            {progress && progress.done < progress.total ? t('classhall.submit.subiendoNumberDeTotal', { number: progress.done + 1, total: progress.total }) : t('classhall.submit.entregando')}
           </ThemedText>
-          <ThemedText style={local.loadingText}>No cierres la app hasta que termine.</ThemedText>
+          <ThemedText style={local.loadingText}>{t('classhall.submit.noCierresLaAppHasta')}</ThemedText>
         </View>
       </HanetDialog>
       {dialog}

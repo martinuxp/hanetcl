@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { AGENDA_CHANNEL, ensureChannel, notifications } from './push-service';
 import type { CalendarEvent } from './ical-service';
 import { examActivities, syncWidgetExam } from './widget-service';
+import { t } from '@/i18n';
 
 // The course's evaluations, 24 and 4 hours before: on an iPhone with Live
 // Activities a countdown on the Lock Screen and in the Dynamic Island (it is
@@ -24,7 +25,7 @@ const LIVE_WINDOW_MS = 24 * 3_600_000;
 const LIVE_LINGER_MS = 30 * 60_000;
 
 export function isEvaluation(event: CalendarEvent) {
-  return event.eventType?.toLocaleLowerCase('es').startsWith('evaluación') ?? false;
+  return event.eventType?.toLocaleLowerCase('es').startsWith(t('common.evaluacion')) ?? false;
 }
 
 export async function examRemindersEnabled() {
@@ -53,7 +54,7 @@ function whenText(event: CalendarEvent, now: Date) {
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const days = Math.round((new Date(event.startDate).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000);
-  const day = days === 0 ? 'Hoy' : days === 1 ? 'Mañana' : `En ${days} días`;
+  const day = days === 0 ? t('common.hoy2') : t('classhall.hall.enCountDias', { count: days });
   return `${day}, ${clock(event.startDate)}${event.location ? ` · ${event.location}` : ''}`;
 }
 
@@ -106,7 +107,7 @@ async function scheduleNotifications(upcoming: CalendarEvent[], now: Date) {
       await module.scheduleNotificationAsync({
         identifier: `${PREFIX}${event.id}-${tag}`,
         content: {
-          title: hours === 24 ? `Mañana: prueba de ${subjectOf(event)}` : `En 4 horas: prueba de ${subjectOf(event)}`,
+          title: hours === 24 ? t('services.examReminders.mananaPruebaDeSubjectof', { subjectOf: subjectOf(event) }) : t('services.examReminders.en4HorasPruebaDe', { subjectOf: subjectOf(event) }),
           body: `${event.title} · ${clock(event.startDate)}${event.location ? ` · ${event.location}` : ''}`,
           data: { url: `/event-info?id=${encodeURIComponent(event.id)}&canEdit=0` },
           sound: 'default',
@@ -180,8 +181,8 @@ export async function previewExamReminder(hours: 24 | 4) {
   await module.scheduleNotificationAsync({
     identifier: `${PREVIEW_ID}-${hours}h`,
     content: {
-      title: hours === 24 ? 'Mañana: prueba de Matemática' : 'En 4 horas: prueba de Matemática',
-      body: `Ejemplo · Funciones cuadráticas · ${clock(startsAt)} · Sala 12`,
+      title: hours === 24 ? t('services.examReminders.mananaPruebaDeMatematica') : t('services.examReminders.en4HorasPruebaDe2'),
+      body: t('services.examReminders.ejemploFuncionesCuadraticasClockSala', { clock: clock(startsAt) }),
       sound: 'default',
       ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}),
     },
@@ -196,7 +197,7 @@ export function previewExamActivity() {
   if (!factory) return null;
   const startsAt = Date.now() + 4 * 3_600_000;
   const instance = factory.start(
-    { id: PREVIEW_ID, subject: 'Matemática', title: 'Ejemplo · Funciones cuadráticas', startsAt, when: `Hoy, ${clock(new Date(startsAt))} · Sala 12` },
+    { id: PREVIEW_ID, subject: 'Matemática', title: t('services.examReminders.ejemploFuncionesCuadraticas'), startsAt, when: t('services.examReminders.hoyClockSala12', { clock: clock(new Date(startsAt)) }) },
     undefined,
     new Date(startsAt + LIVE_LINGER_MS),
   );
@@ -214,8 +215,8 @@ export async function previewMorningSummary() {
   await module.scheduleNotificationAsync({
     identifier: 'preview-morning',
     content: {
-      title: 'Hoy tienes una prueba · lunes (ejemplo)',
-      body: 'Prueba: Matemática a las 10:15 · Entras a las 08:00 con Lenguaje',
+      title: t('services.examReminders.hoyTienesUnaPruebaLunes'),
+      body: t('services.examReminders.pruebaMatematicaALas10'),
       sound: 'default',
       ...(Platform.OS === 'android' ? { channelId: AGENDA_CHANNEL } : {}),
     },

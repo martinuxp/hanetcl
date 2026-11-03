@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
+import { t } from '@/i18n';
 
 /** A deadline for the alianzas, with a reminder a day and two hours before. */
 function DeadlineScreen() {
@@ -43,20 +44,20 @@ function DeadlineScreen() {
     }
   };
 
-  const submit = () => run(() => saveDeadline({ id: existing?.id, title: form.title.trim(), dueAt: form.dueAt, audience: form.audience }), 'No pudimos guardar el plazo. Inténtalo nuevamente.');
-  const label = existing ? 'Guardar cambios' : 'Crear plazo';
+  const submit = () => run(() => saveDeadline({ id: existing?.id, title: form.title.trim(), dueAt: form.dueAt, audience: form.audience }), t('anniversary.deadline.noPudimosGuardarElPlazo'));
+  const label = existing ? t('common.guardarCambios') : t('anniversary.deadline.crearPlazo');
   const { allowLeave, dialog } = useUnsavedChangesGuard({ dirty: dirty && !submitting, onSave: submit, saveLabel: label, canSave: ready });
 
   return (
-    <SheetBody title={existing ? 'Editar plazo' : 'Nuevo plazo'} lead="Llega un aviso un día antes y otro dos horas antes.">
-      <TextField label="Qué hay que entregar" value={form.title} onChange={title => update({ title })} placeholder="Nómina de deportes" maxLength={100} disabled={submitting} autoFocus={!existing} />
-      <DateField label="Hasta" value={form.dueAt} onChange={dueAt => dueAt && update({ dueAt })} disabled={submitting} />
-      {form.dueAt < now && <ThemedText style={styles.hint}>Esa fecha ya pasó.</ThemedText>}
-      <ThemedText style={styles.label}>Lo ven y les llega el aviso a</ThemedText>
-      <HanetChoice label="A quién le llega" options={AUDIENCE_OPTIONS} value={form.audience} onChange={audience => update({ audience: audience as Audience })} disabled={submitting} />
-      <SheetActions label={label} busyLabel="Guardando…" ready={ready} busy={submitting} onSubmit={() => void submit()} error={error} />
+    <SheetBody title={existing ? t('anniversary.deadline.editarPlazo') : t('anniversary.deadline.nuevoPlazo')} lead={t('anniversary.deadline.llegaUnAvisoUnDia')}>
+      <TextField label={t('anniversary.deadline.queHayQueEntregar')} value={form.title} onChange={title => update({ title })} placeholder={t('anniversary.deadline.nominaDeDeportes')} maxLength={100} disabled={submitting} autoFocus={!existing} />
+      <DateField label={t('anniversary.deadline.hasta')} value={form.dueAt} onChange={dueAt => dueAt && update({ dueAt })} disabled={submitting} />
+      {form.dueAt < now && <ThemedText style={styles.hint}>{t('anniversary.deadline.esaFechaYaPaso')}</ThemedText>}
+      <ThemedText style={styles.label}>{t('anniversary.deadline.loVenYLesLlega')}</ThemedText>
+      <HanetChoice label={t('anniversary.deadline.aQuienLeLlega')} options={AUDIENCE_OPTIONS} value={form.audience} onChange={audience => update({ audience: audience as Audience })} disabled={submitting} />
+      <SheetActions label={label} busyLabel={t('common.guardando')} ready={ready} busy={submitting} onSubmit={() => void submit()} error={error} />
       {existing && (
-        <HanetButton label="Borrar el plazo" variant="surface" disabled={submitting} onPress={() => void run(() => deleteDeadline(existing.id), 'No pudimos borrar el plazo. Inténtalo nuevamente.')} />
+        <HanetButton label={t('anniversary.deadline.borrarElPlazo')} variant="surface" disabled={submitting} onPress={() => void run(() => deleteDeadline(existing.id), t('anniversary.deadline.noPudimosBorrarElPlazo'))} />
       )}
       {dialog}
     </SheetBody>

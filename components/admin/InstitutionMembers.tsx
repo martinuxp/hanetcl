@@ -7,14 +7,15 @@ import { joinInstitution, listMembers, MEMBER_ROLES, setMemberBlocked, setMember
 import type { Member, MemberRole } from '@/services/hnt-admin-service';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { t } from '@/i18n';
 
 const ROLE_NOTES: Record<MemberRole, string> = {
-  Estudiante: 'Ve el calendario de su curso.',
-  Directiva: 'Directiva de curso. Publica en el calendario de su curso.',
-  CEE: 'Centro de estudiantes. Publica en el calendario de su curso.',
-  Profesor: 'Docente. Crea Halls en ClassHall y publica en ellos.',
-  Admin: 'Administración de la institución. Publica en el calendario.',
-  HNT: 'Equipo HaNet. Además, entra a este panel.',
+  Estudiante: t('components.admin.institutionMembers.veElCalendarioDeSu'),
+  Directiva: t('components.admin.institutionMembers.directivaDeCursoPublicaEn'),
+  CEE: t('components.admin.institutionMembers.centroDeEstudiantesPublicaEn'),
+  Profesor: t('components.admin.institutionMembers.docenteCreaHallsEnClasshall'),
+  Admin: t('components.admin.institutionMembers.administracionDeLaInstitucionPublica'),
+  HNT: t('components.admin.institutionMembers.equipoHanetAdemasEntraA'),
 };
 
 // The list grows a page at a time instead of drawing everyone at once;
@@ -57,7 +58,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
         setTruncated(result.truncated);
       })
       .catch(loadError => {
-        if (active) setError(describeAuthError(loadError, 'No pudimos cargar las personas. Inténtalo nuevamente.'));
+        if (active) setError(describeAuthError(loadError, t('components.admin.institutionMembers.noPudimosCargarLasPersonas')));
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -100,7 +101,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
       setMembers(list => list.map(member => (member.rut === updated.rut ? updated : member)));
       setConfirmBlock(false);
     } catch (blockError) {
-      setDialogError(describeAuthError(blockError, blocked ? 'No pudimos bloquear esta cuenta. Inténtalo nuevamente.' : 'No pudimos desbloquear esta cuenta. Inténtalo nuevamente.'));
+      setDialogError(describeAuthError(blockError, blocked ? t('components.admin.institutionMembers.noPudimosBloquearEstaCuenta') : t('components.admin.institutionMembers.noPudimosDesbloquearEstaCuenta')));
     } finally {
       setBusy(false);
     }
@@ -120,7 +121,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
     } catch (roleError) {
       setSelected(previous);
       setMembers(list => list.map(member => (member.rut === previous.rut ? previous : member)));
-      setDialogError(describeAuthError(roleError, 'No pudimos cambiar el rol. Inténtalo nuevamente.'));
+      setDialogError(describeAuthError(roleError, t('components.admin.institutionMembers.noPudimosCambiarElRol')));
     } finally {
       setBusy(false);
     }
@@ -136,7 +137,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
       setSelected(null);
       setConfirmUnlink(false);
     } catch (unlinkError) {
-      setDialogError(describeAuthError(unlinkError, 'No pudimos desvincular a esta persona. Inténtalo nuevamente.'));
+      setDialogError(describeAuthError(unlinkError, t('components.admin.institutionMembers.noPudimosDesvincularAEsta')));
     } finally {
       setBusy(false);
     }
@@ -147,9 +148,9 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
     setJoinNote(null);
     try {
       await joinInstitution(institutionId);
-      setJoinNote(`Listo: tu perfil ahora figura en ${institutionName}.`);
+      setJoinNote(t('components.admin.institutionMembers.listoTuPerfilAhoraFigura', { institutionName }));
     } catch (joinError) {
-      setJoinNote(describeAuthError(joinError, 'No pudimos asignar tu cuenta. Inténtalo nuevamente.'));
+      setJoinNote(describeAuthError(joinError, t('components.admin.institutionMembers.noPudimosAsignarTuCuenta')));
     } finally {
       setJoining(false);
     }
@@ -163,7 +164,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
     return (
       <View style={styles.wrap}>
         <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>
-        <HanetButton label="Reintentar" variant="surface" onPress={retry} />
+        <HanetButton label={t('common.reintentar')} variant="surface" onPress={retry} />
       </View>
     );
   }
@@ -174,17 +175,17 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
     <View style={styles.wrap}>
       <ThemedText style={styles.summary}>
         {members.length === 0
-          ? 'La lista está vacía. Cárgala con "Cargar lista".'
-          : `${linkedCount} de ${members.length} ${members.length === 1 ? 'persona vinculó' : 'personas vincularon'} su HaNet ID.`}
-        {truncated ? ' Se muestran las primeras 1.000.' : ''}
+          ? t('components.admin.institutionMembers.laListaEstaVaciaCargala')
+          : t('components.admin.institutionMembers.linkedcountDeCountPersonasVincularon', { count: members.length, linkedCount })}
+        {truncated ? t('components.admin.institutionMembers.seMuestranLasPrimeras1') : ''}
       </ThemedText>
 
       {members.length > 8 && (
         <TextInput
-          accessibilityLabel="Buscar persona"
+          accessibilityLabel={t('components.admin.institutionMembers.buscarPersona')}
           value={search}
           onChangeText={text => { setSearch(text); setVisibleRows(PAGE_ROWS); }}
-          placeholder="Buscar por nombre, curso o rol"
+          placeholder={t('components.admin.institutionMembers.buscarPorNombreCursoO')}
           placeholderTextColor="rgba(221,221,226,0.4)"
           autoCapitalize="none"
           autoCorrect={false}
@@ -198,7 +199,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
           <Pressable
             key={member.rut}
             accessibilityRole="button"
-            accessibilityLabel={`${member.fullName}, ${member.curso}, ${linked ? member.role : 'sin vincular'}`}
+            accessibilityLabel={`${member.fullName}, ${member.curso}, ${linked ? member.role : t('components.admin.institutionMembers.sinVincular')}`}
             accessibilityState={{ disabled: !linked }}
             disabled={!linked}
             onPress={() => setSelected(member)}
@@ -210,7 +211,7 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
             </View>
             <View style={[styles.badge, linked && member.role !== 'Estudiante' && styles.badgeStrong, member.blocked && styles.badgeBlocked]}>
               <ThemedText style={[styles.badgeText, linked && member.role !== 'Estudiante' && styles.badgeTextStrong, member.blocked && styles.badgeTextBlocked]}>
-                {member.blocked ? 'Bloqueada' : linked ? member.role : 'Sin vincular'}
+                {member.blocked ? t('components.admin.institutionMembers.bloqueada') : linked ? member.role : t('components.admin.institutionMembers.sinVincular2')}
               </ThemedText>
             </View>
           </Pressable>
@@ -219,27 +220,27 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
 
       {filtered.length > visibleRows && (
         <View style={styles.more}>
-          <ThemedText style={styles.note}>Se muestran {visibleRows} de {filtered.length}. Usa el buscador para encontrar a alguien.</ThemedText>
+          <ThemedText style={styles.note}>{t('components.admin.institutionMembers.seMuestranVisiblerowsDeFilteredcount', { visibleRows, filteredCount: filtered.length })}</ThemedText>
           <HanetButton
-            label={`Mostrar ${Math.min(PAGE_ROWS, filtered.length - visibleRows)} más`}
+            label={t('components.admin.institutionMembers.mostrarPagerowsMas', { pageRows: Math.min(PAGE_ROWS, filtered.length - visibleRows) })}
             variant="surface"
             onPress={() => setVisibleRows(count => count + PAGE_ROWS)}
           />
         </View>
       )}
-      {members.length > 0 && filtered.length === 0 && <ThemedText style={styles.note}>Nadie coincide con esa búsqueda.</ThemedText>}
+      {members.length > 0 && filtered.length === 0 && <ThemedText style={styles.note}>{t('components.admin.institutionMembers.nadieCoincideConEsaBusqueda')}</ThemedText>}
 
       <View style={styles.join}>
         <ThemedText style={styles.note}>
-          ¿Tu propio perfil no muestra institución? Pasa con las cuentas creadas antes de que existieran las instituciones.
+          {t('components.admin.institutionMembers.tuPropioPerfilNoMuestra')}
         </ThemedText>
-        <HanetButton label={joining ? 'Asignando…' : `Asignar mi cuenta a ${institutionName}`} variant="surface" onPress={join} disabled={joining} />
+        <HanetButton label={joining ? t('components.admin.institutionMembers.asignando') : t('components.admin.institutionMembers.asignarMiCuentaAInstitutionname', { institutionName })} variant="surface" onPress={join} disabled={joining} />
         {!!joinNote && <ThemedText accessibilityLiveRegion="polite" style={styles.note}>{joinNote}</ThemedText>}
       </View>
 
       <AlertModal visible={!!selected} onRequestClose={closeDialog}>
         <View style={styles.overlay}>
-          <Pressable accessibilityLabel="Cerrar" style={StyleSheet.absoluteFill} onPress={closeDialog} />
+          <Pressable accessibilityLabel={t('common.cerrar')} style={StyleSheet.absoluteFill} onPress={closeDialog} />
           {!!selected && (
             <View accessibilityViewIsModal style={styles.dialog}>
               <ThemedText style={styles.dialogTitle}>{selected.fullName}</ThemedText>
@@ -249,14 +250,14 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
                 <>
                   <ThemedText style={styles.dialogBody}>
                     {selected.blocked
-                      ? 'Podrá volver a iniciar sesión en HaNet con su cuenta.'
-                      : 'Se cerrará su sesión y no podrá volver a entrar. Podrá apelar por correo. Su vínculo y su rol se mantienen.'}
+                      ? t('components.admin.institutionMembers.podraVolverAIniciarSesion')
+                      : t('components.admin.institutionMembers.seCerraraSuSesionY')}
                   </ThemedText>
                   {!!dialogError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{dialogError}</ThemedText>}
                   <View style={styles.dialogActions}>
-                    <HanetButton label="Cancelar" variant="surface" onPress={() => { setConfirmBlock(false); setDialogError(null); }} disabled={busy} style={styles.dialogAction} />
+                    <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => { setConfirmBlock(false); setDialogError(null); }} disabled={busy} style={styles.dialogAction} />
                     <HanetButton
-                      label={busy ? 'Guardando…' : selected.blocked ? 'Desbloquear' : 'Bloquear'}
+                      label={busy ? t('common.guardando') : selected.blocked ? t('components.admin.institutionMembers.desbloquear') : t('components.admin.institutionMembers.bloquear')}
                       variant="accent"
                       onPress={toggleBlocked}
                       disabled={busy}
@@ -267,18 +268,18 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
               ) : confirmUnlink ? (
                 <>
                   <ThemedText style={styles.dialogBody}>
-                    Al desvincularla pierde su rol y el acceso al calendario de su curso. Conserva su HaNet ID y puede volver a vincularse con su correo institucional.
+                    {t('components.admin.institutionMembers.alDesvincularlaPierdeSuRol')}
                   </ThemedText>
                   {!!dialogError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{dialogError}</ThemedText>}
                   <View style={styles.dialogActions}>
-                    <HanetButton label="Cancelar" variant="surface" onPress={() => { setConfirmUnlink(false); setDialogError(null); }} disabled={busy} style={styles.dialogAction} />
-                    <HanetButton label={busy ? 'Desvinculando…' : 'Desvincular'} variant="accent" onPress={unlink} disabled={busy} style={styles.dialogAction} />
+                    <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => { setConfirmUnlink(false); setDialogError(null); }} disabled={busy} style={styles.dialogAction} />
+                    <HanetButton label={busy ? t('components.admin.institutionMembers.desvinculando') : t('components.admin.institutionMembers.desvincular')} variant="accent" onPress={unlink} disabled={busy} style={styles.dialogAction} />
                   </View>
                 </>
               ) : (
                 <>
                   {isSelf ? (
-                    <ThemedText style={styles.dialogBody}>Esta es tu cuenta. No puedes cambiar tu propio rol ni desvincularte.</ThemedText>
+                    <ThemedText style={styles.dialogBody}>{t('components.admin.institutionMembers.estaEsTuCuentaNo')}</ThemedText>
                   ) : (
                     <View accessibilityRole="radiogroup" style={styles.roles}>
                       {MEMBER_ROLES.map(role => {
@@ -304,21 +305,21 @@ export function InstitutionMembers({ institutionId, institutionName, currentUid 
                   {!!dialogError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{dialogError}</ThemedText>}
                   {!isSelf && (
                     <ThemedText style={styles.note}>
-                      El rol se guarda al elegirlo. La persona lo verá la próxima vez que abra la app; puede tardar hasta una hora.
+                      {t('components.admin.institutionMembers.elRolSeGuardaAl')}
                     </ThemedText>
                   )}
 
                   {!isSelf && (
                     <HanetButton
-                      label={selected.blocked ? 'Desbloquear cuenta' : 'Bloquear cuenta'}
+                      label={selected.blocked ? t('components.admin.institutionMembers.desbloquearCuenta') : t('components.admin.institutionMembers.bloquearCuenta')}
                       variant="surface"
                       onPress={() => { setDialogError(null); setConfirmBlock(true); }}
                       disabled={busy}
                     />
                   )}
                   <View style={styles.dialogActions}>
-                    {!isSelf && <HanetButton label="Desvincular" variant="surface" onPress={() => setConfirmUnlink(true)} disabled={busy} style={styles.dialogAction} />}
-                    <HanetButton label="Listo" onPress={closeDialog} disabled={busy} style={styles.dialogAction} />
+                    {!isSelf && <HanetButton label={t('components.admin.institutionMembers.desvincular')} variant="surface" onPress={() => setConfirmUnlink(true)} disabled={busy} style={styles.dialogAction} />}
+                    <HanetButton label={t('common.listo')} onPress={closeDialog} disabled={busy} style={styles.dialogAction} />
                   </View>
                 </>
               )}

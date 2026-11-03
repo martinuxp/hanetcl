@@ -39,6 +39,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 // Publishing in the feed, after Substack's compose screen: the Espacio on top,
 // large text, the images as cards and the options as tiles at the bottom.
@@ -54,10 +55,10 @@ const AUDIENCES: { value: FeedAudience; label: string }[] = [
 type PollDraft = { options: string[]; days: number; results: 'live' | 'closed' };
 
 const POLL_LENGTHS = [
-  { days: 1, label: '1 día' },
-  { days: 3, label: '3 días' },
-  { days: 7, label: '1 semana' },
-  { days: 14, label: '2 semanas' },
+  { days: 1, label: t('feedPost.n1Dia') },
+  { days: 3, label: t('feedPost.n3Dias') },
+  { days: 7, label: t('feedPost.n1Semana') },
+  { days: 14, label: t('feedPost.n2Semanas') },
 ];
 
 function asFeedEvent(event: HnEvent): FeedEvent {
@@ -103,7 +104,7 @@ function FeedPostScreen() {
 
   useEffect(() => {
     if (feed) return;
-    listFeed().then(setFeed).catch(error => setLoadError(describeAuthError(error, 'No pudimos abrir el feed.')));
+    listFeed().then(setFeed).catch(error => setLoadError(describeAuthError(error, t('feedPost.noPudimosAbrirElFeed'))));
   }, [feed]);
 
   const [spaceKey, setSpaceKey] = useState<string | null>(null);
@@ -154,7 +155,7 @@ function FeedPostScreen() {
       const uris = await pickFeedImages(source, MAX_FEED_IMAGES - currentPictures.length);
       if (uris.length) setPictures([...currentPictures, ...uris.map(uri => ({ kind: 'new', uri }) as Picture)]);
     } catch (pickError) {
-      setError(pickError instanceof FeedImageError ? pickError.message : 'No pudimos abrir las imágenes.');
+      setError(pickError instanceof FeedImageError ? pickError.message : t('feedPost.noPudimosAbrirLasImagenes'));
     }
   };
 
@@ -179,13 +180,13 @@ function FeedPostScreen() {
   };
 
   const FORMATS = [
-    { key: 'bold', label: 'B', name: 'Negrita', style: styles.formatBold, onPress: () => wrap('**', '**', 'texto') },
-    { key: 'italic', label: 'I', name: 'Cursiva', style: styles.formatItalic, onPress: () => wrap('*', '*', 'texto') },
-    { key: 'strike', label: 'S', name: 'Tachado', style: styles.formatStrike, onPress: () => wrap('~~', '~~', 'texto') },
-    { key: 'heading', label: 'Título', name: 'Título', onPress: () => prefixLine('## ') },
-    { key: 'list', label: '• Lista', name: 'Lista', onPress: () => prefixLine('- ') },
-    { key: 'quote', label: '“ Cita', name: 'Cita', onPress: () => prefixLine('> ') },
-    { key: 'link', label: 'Enlace', name: 'Enlace', onPress: () => wrap('[', '](https://)', 'texto') },
+    { key: 'bold', label: 'B', name: t('feedPost.negrita'), style: styles.formatBold, onPress: () => wrap('**', '**', 'texto') },
+    { key: 'italic', label: 'I', name: t('feedPost.cursiva'), style: styles.formatItalic, onPress: () => wrap('*', '*', 'texto') },
+    { key: 'strike', label: 'S', name: t('feedPost.tachado'), style: styles.formatStrike, onPress: () => wrap('~~', '~~', 'texto') },
+    { key: 'heading', label: t('feedPost.titulo'), name: t('feedPost.titulo'), onPress: () => prefixLine('## ') },
+    { key: 'list', label: t('feedPost.lista'), name: t('feedPost.lista2'), onPress: () => prefixLine('- ') },
+    { key: 'quote', label: t('feedPost.cita'), name: t('feedPost.cita2'), onPress: () => prefixLine('> ') },
+    { key: 'link', label: t('feedPost.enlace'), name: t('feedPost.enlace'), onPress: () => wrap('[', '](https://)', 'texto') },
   ];
 
   const toggleTag = (tag: string) => {
@@ -219,28 +220,28 @@ function FeedPostScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(saveError instanceof FeedImageError ? saveError.message : describeAuthError(saveError, 'No pudimos publicar. Inténtalo nuevamente.'));
+      setError(saveError instanceof FeedImageError ? saveError.message : describeAuthError(saveError, t('feedPost.noPudimosPublicarIntentaloNuevamente')));
       setSubmitting(false);
     }
   };
 
-  const label = original ? 'Guardar' : 'Publicar';
+  const label = original ? t('common.guardar') : t('common.publicar');
   const { allowLeave, dialog: guardDialog } = useUnsavedChangesGuard({
     dirty: dirty && !submitting,
     onSave: submit,
     saveLabel: label,
     canSave: ready,
-    title: original ? '¿Descartar los cambios?' : '¿Descartar esta publicación?',
-    message: original ? 'La publicación quedará como estaba.' : 'Todavía no la has publicado.',
+    title: original ? t('common.descartarLosCambios') : t('feedPost.descartarEstaPublicacion'),
+    message: original ? t('feedPost.laPublicacionQuedaraComoEstaba') : t('classhall.taskForm.todaviaNoLaHasPublicado'),
   });
 
   const options = [
-    isSchool && { key: 'audience', label: 'Le llega a', value: audienceLabel(currentAudience), onPress: () => setDialog('audience') },
-    { key: 'tags', label: 'Tags', value: currentTags.length ? currentTags.map(tag => `#${tag}`).join(' ') : 'Sin tags', onPress: () => setDialog('tags') },
-    !!poll && { key: 'pollLength', label: 'La votación dura', value: POLL_LENGTHS.find(item => item.days === poll.days)?.label ?? `${poll.days} días`, onPress: () => setDialog('pollLength') },
-    !!poll && { key: 'pollResults', label: 'Resultados', value: poll.results === 'live' ? 'Al votar' : 'Al cerrar', onPress: () => setPoll({ ...poll, results: poll.results === 'live' ? 'closed' : 'live' }) },
-    canPin && { key: 'pin', label: 'Fijar arriba', value: currentPinned ? 'Sí' : 'No', onPress: () => setPinned(!currentPinned) },
-    canNotify && { key: 'notify', label: 'Avisar a las alianzas', value: currentNotify ? 'Con notificación' : 'Sin notificación', onPress: () => setNotify(!currentNotify) },
+    isSchool && { key: 'audience', label: t('anniversary.flash.leLlegaA'), value: audienceLabel(currentAudience), onPress: () => setDialog('audience') },
+    { key: 'tags', label: t('feedPost.tags'), value: currentTags.length ? currentTags.map(tag => `#${tag}`).join(' ') : 'Sin tags', onPress: () => setDialog('tags') },
+    !!poll && { key: 'pollLength', label: t('feedPost.laVotacionDura'), value: POLL_LENGTHS.find(item => item.days === poll.days)?.label ?? `${poll.days} días`, onPress: () => setDialog('pollLength') },
+    !!poll && { key: 'pollResults', label: t('feedPost.resultados'), value: poll.results === 'live' ? 'Al votar' : 'Al cerrar', onPress: () => setPoll({ ...poll, results: poll.results === 'live' ? 'closed' : 'live' }) },
+    canPin && { key: 'pin', label: t('feedPost.fijarArriba'), value: currentPinned ? 'Sí' : 'No', onPress: () => setPinned(!currentPinned) },
+    canNotify && { key: 'notify', label: t('feedPost.avisarALasAlianzas'), value: currentNotify ? 'Con notificación' : 'Sin notificación', onPress: () => setNotify(!currentNotify) },
   ].filter((option): option is { key: string; label: string; value: string; onPress: () => void } => !!option);
 
   const top = (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.lg;
@@ -258,8 +259,8 @@ function FeedPostScreen() {
   if (!space) {
     return (
       <View style={[styles.sheet, styles.center, { paddingTop: top }]}>
-        <ThemedText style={styles.error}>Tu rol no publica en el feed.</ThemedText>
-        <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
+        <ThemedText style={styles.error}>{t('feedPost.tuRolNoPublicaEn')}</ThemedText>
+        <HanetButton label={t('common.volver')} variant="surface" onPress={() => router.back()} />
       </View>
     );
   }
@@ -272,7 +273,7 @@ function FeedPostScreen() {
     >
       <View style={styles.topRow}>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && AppPressed]}>
-          <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+          <ThemedText style={styles.cancelText}>{t('common.cancelar')}</ThemedText>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -281,14 +282,14 @@ function FeedPostScreen() {
           onPress={submit}
           style={({ pressed }) => [styles.publish, (!ready || submitting) && styles.publishDisabled, pressed && AppPressed]}
         >
-          <ThemedText style={styles.publishText}>{submitting ? (currentPictures.some(picture => picture.kind === 'new') ? 'Subiendo…' : 'Publicando…') : label}</ThemedText>
+          <ThemedText style={styles.publishText}>{submitting ? (currentPictures.some(picture => picture.kind === 'new') ? t('common.subiendo') : t('common.publicando')) : label}</ThemedText>
         </Pressable>
       </View>
 
       <Pressable
         accessibilityRole={!original && publishAs.length > 1 ? 'button' : undefined}
-        accessibilityLabel={`Publicas como ${space.name}`}
-        accessibilityHint={!original && publishAs.length > 1 ? 'Elegir otro Espacio' : undefined}
+        accessibilityLabel={t('feedPost.publicasComoName', { name: space.name })}
+        accessibilityHint={!original && publishAs.length > 1 ? t('feedPost.elegirOtroEspacio') : undefined}
         disabled={!!original || publishAs.length < 2 || submitting}
         onPress={() => setDialog('space')}
         style={({ pressed }) => [styles.author, pressed && AppPressed]}
@@ -297,7 +298,7 @@ function FeedPostScreen() {
         <View style={styles.authorText}>
           <ThemedText numberOfLines={1} style={styles.authorName}>{space.name}</ThemedText>
           <ThemedText numberOfLines={1} style={styles.authorHint}>
-            {original ? 'Editando una publicación' : publishAs.length > 1 ? 'Toca para elegir otro Espacio' : space.official ? 'Publicas como el Espacio oficial' : `Publicas como ${space.kind.toLocaleLowerCase('es')}`}
+            {original ? t('feedPost.editandoUnaPublicacion') : publishAs.length > 1 ? t('feedPost.tocaParaElegirOtroEspacio') : space.official ? t('feedPost.publicasComoElEspacioOficial') : t('feedPost.publicasComoKind', { kind: space.kind.toLocaleLowerCase('es') })}
           </ThemedText>
         </View>
         {!original && publishAs.length > 1 && <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />}
@@ -305,15 +306,15 @@ function FeedPostScreen() {
 
       {preview ? (
         <View style={styles.preview}>
-          {currentBody.trim() ? <FeedMarkdown source={currentBody} /> : <ThemedText style={styles.hint}>Todavía no has escrito nada.</ThemedText>}
+          {currentBody.trim() ? <FeedMarkdown source={currentBody} /> : <ThemedText style={styles.hint}>{t('feedPost.todaviaNoHasEscritoNada')}</ThemedText>}
         </View>
       ) : (
       <TextInput
-        accessibilityLabel="Mensaje"
+        accessibilityLabel={t('feedPost.mensaje')}
         value={currentBody}
         onChangeText={text => { setBody(text); setError(null); }}
         onSelectionChange={event => setSelection(event.nativeEvent.selection)}
-        placeholder={poll ? 'Escribe la pregunta de la votación' : spaceGroup(space.key) === 'course' ? '¿Qué quieres contarle a tu curso?' : startTag === ANNIVERSARY_TAG ? '¿Qué quieres avisarle a las alianzas?' : '¿Qué quieres contarle a tu liceo?'}
+        placeholder={poll ? t('feedPost.escribeLaPreguntaDeLa') : spaceGroup(space.key) === 'course' ? t('feedPost.queQuieresContarleATu') : startTag === ANNIVERSARY_TAG ? t('feedPost.queQuieresAvisarleALas') : t('feedPost.queQuieresContarleATu2')}
         placeholderTextColor="rgba(221, 221, 226, 0.4)"
         multiline
         maxLength={MAX_FEED_BODY}
@@ -328,12 +329,12 @@ function FeedPostScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ selected: preview }}
-          accessibilityLabel={preview ? 'Volver a escribir' : 'Ver cómo queda'}
+          accessibilityLabel={preview ? t('feedPost.volverAEscribir') : t('feedPost.verComoQueda')}
           disabled={submitting}
           onPress={() => setPreview(value => !value)}
           style={({ pressed }) => [styles.format, preview && styles.formatOn, pressed && AppPressed]}
         >
-          <ThemedText style={[styles.formatText, preview && styles.formatTextOn]}>{preview ? 'Editar' : 'Vista previa'}</ThemedText>
+          <ThemedText style={[styles.formatText, preview && styles.formatTextOn]}>{preview ? t('common.editar') : t('feedPost.vistaPrevia')}</ThemedText>
         </Pressable>
         {!preview && FORMATS.map(format => (
           <Pressable key={format.key} accessibilityRole="button" accessibilityLabel={format.name} disabled={submitting} onPress={format.onPress} style={({ pressed }) => [styles.format, pressed && AppPressed]}>
@@ -342,17 +343,17 @@ function FeedPostScreen() {
         ))}
       </ScrollView>
       {currentBody.length > MAX_FEED_BODY - 200 && (
-        <ThemedText style={styles.hint}>{MAX_FEED_BODY - currentBody.length} caracteres disponibles</ThemedText>
+        <ThemedText style={styles.hint}>{t('classhall.announce.valueCaracteresDisponibles', { value: MAX_FEED_BODY - currentBody.length })}</ThemedText>
       )}
 
       {currentPictures.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pictures}>
           {currentPictures.map((picture, index) => (
             <View key={picture.kind === 'kept' ? picture.url : picture.uri} style={styles.picture}>
-              <Image source={{ uri: picture.kind === 'kept' ? picture.url : picture.uri }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={`Imagen ${index + 1}`} />
+              <Image source={{ uri: picture.kind === 'kept' ? picture.url : picture.uri }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel={t('feedPost.imagenNumber', { number: index + 1 })} />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Quitar la imagen ${index + 1}`}
+                accessibilityLabel={t('feedPost.quitarLaImagenNumber', { number: index + 1 })}
                 disabled={submitting}
                 hitSlop={6}
                 onPress={() => setPictures(currentPictures.filter((_, position) => position !== index))}
@@ -363,7 +364,7 @@ function FeedPostScreen() {
             </View>
           ))}
           {currentPictures.length < MAX_FEED_IMAGES && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Agregar otra imagen" disabled={submitting} onPress={() => void addPictures('library')} style={({ pressed }) => [styles.addPicture, pressed && AppPressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('feedPost.agregarOtraImagen')} disabled={submitting} onPress={() => void addPictures('library')} style={({ pressed }) => [styles.addPicture, pressed && AppPressed]}>
               <CustomIcon name="plus" size={26} color={AppColors.textSecondary} />
             </Pressable>
           )}
@@ -372,23 +373,23 @@ function FeedPostScreen() {
 
       {!!attachedEvent && <FeedEventCard event={attachedEvent} />}
 
-      {!!original?.poll && <ThemedText style={styles.hint}>La votación no se puede cambiar una vez publicada.</ThemedText>}
+      {!!original?.poll && <ThemedText style={styles.hint}>{t('feedPost.laVotacionNoSePuede')}</ThemedText>}
 
       {!!poll && (
         <View style={styles.pollEditor}>
           <View style={styles.pollHeader}>
-            <ThemedText style={styles.pollTitle}>Votación anónima</ThemedText>
-            <Pressable accessibilityRole="button" accessibilityLabel="Quitar la votación" disabled={submitting} hitSlop={8} onPress={() => setPoll(null)} style={({ pressed }) => pressed && AppPressed}>
-              <ThemedText style={styles.pollRemove}>Quitar</ThemedText>
+            <ThemedText style={styles.pollTitle}>{t('feedPost.votacionAnonima')}</ThemedText>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('feedPost.quitarLaVotacion')} disabled={submitting} hitSlop={8} onPress={() => setPoll(null)} style={({ pressed }) => pressed && AppPressed}>
+              <ThemedText style={styles.pollRemove}>{t('common.quitar')}</ThemedText>
             </Pressable>
           </View>
           {poll.options.map((option, index) => (
             <View key={index} style={styles.pollRow}>
               <TextInput
-                accessibilityLabel={`Opción ${index + 1}`}
+                accessibilityLabel={t('feedPost.opcionNumber', { number: index + 1 })}
                 value={option}
                 onChangeText={value => setPoll({ ...poll, options: poll.options.map((item, position) => (position === index ? value : item)) })}
-                placeholder={`Opción ${index + 1}`}
+                placeholder={t('feedPost.opcionNumber', { number: index + 1 })}
                 placeholderTextColor="rgba(221, 221, 226, 0.4)"
                 maxLength={MAX_POLL_OPTION}
                 editable={!submitting}
@@ -398,7 +399,7 @@ function FeedPostScreen() {
               {poll.options.length > MIN_POLL_OPTIONS && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Quitar la opción ${index + 1}`}
+                  accessibilityLabel={t('feedPost.quitarLaOpcionNumber', { number: index + 1 })}
                   disabled={submitting}
                   hitSlop={6}
                   onPress={() => setPoll({ ...poll, options: poll.options.filter((_, position) => position !== index) })}
@@ -412,29 +413,29 @@ function FeedPostScreen() {
           {poll.options.length < MAX_POLL_OPTIONS && (
             <Pressable accessibilityRole="button" disabled={submitting} onPress={() => setPoll({ ...poll, options: [...poll.options, ''] })} style={({ pressed }) => [styles.addOption, pressed && AppPressed]}>
               <CustomIcon name="plus" size={18} color={AppColors.textSecondary} />
-              <ThemedText style={styles.addOptionText}>Agregar opción</ThemedText>
+              <ThemedText style={styles.addOptionText}>{t('feedPost.agregarOpcion')}</ThemedText>
             </Pressable>
           )}
-          <ThemedText style={styles.pollNote}>Nadie puede ver qué votó cada persona, ni el liceo ni HaNet. Cada cuenta vota una vez y no puede cambiar su voto.</ThemedText>
+          <ThemedText style={styles.pollNote}>{t('feedPost.nadiePuedeVerQueVoto')}</ThemedText>
         </View>
       )}
 
       <View style={styles.tools}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Elegir imágenes de la galería" disabled={submitting || currentPictures.length >= MAX_FEED_IMAGES} onPress={() => void addPictures('library')} style={({ pressed }) => [styles.tool, currentPictures.length >= MAX_FEED_IMAGES && styles.toolDisabled, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('feedPost.elegirImagenesDeLaGaleria')} disabled={submitting || currentPictures.length >= MAX_FEED_IMAGES} onPress={() => void addPictures('library')} style={({ pressed }) => [styles.tool, currentPictures.length >= MAX_FEED_IMAGES && styles.toolDisabled, pressed && AppPressed]}>
           <CustomIcon name="image" size={26} color={AppColors.textPrimary} />
         </Pressable>
         {Platform.OS !== 'web' && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Tomar una foto" disabled={submitting || currentPictures.length >= MAX_FEED_IMAGES} onPress={() => void addPictures('camera')} style={({ pressed }) => [styles.tool, currentPictures.length >= MAX_FEED_IMAGES && styles.toolDisabled, pressed && AppPressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('feedPost.tomarUnaFoto')} disabled={submitting || currentPictures.length >= MAX_FEED_IMAGES} onPress={() => void addPictures('camera')} style={({ pressed }) => [styles.tool, currentPictures.length >= MAX_FEED_IMAGES && styles.toolDisabled, pressed && AppPressed]}>
             <CustomIcon name="camera" size={26} color={AppColors.textPrimary} />
           </Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel="Elegir tags" disabled={submitting} onPress={() => setDialog('tags')} style={({ pressed }) => [styles.tool, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('feedPost.elegirTags')} disabled={submitting} onPress={() => setDialog('tags')} style={({ pressed }) => [styles.tool, pressed && AppPressed]}>
           <CustomIcon name="tag" size={24} color={AppColors.textPrimary} />
         </Pressable>
         {canPoll && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={poll ? 'Quitar la votación' : 'Agregar una votación'}
+            accessibilityLabel={poll ? t('feedPost.quitarLaVotacion') : t('feedPost.agregarUnaVotacion')}
             accessibilityState={{ selected: !!poll }}
             disabled={submitting}
             onPress={() => setPoll(poll ? null : { options: ['', ''], days: 3, results: 'live' })}
@@ -443,7 +444,7 @@ function FeedPostScreen() {
             <Ionicons name="stats-chart-outline" size={22} color={poll ? AppColors.controlOnActive : AppColors.textPrimary} />
           </Pressable>
         )}
-        <ThemedText style={styles.toolsHint}>Hasta {MAX_FEED_IMAGES} imágenes</ThemedText>
+        <ThemedText style={styles.toolsHint}>{t('feedPost.hastaMaxfeedimagesImagenes', { maxFeedImages: MAX_FEED_IMAGES })}</ThemedText>
       </View>
 
       {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
@@ -457,7 +458,7 @@ function FeedPostScreen() {
         ))}
       </ScrollView>
 
-      <HanetDialog visible={dialog === 'space'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="¿En qué Espacio publicas?">
+      <HanetDialog visible={dialog === 'space'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title={t('feedPost.enQueEspacioPublicas')}>
         <View style={styles.dialogButtons}>
           {publishAs.map(item => (
             <HanetButton key={item.key} label={item.name} variant={item.key === space.key ? 'primary' : 'surface'} onPress={() => { setSpaceKey(item.key); setDialog(null); }} />
@@ -465,7 +466,7 @@ function FeedPostScreen() {
         </View>
       </HanetDialog>
 
-      <HanetDialog visible={dialog === 'audience'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="¿A quién le llega?" body="Administración y el equipo HaNet ven todas las publicaciones.">
+      <HanetDialog visible={dialog === 'audience'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title={t('feedPost.aQuienLeLlega')} body={t('feedPost.administracionYElEquipoHanet')}>
         <View style={styles.dialogButtons}>
           {AUDIENCES.map(item => (
             <HanetButton key={item.label} label={item.label} variant={sameAudience(item.value, currentAudience) ? 'primary' : 'surface'} onPress={() => { setAudience(item.value); setDialog(null); }} />
@@ -473,7 +474,7 @@ function FeedPostScreen() {
         </View>
       </HanetDialog>
 
-      <HanetDialog visible={dialog === 'pollLength'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="¿Cuánto dura la votación?" body="Al cerrar, todos ven los resultados.">
+      <HanetDialog visible={dialog === 'pollLength'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title={t('feedPost.cuantoDuraLaVotacion')} body={t('feedPost.alCerrarTodosVenLos')}>
         <View style={styles.dialogButtons}>
           {POLL_LENGTHS.map(item => (
             <HanetButton key={item.days} label={item.label} variant={poll?.days === item.days ? 'primary' : 'surface'} onPress={() => { if (poll) setPoll({ ...poll, days: item.days }); setDialog(null); }} />
@@ -481,7 +482,7 @@ function FeedPostScreen() {
         </View>
       </HanetDialog>
 
-      <HanetDialog visible={dialog === 'tags'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title="Tags" body={`Elige hasta ${MAX_FEED_TAGS}. Ayudan a encontrar la publicación en el buscador.`}>
+      <HanetDialog visible={dialog === 'tags'} onRequestClose={() => setDialog(null)} dismissOnBackdrop title={t('feedPost.tags')} body={t('feedPost.eligeHastaMaxfeedtagsAyudanA', { maxFeedTags: MAX_FEED_TAGS })}>
         <View style={styles.chips}>
           {feed.tags.map(tag => {
             const on = currentTags.includes(tag);
@@ -500,7 +501,7 @@ function FeedPostScreen() {
             );
           })}
         </View>
-        <HanetButton label="Listo" variant="surface" onPress={() => setDialog(null)} />
+        <HanetButton label={t('common.listo')} variant="surface" onPress={() => setDialog(null)} />
       </HanetDialog>
 
       {guardDialog}

@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { ref, uploadBytes } from 'firebase/storage';
 import { cached } from './cache';
 import { auth, functions, storage } from './firebase';
+import { monthsShort, t } from '@/i18n';
 
 // Feed y Comunidad (functions/feed.js): announcements published by Espacios,
 // never by a person. Students read and react; nothing else.
@@ -83,7 +84,7 @@ export type Feed = {
 };
 
 /** The tag of the Aniversario's avisos (functions/feed.js). */
-export const ANNIVERSARY_TAG = 'Aniversario';
+export const ANNIVERSARY_TAG = t('common.aniversario');
 
 /** Images per post and tags per post, as functions/feed.js allows. */
 export const MAX_FEED_IMAGES = 6;
@@ -100,20 +101,20 @@ export function canShareAsStory(post: FeedPost) {
 }
 
 export const EMOJI_NAMES: Record<string, string> = {
-  '👍': 'Me gusta',
-  '❤️': 'Corazón',
-  '😂': 'Risa',
-  '🎉': 'Celebrar',
-  '😮': 'Sorpresa',
-  '🔥': 'Fuego',
-  '👏': 'Aplausos',
+  '👍': t('services.feedService.meGusta'),
+  '❤️': t('services.feedService.corazon'),
+  '😂': t('services.feedService.risa'),
+  '🎉': t('services.feedService.celebrar'),
+  '😮': t('services.feedService.sorpresa'),
+  '🔥': t('services.feedService.fuego'),
+  '👏': t('services.feedService.aplausos'),
 };
 
 export const REPORT_REASONS = [
-  { value: 'inapropiado', label: 'Es inapropiado' },
-  { value: 'falso', label: 'Es falso o engañoso' },
-  { value: 'acoso', label: 'Molesta o expone a alguien' },
-  { value: 'otro', label: 'Otro motivo' },
+  { value: 'inapropiado', label: t('services.feedService.esInapropiado') },
+  { value: 'falso', label: t('services.feedService.esFalsoOEnganoso') },
+  { value: 'acoso', label: t('services.feedService.molestaOExponeAAlguien') },
+  { value: 'otro', label: t('services.feedService.otroMotivo') },
 ] as const;
 
 // The last feed loaded, so the form opens without another read, and every
@@ -182,17 +183,17 @@ export async function voteFeedPoll(id: string, option: string) {
 
 /** "Cierra en 3 días", "Cierra hoy a las 18:00" or "Cerró". */
 export function pollClosing(poll: FeedPoll, now = Date.now()) {
-  if (poll.closed || !poll.closesAt || poll.closesAt <= now) return 'Votación cerrada';
+  if (poll.closed || !poll.closesAt || poll.closesAt <= now) return t('services.feedService.votacionCerrada');
   const hours = (poll.closesAt - now) / 3_600_000;
   const date = new Date(poll.closesAt);
   const time = `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-  if (hours < 1) return `Cierra en ${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 1) return t('services.feedService.cierraEnValueMin', { value: Math.max(1, Math.round(hours * 60)) });
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const days = Math.round((new Date(poll.closesAt).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000);
-  if (days === 0) return `Cierra hoy a las ${time}`;
-  if (days === 1) return `Cierra mañana a las ${time}`;
-  return `Cierra en ${days} días`;
+  if (days === 0) return t('services.feedService.cierraHoyALasTime', { time });
+  if (days === 1) return t('services.feedService.cierraMananaALasTime', { time });
+  return t('services.feedService.cierraEnDaysDias', { days });
 }
 
 export async function setFeedPostPinned(id: string, pinned: boolean) {
@@ -210,7 +211,7 @@ export async function pickFeedImages(source: 'camera' | 'library', limit: number
   if (limit <= 0) return [];
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) throw new FeedImageError('HaNet no tiene permiso para usar la cámara. Actívalo en los ajustes del teléfono.');
+    if (!permission.granted) throw new FeedImageError(t('services.classhallService.hanetNoTienePermisoPara'));
   }
   const result = source === 'camera'
     ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
@@ -231,38 +232,38 @@ export async function pickFeedImages(source: 'camera' | 'library', limit: number
 /** Uploads a picked photo to the staging folder; saveFeedPost moves it next to the post. */
 export async function uploadFeedImage(localUri: string) {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('Inicia sesión para subir imágenes.');
+  if (!uid) throw new Error(t('services.eventsService.iniciaSesionParaSubirImagenes'));
   const blob = await (await fetch(localUri)).blob();
-  if (blob.size > 5 * 1024 * 1024) throw new FeedImageError('Una de las imágenes pesa más de 5 MB.');
+  if (blob.size > 5 * 1024 * 1024) throw new FeedImageError(t('services.feedService.unaDeLasImagenesPesa'));
   const uploadPath = `feed-uploads/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await uploadBytes(ref(storage, uploadPath), blob, { contentType: 'image/jpeg' });
   return uploadPath;
 }
 
-const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+const MONTHS = monthsShort();
 
 /** "Ahora", "Hace 2 h", "Hoy, 8:10", "Ayer" or "5 oct.". */
 export function feedWhen(createdAt: number | null, now = Date.now()) {
-  if (!createdAt) return 'Ahora';
+  if (!createdAt) return t('common.ahora');
   const minutes = Math.floor((now - createdAt) / 60_000);
-  if (minutes < 1) return 'Ahora';
-  if (minutes < 60) return `Hace ${minutes} min`;
-  if (minutes < 6 * 60) return `Hace ${Math.floor(minutes / 60)} h`;
+  if (minutes < 1) return t('common.ahora');
+  if (minutes < 60) return t('services.feedService.haceMinutesMin', { minutes });
+  if (minutes < 6 * 60) return t('services.feedService.haceValueH', { value: Math.floor(minutes / 60) });
   const date = new Date(createdAt);
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const days = Math.round((today.getTime() - new Date(createdAt).setHours(0, 0, 0, 0)) / 86_400_000);
-  if (days === 0) return `Hoy, ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-  if (days === 1) return 'Ayer';
-  if (days < 7) return `Hace ${days} días`;
+  if (days === 0) return t('services.feedService.hoyHoursMinutes', { hours: date.getHours(), minutes: String(date.getMinutes()).padStart(2, '0') });
+  if (days === 1) return t('services.feedService.ayer');
+  if (days < 7) return t('services.feedService.haceDaysDias', { days });
   const year = date.getFullYear() !== today.getFullYear() ? ` ${date.getFullYear()}` : '';
   return `${date.getDate()} ${MONTHS[date.getMonth()]}.${year}`;
 }
 
 export const AUDIENCE_LABELS = {
-  all: 'Todo el liceo',
-  manana: 'Jornada mañana',
-  tarde: 'Jornada tarde',
+  all: t('services.feedService.todoElLiceo'),
+  manana: t('common.jornadaManana'),
+  tarde: t('common.jornadaTarde'),
 } as const;
 
 export function audienceLabel(audience: FeedAudience) {

@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { useEffect, useState } from 'react';
 import { cached, peekCached, putCached } from './cache';
 import { functions } from './firebase';
+import { t } from '@/i18n';
 
 // Aniversario (functions/anniversary.js): alianzas made of whole courses, the
 // activities with their point tables, additions and deductions with their
@@ -90,12 +91,12 @@ export type Anniversary = {
 export type AnniversaryState = { anniversary: Anniversary | null; canOrganize: boolean };
 
 export const ACTIVITY_GROUPS: { value: ActivityGroup; label: string }[] = [
-  { value: 'previas', label: 'Previas' },
-  { value: 'deportes', label: 'Deportes' },
-  { value: 'velada', label: 'Velada' },
-  { value: 'show', label: 'Show' },
-  { value: 'flash', label: 'Pruebas flash' },
-  { value: 'otras', label: 'Otras' },
+  { value: 'previas', label: t('services.anniversaryService.previas') },
+  { value: 'deportes', label: t('services.anniversaryService.deportes') },
+  { value: 'velada', label: t('services.anniversaryService.velada') },
+  { value: 'show', label: t('services.anniversaryService.show') },
+  { value: 'flash', label: t('anniversary.welcome.pruebasFlash') },
+  { value: 'otras', label: t('services.anniversaryService.otras') },
 ];
 
 const KEY = 'anniversary';

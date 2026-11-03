@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog } from '@/components/ui/hanet-dialog';
 import { useSheetGuard } from '@/components/ui/sheet-frame';
+import { t } from '@/i18n';
 
 // A little over AlertModal's 100 ms close.
 const DIALOG_CLOSE_MS = 140;
@@ -29,7 +30,7 @@ type Options = {
  * editing, in HaNet's own dialog. Render the returned `dialog` in the screen
  * and call `allowLeave()` right before leaving on purpose.
  */
-export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', canSave = true, title = '¿Descartar los cambios?', message = 'Lo que escribiste todavía no se ha guardado.' }: Options) {
+export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = t('common.guardar'), canSave = true, title = t('common.descartarLosCambios'), message = t('hooks.useUnsavedChangesGuard.loQueEscribisteTodaviaNo') }: Options) {
   const sheet = useSheetGuard();
   // Set when leaving on purpose (saved or discarded), so nothing holds it
   // back; a screen that stays open (Horario) guards again once it is clean.
@@ -86,7 +87,7 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
         />
       )}
       <HanetButton
-        label="Descartar"
+        label={t('components.schedule.scheduleView.descartar')}
         variant="accent"
         onPress={() => {
           const discard = pendingDiscard;
@@ -97,7 +98,7 @@ export function useUnsavedChangesGuard({ dirty, onSave, saveLabel = 'Guardar', c
           setTimeout(() => discard?.(), DIALOG_CLOSE_MS);
         }}
       />
-      <HanetButton label="Seguir editando" variant="surface" onPress={keepEditing} />
+      <HanetButton label={t('hooks.useUnsavedChangesGuard.seguirEditando')} variant="surface" onPress={keepEditing} />
     </HanetDialog>
   );
 

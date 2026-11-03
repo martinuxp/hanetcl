@@ -22,6 +22,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
+import { t } from '@/i18n';
 
 function openLink(url: string) {
   if (url) void WebBrowser.openBrowserAsync(url);
@@ -80,7 +81,7 @@ export default function EventDetailScreen() {
     let active = true;
     getEvent(id)
       .then(result => { if (active) { setEvent(result); setError(null); } })
-      .catch(loadError => { if (active) setError(describeAuthError(loadError, 'No pudimos abrir este evento.')); });
+      .catch(loadError => { if (active) setError(describeAuthError(loadError, t('eventDetail.noPudimosAbrirEsteEvento'))); });
     return () => { active = false; };
   }, [id, user]));
 
@@ -103,7 +104,7 @@ export default function EventDetailScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEvent(current => current && { ...current, ...result });
     } catch (signupError) {
-      setActionError(describeAuthError(signupError, 'No pudimos guardar tu inscripción.'));
+      setActionError(describeAuthError(signupError, t('eventDetail.noPudimosGuardarTuInscripcion')));
     } finally {
       setBusy(false);
     }
@@ -133,7 +134,7 @@ export default function EventDetailScreen() {
       });
     } catch (reactError) {
       setEvent(current => current && { ...current, reactions: before });
-      setActionError(describeAuthError(reactError, 'No pudimos guardar tu reacción.'));
+      setActionError(describeAuthError(reactError, t('eventDetail.noPudimosGuardarTuReaccion')));
     } finally {
       setBusyEmoji(null);
     }
@@ -147,7 +148,7 @@ export default function EventDetailScreen() {
       setConfirmDelete(false);
       router.back();
     } catch (removeError) {
-      setActionError(describeAuthError(removeError, 'No pudimos eliminar el evento.'));
+      setActionError(describeAuthError(removeError, t('eventDetail.noPudimosEliminarElEvento')));
       setBusy(false);
     }
   };
@@ -163,7 +164,7 @@ export default function EventDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
         <ThemedText style={styles.emptyTitle}>{error}</ThemedText>
-        <HanetButton label="Volver" variant="surface" onPress={() => router.back()} />
+        <HanetButton label={t('common.volver')} variant="surface" onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -185,8 +186,8 @@ export default function EventDetailScreen() {
         <EventGlow position="top" colors={event.palette} />
         <EventGlow position="bottom" colors={event.palette} />
         <View style={styles.topBar}>
-          <ThemedText style={styles.brand}>HaNet Eventos</ThemedText>
-          <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={() => (router.canGoBack() ? router.back() : router.replace('/events'))} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
+          <ThemedText style={styles.brand}>{t('common.hanetEventos')}</ThemedText>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/events'))} style={({ pressed }) => [styles.roundButton, pressed && AppPressed]}>
             <Image source={require('@/assets/icons/event/arrow-left-long.svg')} style={styles.icon24} contentFit="contain" tintColor={AppColors.textPrimary} />
           </Pressable>
         </View>
@@ -197,8 +198,8 @@ export default function EventDetailScreen() {
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.heroFallback]}><CustomIcon name="calendar" size={48} color={AppColors.textSecondary} /></View>
           )}
-          {event.sponsored && <ThemedText style={styles.sponsored}>[Patrocinado]</ThemedText>}
-          {(!!soon || past) && <ThemedText style={[styles.badge, past && styles.badgePast]}>{past ? 'Ya pasó' : soon}</ThemedText>}
+          {event.sponsored && <ThemedText style={styles.sponsored}>{t('eventDetail.patrocinado')}</ThemedText>}
+          {(!!soon || past) && <ThemedText style={[styles.badge, past && styles.badgePast]}>{past ? t('classhall.hall.yaPaso') : soon}</ThemedText>}
         </View>
 
         <View style={styles.heading}>
@@ -215,18 +216,18 @@ export default function EventDetailScreen() {
         {!!price && <ThemedText style={styles.price}>{price}</ThemedText>}
         {!!event.perk && <ThemedText style={styles.perk}>{event.perk}</ThemedText>}
 
-        {past && <ThemedText style={styles.pastNote}>Este evento ya pasó.</ThemedText>}
+        {past && <ThemedText style={styles.pastNote}>{t('eventDetail.esteEventoYaPaso')}</ThemedText>}
 
         {!institution && !!event.ticketUrl && !past && (
-          <HanetButton label={`Comprar en ${event.sourceName || sourceHost}`} variant="accent" onPress={() => openLink(event.ticketUrl)} style={styles.wide} />
+          <HanetButton label={t('eventDetail.comprarEnSourcename', { sourceName: event.sourceName || sourceHost })} variant="accent" onPress={() => openLink(event.ticketUrl)} style={styles.wide} />
         )}
 
         {institution && event.signupMode !== 'none' && !past && (
           <View style={styles.signup}>
             <HanetButton
-              label={busy ? 'Guardando…' : event.signedUp
-                ? (event.signupMode === 'list' ? 'Te inscribiste · Cancelar' : 'Vas · Ya no voy')
-                : full ? 'Sin cupos' : event.signupMode === 'list' ? 'Inscribirme' : '¡Participo!'}
+              label={busy ? t('common.guardando') : event.signedUp
+                ? (event.signupMode === 'list' ? t('eventDetail.teInscribisteCancelar') : t('eventDetail.vasYaNoVoy'))
+                : full ? t('eventDetail.sinCupos') : event.signupMode === 'list' ? t('events.inscribirme') : t('events.participo')}
               variant={event.signedUp ? 'surface' : 'accent'}
               disabled={busy || full}
               onPress={() => void signup()}
@@ -234,14 +235,14 @@ export default function EventDetailScreen() {
             />
             <ThemedText style={styles.signupCount}>
               {event.signupMode === 'list'
-                ? `${event.signupCount ?? 0} ${event.signupCount === 1 ? 'inscrito' : 'inscritos'}${event.capacity ? ` de ${event.capacity} cupos` : ''}`
-                : `${event.signupCount ?? 0} ${event.signupCount === 1 ? 'persona va' : 'personas van'}`}
+                ? t('eventDetail.countInscritosValue', { count: event.signupCount ?? 0, value: event.capacity ? t('eventDetail.deCapacityCupos', { capacity: event.capacity }) : '' })
+                : t('eventDetail.countPersonasVan', { count: event.signupCount ?? 0 })}
             </ThemedText>
           </View>
         )}
-        {institution && event.checkedIn && <ThemedText style={styles.checkedIn}>Tu llegada quedó registrada</ThemedText>}
+        {institution && event.checkedIn && <ThemedText style={styles.checkedIn}>{t('eventDetail.tuLlegadaQuedoRegistrada')}</ThemedText>}
         {institution && event.canEdit && event.canCheckIn && (
-          <HanetButton label="Pasar lista con HN-QR" variant="primary" onPress={() => router.push({ pathname: '/event-checkin', params: { id: event.id } })} style={styles.wide} />
+          <HanetButton label={t('eventDetail.pasarListaConHnQr')} variant="primary" onPress={() => router.push({ pathname: '/event-checkin', params: { id: event.id } })} style={styles.wide} />
         )}
 
         {!!event.emojis?.length && event.status === 'published' && (
@@ -257,7 +258,7 @@ export default function EventDetailScreen() {
         {event.gallery.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll} contentContainerStyle={styles.gallery}>
             {event.gallery.map((uri, index) => (
-              <Pressable key={uri} accessibilityRole="imagebutton" accessibilityLabel={`Foto ${index + 1} de ${event.gallery.length}`} onPress={() => openLink(uri)} style={({ pressed }) => [index % 2 === 0 ? styles.galleryWide : styles.galleryNarrow, pressed && AppPressed]}>
+              <Pressable key={uri} accessibilityRole="imagebutton" accessibilityLabel={t('eventDetail.fotoNumberDeGallerycount', { number: index + 1, galleryCount: event.gallery.length })} onPress={() => openLink(uri)} style={({ pressed }) => [index % 2 === 0 ? styles.galleryWide : styles.galleryNarrow, pressed && AppPressed]}>
                 <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
               </Pressable>
             ))}
@@ -267,18 +268,18 @@ export default function EventDetailScreen() {
         <View style={styles.options}>
           <Pressable accessibilityRole="button" onPress={() => (storyShareAvailable || canPostToFeed ? setSharing(true) : shareEvent(event))} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
             <Image source={HNE_ICONS.arrowUpRight} style={styles.icon18} contentFit="contain" tintColor={AppColors.textPrimary} />
-            <ThemedText style={styles.optionLabel}>Compartir</ThemedText>
+            <ThemedText style={styles.optionLabel}>{t('common.compartir')}</ThemedText>
           </Pressable>
           {hasPlace && (
-            <Pressable accessibilityRole="button" accessibilityHint="Abre la ubicación en mapas" onPress={() => openMaps(event)} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
+            <Pressable accessibilityRole="button" accessibilityHint={t('eventDetail.abreLaUbicacionEnMapas')} onPress={() => openMaps(event)} style={({ pressed }) => [styles.option, pressed && AppPressed]}>
               <Image source={HNE_ICONS.location} style={styles.icon18} contentFit="contain" tintColor={AppColors.textPrimary} />
-              <ThemedText style={styles.optionLabel}>Cómo llegar</ThemedText>
+              <ThemedText style={styles.optionLabel}>{t('eventDetail.comoLlegar')}</ThemedText>
             </Pressable>
           )}
         </View>
 
         {hasPlace && (
-          <Pressable accessibilityRole="button" accessibilityHint="Abre la ubicación en mapas" onPress={() => openMaps(event)} style={({ pressed }) => [styles.venue, pressed && AppPressed]}>
+          <Pressable accessibilityRole="button" accessibilityHint={t('eventDetail.abreLaUbicacionEnMapas')} onPress={() => openMaps(event)} style={({ pressed }) => [styles.venue, pressed && AppPressed]}>
             <View style={styles.venueIcon}><CustomIcon name="map-pin" size={22} color={AppColors.textPrimary} /></View>
             <View style={styles.venueText}>
               <ThemedText numberOfLines={1} style={styles.venueName}>{event.venueName || 'Ubicación'}</ThemedText>
@@ -291,9 +292,9 @@ export default function EventDetailScreen() {
 
         <View style={styles.sectionHeader}>
           <Image source={HNE_ICONS.location} style={styles.icon24} contentFit="contain" tintColor={AppColors.textPrimary} />
-          <ThemedText style={styles.sectionTitle}>Información del evento</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('eventDetail.informacionDelEvento')}</ThemedText>
           <ThemedText style={styles.sectionNote}>
-            {institution ? `Publicado por ${event.authorName || 'tu institución'}.` : `Información proporcionada por ${event.sourceName || 'la ticketera'}.`}
+            {institution ? t('eventDetail.publicadoPorAuthorname', { authorName: event.authorName || 'tu institución' }) : t('eventDetail.informacionProporcionadaPorSourcename', { sourceName: event.sourceName || 'la ticketera' })}
           </ThemedText>
         </View>
         <ThemedText selectable style={styles.body}>{event.description || 'El organizador no agregó más detalles.'}</ThemedText>
@@ -303,11 +304,11 @@ export default function EventDetailScreen() {
             <View style={styles.divider} />
             <View style={styles.editorial}>
               <Image source={HNE_ICONS.album} style={styles.icon24} contentFit="contain" tintColor={AppColors.textPrimary} />
-              <ThemedText style={styles.editorialTitle}>Sobre {event.editorial.subject}</ThemedText>
+              <ThemedText style={styles.editorialTitle}>{t('eventDetail.sobreSubject', { subject: event.editorial.subject })}</ThemedText>
               <ThemedText selectable style={styles.body}>{event.editorial.summary}</ThemedText>
               {!!event.editorial.sourceName && (
                 <Pressable accessibilityRole="link" hitSlop={8} onPress={() => openLink(event.editorial?.sourceUrl ?? '')} disabled={!event.editorial.sourceUrl} style={({ pressed }) => pressed && AppPressed}>
-                  <ThemedText style={styles.attribution}>Información proporcionada por {event.editorial.sourceName}{wikipedia ? ' (CC BY-SA 4.0)' : ''}</ThemedText>
+                  <ThemedText style={styles.attribution}>{t('eventDetail.informacionProporcionadaPorSourcenameValue', { sourceName: event.editorial.sourceName, value: wikipedia ? t('eventDetail.ccBySa40') : '' })}</ThemedText>
                 </Pressable>
               )}
             </View>
@@ -318,10 +319,10 @@ export default function EventDetailScreen() {
           <>
             <View style={styles.divider} />
             <View style={styles.editorial}>
-              <ThemedText style={styles.editorialTitle}>Inscritos ({event.signups.length})</ThemedText>
-              <ThemedText style={styles.sectionNote}>Solo lo ven quienes organizan.</ThemedText>
+              <ThemedText style={styles.editorialTitle}>{t('eventDetail.inscritosSignupscount', { signupsCount: event.signups.length })}</ThemedText>
+              <ThemedText style={styles.sectionNote}>{t('eventDetail.soloLoVenQuienesOrganizan')}</ThemedText>
               {event.signups.length === 0
-                ? <ThemedText style={styles.body}>Nadie se ha inscrito todavía.</ThemedText>
+                ? <ThemedText style={styles.body}>{t('eventDetail.nadieSeHaInscritoTodavia')}</ThemedText>
                 : event.signups.map((person, index) => (
                   <ThemedText key={index} style={styles.body}>{index + 1}. {person.name}{person.courseId ? ` · ${person.courseId}` : ''}</ThemedText>
                 ))}
@@ -333,10 +334,10 @@ export default function EventDetailScreen() {
           <>
             <View style={styles.divider} />
             <View style={styles.editorial}>
-              <ThemedText style={styles.editorialTitle}>Llegaron ({event.checkins.length})</ThemedText>
-              <ThemedText style={styles.sectionNote}>Escaneados en la entrada. Solo lo ven quienes organizan.</ThemedText>
+              <ThemedText style={styles.editorialTitle}>{t('eventDetail.llegaronCheckinscount', { checkinsCount: event.checkins.length })}</ThemedText>
+              <ThemedText style={styles.sectionNote}>{t('eventDetail.escaneadosEnLaEntradaSolo')}</ThemedText>
               {event.checkins.length === 0
-                ? <ThemedText style={styles.body}>{event.canCheckIn ? 'Todavía no has escaneado a nadie.' : 'La lista se abre 3 horas antes del evento.'}</ThemedText>
+                ? <ThemedText style={styles.body}>{event.canCheckIn ? t('eventDetail.todaviaNoHasEscaneadoA') : t('eventDetail.laListaSeAbre3')}</ThemedText>
                 : event.checkins.map((person, index) => (
                   <ThemedText key={index} style={styles.body}>{index + 1}. {person.name}{person.courseId ? ` · ${person.courseId}` : ''}</ThemedText>
                 ))}
@@ -346,23 +347,23 @@ export default function EventDetailScreen() {
 
         {event.canEdit && (
           <View style={styles.editRow}>
-            <HanetButton label="Editar" variant="surface" onPress={() => router.push({ pathname: '/event-form', params: { kind: event.kind, id: event.id } })} style={dialogStyles.action} />
-            <HanetButton label="Eliminar" variant="surface" onPress={() => setConfirmDelete(true)} style={dialogStyles.action} />
+            <HanetButton label={t('common.editar')} variant="surface" onPress={() => router.push({ pathname: '/event-form', params: { kind: event.kind, id: event.id } })} style={dialogStyles.action} />
+            <HanetButton label={t('common.eliminar')} variant="surface" onPress={() => setConfirmDelete(true)} style={dialogStyles.action} />
           </View>
         )}
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Volver arriba" onPress={() => scroll.current?.scrollTo({ y: 0, animated: true })} style={({ pressed }) => [styles.toTop, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('eventDetail.volverArriba')} onPress={() => scroll.current?.scrollTo({ y: 0, animated: true })} style={({ pressed }) => [styles.toTop, pressed && AppPressed]}>
           <Image source={require('@/assets/icons/event/arrow-left-long.svg')} style={[styles.icon24, styles.arrowUp]} contentFit="contain" tintColor={AppColors.textPrimary} />
         </Pressable>
         <ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>
       </ScrollView>
 
-      <HanetDialog visible={sharing} onRequestClose={() => setSharing(false)} dismissOnBackdrop title="Compartir evento">
+      <HanetDialog visible={sharing} onRequestClose={() => setSharing(false)} dismissOnBackdrop title={t('eventDetail.compartirEvento')}>
         <View style={styles.shareButtons}>
-          {storyShareAvailable && <HanetButton label="Como historia" variant="primary" onPress={() => { setSharing(false); setStory(true); }} />}
-          {canPostToFeed && <HanetButton label="En el Feed" variant="surface" onPress={() => { setSharing(false); router.push({ pathname: '/feed-post', params: { eventId: event.id } }); }} />}
-          <HanetButton label="Enviar link" variant="surface" onPress={() => { setSharing(false); shareEvent(event); }} />
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setSharing(false)} />
+          {storyShareAvailable && <HanetButton label={t('eventDetail.comoHistoria')} variant="primary" onPress={() => { setSharing(false); setStory(true); }} />}
+          {canPostToFeed && <HanetButton label={t('eventDetail.enElFeed')} variant="surface" onPress={() => { setSharing(false); router.push({ pathname: '/feed-post', params: { eventId: event.id } }); }} />}
+          <HanetButton label={t('eventDetail.enviarLink')} variant="surface" onPress={() => { setSharing(false); shareEvent(event); }} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setSharing(false)} />
         </View>
       </HanetDialog>
 
@@ -372,12 +373,12 @@ export default function EventDetailScreen() {
         visible={confirmDelete}
         onRequestClose={() => !busy && setConfirmDelete(false)}
         dismissOnBackdrop={!busy}
-        title="¿Eliminar este evento?"
-        body={institution && event.signupMode !== 'none' ? 'También se borran las inscripciones. No se puede deshacer.' : 'Deja de aparecer en HaNet Eventos. No se puede deshacer.'}
+        title={t('eventDetail.eliminarEsteEvento')}
+        body={institution && event.signupMode !== 'none' ? t('eventDetail.tambienSeBorranLasInscripciones') : t('eventDetail.dejaDeAparecerEnHanet')}
       >
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" disabled={busy} onPress={() => setConfirmDelete(false)} style={dialogStyles.action} />
-          <HanetButton label={busy ? 'Eliminando…' : 'Eliminar'} variant="accent" disabled={busy} onPress={() => void remove()} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={busy} onPress={() => setConfirmDelete(false)} style={dialogStyles.action} />
+          <HanetButton label={busy ? t('common.eliminando') : t('common.eliminar')} variant="accent" disabled={busy} onPress={() => void remove()} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
     </FrostedScreen>

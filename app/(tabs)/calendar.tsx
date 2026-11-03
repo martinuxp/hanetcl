@@ -35,6 +35,7 @@ import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service'
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
+import { t } from '@/i18n';
 
 
 type Frame = { x: number; width: number };
@@ -172,9 +173,9 @@ export default function CalendarScreen() {
     const from = chipFrames[Math.floor(day)];
     const to = chipFrames[Math.ceil(day)];
     if (!from || !to) return;
-    const t = day - Math.floor(day);
-    indicatorX.set(from.x + (to.x - from.x) * t);
-    indicatorWidth.set(from.width + (to.width - from.width) * t);
+    const frac = day - Math.floor(day);
+    indicatorX.set(from.x + (to.x - from.x) * frac);
+    indicatorWidth.set(from.width + (to.width - from.width) * frac);
   };
 
   const startDragging = () => {
@@ -203,7 +204,7 @@ export default function CalendarScreen() {
     if (initializing) return;
     if (!user) {
       setAllEvents([]);
-      setLoadError('Inicia sesión para ver el calendario de tu curso.');
+      setLoadError(t('calendar.iniciaSesionParaVerEl'));
       setLoading(false);
       return;
     }
@@ -233,15 +234,15 @@ export default function CalendarScreen() {
         hasEventsRef.current = true;
       } else {
         setAllEvents([]);
-        setLoadError('Tu HaNet ID todavía no está vinculado a un curso.');
+        setLoadError(t('common.tuHanetIdTodaviaNo'));
       }
     } catch (e) {
       console.error(e);
       // A failed background refresh keeps what is already on screen.
       if (!silent || !hasEventsRef.current) {
         setLoadError((e as { code?: string }).code === 'permission-denied'
-          ? 'Tu cuenta no tiene permiso para ver el calendario de este curso.'
-          : 'No pudimos cargar el calendario. Revisa tu conexión e inténtalo nuevamente.');
+          ? t('calendar.tuCuentaNoTienePermiso')
+          : t('calendar.noPudimosCargarElCalendario'));
       }
     } finally {
       setLoading(false);
@@ -448,18 +449,18 @@ export default function CalendarScreen() {
       {view === 'schedule' ? (
         <View style={styles.header}>
           <View style={styles.headerCenter}>
-            <ThemedText accessibilityRole="header" style={styles.headerTitle}>Horario</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.headerTitle}>{t('common.horario')}</ThemedText>
           </View>
         </View>
       ) : view === 'week' ? (
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.semanaAnterior')} style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
             <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Semana del ${formatShortDate(weekDays[0].dateObj)} al ${formatShortDate(weekDays[6].dateObj)}. Ver el mes`}
+              accessibilityLabel={t('calendar.semanaDelShortdateAlShortdate2', { shortDate: formatShortDate(weekDays[0].dateObj), shortDate2: formatShortDate(weekDays[6].dateObj) })}
               hitSlop={6}
               onPress={event => openMonth(pointOf(event))}
               style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
@@ -472,24 +473,24 @@ export default function CalendarScreen() {
             {weekStart.getTime() !== getMonday(today).getTime() && (
               <View style={styles.headerLinks}>
                 <Pressable accessibilityRole="button" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedText style={styles.todayLink}>Esta semana</ThemedText>
+                  <ThemedText style={styles.todayLink}>{t('calendar.estaSemana')}</ThemedText>
                 </Pressable>
               </View>
             )}
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.semanaSiguiente')} style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
             <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
           </Pressable>
         </View>
       ) : view === 'day' ? (
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana anterior" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.semanaAnterior')} style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToPrevWeek}>
             <CustomIcon name="chevron-left" size={20} color={AppColors.textSecondary} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${currentDayInfo.fullDate}. Ver el mes`}
+              accessibilityLabel={t('calendar.fulldateVerElMes', { fullDate: currentDayInfo.fullDate })}
               hitSlop={6}
               onPress={event => openMonth(pointOf(event))}
               style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
@@ -499,13 +500,13 @@ export default function CalendarScreen() {
             </Pressable>
             <View style={styles.headerLinks}>
               {!isTodaySelected && (
-                <Pressable accessibilityRole="button" accessibilityLabel="Volver a hoy" hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedText style={styles.todayLink}>Volver a hoy</ThemedText>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.volverAHoy')} hitSlop={10} onPress={goToToday} style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedText style={styles.todayLink}>{t('calendar.volverAHoy')}</ThemedText>
                 </Pressable>
               )}
             </View>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Semana siguiente" style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.semanaSiguiente')} style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]} onPress={goToNextWeek}>
             <CustomIcon name="chevron-right" size={20} color={AppColors.textSecondary} />
           </Pressable>
         </View>
@@ -513,7 +514,7 @@ export default function CalendarScreen() {
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={view === 'year' ? 'Año anterior' : 'Mes anterior'}
+            accessibilityLabel={view === 'year' ? t('calendar.anoAnterior') : t('calendar.mesAnterior')}
             style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]}
             onPress={() => shiftMonth(-1)}
           >
@@ -523,7 +524,7 @@ export default function CalendarScreen() {
             {view === 'month' ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${MONTH_NAMES[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}. Ver el año`}
+                accessibilityLabel={t('calendar.monthnamesFullyearVerElAno', { monthNames: MONTH_NAMES[visibleMonth.getMonth()], fullYear: visibleMonth.getFullYear() })}
                 hitSlop={6}
                 onPress={event => zoomTo('year', 'out', pointOf(event))}
                 style={({ pressed }) => [styles.headerTitleButton, pressed && styles.pressed]}
@@ -539,14 +540,14 @@ export default function CalendarScreen() {
             <View style={styles.headerLinks}>
               {(visibleMonth.getFullYear() !== today.getFullYear() || (view === 'month' && visibleMonth.getMonth() !== today.getMonth())) && (
                 <Pressable accessibilityRole="button" hitSlop={10} onPress={goToThisMonth} style={({ pressed }) => pressed && styles.pressed}>
-                  <ThemedText style={styles.todayLink}>{view === 'year' ? 'Este año' : 'Este mes'}</ThemedText>
+                  <ThemedText style={styles.todayLink}>{view === 'year' ? t('calendar.esteAno') : t('calendar.esteMes')}</ThemedText>
                 </Pressable>
               )}
             </View>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={view === 'year' ? 'Año siguiente' : 'Mes siguiente'}
+            accessibilityLabel={view === 'year' ? t('calendar.anoSiguiente') : t('calendar.mesSiguiente')}
             style={({ pressed }) => [styles.arrowButton, pressed && styles.pressed]}
             onPress={() => shiftMonth(1)}
           >
@@ -568,7 +569,7 @@ export default function CalendarScreen() {
             <Pressable
               key={index}
               accessibilityRole="button"
-              accessibilityLabel={`${day.dayName} ${day.date}${isToday ? ', hoy' : ''}${hasEvents ? ', con eventos' : ''}`}
+              accessibilityLabel={`${day.dayName} ${day.date}${isToday ? t('common.hoy') : ''}${hasEvents ? t('calendar.conEventos') : ''}`}
               accessibilityState={{ selected: isSelected }}
               style={({ pressed }) => [styles.dayChip, isToday && styles.dayChipToday, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
               onLayout={event => recordChipFrame(index, { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}
@@ -606,10 +607,10 @@ export default function CalendarScreen() {
         ) : loadError ? (
           <View accessibilityLiveRegion="polite" style={withTopInset(styles.statusContainer, top)}>
             <CalendarDaysIcon size={64} color={AppColors.surfaceSoft} />
-            <ThemedText style={styles.emptyTitle}>Calendario no disponible</ThemedText>
+            <ThemedText style={styles.emptyTitle}>{t('calendar.calendarioNoDisponible')}</ThemedText>
             <ThemedText style={styles.statusText}>{loadError}</ThemedText>
             <HanetButton
-              label={user ? 'Intentar de nuevo' : 'Iniciar sesión'}
+              label={user ? t('calendar.intentarDeNuevo') : t('common.iniciarSesion')}
               onPress={() => user ? void loadEvents() : router.push('/auth')}
               style={styles.statusButton}
             />
@@ -774,8 +775,8 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} progressViewOffset={top} />}
       >
         <CalendarDaysIcon size={72} color={AppColors.surfaceSoft} style={{ marginBottom: 12 }} />
-        <ThemedText style={styles.emptyTitle}>Sin eventos</ThemedText>
-        <ThemedText style={styles.emptySubtitle}>No hay eventos programados para este día.</ThemedText>
+        <ThemedText style={styles.emptyTitle}>{t('calendar.sinEventos')}</ThemedText>
+        <ThemedText style={styles.emptySubtitle}>{t('calendar.noHayEventosProgramadosPara')}</ThemedText>
         <View style={{ height: 120 }} />
       </ScrollView>
     );
@@ -821,7 +822,7 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
       ))}
 
       <ThemedText style={styles.footerDisclaimer}>
-        {lastUpdated ? `Actualizado a las ${formatTime(lastUpdated)}. ` : ''}Desliza hacia abajo para actualizar.
+        {t('calendar.valueDeslizaHaciaAbajoPara', { value: lastUpdated ? t('calendar.actualizadoALasTime', { time: formatTime(lastUpdated) }) : '' })}
       </ThemedText>
 
       {/* Extra bottom padding for BottomBar */}
@@ -834,16 +835,16 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
 function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: CalendarEvent[]; isAdmin: boolean }) {
   const router = useRouter();
   if (isBreak(block)) {
-    return <ThemedText style={styles.breakText}>{block.subject} · hasta las {block.end}</ThemedText>;
+    return <ThemedText style={styles.breakText}>{t('calendar.subjectHastaLasEnd', { subject: block.subject, end: block.end })}</ThemedText>;
   }
-  const meta = [`${block.start} – ${block.end}`, block.kind === 'hall' ? (block.plan === 'dominio' ? 'Dominio' : 'Electivo') : null, block.room || null].filter(Boolean).join(' · ');
+  const meta = [`${block.start} – ${block.end}`, block.kind === 'hall' ? (block.plan === 'dominio' ? t('common.dominio') : t('common.electivo')) : null, block.room || null].filter(Boolean).join(' · ');
   const hallId = block.hallId;
   return (
     <View style={styles.blockCard}>
       <Pressable
         accessibilityRole={hallId ? 'button' : undefined}
         accessibilityLabel={`${block.subject}, ${meta}`}
-        accessibilityHint={hallId ? 'Abre la clase en ClassHall' : undefined}
+        accessibilityHint={hallId ? t('calendar.abreLaClaseEnClasshall') : undefined}
         disabled={!hallId}
         onPress={() => router.push({ pathname: '/classhall/hall', params: { id: hallId } })}
         style={({ pressed }) => [styles.blockHeader, pressed && { opacity: 0.75 }]}
@@ -858,8 +859,8 @@ function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: C
         <Pressable
           key={event.id}
           accessibilityRole="button"
-          accessibilityLabel={`${event.eventType ?? 'Evento'}: ${event.title}${event.cancelled ? ', cancelado' : ''}`}
-          accessibilityHint="Abre el detalle"
+          accessibilityLabel={`${event.eventType ?? 'Evento'}: ${event.title}${event.cancelled ? t('calendar.cancelado') : ''}`}
+          accessibilityHint={t('calendar.abreElDetalle')}
           onPress={() => router.push({ pathname: '/event-info', params: { id: event.id, canEdit: isAdmin ? '1' : '0' } })}
           style={({ pressed }) => [styles.blockEvent, event.outstanding && styles.blockEventOutstanding, pressed && { opacity: 0.75 }]}
         >
@@ -909,7 +910,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${title}, ${time}`}
-        accessibilityHint="Abre el detalle del evento"
+        accessibilityHint={t('calendar.abreElDetalleDelEvento')}
         onPress={openDetail}
         style={({ pressed }) => [styles.classCardContent, pressed && { opacity: 0.75 }]}
       >
@@ -943,7 +944,7 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <View style={styles.verifyRow}>
             <CustomIcon name="check-circle" size={18} color={AppColors.success} />
             <View style={styles.verifyTextContainer}>
-              <ThemedText style={styles.verifyLabel}>Publicado por la directiva:</ThemedText>
+              <ThemedText style={styles.verifyLabel}>{t('calendar.publicadoPorLaDirectiva')}</ThemedText>
               <ThemedText style={styles.verifyName}>{writer}</ThemedText>
             </View>
           </View>
@@ -953,15 +954,15 @@ function ClassCard({ id, title, time, desc, isAdmin, writer, verified, verifier,
           <View style={styles.verifyRow}>
             <CustomIcon name="check-circle" size={18} color={AppColors.info} />
             <View style={styles.verifyTextContainer}>
-              <ThemedText style={styles.verifyLabel}>Verificado por un docente:</ThemedText>
+              <ThemedText style={styles.verifyLabel}>{t('common.verificadoPorUnDocente')}</ThemedText>
               <ThemedText style={styles.verifyName}>{verifier}</ThemedText>
             </View>
           </View>
         )}
       </Pressable>
       {isAdmin && (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${title}`} style={({ pressed }) => [styles.bottomStrip, pressed && styles.pressed]} onPress={handleEdit}>
-          <ThemedText style={styles.bottomStripText}>Editar información</ThemedText>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('calendar.editarTitle', { title })} style={({ pressed }) => [styles.bottomStrip, pressed && styles.pressed]} onPress={handleEdit}>
+          <ThemedText style={styles.bottomStripText}>{t('calendar.editarInformacion')}</ThemedText>
         </Pressable>
       )}
     </View>

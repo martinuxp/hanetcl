@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { t } from '@/i18n';
 
 const MAX_ALLIANCES = 8;
 const MAX_MASCOTS = 3;
@@ -61,7 +62,7 @@ function initialForm(): AnniversaryInput {
   end.setDate(end.getDate() + 4);
   end.setHours(22, 0, 0, 0);
   return {
-    title: 'Aniversario',
+    title: t('common.aniversario'),
     startsAt: start.getTime(),
     endsAt: end.getTime(),
     rulesUrl: '',
@@ -97,7 +98,7 @@ function SetupScreen() {
     let active = true;
     listAnniversaryCourses()
       .then(list => { if (active) setCourses(list); })
-      .catch(loadError => { if (active) setCoursesError(describeAuthError(loadError, 'No pudimos cargar los cursos.')); });
+      .catch(loadError => { if (active) setCoursesError(describeAuthError(loadError, t('anniversary.setup.noPudimosCargarLosCursos'))); });
     return () => { active = false; };
   }, []);
 
@@ -149,7 +150,7 @@ function SetupScreen() {
       allowLeave();
       router.back();
     } catch (saveError) {
-      setError(describeAuthError(saveError, 'No pudimos guardar el aniversario. Inténtalo nuevamente.'));
+      setError(describeAuthError(saveError, t('anniversary.setup.noPudimosGuardarElAniversario')));
       setSubmitting(false);
     }
   };
@@ -177,26 +178,26 @@ function SetupScreen() {
       router.back();
     } catch (deleteError) {
       setDeletingAll(false);
-      setError(describeAuthError(deleteError, 'No pudimos borrar el aniversario. Inténtalo nuevamente.'));
+      setError(describeAuthError(deleteError, t('anniversary.setup.noPudimosBorrarElAniversario')));
       setSubmitting(false);
     }
   };
 
-  const label = editing ? 'Guardar cambios' : 'Armar el aniversario';
+  const label = editing ? t('common.guardarCambios') : t('anniversary.armarElAniversario');
   const { allowLeave, dialog } = useUnsavedChangesGuard({ dirty: dirty && !submitting, onSave: submit, saveLabel: label, canSave: ready });
   const unassigned = (courses ?? []).filter(courseId => !form.alliances.some(alliance => alliance.courseIds.includes(courseId)));
 
   return (
     <SheetBody
-      title={editing ? 'Alianzas y fechas' : 'Armar el aniversario'}
-      lead="Cada curso va en una alianza: sus estudiantes verán la suya sin hacer nada."
+      title={editing ? t('anniversary.setup.alianzasYFechas') : t('anniversary.armarElAniversario')}
+      lead={t('anniversary.setup.cadaCursoVaEnUna')}
     >
-      <TextField label="Nombre" value={form.title} onChange={title => update({ title })} placeholder="44° Aniversario" disabled={submitting} />
-      <DateField label="Empieza" value={form.startsAt} onChange={value => value && update({ startsAt: value })} disabled={submitting} />
-      <DateField label="Termina" value={form.endsAt} onChange={value => value && update({ endsAt: value })} disabled={submitting} />
-      {form.endsAt <= form.startsAt && <ThemedText style={styles.hint}>El término va después del inicio.</ThemedText>}
+      <TextField label={t('common.nombre')} value={form.title} onChange={title => update({ title })} placeholder={t('anniversary.setup.n44Aniversario')} disabled={submitting} />
+      <DateField label={t('common.empieza')} value={form.startsAt} onChange={value => value && update({ startsAt: value })} disabled={submitting} />
+      <DateField label={t('common.termina')} value={form.endsAt} onChange={value => value && update({ endsAt: value })} disabled={submitting} />
+      {form.endsAt <= form.startsAt && <ThemedText style={styles.hint}>{t('anniversary.setup.elTerminoVaDespuesDel')}</ThemedText>}
       <TextField
-        label="Link a las bases"
+        label={t('anniversary.setup.linkALasBases')}
         optional
         value={form.rulesUrl}
         onChange={rulesUrl => update({ rulesUrl })}
@@ -209,22 +210,22 @@ function SetupScreen() {
       {form.alliances.map((alliance, index) => (
         <View key={alliance.id ?? `new-${index}`} style={local.alliance}>
           <View style={local.allianceHead}>
-            <ThemedText style={styles.label}>Alianza {index + 1}</ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.alianzaNumber', { number: index + 1 })}</ThemedText>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Borrar la alianza ${alliance.name.trim() || index + 1}`}
+              accessibilityLabel={t('anniversary.setup.borrarLaAlianzaName', { name: alliance.name.trim() || index + 1 })}
               disabled={submitting}
               onPress={() => askRemove(index)}
               style={({ pressed }) => [local.remove, pressed && styles.pressed]}
             >
               <Ionicons name="trash-outline" size={15} color={AppColors.textSecondary} />
-              <ThemedText style={local.removeText}>Borrar</ThemedText>
+              <ThemedText style={local.removeText}>{t('common.borrar')}</ThemedText>
             </Pressable>
           </View>
-          <TextField label="Nombre" value={alliance.name} onChange={name => updateAlliance(index, { name })} placeholder="80s" maxLength={40} disabled={submitting} />
-          <TextField label="Temática" optional value={alliance.theme} onChange={theme => updateAlliance(index, { theme })} placeholder="Los años 80" maxLength={60} disabled={submitting} />
+          <TextField label={t('common.nombre')} value={alliance.name} onChange={name => updateAlliance(index, { name })} placeholder="80s" maxLength={40} disabled={submitting} />
+          <TextField label={t('anniversary.setup.tematica')} optional value={alliance.theme} onChange={theme => updateAlliance(index, { theme })} placeholder={t('anniversary.setup.losAnos80')} maxLength={60} disabled={submitting} />
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Mascotas <ThemedText style={styles.optional}>(hasta {MAX_MASCOTS}, opcional)</ThemedText></ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.mascotas')}{' '}<ThemedText style={styles.optional}>{t('anniversary.setup.hastaMaxmascotsOpcional', { maxMascots: MAX_MASCOTS })}</ThemedText></ThemedText>
             <View style={local.mascots}>
               {MASCOTS.map(emoji => {
                 const selected = mascotsOf(alliance).includes(emoji);
@@ -244,10 +245,10 @@ function SetupScreen() {
               })}
             </View>
             <TextInput
-              accessibilityLabel={`Mascotas de la alianza ${index + 1}`}
+              accessibilityLabel={t('anniversary.setup.mascotasDeLaAlianzaNumber', { number: index + 1 })}
               value={alliance.emoji}
               onChangeText={emoji => updateAlliance(index, { emoji })}
-              placeholder="O escribe otros emoji"
+              placeholder={t('anniversary.setup.oEscribeOtrosEmoji')}
               placeholderTextColor={AppColors.surfaceMuted}
               maxLength={40}
               editable={!submitting}
@@ -255,12 +256,12 @@ function SetupScreen() {
               selectionColor={AppColors.accent}
               style={styles.input}
             />
-            {!!alliance.emoji && !looksLikeEmoji(alliance.emoji) && <ThemedText style={styles.hint}>Las mascotas son emoji, sin letras.</ThemedText>}
-            {mascotsOf(alliance).length > MAX_MASCOTS && <ThemedText style={styles.hint}>Se guardan las primeras {MAX_MASCOTS}.</ThemedText>}
+            {!!alliance.emoji && !looksLikeEmoji(alliance.emoji) && <ThemedText style={styles.hint}>{t('anniversary.setup.lasMascotasSonEmojiSin')}</ThemedText>}
+            {mascotsOf(alliance).length > MAX_MASCOTS && <ThemedText style={styles.hint}>{t('anniversary.setup.seGuardanLasPrimerasMaxmascots', { maxMascots: MAX_MASCOTS })}</ThemedText>}
           </View>
-          <TextField label="Lema" optional value={alliance.motto} onChange={motto => updateAlliance(index, { motto })} placeholder="¡Nadie nos para!" maxLength={80} disabled={submitting} />
+          <TextField label={t('anniversary.setup.lema')} optional value={alliance.motto} onChange={motto => updateAlliance(index, { motto })} placeholder={t('anniversary.setup.nadieNosPara')} maxLength={80} disabled={submitting} />
           <TextField
-            label="Instagram de la alianza"
+            label={t('anniversary.setup.instagramDeLaAlianza')}
             optional
             value={alliance.instagram}
             onChange={instagram => updateAlliance(index, { instagram })}
@@ -270,7 +271,7 @@ function SetupScreen() {
             disabled={submitting}
           />
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Color</ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.color')}</ThemedText>
             <View accessibilityRole="radiogroup" style={local.colors}>
               {ALLIANCE_COLOR_ORDER.map(color => {
                 const selected = alliance.color === color;
@@ -291,11 +292,11 @@ function SetupScreen() {
             </View>
           </View>
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Segundo color <ThemedText style={styles.optional}>(opcional)</ThemedText></ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.segundoColor')}{' '}<ThemedText style={styles.optional}>{t('common.opcional')}</ThemedText></ThemedText>
             <View accessibilityRole="radiogroup" style={local.colors}>
               <Pressable
                 accessibilityRole="radio"
-                accessibilityLabel="Sin segundo color"
+                accessibilityLabel={t('anniversary.setup.sinSegundoColor')}
                 accessibilityState={{ selected: !alliance.color2 }}
                 disabled={submitting}
                 onPress={() => updateAlliance(index, { color2: '' })}
@@ -320,7 +321,7 @@ function SetupScreen() {
                 );
               })}
             </View>
-            <ThemedText style={styles.hint}>Como la camiseta de un equipo: sale en su anillo y sus tarjetas.</ThemedText>
+            <ThemedText style={styles.hint}>{t('anniversary.setup.comoLaCamisetaDeUn')}</ThemedText>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -328,37 +329,37 @@ function SetupScreen() {
             onPress={() => toggleExpanded(index)}
             style={({ pressed }) => [local.more, pressed && styles.pressed]}
           >
-            <ThemedText style={local.moreText}>Grito, artistas y sorteo</ThemedText>
+            <ThemedText style={local.moreText}>{t('anniversary.setup.gritoArtistasYSorteo')}</ThemedText>
             <Ionicons name={expanded.has(index) ? 'chevron-up' : 'chevron-down'} size={16} color={AppColors.textSecondary} />
           </Pressable>
           {expanded.has(index) && (
             <>
               <TextField
-                label="Grito de barra"
+                label={t('anniversary.setup.gritoDeBarra')}
                 optional
                 value={alliance.chant}
                 onChange={chant => updateAlliance(index, { chant })}
-                placeholder={'¡Ochenta, ochenta,\nnadie nos revienta!'}
+                placeholder={t('anniversary.setup.ochentaOchentaNadieNosRevienta')}
                 multiline
                 maxLength={400}
                 disabled={submitting}
               />
               <TextField
-                label="Artistas que les tocaron"
+                label={t('anniversary.setup.artistasQueLesTocaron')}
                 optional
                 value={alliance.artists}
                 onChange={artists => updateAlliance(index, { artists })}
-                placeholder={'Pop: Justin Bieber\nK-pop: Aespa\nReyes: Rihanna'}
+                placeholder={t('anniversary.setup.popJustinBieberKPop')}
                 multiline
                 maxLength={300}
                 disabled={submitting}
               />
               <TextField
-                label="Lo que salió en el sorteo"
+                label={t('anniversary.setup.loQueSalioEnEl')}
                 optional
                 value={alliance.draw}
                 onChange={draw => updateAlliance(index, { draw })}
-                placeholder={'Canastas: miércoles de 12 a 13 h\nVelada: sale tercera'}
+                placeholder={t('anniversary.setup.canastasMiercolesDe12A')}
                 multiline
                 maxLength={300}
                 disabled={submitting}
@@ -366,7 +367,7 @@ function SetupScreen() {
             </>
           )}
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Cursos <ThemedText style={styles.optional}>({alliance.courseIds.length})</ThemedText></ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.cursos')}{' '}<ThemedText style={styles.optional}>({alliance.courseIds.length})</ThemedText></ThemedText>
             {courses === null ? (
               <ThemedText style={styles.hint}>{coursesError ?? 'Cargando los cursos…'}</ThemedText>
             ) : (
@@ -381,7 +382,7 @@ function SetupScreen() {
                     onPress={() => toggleCourse(index, courseId)}
                   />
                 ))}
-                {!alliance.courseIds.length && !unassigned.length && <ThemedText style={styles.hint}>Todos los cursos ya están en otra alianza.</ThemedText>}
+                {!alliance.courseIds.length && !unassigned.length && <ThemedText style={styles.hint}>{t('anniversary.setup.todosLosCursosYaEstan')}</ThemedText>}
               </View>
             )}
           </View>
@@ -389,30 +390,30 @@ function SetupScreen() {
       ))}
 
       {form.alliances.length < MAX_ALLIANCES && (
-        <HanetButton label="Agregar una alianza" variant="surface" disabled={submitting} onPress={() => update({ alliances: [...form.alliances, blankAlliance(form.alliances.length)] })} />
+        <HanetButton label={t('anniversary.setup.agregarUnaAlianza')} variant="surface" disabled={submitting} onPress={() => update({ alliances: [...form.alliances, blankAlliance(form.alliances.length)] })} />
       )}
       {courses !== null && unassigned.length > 0 && (
-        <ThemedText style={styles.hint}>Sin alianza: {unassigned.join(', ')}.</ThemedText>
+        <ThemedText style={styles.hint}>{t('anniversary.setup.sinAlianzaJoin', { join: unassigned.join(', ') })}</ThemedText>
       )}
 
       {editing && (
         <>
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Marcador</ThemedText>
+            <ThemedText style={styles.label}>{t('common.marcador')}</ThemedText>
             <HanetChoice
-              label="Marcador"
-              options={[{ value: 'shown', label: 'Visible' }, { value: 'hidden', label: 'Oculto' }]}
+              label={t('common.marcador')}
+              options={[{ value: 'shown', label: t('anniversary.setup.visible') }, { value: 'hidden', label: t('anniversary.setup.oculto') }]}
               value={form.scoreHidden ? 'hidden' : 'shown'}
               onChange={value => update({ scoreHidden: value === 'hidden' })}
               disabled={submitting}
             />
-            <ThemedText style={styles.hint}>Solo quienes organizan ven los puntos. Así la ganadora se revela en la premiación.</ThemedText>
+            <ThemedText style={styles.hint}>{t('anniversary.setup.soloQuienesOrganizanVenLos')}</ThemedText>
           </View>
           <View style={styles.field}>
-            <ThemedText style={styles.label}>Estado</ThemedText>
+            <ThemedText style={styles.label}>{t('anniversary.setup.estado')}</ThemedText>
             <HanetChoice
-              label="Estado"
-              options={[{ value: 'live', label: 'En curso' }, { value: 'finished', label: 'Terminado' }]}
+              label={t('anniversary.setup.estado')}
+              options={[{ value: 'live', label: t('anniversary.setup.enCurso') }, { value: 'finished', label: t('anniversary.setup.terminado') }]}
               value={form.finished ? 'finished' : 'live'}
               onChange={value => update({ finished: value === 'finished' })}
               disabled={submitting}
@@ -421,42 +422,42 @@ function SetupScreen() {
         </>
       )}
 
-      <SheetActions label={label} busyLabel="Guardando…" ready={ready && (dirty || !editing)} busy={submitting} onSubmit={submit} error={error} />
-      {editing && <HanetButton label="Borrar el aniversario" variant="surface" disabled={submitting} onPress={() => setDeletingAll(true)} />}
+      <SheetActions label={label} busyLabel={t('common.guardando')} ready={ready && (dirty || !editing)} busy={submitting} onSubmit={submit} error={error} />
+      {editing && <HanetButton label={t('anniversary.setup.borrarElAniversario')} variant="surface" disabled={submitting} onPress={() => setDeletingAll(true)} />}
 
       {removing !== null && form.alliances.length <= 2 ? (
         <HanetDialog
           visible
           onRequestClose={() => setRemoving(null)}
-          title="Se necesitan dos alianzas"
-          body="Agrega otra antes de borrar esta. Si quieres empezar de cero, borra el aniversario completo al final."
+          title={t('anniversary.setup.seNecesitanDosAlianzas')}
+          body={t('anniversary.setup.agregaOtraAntesDeBorrar')}
         >
           <HanetDialogActions>
-            <HanetButton label="Entendido" variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
+            <HanetButton label={t('events.entendido')} variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
           </HanetDialogActions>
         </HanetDialog>
       ) : (
         <HanetDialog
           visible={removing !== null}
           onRequestClose={() => setRemoving(null)}
-          title={`¿Borrar ${removing !== null && form.alliances[removing]?.name.trim() ? form.alliances[removing].name.trim() : 'la alianza'}?`}
-          body="Al guardar se van sus puntos y sus jefes, sale de los resultados (las de abajo suben un lugar) y sus cursos quedan sin alianza."
+          title={t('anniversary.setup.borrarValue', { value: removing !== null && form.alliances[removing]?.name.trim() ? form.alliances[removing].name.trim() : t('anniversary.setup.laAlianza') })}
+          body={t('anniversary.setup.alGuardarSeVanSus')}
         >
           <HanetDialogActions>
-            <HanetButton label="Cancelar" variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
-            <HanetButton label="Borrar" variant="accent" onPress={() => removing !== null && removeAlliance(removing)} style={dialogStyles.action} />
+            <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setRemoving(null)} style={dialogStyles.action} />
+            <HanetButton label={t('common.borrar')} variant="accent" onPress={() => removing !== null && removeAlliance(removing)} style={dialogStyles.action} />
           </HanetDialogActions>
         </HanetDialog>
       )}
       <HanetDialog
         visible={deletingAll}
         onRequestClose={() => setDeletingAll(false)}
-        title="¿Borrar el aniversario?"
-        body="Se borran las alianzas, las actividades, los plazos y todos los puntos. Los avisos quedan en el Feed. No se puede deshacer."
+        title={t('anniversary.setup.borrarElAniversario2')}
+        body={t('anniversary.setup.seBorranLasAlianzasLas')}
       >
         <HanetDialogActions>
-          <HanetButton label="Cancelar" variant="surface" onPress={() => setDeletingAll(false)} style={dialogStyles.action} />
-          <HanetButton label={submitting ? 'Borrando…' : 'Borrar'} variant="accent" disabled={submitting} onPress={removeAll} style={dialogStyles.action} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => setDeletingAll(false)} style={dialogStyles.action} />
+          <HanetButton label={submitting ? t('common.borrando') : t('common.borrar')} variant="accent" disabled={submitting} onPress={removeAll} style={dialogStyles.action} />
         </HanetDialogActions>
       </HanetDialog>
       {dialog}

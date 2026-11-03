@@ -1,4 +1,5 @@
 import type { AnniversaryActivity } from '@/services/anniversary-service';
+import { t } from '@/i18n';
 
 // The "Alianza solidaria" of the pilot's bases: a minimum of baskets gives a
 // fixed amount, every basket after it adds a little less as they pile up, and
@@ -14,28 +15,28 @@ export const SOLIDARITY = {
     { upTo: Infinity, each: 200 },
   ],
   basket: [
-    'Fideos: 6 paquetes de 400 g',
-    'Salsa de tomate: 6 sachets de 200 g',
-    'Arroz: 4 paquetes de 1 kg',
-    'Aceite: 2 botellas de 900 ml',
-    'Harina: 4 paquetes de 1 kg',
-    'Azúcar: 4 paquetes de 1 kg',
-    'Sal: 4 paquetes de 1 kg',
-    'Jurel: 4 latas de 425 g',
-    'Legumbres: 4 paquetes de 1 kg',
-    'Té: 2 cajas de 20 unidades',
-    'Café: 2 tarros de 170 g',
+    t('components.anniversary.solidarity.fideos6PaquetesDe400'),
+    t('components.anniversary.solidarity.salsaDeTomate6Sachets'),
+    t('components.anniversary.solidarity.arroz4PaquetesDe1'),
+    t('components.anniversary.solidarity.aceite2BotellasDe900'),
+    t('components.anniversary.solidarity.harina4PaquetesDe1'),
+    t('components.anniversary.solidarity.azucar4PaquetesDe1'),
+    t('components.anniversary.solidarity.sal4PaquetesDe1'),
+    t('components.anniversary.solidarity.jurel4LatasDe425'),
+    t('components.anniversary.solidarity.legumbres4PaquetesDe1'),
+    t('components.anniversary.solidarity.te2CajasDe20'),
+    t('components.anniversary.solidarity.cafe2TarrosDe170'),
   ],
   bonus: [
-    { key: 'diapers', label: 'Pañales (bolsa de 24)', points: 500 },
-    { key: 'pads', label: 'Toallas higiénicas (paquete de 8)', points: 100 },
-    { key: 'wipes', label: 'Toallas húmedas', points: 100 },
-    { key: 'toiletPaper', label: 'Papel higiénico (4 rollos)', points: 200 },
-    { key: 'pellet', label: 'Pellet (bolsa de 15 kg)', points: 500 },
-    { key: 'dogFood', label: 'Comida de perro (1 kg)', points: 300 },
-    { key: 'dogWet', label: 'Comida húmeda de perro (100 g)', points: 100 },
-    { key: 'catFood', label: 'Comida de gato (1 kg)', points: 300 },
-    { key: 'catWet', label: 'Comida húmeda de gato (100 g)', points: 100 },
+    { key: 'diapers', label: t('components.anniversary.solidarity.panalesBolsaDe24'), points: 500 },
+    { key: 'pads', label: t('components.anniversary.solidarity.toallasHigienicasPaqueteDe8'), points: 100 },
+    { key: 'wipes', label: t('components.anniversary.solidarity.toallasHumedas'), points: 100 },
+    { key: 'toiletPaper', label: t('components.anniversary.solidarity.papelHigienico4Rollos'), points: 200 },
+    { key: 'pellet', label: t('components.anniversary.solidarity.pelletBolsaDe15Kg'), points: 500 },
+    { key: 'dogFood', label: t('components.anniversary.solidarity.comidaDePerro1Kg'), points: 300 },
+    { key: 'dogWet', label: t('components.anniversary.solidarity.comidaHumedaDePerro100'), points: 100 },
+    { key: 'catFood', label: t('components.anniversary.solidarity.comidaDeGato1Kg'), points: 300 },
+    { key: 'catWet', label: t('components.anniversary.solidarity.comidaHumedaDeGato100'), points: 100 },
   ],
 };
 

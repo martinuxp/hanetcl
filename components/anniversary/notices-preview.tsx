@@ -13,6 +13,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 const SHOWN = 2;
 
@@ -57,12 +58,12 @@ export function NoticesPreview({ now }: { now: number }) {
 
   return (
     <>
-      <SectionTitle title="Avisos" action={posts.length ? { label: feed.posts.length > SHOWN ? `Ver los ${feed.posts.length}` : 'Ver todos', onPress: openAll } : undefined} />
+      <SectionTitle title={t('components.appTabBar.avisos')} action={posts.length ? { label: feed.posts.length > SHOWN ? t('components.anniversary.noticesPreview.verLosPostscount', { postsCount: feed.posts.length }) : t('components.anniversary.noticesPreview.verTodos'), onPress: openAll } : undefined} />
       {posts.length === 0 ? (
         <View style={styles.empty}>
-          <ThemedText style={styles.emptyTitle}>Todavía no hay avisos</ThemedText>
-          <ThemedText style={styles.emptyText}>Cambios de horario, materiales, lo que las alianzas tengan que saber. Salen aquí y en el Feed, y pueden llegar con notificación.</ThemedText>
-          <HanetButton label="Publicar un aviso" variant="accent" onPress={publish} />
+          <ThemedText style={styles.emptyTitle}>{t('components.anniversary.noticesPreview.todaviaNoHayAvisos')}</ThemedText>
+          <ThemedText style={styles.emptyText}>{t('components.anniversary.noticesPreview.cambiosDeHorarioMaterialesLo')}</ThemedText>
+          <HanetButton label={t('common.publicarUnAviso')} variant="accent" onPress={publish} />
         </View>
       ) : (
         <View style={styles.list}>
@@ -73,7 +74,7 @@ export function NoticesPreview({ now }: { now: number }) {
                 key={post.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${post.space.name}, ${feedWhen(post.createdAt, now)}: ${text}`}
-                accessibilityHint="Abre los avisos del aniversario"
+                accessibilityHint={t('components.anniversary.noticesPreview.abreLosAvisosDelAniversario')}
                 onPress={openAll}
                 style={({ pressed }) => [styles.notice, index > 0 && styles.divider, pressed && AppPressed]}
               >

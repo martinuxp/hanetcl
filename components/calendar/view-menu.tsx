@@ -13,6 +13,7 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SPRING_SMOOTH } from '@/constants/motion';
+import { capitalize, months, t, weekdays } from '@/i18n';
 
 type ViewIcon = React.ComponentProps<typeof CustomIcon>['name'];
 
@@ -24,8 +25,8 @@ const VIEW_ICONS: Record<CalendarView, ViewIcon> = {
   schedule: 'clock',
 };
 
-const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const WEEKDAYS = weekdays().map(capitalize);
+const MONTHS = months();
 
 // The bar's text stops growing with the system size at this point.
 const MAX_SCALE = 1.3;
@@ -47,8 +48,8 @@ export function CalendarViewPill({ view, open, onPress }: { view: CalendarView; 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Vista: ${viewLabel(view)}`}
-      accessibilityHint={open ? 'Cierra el menú de vistas' : 'Cambia entre día, semana, mes, año y horario'}
+      accessibilityLabel={t('components.calendar.viewMenu.vistaViewlabel', { viewLabel: viewLabel(view) })}
+      accessibilityHint={open ? t('components.calendar.viewMenu.cierraElMenuDeVistas') : t('components.calendar.viewMenu.cambiaEntreDiaSemanaMes')}
       accessibilityState={{ expanded: open }}
       onPress={() => {
         tick();
@@ -84,16 +85,16 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
   const elapsed = live ? (minute - minutesOf(live.start)) / Math.max(1, minutesOf(live.end) - minutesOf(live.start)) : 0;
 
   const today = live
-    ? { label: 'Ahora', title: live.subject, meta: `Hasta las ${live.end}${live.room ? ` · ${live.room}` : ''}` }
+    ? { label: t('common.ahora'), title: live.subject, meta: t('common.hastaLasEndValue', { end: live.end, value: live.room ? ` · ${live.room}` : '' }) }
     : next
-      ? { label: 'Después', title: next.subject, meta: `A las ${next.start}${next.room ? ` · ${next.room}` : ''}` }
-      : { label: 'Hoy', title: `${WEEKDAYS[now.getDay()]} ${now.getDate()}`, meta: `de ${MONTHS[now.getMonth()]}` };
+      ? { label: t('common.despues'), title: next.subject, meta: t('components.calendar.viewMenu.aLasStartValue', { start: next.start, value: next.room ? ` · ${next.room}` : '' }) }
+      : { label: t('common.hoy2'), title: `${WEEKDAYS[now.getDay()]} ${now.getDate()}`, meta: `de ${MONTHS[now.getMonth()]}` };
 
   return (
     <View style={styles.menu}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${today.label}: ${today.title}, ${today.meta}. Ir a hoy`}
+        accessibilityLabel={t('components.calendar.viewMenu.labelTitleMetaIrA', { label: today.label, title: today.title, meta: today.meta })}
         onPress={() => {
           tick();
           calendarBar.choose('day', true);
@@ -141,7 +142,7 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
             <View style={styles.separator} />
             <Pressable
               accessibilityRole="menuitem"
-              accessibilityLabel="Crear evento"
+              accessibilityLabel={t('components.calendar.viewMenu.crearEvento')}
               onPress={() => {
                 calendarBar.closeMenu();
                 router.navigate('/create-event');
@@ -149,7 +150,7 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <CustomIcon name="plus" size={20} color={AppColors.textSecondary} />
-              <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.rowText}>Crear evento</ThemedText>
+              <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.rowText}>{t('components.calendar.viewMenu.crearEvento')}</ThemedText>
             </Pressable>
           </>
         )}

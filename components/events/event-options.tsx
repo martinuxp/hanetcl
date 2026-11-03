@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { t } from '@/i18n';
 
 // "Opciones" of an event in the bar: buy on the ticketing site or claim the
 // HaNet coupon. With both, iOS opens a half sheet (app/event-options.tsx) and
@@ -19,12 +20,12 @@ function sourceOf(actions: EventBarActions) {
   try {
     return new URL(actions.ticketUrl).hostname.replace(/^www\./, '');
   } catch {
-    return 'la ticketera';
+    return t('components.events.eventOptions.laTicketera');
   }
 }
 
 export function buyLabel(actions: EventBarActions) {
-  return `Comprar en ${sourceOf(actions)}`;
+  return t('components.events.eventOptions.comprarEnSourceof', { sourceOf: sourceOf(actions) });
 }
 
 export function openTickets(actions: EventBarActions) {
@@ -42,11 +43,11 @@ export function CouponPanel({ coupon }: { coupon: NonNullable<EventBarActions['c
   return (
     <View style={styles.coupon}>
       {!!coupon.description && <ThemedText style={styles.couponText}>{coupon.description}</ThemedText>}
-      <Pressable accessibilityRole="button" accessibilityLabel={`Código ${coupon.code}. Copiar`} onPress={() => void copy()} style={({ pressed }) => [styles.code, pressed && AppPressed]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('components.events.eventOptions.codigoCodeCopiar', { code: coupon.code })} onPress={() => void copy()} style={({ pressed }) => [styles.code, pressed && AppPressed]}>
         <ThemedText selectable style={styles.codeText}>{coupon.code}</ThemedText>
-        <ThemedText accessibilityLiveRegion="polite" style={styles.codeHint}>{copied ? 'Copiado' : 'Toca para copiar'}</ThemedText>
+        <ThemedText accessibilityLiveRegion="polite" style={styles.codeHint}>{copied ? t('common.copiado') : t('components.events.eventOptions.tocaParaCopiar')}</ThemedText>
       </Pressable>
-      <ThemedText style={styles.couponNote}>Úsalo al pagar en la ticketera.</ThemedText>
+      <ThemedText style={styles.couponNote}>{t('components.events.eventOptions.usaloAlPagarEnLa')}</ThemedText>
     </View>
   );
 }
@@ -84,20 +85,20 @@ export function useEventOptions(actions: EventBarActions | null) {
       visible={!!dialog}
       onRequestClose={close}
       dismissOnBackdrop
-      title={dialog === 'coupon' ? 'Cupón HaNet' : actions.title}
-      body={dialog === 'choose' ? '¿Qué quieres hacer?' : undefined}
+      title={dialog === 'coupon' ? t('common.cuponHanet') : actions.title}
+      body={dialog === 'choose' ? t('components.events.eventOptions.queQuieresHacer') : undefined}
     >
       {dialog === 'coupon' && coupon && <CouponPanel coupon={coupon} />}
       {dialog === 'choose' ? (
         <View style={styles.stack}>
           <HanetButton label={buyLabel(actions)} variant="accent" onPress={() => { close(); openTickets(actions); }} />
-          <HanetButton label="Reclamar cupón HaNet" variant="surface" onPress={() => setDialog('coupon')} />
-          <HanetButton label="Cancelar" variant="surface" onPress={close} />
+          <HanetButton label={t('eventOptions.reclamarCuponHanet')} variant="surface" onPress={() => setDialog('coupon')} />
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={close} />
         </View>
       ) : (
         <HanetDialogActions>
-          <HanetButton label="Cerrar" variant="surface" onPress={close} style={dialogStyles.action} />
-          {canBuy && <HanetButton label="Ir a comprar" variant="accent" onPress={() => { close(); openTickets(actions); }} style={dialogStyles.action} />}
+          <HanetButton label={t('common.cerrar')} variant="surface" onPress={close} style={dialogStyles.action} />
+          {canBuy && <HanetButton label={t('eventOptions.irAComprar')} variant="accent" onPress={() => { close(); openTickets(actions); }} style={dialogStyles.action} />}
         </HanetDialogActions>
       )}
     </HanetDialog>
@@ -105,7 +106,7 @@ export function useEventOptions(actions: EventBarActions | null) {
 
   return {
     count,
-    singleLabel: canBuy ? buyLabel(actions!) : 'Reclamar cupón HaNet',
+    singleLabel: canBuy ? buyLabel(actions!) : t('eventOptions.reclamarCuponHanet'),
     open,
     dialog: element,
   };

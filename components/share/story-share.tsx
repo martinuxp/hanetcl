@@ -16,6 +16,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, StyleSheet, View, useWindowDimensions, type ViewInstance } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import { t } from '@/i18n';
 
 // "Compartir como historia": an event, a post of the school's or the CEE's
 // Espacio, or the Aniversario's score (only while it is shown), drawn as a
@@ -77,19 +78,19 @@ function EventStory({ event, onReady }: { event: HnEvent; onReady: () => void })
   return (
     <>
       <Glow colors={event.palette} />
-      <Brand label="HaNet Eventos" />
+      <Brand label={t('common.hanetEventos')} />
       <View style={styles.middle}>
         <View style={styles.cover}>
           {event.imageUrl
             ? <Image source={{ uri: event.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" onLoadEnd={onReady} />
             : <Image source={LOGO} style={styles.coverMark} contentFit="contain" tintColor={AppColors.textSecondary} />}
         </View>
-        {event.kind === 'institution' && <ThemedText maxFontSizeMultiplier={1} style={styles.kicker}>Evento del liceo · {JORNADA_LABELS[event.jornada]}</ThemedText>}
+        {event.kind === 'institution' && <ThemedText maxFontSizeMultiplier={1} style={styles.kicker}>{t('components.share.storyShare.eventoDelLiceoJornadalabels', { jornadaLabels: JORNADA_LABELS[event.jornada] })}</ThemedText>}
         <ThemedText maxFontSizeMultiplier={1} numberOfLines={3} style={styles.eventTitle}>{event.title}</ThemedText>
         <ThemedText maxFontSizeMultiplier={1} style={styles.eventWhen}>{eventWhen(event)}</ThemedText>
         {!!place && <ThemedText maxFontSizeMultiplier={1} numberOfLines={2} style={styles.eventPlace}>{place}</ThemedText>}
       </View>
-      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>Míralo en la app HaNet</ThemedText>
+      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>{t('components.share.storyShare.miraloEnLaAppHanet')}</ThemedText>
     </>
   );
 }
@@ -104,7 +105,7 @@ function PostStory({ post, onReady }: { post: FeedPost; onReady: () => void }) {
   return (
     <>
       <Glow colors={[AppColors.accent, AppColors.surfaceRaised]} />
-      <Brand label="Feed y comunidad" />
+      <Brand label={t('components.gridMenu.feedYComunidad')} />
       <View style={styles.middle}>
         <View style={styles.space}>
           <SpaceAvatar space={post.space} size={44} />
@@ -125,7 +126,7 @@ function PostStory({ post, onReady }: { post: FeedPost; onReady: () => void }) {
         )}
         {post.tags.length > 0 && <ThemedText maxFontSizeMultiplier={1} style={styles.tags}>{post.tags.map(tag => `#${tag}`).join('  ')}</ThemedText>}
       </View>
-      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>Míralo en la app HaNet</ThemedText>
+      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>{t('components.share.storyShare.miraloEnLaAppHanet')}</ThemedText>
     </>
   );
 }
@@ -156,9 +157,9 @@ function AnniversaryStory({ anniversary, onReady }: { anniversary: Anniversary; 
   return (
     <>
       <Glow colors={rows.slice(0, 2).map(alliance => allianceColor(alliance).fill)} />
-      <Brand label="Aniversario" />
+      <Brand label={t('common.aniversario')} />
       <View style={styles.middle}>
-        <ThemedText maxFontSizeMultiplier={1} style={styles.kicker}>{finished ? '¡Ganó!' : 'Así va el marcador'}</ThemedText>
+        <ThemedText maxFontSizeMultiplier={1} style={styles.kicker}>{finished ? t('anniversary.gano') : t('components.share.storyShare.asiVaElMarcador')}</ThemedText>
         <ThemedText maxFontSizeMultiplier={1} numberOfLines={2} style={styles.anniversaryTitle}>{finished && winner ? winner.name : anniversary.title}</ThemedText>
         <View style={styles.standings}>
           {rows.map((alliance, place) => (
@@ -171,7 +172,7 @@ function AnniversaryStory({ anniversary, onReady }: { anniversary: Anniversary; 
           ))}
         </View>
       </View>
-      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>Míralo en la app HaNet</ThemedText>
+      <ThemedText maxFontSizeMultiplier={1} style={styles.footer}>{t('components.share.storyShare.miraloEnLaAppHanet')}</ThemedText>
     </>
   );
 }
@@ -214,10 +215,10 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
     try {
       const uri = await captureRef(card, { format: 'png', quality: 1, result: 'tmpfile' });
       if (!(await Sharing.isAvailableAsync())) throw new Error('unavailable');
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: wallpaper ? 'Guardar fondo de pantalla' : 'Compartir historia' });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: wallpaper ? t('components.share.storyShare.guardarFondoDePantalla') : t('components.share.storyShare.compartirHistoria') });
       onClose();
     } catch {
-      setError('No pudimos preparar la imagen. Inténtalo nuevamente.');
+      setError(t('components.share.storyShare.noPudimosPrepararLaImagen'));
     } finally {
       setBusy(false);
     }
@@ -228,13 +229,13 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
       <View style={styles.overlay}>
         {!!item && (
           <View style={{ width: STORY_WIDTH * scale, height: cardHeight * scale }}>
-            <View style={{ width: STORY_WIDTH, height: cardHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
+            <View style={{ width: STORY_WIDTH, height: cardHeight, transform: [{ scale }], transformOrigin: t('components.share.storyShare.topLeft') }}>
               <View
                 ref={card}
                 collapsable={false}
                 style={[styles.story, wallpaper && styles.wallpaper]}
                 accessible
-                accessibilityLabel={wallpaper ? 'Vista previa del fondo de pantalla' : 'Vista previa de la historia'}
+                accessibilityLabel={wallpaper ? t('components.share.storyShare.vistaPreviaDelFondoDe') : t('components.share.storyShare.vistaPreviaDeLaHistoria')}
               >
                 {item.kind === 'event'
                   ? <EventStory event={item.event} onReady={markReady} />
@@ -249,8 +250,8 @@ export function StoryShareSheet({ item, onClose }: { item: StoryItem | null; onC
         )}
         {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{error}</ThemedText>}
         <View style={styles.buttons}>
-          <HanetButton label="Cancelar" variant="surface" disabled={busy} onPress={onClose} style={styles.button} />
-          <HanetButton label={busy ? 'Preparando…' : wallpaper ? 'Guardar' : 'Compartir'} variant="accent" disabled={busy || !ready} onPress={() => void share()} style={styles.button} />
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={busy} onPress={onClose} style={styles.button} />
+          <HanetButton label={busy ? t('components.share.storyShare.preparando') : wallpaper ? t('common.guardar') : t('common.compartir')} variant="accent" disabled={busy || !ready} onPress={() => void share()} style={styles.button} />
         </View>
       </View>
     </Modal>

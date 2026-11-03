@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 import { SPRING_MOMENTUM, project, rubberband } from '@/constants/motion';
 import { sheetDetents } from '@/constants/sheets';
+import { t } from '@/i18n';
 
 const OPEN_MS = 280;
 const CLOSE_MS = 220;
@@ -211,7 +212,7 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
     <WebClip>
     <View style={[styles.root, card && styles.cardRoot]}>
       <Animated.View style={[styles.backdrop, backdropStyle]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" onPress={close} style={StyleSheet.absoluteFill} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.cerrar')} onPress={close} style={StyleSheet.absoluteFill} />
       </Animated.View>
       <Animated.View
         accessibilityViewIsModal
@@ -225,7 +226,7 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
         <SheetGuardContext.Provider value={guard}>{children}</SheetGuardContext.Provider>
         {!card && (
           <GestureDetector gesture={drag}>
-            <View accessible accessibilityRole="button" accessibilityLabel="Cerrar hoja" onAccessibilityTap={close} style={styles.grabberZone}>
+            <View accessible accessibilityRole="button" accessibilityLabel={t('components.ui.sheetFrame.cerrarHoja')} onAccessibilityTap={close} style={styles.grabberZone}>
               <View style={styles.grabber} />
             </View>
           </GestureDetector>

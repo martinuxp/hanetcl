@@ -22,6 +22,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { t } from '@/i18n';
 
 function initialsOf(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -66,7 +67,7 @@ function EditProfileScreen() {
         setPhotoUrl(photo);
         setAvatarSeed(profile.avatarSeed);
       } catch (error) {
-        if (active) setLoadError(describeAuthError(error, 'No pudimos cargar tu perfil. Revisa tu conexión.'));
+        if (active) setLoadError(describeAuthError(error, t('explore.noPudimosCargarTuPerfil')));
       } finally {
         if (active) setLoading(false);
       }
@@ -103,7 +104,7 @@ function EditProfileScreen() {
       setAvatarSeed(await newAvatar());
       success();
     } catch (error) {
-      setPhotoError(describeAuthError(error, 'No pudimos cambiar tu blobatar. Inténtalo nuevamente.'));
+      setPhotoError(describeAuthError(error, t('editProfile.noPudimosCambiarTuBlobatar')));
     } finally {
       setRerolling(false);
     }
@@ -137,7 +138,7 @@ function EditProfileScreen() {
       await saveNameFont(next);
     } catch (error) {
       setFont(previous);
-      setFontError(describeAuthError(error, 'No pudimos guardar la letra. Inténtalo nuevamente.'));
+      setFontError(describeAuthError(error, t('editProfile.noPudimosGuardarLaLetra')));
     } finally {
       setSavingFont(null);
     }
@@ -158,13 +159,13 @@ function EditProfileScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) + AppSpacing.lg }]}
       >
         <ThemedText style={styles.eyebrow}>HaNet ID</ThemedText>
-        <ThemedText accessibilityRole="header" style={styles.title}>Editar perfil</ThemedText>
+        <ThemedText accessibilityRole="header" style={styles.title}>{t('editProfile.editarPerfil')}</ThemedText>
         <View style={styles.separator} />
 
         {!!loadError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{loadError}</ThemedText>}
 
         <View style={styles.section}>
-          <ThemedText style={styles.label}>Foto de perfil</ThemedText>
+          <ThemedText style={styles.label}>{t('editProfile.fotoDePerfil')}</ThemedText>
           <View style={styles.photoRow}>
             <View style={styles.photo}>
               {/* Without a photo, the account's blobatar stands in for it. */}
@@ -174,7 +175,7 @@ function EditProfileScreen() {
                 fallback={initialsOf(name) || '·'}
                 width={116}
                 radius={AppRadii.lg}
-                accessibilityLabel={photoUrl ? 'Tu foto de perfil' : 'Tu blobatar'}
+                accessibilityLabel={photoUrl ? t('editProfile.tuFotoDePerfil') : t('editProfile.tuBlobatar')}
               />
               {!!photoBusy && (
                 <View style={styles.photoBusy}>
@@ -185,24 +186,24 @@ function EditProfileScreen() {
 
             <View style={styles.photoActions}>
               <HanetButton
-                label={photoBusy === 'uploading' ? 'Subiendo…' : photoUrl ? 'Cambiar foto' : 'Elegir foto'}
+                label={photoBusy === 'uploading' ? t('common.subiendo') : photoUrl ? t('editProfile.cambiarFoto') : t('editProfile.elegirFoto')}
                 onPress={changePhoto}
                 disabled={!!photoBusy}
               />
               {photoUrl ? (
                 <HanetButton
-                  label={photoBusy === 'removing' ? 'Quitando…' : 'Quitar foto'}
+                  label={photoBusy === 'removing' ? t('editProfile.quitando') : t('editProfile.quitarFoto')}
                   variant="surface"
                   onPress={removePhoto}
                   disabled={!!photoBusy}
                 />
               ) : (
                 <HanetButton
-                  label={rerolling ? 'Cambiando…' : 'Otro blobatar'}
+                  label={rerolling ? t('editProfile.cambiando') : t('editProfile.otroBlobatar')}
                   variant="surface"
                   onPress={rerollAvatar}
                   disabled={rerolling || !avatarSeed}
-                  accessibilityHint="Cambia tu personaje por otro al azar"
+                  accessibilityHint={t('editProfile.cambiaTuPersonajePorOtro')}
                 />
               )}
             </View>
@@ -210,13 +211,13 @@ function EditProfileScreen() {
           {!!photoError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{photoError}</ThemedText>}
           <ThemedText style={styles.note}>
             {photoUrl
-              ? 'Por ahora tu foto solo la ves tú, en tu perfil. Los demás ven tu blobatar.'
-              : 'Sin foto, los demás te ven con tu blobatar, un personaje al azar.'}
+              ? t('editProfile.porAhoraTuFotoSolo')
+              : t('editProfile.sinFotoLosDemasTe')}
           </ThemedText>
         </View>
 
         <View style={styles.section}>
-          <ThemedText style={styles.label}>Letra de tu nombre</ThemedText>
+          <ThemedText style={styles.label}>{t('editProfile.letraDeTuNombre')}</ThemedText>
           <View accessibilityRole="radiogroup" style={styles.fonts}>
             {NAME_FONTS.map(option => {
               const selected = option.id === font;
@@ -224,7 +225,7 @@ function EditProfileScreen() {
                 <Pressable
                   key={option.id}
                   accessibilityRole="radio"
-                  accessibilityLabel={`Letra ${option.label}`}
+                  accessibilityLabel={t('editProfile.letraLabel', { label: option.label })}
                   accessibilityState={{ checked: selected, busy: savingFont === option.id }}
                   onPress={() => chooseFont(option.id)}
                   style={({ pressed }) => [styles.fontOption, selected && styles.fontOptionSelected, pressed && !selected && styles.pressed]}
@@ -251,10 +252,10 @@ function EditProfileScreen() {
             })}
           </View>
           {!!fontError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{fontError}</ThemedText>}
-          <ThemedText style={styles.note}>Cambia cómo se ve tu nombre en tu perfil.</ThemedText>
+          <ThemedText style={styles.note}>{t('editProfile.cambiaComoSeVeTu')}</ThemedText>
         </View>
 
-        <HanetButton label="Listo" onPress={() => router.back()} />
+        <HanetButton label={t('common.listo')} onPress={() => router.back()} />
       </KeyboardScroll>
     </SafeAreaView>
   );
