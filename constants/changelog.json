@@ -11,6 +11,14 @@
       ]
     },
     {
+      "version": "0.3.8-beta",
+      "date": "2026-11-03",
+      "title": "",
+      "items": [
+        "La parte de arriba de la pantalla, donde está la hora, ya no tiene vidrio en todas partes: el contenido llega hasta el borde. El vidrio queda solo donde hay una barra fija, como en Calendar."
+      ]
+    },
+    {
       "version": "0.3.7-beta",
       "date": "2026-11-03",
       "title": "",
