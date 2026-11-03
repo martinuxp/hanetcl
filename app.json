@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.3.4",
+    "version": "0.3.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -101,6 +101,7 @@
         "expo-widgets",
         {
           "groupIdentifier": "group.art.muxp.hanetcl",
+          "enableAndroid": true,
           "widgets": [
             {
               "name": "HaNetHoy",
@@ -112,6 +113,14 @@
                   "systemMedium"
                 ],
                 "initialLayout": "widgets/home-widget.tsx"
+              },
+              "android": {
+                "minWidth": 110,
+                "minHeight": 110,
+                "targetCellWidth": 2,
+                "targetCellHeight": 2,
+                "resizeMode": "both",
+                "initialLayout": "widgets/home-widget.android.tsx"
               }
             },
             {
@@ -125,7 +134,8 @@
                   "accessoryRectangular"
                 ],
                 "initialLayout": "widgets/calendar-widget.tsx"
-              }
+              },
+              "android": null
             }
           ]
         }
@@ -138,7 +148,8 @@
           "./assets/app-icons/ios/TestFlight.icon"
         ]
       ],
-      "./plugins/with-android-build-limits"
+      "./plugins/with-android-build-limits",
+      "./plugins/with-android-widget-refresh"
     ],
     "experiments": {
       "typedRoutes": true,
