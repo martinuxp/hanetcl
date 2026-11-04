@@ -12,8 +12,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 
-// Herramientas: tools for school life that the institution turns on as
-// modules. The first one is HaNet Electividad.
+// Herramientas: tools for school life. HaNet Electividad is a module of the
+// institution; the grade scale and the calculator work on the phone alone, so
+// they show even when Electividad can't load.
 
 export default function ToolsScreen() {
   const insets = useSafeAreaInsets();
@@ -81,6 +82,33 @@ export default function ToolsScreen() {
           </Pressable>
         )}
 
+        <View style={styles.pair}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('tools.escalaDeNotasPuntosANotas')}
+            onPress={() => router.push('/tools/scale')}
+            style={({ pressed }) => [styles.card, styles.small, pressed && AppPressed]}
+          >
+            <View style={styles.iconTile}>
+              <Ionicons name="list-outline" size={22} color={AppColors.accent} />
+            </View>
+            <ThemedText style={styles.smallTitle}>{t('tools.scale.escalaDeNotas')}</ThemedText>
+            <ThemedText style={styles.cardText}>{t('tools.dePuntosANotasDe')}</ThemedText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('tools.calculadoraDeNotasPromedioYLo')}
+            onPress={() => router.push('/tools/grades')}
+            style={({ pressed }) => [styles.card, styles.small, pressed && AppPressed]}
+          >
+            <View style={styles.iconTile}>
+              <Ionicons name="calculator-outline" size={22} color={AppColors.accent} />
+            </View>
+            <ThemedText style={styles.smallTitle}>{t('tools.grades.calculadoraDeNotas')}</ThemedText>
+            <ThemedText style={styles.cardText}>{t('tools.tuPromedioYCuantoNecesitas')}</ThemedText>
+          </Pressable>
+        </View>
+
         <View style={styles.soon}>
           <ThemedText style={styles.soonText}>{t('tools.proximamenteMasHerramientas')}</ThemedText>
         </View>
@@ -110,6 +138,9 @@ const styles = StyleSheet.create({
   cardText: { ...AppType.footnote, color: AppColors.textSecondary },
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, marginTop: AppSpacing.xs },
   cardLink: { ...AppType.headline, color: AppColors.textPrimary },
+  pair: { flexDirection: 'row', gap: AppSpacing.md },
+  small: { flex: 1, padding: 16 },
+  smallTitle: { ...AppType.headline, color: AppColors.textPrimary, marginTop: AppSpacing.xs },
   soon: { alignItems: 'center', paddingVertical: AppSpacing.md },
   soonText: { ...AppType.caption, color: AppColors.surfaceSoft },
 });

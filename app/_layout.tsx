@@ -225,6 +225,8 @@ export default function RootLayout() {
             <Stack.Screen name="tools/electividad/test" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="tools/electividad/reveal" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
             <Stack.Screen name="tools/electividad/result" options={{ headerShown: false }} />
+            <Stack.Screen name="tools/scale" options={{ headerShown: false }} />
+            <Stack.Screen name="tools/grades" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
             <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />
