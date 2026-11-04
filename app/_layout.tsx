@@ -10,6 +10,7 @@ import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_400Regular_Italic,
 import * as SplashScreen from 'expo-splash-screen';
 
 import { GlobalTabBar } from '@/components/AppTabBar';
+import { ShareIntake } from '@/components/share/share-intake';
 import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
 import { AppColors } from '@/constants/design-tokens';
@@ -218,6 +219,12 @@ export default function RootLayout() {
             <Stack.Screen name="anniversary/flash" options={sheetOptions('anniversary/flash')} />
             <Stack.Screen name="anniversary/leads" options={sheetOptions('anniversary/leads')} />
             <Stack.Screen name="anniversary/score" options={sheetOptions('anniversary/score')} />
+            <Stack.Screen name="share" options={{ headerShown: false }} />
+            <Stack.Screen name="tools/index" options={{ headerShown: false }} />
+            <Stack.Screen name="tools/electividad/index" options={{ headerShown: false }} />
+            <Stack.Screen name="tools/electividad/test" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="tools/electividad/reveal" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="tools/electividad/result" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
             <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />
@@ -233,6 +240,7 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/submission" options={sheetOptions('classhall/submission')} />
           </Stack>
           <GlobalTabBar />
+          <ShareIntake ready={!!user && routed && navigationReady} />
           </FatalBoundary>
           <StatusBar style="light" />
           <LaunchSplash ready={routed && (!signedInAtLaunch || contentReady || waitedEnough)} quick={returning} />

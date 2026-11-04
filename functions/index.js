@@ -42,6 +42,9 @@ Object.assign(exports, require("./feed").build(getAdminApp));
 // Aniversario: alianzas, their points, deadlines and flash tests.
 Object.assign(exports, require("./anniversary").build(getAdminApp));
 
+// HaNet Electividad (Herramientas): the interests test for choosing electivos.
+Object.assign(exports, require("./electividad").build(getAdminApp));
+
 // Push notifications: devices register their token here.
 Object.assign(exports, require("./classhall-notify").build(getAdminApp));
 
