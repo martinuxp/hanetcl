@@ -84,7 +84,8 @@ export function parseNumber(text: string) {
  * Null when it isn't a grade between 1,0 and 7,0.
  */
 export function parseGrade(text: string) {
-  const clean = text.trim().replace(',', '.');
+  // "5," while typing (the comma comes on its own) already counts as 5,0.
+  const clean = text.trim().replace(',', '.').replace(/\.$/, '');
   if (!clean) return null;
   let value: number;
   if (/^\d{2}$/.test(clean)) value = Number(clean) / 10;
@@ -92,6 +93,17 @@ export function parseGrade(text: string) {
   else return null;
   value = roundGrade(value);
   return value >= 1 && value <= 7 ? value : null;
+}
+
+/**
+ * A grade field as it is typed: the comma comes on its own after the first
+ * digit ("5" shows "5,", then "5,5"). Deleting goes back a digit at a time.
+ */
+export function typeGrade(text: string, previous: string) {
+  const digits = text.replace(/\D/g, '').slice(0, 2);
+  if (!digits) return '';
+  if (digits.length === 2) return `${digits[0]},${digits[1]}`;
+  return text.length < previous.length ? digits : `${digits},`;
 }
 
 // ---------------------------------------------------------------- average

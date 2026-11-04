@@ -5,7 +5,7 @@ import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/h
 import { KeyboardScroll } from '@/components/ui/keyboard';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
-import { averageOf, formatGrade, formatNumber, loadCalculator, neededGrade, parseGrade, saveCalculator } from '@/services/grades';
+import { averageOf, formatGrade, formatNumber, loadCalculator, neededGrade, parseGrade, saveCalculator, typeGrade } from '@/services/grades';
 import type { CalculatorState, GradeEntry, NeedResult } from '@/services/grades';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -124,11 +124,11 @@ export default function GradesScreen() {
                 <TextInput
                   accessibilityLabel={t('tools.grades.notaN', { n: index + 1 })}
                   value={entry.grade}
-                  onChangeText={grade => updateEntry(entry.id, { grade })}
+                  onChangeText={text => updateEntry(entry.id, { grade: typeGrade(text, entry.grade) })}
                   placeholder={t('tools.grades.nota')}
                   placeholderTextColor={AppColors.surfaceMuted}
-                  keyboardType="decimal-pad"
-                  maxLength={4}
+                  keyboardType="number-pad"
+                  maxLength={3}
                   selectionColor={AppColors.accent}
                   style={[styles.input, styles.gradeInput, gradeWrong && styles.inputError]}
                 />
@@ -192,8 +192,8 @@ export default function GradesScreen() {
             <TextInput
               accessibilityLabel={t('tools.grades.notaQueQuieresTener')}
               value={state.goal}
-              onChangeText={text => change({ goal: text })}
-              keyboardType="decimal-pad"
+              onChangeText={text => change({ goal: typeGrade(text, state.goal) })}
+              keyboardType="number-pad"
               maxLength={3}
               selectionColor={AppColors.accent}
               style={[styles.input, styles.goalInput, goal === null && styles.inputError]}
