@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.5.0-beta",
+      "date": "2026-11-04",
+      "title": "Escala y calculadora de notas",
+      "items": [
+        "Nuevo en Herramientas: Escala de notas. Pones el puntaje máximo y la exigencia, y ves la tabla de puntos a notas, cuántos puntos se necesitan para el 4,0 y la nota de cualquier puntaje.",
+        "Nuevo en Herramientas: Calculadora de notas. Calcula tu promedio, con o sin porcentajes, y cuánto necesitas en lo que falta para llegar a la nota que quieres.",
+        "Las dos funcionan solo en tu teléfono: HaNet no guarda tus notas."
+      ]
+    },
+    {
       "version": "0.4.0-beta",
       "date": "2026-11-03",
       "title": "Herramientas",
