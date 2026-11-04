@@ -41,7 +41,7 @@ function dueText(ms) {
   return `${day.replace(",", "")}, ${time}`;
 }
 
-async function hallStudentUids(getAdminApp, hall) {
+async function hallStudentProfiles(getAdminApp, hall) {
   const db = identityDb(getAdminApp);
   let profiles;
   if ((hall.plan || "comun") === "comun") {
@@ -54,9 +54,29 @@ async function hallStudentUids(getAdminApp, hall) {
     const uids = hall.memberUids || [];
     profiles = uids.length ? await db.getAll(...uids.map(uid => db.collection("users").doc(uid))) : [];
   }
-  return profiles
-    .filter(doc => doc.exists && !STAFF_ROLES.includes(doc.data().role) && doc.id !== hall.teacherUid)
-    .map(doc => doc.id);
+  return profiles.filter(doc => doc.exists && !STAFF_ROLES.includes(doc.data().role) && doc.id !== hall.teacherUid);
+}
+
+async function hallStudentUids(getAdminApp, hall) {
+  return (await hallStudentProfiles(getAdminApp, hall)).map(doc => doc.id);
+}
+
+// The Hall's students with their names: the profile's, else the account's full name.
+async function hallStudents(getAdminApp, hall) {
+  const profiles = await hallStudentProfiles(getAdminApp, hall);
+  const unnamed = profiles.filter(doc => !cleanName(doc.data().name));
+  const db = identityDb(getAdminApp);
+  const accounts = unnamed.length ? await db.getAll(...unnamed.map(doc => db.collection("accounts").doc(doc.id))) : [];
+  const fullNames = new Map(accounts.map(doc => [doc.id, cleanName(doc.data()?.fullName)]));
+  return profiles.map(doc => ({
+    uid: doc.id,
+    name: cleanName(doc.data().name) || fullNames.get(doc.id) || "Estudiante",
+    courseId: doc.data().courseId || "",
+  }));
+}
+
+function cleanName(value) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, 80) : "";
 }
 
 // The tokens of these accounts, without those who turned ClassHall off.
@@ -218,4 +238,4 @@ function build(getAdminApp) {
   return { registerPushToken, unregisterPushToken, adminSendTestPush };
 }
 
-module.exports = { build, notifyHall, hallStudentUids, sendPush };
+module.exports = { build, notifyHall, hallStudentUids, hallStudents, sendPush };
