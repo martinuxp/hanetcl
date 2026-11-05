@@ -15,6 +15,7 @@ export const SHEET_DETENTS: Record<string, number[]> = {
   'classhall/announce': [0.75, 1.0],
   'classhall/evaluation-new': [0.5],
   'classhall/evaluation-form': [1.0],
+  'classhall/grades': [1.0],
   'classhall/task-form': [1.0],
   'classhall/submit': [0.85, 1.0],
   'classhall/submission': [0.75, 1.0],

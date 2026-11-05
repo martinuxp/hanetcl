@@ -235,6 +235,7 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/announce" options={sheetOptions('classhall/announce')} />
             <Stack.Screen name="classhall/evaluation-new" options={sheetOptions('classhall/evaluation-new')} />
             <Stack.Screen name="classhall/evaluation-form" options={sheetOptions('classhall/evaluation-form')} />
+            <Stack.Screen name="classhall/grades" options={sheetOptions('classhall/grades')} />
             <Stack.Screen name="classhall/tasks" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/task" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/task-form" options={sheetOptions('classhall/task-form')} />
