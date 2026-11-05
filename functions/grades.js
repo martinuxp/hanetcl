@@ -20,7 +20,6 @@ const { notifyHall, hallStudentUids } = require("./classhall-notify");
 // institution without that list keeps it on, like the other modules.
 
 const MODULE = "grades";
-const STAFF_ROLES = ["Profesor", "Admin", "HNT"];
 const MAX_GRADES_PER_CALL = 200;
 const MIN_GRADE = 1;
 const MAX_GRADE = 7;
