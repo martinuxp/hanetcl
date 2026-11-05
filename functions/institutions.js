@@ -22,7 +22,7 @@ const DEFAULT_METHODS = ["institutional-email", "form"];
 // is enforced where it lives: feed and polls in feed.js, alliances (Aniversario)
 // in anniversary.js, electividad in electividad.js. Without the list every
 // module is on, so the pilot worked before the panel could switch them.
-const MODULES = ["feed", "polls", "alliances", "electividad"];
+const MODULES = ["feed", "polls", "alliances", "electividad", "grades"];
 
 function identityDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-enrollmentdata");
