@@ -18,6 +18,11 @@ const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const MAX_ROSTER_ROWS = 2000;
 const WRITE_CHUNK = 400;
 const DEFAULT_METHODS = ["institutional-email", "form"];
+// Modules an institution can switch off (institutions/{id}.modules). Each one
+// is enforced where it lives: feed and polls in feed.js, alliances (Aniversario)
+// in anniversary.js, electividad in electividad.js. Without the list every
+// module is on, so the pilot worked before the panel could switch them.
+const MODULES = ["feed", "polls", "alliances", "electividad", "grades"];
 
 function identityDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-enrollmentdata");
@@ -178,6 +183,8 @@ function build(getAdminApp) {
         hasInviteCode: Boolean(data.inviteHash),
         inviteUpdatedAt: data.inviteUpdatedAt ? data.inviteUpdatedAt.toMillis() : null,
         ...brandingOf(data),
+        // null: no list yet, so every module is on.
+        modules: Array.isArray(data.modules) ? data.modules.filter(module => MODULES.includes(module)) : null,
       };
     }));
 
@@ -322,7 +329,26 @@ function build(getAdminApp) {
     return { kind, url };
   });
 
-  return { redeemInviteCode, adminListInstitutions, adminCreateInstitution, adminRotateInviteCode, adminImportRoster, adminSetInstitutionBranding };
+  // Turns the institution's modules on or off. Writes the whole list, so an
+  // institution that had none (everything on) gets an explicit one.
+  const setInstitutionModules = onCall({ invoker: "public" }, async (request) => {
+    requireHnt(request);
+    const institutionId = text(request.data?.institutionId, 60);
+    const modules = Array.isArray(request.data?.modules) ? request.data.modules : null;
+    if (!modules || modules.some(module => !MODULES.includes(module))) {
+      throw new HttpsError("invalid-argument", "Elige módulos de la lista.");
+    }
+    const ref = identityDb(getAdminApp).collection("institutions").doc(institutionId);
+    if (!institutionId || !(await ref.get()).exists) {
+      throw new HttpsError("not-found", "No encontramos esa institución.");
+    }
+    const list = MODULES.filter(module => modules.includes(module));
+    await ref.update({ modules: list, modulesUpdatedAt: FieldValue.serverTimestamp() });
+    console.log("setInstitutionModules", { institutionId, modules: list, by: request.auth.uid });
+    return { modules: list };
+  });
+
+  return { setInstitutionModules, redeemInviteCode, adminListInstitutions, adminCreateInstitution, adminRotateInviteCode, adminImportRoster, adminSetInstitutionBranding };
 }
 
 module.exports = { build, normalizeRut };
