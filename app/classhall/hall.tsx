@@ -1,6 +1,7 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { BlockEditor } from '@/components/schedule/block-editor';
 import { HallSkeleton } from '@/components/skeletons';
+import { StudentGrades } from '@/components/classhall/grades-ui';
 import { DocumentTile, HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
@@ -236,6 +237,8 @@ export default function HallScreen() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   // The moment the screen opened, to tell open tasks from closed ones.
   const [now] = useState(() => Date.now());
+  // A finger on a covered grade: the page holds still meanwhile.
+  const [scratching, setScratching] = useState(false);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -384,7 +387,7 @@ export default function HallScreen() {
 
   return (
     <FrostedScreen style={styles.container}>
-      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView scrollEnabled={!scratching} contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={hallStyles.topBar}>
           <TopBarButton icon={HALL_ICONS.back} label={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
           <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel={t('common.hanetClasshall')} />
@@ -403,6 +406,11 @@ export default function HallScreen() {
         {hall && (
           <>
             <HallHero hall={hall} />
+
+            {/* Notas: a new grade comes covered, right at the top of the Hall. */}
+            {!isTeacher && hall.gradesOn && (
+              <StudentGrades hallId={hall.id} expected={hall.newGrades ?? 0} onScratching={setScratching} />
+            )}
 
             <View style={styles.summary}>
               <HallTile

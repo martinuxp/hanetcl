@@ -30,6 +30,10 @@ export type Hall = {
   blocks?: Omit<ScheduleBlock, 'subject'>[];
   /** The next evaluation still to come, for the card's notice. */
   nextEvaluation?: { title: string; date: number } | null;
+  /** Notas: whether the institution has the module on (getHall only). */
+  gradesOn?: boolean;
+  /** For a student: grades published and not uncovered yet. */
+  newGrades?: number;
 };
 
 export type HallAnnouncement = {
@@ -67,6 +71,11 @@ export type HallEvaluation = {
   objectives: HallObjective[];
   /** "Cómo prepararse": notes, materials and pages to study. */
   prep: string;
+  /** Notas: share of the term average, 1 to 100 %, if the teacher set it. */
+  weight?: number | null;
+  /** For whoever teaches: how many grades it has, and when they were published. */
+  gradesCount?: number;
+  gradesPublishedAt?: number | null;
   authorName: string;
   updatedAt: number | null;
 };
@@ -552,6 +561,88 @@ export function skillAbbreviation(skill: string) {
   const clean = skill.trim();
   if (clean.length <= 5) return clean.toLocaleUpperCase('es');
   return `${clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, 3).toLocaleUpperCase('es')}.`;
+}
+
+// ---------------------------------------------------------------- Notas
+
+export type GradeStatus = 'draft' | 'published';
+
+/** A student of the Hall as the teacher puts their grade. */
+export type EvaluationGradeRow = {
+  uid: string;
+  /** "Apellidos, Nombres", as in the libro de clases. */
+  name: string;
+  courseId: string | null;
+  grade: number | null;
+  status: GradeStatus | null;
+  seen: boolean;
+};
+
+export type EvaluationGrades = {
+  evaluation: { id: string; title: string; date: number | null; weight: number | null; published: boolean; publishedAt: number | null };
+  students: EvaluationGradeRow[];
+  /** Students on the roster of a plan común course who have no account yet. */
+  withoutAccount: number;
+};
+
+/** A student's own published grade. */
+export type MyGrade = {
+  evaluationId: string;
+  title: string;
+  date: number | null;
+  weight: number | null;
+  grade: number;
+  /** Whether it was uncovered already. */
+  seen: boolean;
+  /** Changed after it was published: it comes covered again. */
+  corrected: boolean;
+  publishedAt: number | null;
+};
+
+export async function getEvaluationGrades(hallId: string, evaluationId: string) {
+  return (await httpsCallable<{ hallId: string; evaluationId: string }, EvaluationGrades>(functions, 'getEvaluationGrades')({ hallId, evaluationId })).data;
+}
+
+/** `grade: null` takes a grade away. `weight` is only sent when it changed. */
+export async function saveEvaluationGrades(hallId: string, evaluationId: string, grades: { uid: string; grade: number | null }[], weight?: number | null) {
+  const input: { hallId: string; evaluationId: string; grades: { uid: string; grade: number | null }[]; weight?: number | null } = { hallId, evaluationId, grades };
+  if (weight !== undefined) input.weight = weight;
+  return (await httpsCallable<typeof input, { saved: number; removed: number }>(functions, 'saveEvaluationGrades')(input)).data;
+}
+
+export async function publishEvaluationGrades(hallId: string, evaluationId: string) {
+  return (await httpsCallable<{ hallId: string; evaluationId: string }, { published: number }>(functions, 'publishEvaluationGrades')({ hallId, evaluationId })).data;
+}
+
+export async function getMyGrades(hallId: string) {
+  return (await httpsCallable<{ hallId: string }, { grades: MyGrade[] }>(functions, 'getMyGrades')({ hallId })).data.grades;
+}
+
+export type GradeBookSubject = {
+  hallId: string;
+  subject: string;
+  plan: HallPlan;
+  teacherName: string | null;
+  /** Published grades, newest evaluation first. */
+  grades: MyGrade[];
+};
+
+/** Notas: every Hall of the student with its grades. `on` false: the module is off. */
+export type GradeBook =
+  | { on: false }
+  | { on: true; courseId: string | null; institutionName: string | null; newGrades: number; subjects: GradeBookSubject[] };
+
+export async function getMyGradeBook() {
+  return (await httpsCallable<{ summary?: boolean }, GradeBook>(functions, 'getMyGradeBook')({})).data;
+}
+
+/** For the Home tile: whether Notas is on and how many grades wait to be uncovered. */
+export async function getMyNewGradesCount() {
+  return (await httpsCallable<{ summary: boolean }, { on: false } | { on: true; newGrades: number }>(functions, 'getMyGradeBook')({ summary: true })).data;
+}
+
+export async function markGradeSeen(hallId: string, evaluationId: string) {
+  await httpsCallable(functions, 'markGradeSeen')({ hallId, evaluationId });
 }
 
 /** The callable's error code without its "functions/" prefix. */

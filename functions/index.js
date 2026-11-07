@@ -33,6 +33,9 @@ Object.assign(exports, require("./members").build(getAdminApp));
 // ClassHall: Halls per subject and course, and joining them by code.
 Object.assign(exports, require("./classhall").build(getAdminApp));
 
+// Notas: grades on a Hall's evaluations, uncovered by scratching.
+Object.assign(exports, require("./grades").build(getAdminApp));
+
 // HaNet Eventos: city events (HNT) and the institution's own.
 Object.assign(exports, require("./events").build(getAdminApp));
 

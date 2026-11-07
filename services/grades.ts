@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Chilean grades for the Herramientas "Escala de notas" and "Calculadora de
-// notas". Everything here runs on the phone: HaNet doesn't store grades (the
-// liceo keeps them in its own system), so what someone types stays on their
-// phone.
+// notas". Everything here runs on the phone: what someone types stays on
+// their phone. The grades a docente publishes in a Hall (Notas,
+// functions/grades.js) can be added to the calculator from there.
 //
 // Grades go from 1,0 to 7,0, with one decimal, and pass at 4,0. A scale
 // ("escala de notas") turns points into a grade: below the passing points
@@ -222,4 +222,19 @@ export async function loadCalculator(): Promise<CalculatorState | null> {
 
 export function saveCalculator(state: CalculatorState) {
   AsyncStorage.setItem(CALCULATOR_KEY, JSON.stringify(state)).catch(() => undefined);
+}
+
+/** Adds a published grade to the calculator, in its first empty row or a new one. */
+export async function addGradeToCalculator(grade: number, weight: number | null) {
+  const saved = await loadCalculator();
+  const entries = (saved?.entries ?? []).filter(entry => entry.grade.trim() || entry.weight.trim());
+  const weighted = (saved?.weighted ?? false) || weight !== null;
+  entries.push({
+    id: `n${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`,
+    grade: formatGrade(grade),
+    weight: weight !== null ? String(weight) : '',
+  });
+  const next: CalculatorState = { entries, goal: saved?.goal ?? '4,0', remaining: saved?.remaining ?? 1, weighted };
+  // Waits for it, so the calculator opened next reads it.
+  await AsyncStorage.setItem(CALCULATOR_KEY, JSON.stringify(next)).catch(() => undefined);
 }
