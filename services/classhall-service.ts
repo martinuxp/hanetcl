@@ -618,6 +618,29 @@ export async function getMyGrades(hallId: string) {
   return (await httpsCallable<{ hallId: string }, { grades: MyGrade[] }>(functions, 'getMyGrades')({ hallId })).data.grades;
 }
 
+export type GradeBookSubject = {
+  hallId: string;
+  subject: string;
+  plan: HallPlan;
+  teacherName: string | null;
+  /** Published grades, newest evaluation first. */
+  grades: MyGrade[];
+};
+
+/** Notas: every Hall of the student with its grades. `on` false: the module is off. */
+export type GradeBook =
+  | { on: false }
+  | { on: true; courseId: string | null; institutionName: string | null; newGrades: number; subjects: GradeBookSubject[] };
+
+export async function getMyGradeBook() {
+  return (await httpsCallable<{ summary?: boolean }, GradeBook>(functions, 'getMyGradeBook')({})).data;
+}
+
+/** For the Home tile: whether Notas is on and how many grades wait to be uncovered. */
+export async function getMyNewGradesCount() {
+  return (await httpsCallable<{ summary: boolean }, { on: false } | { on: true; newGrades: number }>(functions, 'getMyGradeBook')({ summary: true })).data;
+}
+
 export async function markGradeSeen(hallId: string, evaluationId: string) {
   await httpsCallable(functions, 'markGradeSeen')({ hallId, evaluationId });
 }

@@ -1217,6 +1217,14 @@
         "vuelveAMostrarTodoEl": "Vuelve a mostrar todo el feed"
       }
     },
+    "grades": {
+      "gradesTile": {
+        "notasTienesCountNotasNuevas_one": "Notas: tienes 1 nota nueva por destapar",
+        "notasTienesCountNotasNuevas_other": "Notas: tienes {{count}} notas nuevas por destapar",
+        "porDestapar": "Por destapar",
+        "tusPromediosDeClasshall": "Tus promedios de ClassHall"
+      }
+    },
     "gridMenu": {
       "abrirTitle": "Abrir {{title}}",
       "actividad": "actividad",
@@ -1817,6 +1825,49 @@
     "vistaPrevia": "Vista previa",
     "volverAEscribir": "Volver a escribir",
     "votacionAnonima": "Votación anónima"
+  },
+  "grades": {
+    "anual": "Anual",
+    "calculadoConLasNotasQue": "Calculado con las notas que tus docentes publican en HaNet. El promedio oficial es el de tu liceo.",
+    "countNotas_one": "1 nota",
+    "countNotas_other": "{{count}} notas",
+    "countNuevas_one": "1 nueva",
+    "countNuevas_other": "{{count}} nuevas",
+    "coveredPorDestapar": ", {{covered}} por destapar",
+    "destapar": "Destapar",
+    "lasAsignaturasSinNotasEn": "Las asignaturas sin notas en HaNet siguen en el sistema de tu liceo.",
+    "n1erSemestre": "1er semestre",
+    "n2Semestre": "2° semestre",
+    "noPudimosCargarTusNotas": "No pudimos cargar tus notas.",
+    "notasEnHanet_one": "nota en HaNet",
+    "notasEnHanet_other": "notas en HaNet",
+    "notasNoEstaActivoEn": "Notas no está activo en tu institución.",
+    "periodnameTodaviaNoHayNotas": "{{periodName}}: todavía no hay notas en HaNet",
+    "periodo": "Periodo",
+    "primerSemestre": "Primer semestre",
+    "promedioAproximadoDelPeriodnameGrade": "Promedio aproximado del {{periodName}}: {{grade}}, con {{countValue}} notas",
+    "promedioAproximadoPeriodname": "Promedio aproximado · {{periodName}}",
+    "segundoSemestre": "Segundo semestre",
+    "sinNotasEnHanet": "Sin notas en HaNet",
+    "sinPromedio": "sin promedio",
+    "subject": {
+      "anualValueAproximado": "Anual: {{value}}, aproximado",
+      "countNotasValueVer_one": "1 nota{{value}} · Ver",
+      "countNotasValueVer_other": "{{count}} notas{{value}} · Ver",
+      "docenteTeacher": "Docente: {{teacher}}",
+      "n2Semestre_one": "1er semestre",
+      "n2Semestre_other": "2° semestre",
+      "n2SemestreValueAproximado_one": "1er semestre: {{value}}, aproximado",
+      "n2SemestreValueAproximado_other": "2° semestre: {{value}}, aproximado",
+      "promedioGrade": " · promedio {{grade}}",
+      "promedioPonderadoCuandoCadaEvaluacion": "Promedio ponderado cuando cada evaluación tiene su ponderación. El promedio oficial es el de tu liceo.",
+      "todaviaNoHayNotasDe": "Todavía no hay notas de esta asignatura en HaNet."
+    },
+    "tienesCountNotasPorDestapar_one": "Tienes 1 nota por destapar, en {{subject}}",
+    "tienesCountNotasPorDestapar_other": "Tienes {{count}} notas por destapar",
+    "tienesCountNotasPorDestapar2_one": "Tienes 1 nota por destapar",
+    "tienesCountNotasPorDestapar2_other": "Tienes {{count}} notas por destapar",
+    "todaviaNoTienesClasesEn": "Todavía no tienes clases en ClassHall."
   },
   "hntAdmin": {
     "abreLaIdentidadElCodigo": "Abre la identidad, el código y la lista de la institución",

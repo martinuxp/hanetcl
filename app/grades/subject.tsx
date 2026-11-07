@@ -1,0 +1,179 @@
+import { gradeMeta, NewGradeCard } from '@/components/classhall/grades-ui';
+import { ThemedText } from '@/components/themed-text';
+import { HanetButton } from '@/components/ui/hanet-button';
+import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { AppColors, AppDisplay, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
+import { describeAuthError } from '@/services/auth-service';
+import { getMyGrades } from '@/services/classhall-service';
+import type { MyGrade } from '@/services/classhall-service';
+import { currentSemester, inSemester, subjectAverage, thisYear } from '@/services/grade-book';
+import { formatGrade } from '@/services/grades';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '@/i18n';
+
+// One subject in Notas: its averages, the grades still covered (to scratch
+// off, as in the Hall) and the rest by semester, with their weights.
+
+function GradeList({ grades }: { grades: MyGrade[] }) {
+  return (
+    <View style={styles.list}>
+      {grades.map((grade, index) => (
+        <View
+          key={grade.evaluationId}
+          style={[styles.row, index > 0 && styles.rowRule]}
+          accessible
+          accessibilityLabel={`${grade.title}${grade.weight ? `, ${grade.weight} %` : ''}: ${formatGrade(grade.grade)}`}
+        >
+          <View style={styles.rowText}>
+            <ThemedText style={styles.rowTitle}>{grade.title}</ThemedText>
+            {!!gradeMeta(grade) && <ThemedText style={styles.muted}>{gradeMeta(grade)}</ThemedText>}
+          </View>
+          <View style={styles.gradePill}>
+            <ThemedText style={styles.gradeText}>{formatGrade(grade.grade)}</ThemedText>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export default function SubjectGradesScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { hallId, subject, teacher } = useLocalSearchParams<{ hallId: string; subject?: string; teacher?: string }>();
+  const [grades, setGrades] = useState<MyGrade[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [scratching, setScratching] = useState(false);
+  // Uncovered in this visit: they stay on their card until "Listo".
+  const [done, setDone] = useState<string[]>([]);
+  const [showFirst, setShowFirst] = useState(false);
+
+  useEffect(() => {
+    if (!hallId) return;
+    let active = true;
+    getMyGrades(hallId)
+      .then(result => { if (active) { setGrades(result); setError(null); } })
+      .catch(loadError => { if (active) setError(describeAuthError(loadError, t('grades.noPudimosCargarTusNotas'))); });
+    return () => { active = false; };
+  }, [hallId, attempt]);
+
+  const all = (grades ?? []).map(grade => (done.includes(grade.evaluationId) ? { ...grade, seen: true } : grade));
+  const covered = (grades ?? []).filter(grade => !grade.seen && !done.includes(grade.evaluationId));
+  const seen = thisYear(all).filter(grade => grade.seen);
+  const now = currentSemester();
+  const semesters = (now === 2 ? [2, 1] : [1]) as (1 | 2)[];
+  const current = subjectAverage(all, now);
+  const year = subjectAverage(all, 'year');
+
+  return (
+    <FrostedScreen style={styles.screen}>
+      <ScrollView scrollEnabled={!scratching} contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <ThemedText style={styles.eyebrow}>{t('classhall.evaluation.notas')}</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>{subject || 'Asignatura'}</ThemedText>
+          {!!teacher && <ThemedText style={styles.muted}>{t('grades.subject.docenteTeacher', { teacher })}</ThemedText>}
+        </View>
+
+        {!grades && !error && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
+        {!grades && !!error && (
+          <View style={styles.card}>
+            <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
+            <HanetButton label={t('common.reintentar')} variant="surface" onPress={() => { setError(null); setAttempt(value => value + 1); }} />
+          </View>
+        )}
+
+        {!!grades && (
+          <>
+            <View style={styles.pair}>
+              <View style={styles.stat} accessible accessibilityLabel={t('grades.subject.n2SemestreValueAproximado', { count: now, value: current === null ? t('grades.sinPromedio') : formatGrade(current) })}>
+                <ThemedText style={styles.muted}>{t('grades.subject.n2Semestre', { count: now })}</ThemedText>
+                <ThemedText style={styles.big}>{current === null ? '—' : formatGrade(current)}</ThemedText>
+                <ThemedText style={styles.muted}>{'aproximado'}</ThemedText>
+              </View>
+              <View style={styles.stat} accessible accessibilityLabel={t('grades.subject.anualValueAproximado', { value: year === null ? t('grades.sinPromedio') : formatGrade(year) })}>
+                <ThemedText style={styles.muted}>{t('grades.anual')}</ThemedText>
+                <ThemedText style={styles.big}>{year === null ? '—' : formatGrade(year)}</ThemedText>
+                <ThemedText style={styles.muted}>{'aproximado'}</ThemedText>
+              </View>
+            </View>
+
+            {covered.length > 0 && (
+              <View style={styles.section}>
+                <ThemedText style={styles.label}>{t('components.classhall.gradesUi.notasNuevas', { count: covered.length })}</ThemedText>
+                {covered.map(grade => (
+                  <NewGradeCard
+                    key={grade.evaluationId}
+                    hallId={hallId}
+                    grade={grade}
+                    onScratching={setScratching}
+                    onSeen={id => setDone(list => (list.includes(id) ? list : [...list, id]))}
+                  />
+                ))}
+              </View>
+            )}
+
+            {grades.length === 0 && (
+              <View style={styles.card}>
+                <ThemedText style={styles.body}>{t('grades.subject.todaviaNoHayNotasDe')}</ThemedText>
+              </View>
+            )}
+
+            {semesters.map(semester => {
+              const list = inSemester(seen, semester);
+              if (!list.length) return null;
+              const name = t('grades.subject.n2Semestre', { count: semester });
+              const average = subjectAverage(all, semester);
+              const folded = semester === 1 && now === 2 && !showFirst;
+              return (
+                <View key={semester} style={styles.section}>
+                  <ThemedText style={styles.label}>{name}</ThemedText>
+                  {folded ? (
+                    <HanetButton
+                      label={t('grades.subject.countNotasValueVer', { count: list.length, value: average === null ? '' : t('grades.subject.promedioGrade', { grade: formatGrade(average) }) })}
+                      variant="surface"
+                      onPress={() => setShowFirst(true)}
+                    />
+                  ) : (
+                    <GradeList grades={list} />
+                  )}
+                </View>
+              );
+            })}
+
+            <HanetButton label={t('components.schedule.scheduleView.abrirElHall')} onPress={() => router.push({ pathname: '/classhall/hall', params: { id: hallId } })} />
+            <ThemedText style={styles.hint}>{t('grades.subject.promedioPonderadoCuandoCadaEvaluacion')}</ThemedText>
+          </>
+        )}
+      </ScrollView>
+    </FrostedScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: AppColors.canvas },
+  page: { width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: AppSpacing.lg, paddingBottom: 150, gap: AppSpacing.lg },
+  header: { paddingTop: AppSpacing.lg, gap: AppSpacing.xs },
+  eyebrow: { ...AppType.caption, color: AppColors.textSecondary },
+  title: { ...AppType.title1, color: AppColors.textPrimary },
+  loading: { marginTop: AppSpacing.xxl },
+  muted: { ...AppType.footnote, color: AppColors.textSecondary },
+  body: { ...AppType.callout, color: AppColors.textPrimary },
+  hint: { ...AppType.footnote, color: AppColors.textSecondary, paddingHorizontal: AppSpacing.xs },
+  label: { ...AppType.callout, fontFamily: 'DMSans_700Bold', color: AppColors.textSecondary, paddingHorizontal: AppSpacing.xs },
+  card: { gap: AppSpacing.md, padding: AppSpacing.lg, borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  section: { gap: AppSpacing.md },
+  pair: { flexDirection: 'row', gap: AppSpacing.md },
+  stat: { flex: 1, gap: 2, paddingVertical: 16, paddingHorizontal: 18, borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  big: { ...AppDisplay.number, fontSize: 44, lineHeight: 48, color: AppColors.textPrimary, fontVariant: ['tabular-nums'] },
+  list: { borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface, overflow: 'hidden' },
+  row: { minHeight: 60, paddingVertical: 10, paddingLeft: 18, paddingRight: 12, flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md },
+  rowRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: AppColors.surfaceMuted },
+  rowText: { flex: 1, gap: 3 },
+  rowTitle: { ...AppType.body, fontFamily: 'DMSans_500Medium', lineHeight: 20, color: AppColors.textPrimary },
+  gradePill: { minWidth: 56, height: 40, paddingHorizontal: 10, borderRadius: AppRadii.pill, backgroundColor: AppColors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  gradeText: { ...AppType.headline, fontSize: 18, color: AppColors.textPrimary, fontVariant: ['tabular-nums'] },
+});

@@ -7,7 +7,8 @@ import { describeAuthError } from '@/services/auth-service';
 import { dropCached } from '@/services/cache';
 import { getMyGrades, markGradeSeen } from '@/services/classhall-service';
 import type { MyGrade } from '@/services/classhall-service';
-import { addGradeToCalculator, formatGrade, roundGrade } from '@/services/grades';
+import { approximateAverage } from '@/services/grade-book';
+import { addGradeToCalculator, formatGrade } from '@/services/grades';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -19,20 +20,11 @@ import { t } from '@/i18n';
 
 const SCRATCH_HEIGHT = 148;
 
-function meta(grade: MyGrade) {
+export function gradeMeta(grade: MyGrade) {
   return [grade.date ? hallDay(grade.date) : null, grade.weight ? `${grade.weight} %` : null].filter(Boolean).join(' · ');
 }
 
-/** Weighted when every grade has its weight, plain otherwise. */
-function approximateAverage(grades: MyGrade[]) {
-  if (!grades.length) return null;
-  const weighted = grades.every(grade => grade.weight);
-  const total = weighted ? grades.reduce((sum, grade) => sum + (grade.weight ?? 0), 0) : grades.length;
-  const sum = grades.reduce((acc, grade) => acc + grade.grade * (weighted ? grade.weight ?? 0 : 1), 0);
-  return { value: roundGrade(sum / total), weighted };
-}
-
-function NewGradeCard({ hallId, grade, onSeen, onScratching }: { hallId: string; grade: MyGrade; onSeen: (id: string) => void; onScratching: (active: boolean) => void }) {
+export function NewGradeCard({ hallId, grade, onSeen, onScratching }: { hallId: string; grade: MyGrade; onSeen: (id: string) => void; onScratching: (active: boolean) => void }) {
   const router = useRouter();
   const [revealed, setRevealed] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -41,8 +33,10 @@ function NewGradeCard({ hallId, grade, onSeen, onScratching }: { hallId: string;
     setRevealed(true);
     // Seen on this phone right away; the server hears it in the background.
     markGradeSeen(hallId, grade.evaluationId).catch(() => undefined);
-    // ClassHall's card stops saying there is a new grade.
+    // ClassHall's card, Notas and the Home tile stop counting it as new.
     dropCached('halls');
+    dropCached('gradebook');
+    dropCached('gradesBadge');
   };
 
   const addToCalculator = async () => {
@@ -58,7 +52,7 @@ function NewGradeCard({ hallId, grade, onSeen, onScratching }: { hallId: string;
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <ThemedText numberOfLines={2} style={styles.cardTitle}>{grade.title}</ThemedText>
-        {!!meta(grade) && <ThemedText style={styles.cardMeta}>{meta(grade)}</ThemedText>}
+        {!!gradeMeta(grade) && <ThemedText style={styles.cardMeta}>{gradeMeta(grade)}</ThemedText>}
       </View>
       {grade.corrected && <ThemedText style={styles.corrected}>{t('components.classhall.gradesUi.tuDocenteCorrigioEstaNota')}</ThemedText>}
       <ScratchCard
@@ -161,7 +155,7 @@ export function StudentGrades({ hallId, expected, onScratching }: { hallId: stri
               >
                 <View style={styles.rowText}>
                   <ThemedText numberOfLines={2} style={styles.rowTitle}>{grade.title}</ThemedText>
-                  {!!meta(grade) && <ThemedText style={styles.rowMeta}>{meta(grade)}</ThemedText>}
+                  {!!gradeMeta(grade) && <ThemedText style={styles.rowMeta}>{gradeMeta(grade)}</ThemedText>}
                 </View>
                 <ThemedText style={styles.rowGrade}>{formatGrade(grade.grade)}</ThemedText>
               </View>

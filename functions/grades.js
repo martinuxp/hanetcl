@@ -140,6 +140,35 @@ async function countGrades(evaluationRef) {
   return (await evaluationRef.collection("grades").count().get()).data().count;
 }
 
+// The published grades of one student in a Hall, newest evaluation first.
+async function publishedGradesOf(getAdminApp, hallRef, uid) {
+  const evaluations = await hallRef.collection("evaluations").where("gradesPublishedAt", "!=", null).get();
+  if (!evaluations.size) return [];
+  const mine = await classhallDb(getAdminApp).getAll(...evaluations.docs.map(doc => doc.ref.collection("grades").doc(uid)));
+  const grades = [];
+  evaluations.docs.forEach((doc, index) => {
+    const grade = mine[index].data();
+    if (!grade || grade.status !== "published") return;
+    const evaluation = doc.data();
+    grades.push({
+      evaluationId: doc.id,
+      title: evaluation.title,
+      date: millis(evaluation.date),
+      weight: evaluation.weight ?? null,
+      grade: grade.grade,
+      seen: !!grade.seenAt,
+      corrected: grade.corrected === true,
+      publishedAt: millis(grade.publishedAt),
+    });
+  });
+  grades.sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
+  return grades;
+}
+
+function plan(hall) {
+  return hall.plan || "comun";
+}
+
 function build(getAdminApp) {
   // The evaluation's grades for whoever puts them: every student of the Hall
   // with an account, with their grade if there is one.
@@ -304,27 +333,56 @@ function build(getAdminApp) {
     if (!member) throw new HttpsError("not-found", "No encontramos ese Hall entre tus clases.");
     await requireModule(getAdminApp, hall.institutionId);
 
-    const evaluations = await hallRef.collection("evaluations").where("gradesPublishedAt", "!=", null).get();
-    if (!evaluations.size) return { grades: [] };
-    const mine = await classhallDb(getAdminApp).getAll(...evaluations.docs.map(doc => doc.ref.collection("grades").doc(profile.uid)));
-    const grades = [];
-    evaluations.docs.forEach((doc, index) => {
-      const grade = mine[index].data();
-      if (!grade || grade.status !== "published") return;
-      const evaluation = doc.data();
-      grades.push({
-        evaluationId: doc.id,
-        title: evaluation.title,
-        date: millis(evaluation.date),
-        weight: evaluation.weight ?? null,
-        grade: grade.grade,
-        seen: !!grade.seenAt,
-        corrected: grade.corrected === true,
-        publishedAt: millis(grade.publishedAt),
-      });
-    });
-    grades.sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
+    const grades = await publishedGradesOf(getAdminApp, hallRef, profile.uid);
     return { grades };
+  });
+
+  // Notas, the screen: every Hall of the student with its published grades,
+  // for the averages by semester. `summary` answers only how many grades
+  // wait to be uncovered, for the Home tile. With the module off it says so
+  // instead of failing, so the app just hides the entry.
+  const getMyGradeBook = onCall({ invoker: "public" }, async (request) => {
+    const profile = await requireProfile(getAdminApp, request);
+    const institution = (await identityDb(getAdminApp).collection("institutions").doc(profile.institutionId).get()).data();
+    if (!institution || !gradesOn(institution)) return { on: false };
+
+    if (request.data?.summary === true) {
+      const unseen = await unseenGradesByHall(getAdminApp, profile.uid);
+      return { on: true, newGrades: Object.values(unseen).reduce((sum, count) => sum + count, 0) };
+    }
+
+    const halls = classhallDb(getAdminApp).collection("halls");
+    const [joined, course] = await Promise.all([
+      halls.where("memberUids", "array-contains", profile.uid).get(),
+      profile.courseId
+        ? halls.where("institutionId", "==", profile.institutionId).where("courseId", "==", profile.courseId).get()
+        : Promise.resolve({ docs: [] }),
+    ]);
+    const byId = new Map();
+    for (const doc of [...course.docs.filter(doc => plan(doc.data()) === "comun"), ...joined.docs]) {
+      const data = doc.data();
+      // A Hall the student teaches is not theirs to be graded in.
+      if (byId.has(doc.id) || data.teacherUid === profile.uid) continue;
+      byId.set(doc.id, doc);
+    }
+    const subjects = await Promise.all([...byId.values()].map(async (doc) => {
+      const data = doc.data();
+      return {
+        hallId: doc.id,
+        subject: data.subject,
+        plan: plan(data),
+        teacherName: data.teacherName || null,
+        grades: await publishedGradesOf(getAdminApp, doc.ref, profile.uid),
+      };
+    }));
+    subjects.sort((a, b) => String(a.subject).localeCompare(String(b.subject), "es"));
+    return {
+      on: true,
+      courseId: profile.courseId || null,
+      institutionName: institution.name || null,
+      newGrades: subjects.reduce((sum, subject) => sum + subject.grades.filter(grade => !grade.seen).length, 0),
+      subjects,
+    };
   });
 
   // The student uncovered a grade.
@@ -343,7 +401,7 @@ function build(getAdminApp) {
     return { ok: true };
   });
 
-  return { getEvaluationGrades, saveEvaluationGrades, publishEvaluationGrades, getMyGrades, markGradeSeen };
+  return { getEvaluationGrades, saveEvaluationGrades, publishEvaluationGrades, getMyGrades, getMyGradeBook, markGradeSeen };
 }
 
 // How many grades of each Hall the student has not uncovered, for ClassHall.
