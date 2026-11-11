@@ -78,7 +78,7 @@ export function NotificationsPeek({ pull, armed, threshold }: PeekProps) {
         direction="up"
         pullLabel={t('components.notifications.homeNotifications.deslizaParaVerTusNotificaciones')}
         releaseLabel={t('components.notifications.homeNotifications.sueltaParaAbrirTusNotificaciones')}
-        follow={distance => distance * 0.5}
+        follow={{ rate: 0.5 }}
         style={styles.hint}
       />
     </View>

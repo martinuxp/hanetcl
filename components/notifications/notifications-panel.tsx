@@ -76,7 +76,7 @@ export function NotificationsPanel({ state, seenBefore, error, onRetry, onClose,
         direction="down"
         pullLabel={t('components.notifications.notificationsPanel.deslizaParaVolverAlInicio')}
         releaseLabel={t('components.notifications.notificationsPanel.sueltaParaVolverAlInicio')}
-        follow={distance => Math.max(0, distance - 70) * 0.5}
+        follow={{ rate: 0.5, after: 70 }}
         fade
         style={[styles.closeHint, { top: insets.top + 12 }]}
       />

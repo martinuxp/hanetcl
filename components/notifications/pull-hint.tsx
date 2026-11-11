@@ -19,8 +19,12 @@ type Props = {
   direction: 'up' | 'down';
   pullLabel: string;
   releaseLabel: string;
-  /** Extra movement as it is pulled, to stay centered in the gap that opens. */
-  follow?: (pull: number) => number;
+  /**
+   * Moves with the pull to stay centered in the gap that opens: by `rate` of
+   * whatever is past `after` points. Numbers, not a function, because this
+   * runs on the UI thread.
+   */
+  follow?: { rate: number; after?: number };
   /** Hidden at rest, showing as the gap opens. */
   fade?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -33,7 +37,7 @@ export function PullHint({ pull, armed, threshold, direction, pullLabel, release
 
   const wrapStyle = useAnimatedStyle(() => ({
     opacity: fade ? interpolate(pull.get(), [threshold * 0.35, threshold * 0.75], [0, 1], 'clamp') : 1,
-    transform: [{ translateY: follow ? follow(pull.get()) : 0 }],
+    transform: [{ translateY: follow ? Math.max(0, pull.get() - (follow.after ?? 0)) * follow.rate : 0 }],
   }));
   const arrowStyle = useAnimatedStyle(() => {
     const progress = Math.min(1, pull.get() / threshold);
