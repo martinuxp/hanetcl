@@ -1,83 +1,46 @@
-import { ScratchCard } from '@/components/classhall/scratch-card';
 import { hallDay } from '@/components/classhall/hall-ui';
 import { GradesLocked } from '@/components/grades/grades-lock';
+import { Stripes } from '@/components/grades/stripes';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
-import { dropCached } from '@/services/cache';
-import { getMyGrades, markGradeSeen } from '@/services/classhall-service';
+import { getMyGrades } from '@/services/classhall-service';
 import type { MyGrade } from '@/services/classhall-service';
 import { approximateAverage } from '@/services/grade-book';
-import { addGradeToCalculator, formatGrade } from '@/services/grades';
+import { formatGrade } from '@/services/grades';
 import { useGradesLock } from '@/services/grades-lock';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { t } from '@/i18n';
 
 // Notas in a Hall, for the student: each new grade comes covered, to scratch
 // it off or uncover it with the button; uncovered grades stay in the list
 // with an approximate average. The liceo's average is the official one.
 
-const SCRATCH_HEIGHT = 148;
 
 export function gradeMeta(grade: MyGrade) {
   return [grade.date ? hallDay(grade.date) : null, grade.weight ? `${grade.weight} %` : null].filter(Boolean).join(' · ');
 }
 
-export function NewGradeCard({ hallId, grade, onSeen, onScratching }: { hallId: string; grade: MyGrade; onSeen: (id: string) => void; onScratching: (active: boolean) => void }) {
+/** The grades still covered, as a striped banner that opens the full-screen reveal. */
+export function NewGradesBanner({ hallId, subject, count }: { hallId: string; subject: string; count: number }) {
   const router = useRouter();
-  const [revealed, setRevealed] = useState(false);
-  const [adding, setAdding] = useState(false);
-
-  const reveal = () => {
-    setRevealed(true);
-    // Seen on this phone right away; the server hears it in the background.
-    markGradeSeen(hallId, grade.evaluationId).catch(() => undefined);
-    // ClassHall's card, Notas and the Home tile stop counting it as new.
-    dropCached('halls');
-    dropCached('gradebook');
-    dropCached('gradesBadge');
-  };
-
-  const addToCalculator = async () => {
-    if (adding) return;
-    setAdding(true);
-    await addGradeToCalculator(grade.grade, grade.weight);
-    setAdding(false);
-    onSeen(grade.evaluationId);
-    router.push('/tools/grades');
-  };
-
+  if (!count) return null;
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHead}>
-        <ThemedText numberOfLines={2} style={styles.cardTitle}>{grade.title}</ThemedText>
-        {!!gradeMeta(grade) && <ThemedText style={styles.cardMeta}>{gradeMeta(grade)}</ThemedText>}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('components.classhall.gradesUi.tienesCountNotasNuevasDestapar', { count })}
+      onPress={() => router.push({ pathname: '/grades/reveal', params: { hallId, subject } })}
+      style={({ pressed }) => [styles.banner, pressed && styles.bannerPressed]}
+    >
+      <Stripes />
+      <ThemedText style={styles.bannerTitle}>{t('components.classhall.gradesUi.tienesCountNotasNuevas', { count })}</ThemedText>
+      <View style={styles.bannerButton}>
+        <ThemedText style={styles.bannerButtonText}>{t('grades.destapar')}</ThemedText>
       </View>
-      {grade.corrected && <ThemedText style={styles.corrected}>{t('components.classhall.gradesUi.tuDocenteCorrigioEstaNota')}</ThemedText>}
-      <ScratchCard
-        height={SCRATCH_HEIGHT}
-        revealed={revealed}
-        onReveal={reveal}
-        onScratching={onScratching}
-        label={t('components.classhall.gradesUi.raspaParaVerTuNota')}
-        accessibilityLabel={t('components.classhall.gradesUi.notaDeTitleTapada', { title: grade.title })}
-        accessibilityHint={t('components.classhall.gradesUi.raspaConElDedoO')}
-      >
-        <ThemedText style={styles.grade} accessibilityLabel={t('components.classhall.gradesUi.tuNotaEsGrade', { grade: formatGrade(grade.grade) })}>{formatGrade(grade.grade)}</ThemedText>
-        <ThemedText style={styles.gradeNote}>{revealed ? t('components.classhall.gradesUi.agregadaATusNotas') : ''}</ThemedText>
-      </ScratchCard>
-      {revealed ? (
-        <View style={styles.actions}>
-          <HanetButton label={adding ? t('common.guardando') : t('components.classhall.gradesUi.agregarALaCalculadora')} disabled={adding} onPress={() => void addToCalculator()} style={styles.action} />
-          <HanetButton label={t('common.listo')} variant="surface" onPress={() => onSeen(grade.evaluationId)} style={styles.action} />
-        </View>
-      ) : (
-        <HanetButton label={t('components.classhall.gradesUi.verSinRaspar')} variant="surface" onPress={reveal} />
-      )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -88,22 +51,23 @@ const SHOWN_AT_FIRST = 3;
  * ones already seen. Shows nothing while the Hall has no grade for them.
  * `expected`: new grades getHall counted, so loading shows only when there are some.
  */
-export function StudentGrades({ hallId, expected, onScratching }: { hallId: string; expected: number; onScratching: (active: boolean) => void }) {
+export function StudentGrades({ hallId, subject, expected }: { hallId: string; subject: string; expected: number }) {
   const [grades, setGrades] = useState<MyGrade[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [showAll, setShowAll] = useState(false);
-  // Uncovered in this visit: they stay on their card until "Listo".
-  const [done, setDone] = useState<string[]>([]);
   const { locked } = useGradesLock();
 
-  useEffect(() => {
+  // Reloads when coming back from the reveal.
+  useFocusEffect(useCallback(() => {
     let active = true;
     getMyGrades(hallId)
       .then(result => { if (active) { setGrades(result); setError(null); } })
       .catch(loadError => { if (active) setError(describeAuthError(loadError, t('components.classhall.gradesUi.noPudimosCargarTusNotas'))); });
     return () => { active = false; };
-  }, [hallId, attempt]);
+    // `attempt` re-runs the load from the retry button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hallId, attempt]));
 
   if (error && !grades) {
     if (!expected) return null;
@@ -125,27 +89,14 @@ export function StudentGrades({ hallId, expected, onScratching }: { hallId: stri
   if (!grades.length) return null;
   if (locked) return <GradesLocked />;
 
-  const unseen = grades.filter(grade => !grade.seen && !done.includes(grade.evaluationId));
-  const seen = grades.filter(grade => grade.seen || done.includes(grade.evaluationId));
+  const unseen = grades.filter(grade => !grade.seen);
+  const seen = grades.filter(grade => grade.seen);
   const shown = showAll ? seen : seen.slice(0, SHOWN_AT_FIRST);
   const average = approximateAverage(seen);
 
   return (
     <View style={styles.wrap}>
-      {unseen.length > 0 && (
-        <>
-          <ThemedText style={styles.label}>{t('components.classhall.gradesUi.notasNuevas', { count: unseen.length })}</ThemedText>
-          {unseen.map(grade => (
-            <NewGradeCard
-              key={grade.evaluationId}
-              hallId={hallId}
-              grade={grade}
-              onScratching={onScratching}
-              onSeen={id => setDone(current => (current.includes(id) ? current : [...current, id]))}
-            />
-          ))}
-        </>
-      )}
+      <NewGradesBanner hallId={hallId} subject={subject} count={unseen.length} />
       {seen.length > 0 && (
         <>
           <ThemedText style={styles.label}>{t('components.classhall.gradesUi.tusNotas')}</ThemedText>
@@ -182,6 +133,11 @@ export function StudentGrades({ hallId, expected, onScratching }: { hallId: stri
 }
 
 const styles = StyleSheet.create({
+  banner: { minHeight: 72, paddingVertical: 14, paddingLeft: 18, paddingRight: 12, borderRadius: AppRadii.lg, borderCurve: 'continuous', overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md },
+  bannerPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
+  bannerTitle: { flex: 1, fontFamily: 'DMSans_700Bold', fontSize: 18, lineHeight: 23, letterSpacing: -0.4, color: AppColors.textPrimary },
+  bannerButton: { height: 44, paddingHorizontal: 18, borderRadius: AppRadii.pill, backgroundColor: AppColors.textPrimary, alignItems: 'center', justifyContent: 'center' },
+  bannerButtonText: { fontFamily: 'DMSans_700Bold', fontSize: 16, lineHeight: 20, color: AppColors.textOnLight },
   wrap: {
     gap: AppSpacing.md,
   },

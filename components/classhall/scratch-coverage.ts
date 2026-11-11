@@ -1,9 +1,9 @@
 // How much of a scratch card has been scratched off, on a coarse grid: each
-// stroke clears the cells within the brush, and past REVEAL_AT the card
-// uncovers itself. Shared by the phone (Skia) and web (canvas) covers.
+// stroke clears the cells within the brush, and past REVEAL_AT (three
+// quarters) the card uncovers itself. Shared by the phone (Skia) and web (canvas) covers.
 
 export const BRUSH_RADIUS = 22;
-export const REVEAL_AT = 0.5;
+export const REVEAL_AT = 0.75;
 const COLUMNS = 24;
 const ROWS = 10;
 
@@ -21,6 +21,8 @@ export type ScratchCardProps = {
   accessibilityHint?: string;
   /** Short line on the cover. */
   label: string;
+  /** A high grade: the reveal ends with a burst. Nothing shows it while covered. */
+  celebrate?: boolean;
 };
 
 export function createCoverage(width: number, height: number) {
@@ -63,10 +65,10 @@ export function createCoverage(width: number, height: number) {
 /**
  * One card's scratching, outside React: where the finger was, how much is
  * gone, and when to tick. `paint` draws each segment, `reveal` runs once when
- * enough is gone (or the button uncovers it), `tick` asks for a soft haptic
- * now and then.
+ * enough is gone (or the button uncovers it), `tick` asks for a haptic with
+ * how close the card is to opening (0 to 1): they come faster as it nears.
  */
-export function createScratchSession(handlers: { paint: (from: { x: number; y: number }, to: { x: number; y: number }) => void; reveal: () => void; tick?: () => void }) {
+export function createScratchSession(handlers: { paint: (from: { x: number; y: number }, to: { x: number; y: number }) => void; reveal: () => void; tick?: (progress: number) => void }) {
   let coverage: ReturnType<typeof createCoverage> | null = null;
   let last: { x: number; y: number } | null = null;
   let lastTick = 0;
@@ -86,9 +88,10 @@ export function createScratchSession(handlers: { paint: (from: { x: number; y: n
       handlers.paint(from, last);
       const share = coverage.stroke(from.x, from.y, x, y);
       const now = Date.now();
-      if (handlers.tick && now - lastTick > 90) {
+      const progress = Math.min(1, share / REVEAL_AT);
+      if (handlers.tick && now - lastTick > 130 - 70 * progress) {
         lastTick = now;
-        handlers.tick();
+        handlers.tick(progress);
       }
       if (share >= REVEAL_AT) this.finish();
     },

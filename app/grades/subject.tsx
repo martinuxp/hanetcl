@@ -1,4 +1,4 @@
-import { gradeMeta, NewGradeCard } from '@/components/classhall/grades-ui';
+import { gradeMeta, NewGradesBanner } from '@/components/classhall/grades-ui';
 import { GradesLocked } from '@/components/grades/grades-lock';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -10,8 +10,8 @@ import type { MyGrade } from '@/services/classhall-service';
 import { currentSemester, inSemester, subjectAverage, thisYear } from '@/services/grade-book';
 import { formatGrade } from '@/services/grades';
 import { useGradesLock } from '@/services/grades-lock';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
@@ -51,22 +51,22 @@ export default function SubjectGradesScreen() {
   const grades = locked ? null : loaded;
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [scratching, setScratching] = useState(false);
-  // Uncovered in this visit: they stay on their card until "Listo".
-  const [done, setDone] = useState<string[]>([]);
   const [showFirst, setShowFirst] = useState(false);
 
-  useEffect(() => {
+  // Reloads when coming back from the reveal.
+  useFocusEffect(useCallback(() => {
     if (!hallId) return;
     let active = true;
     getMyGrades(hallId)
       .then(result => { if (active) { setGrades(result); setError(null); } })
       .catch(loadError => { if (active) setError(describeAuthError(loadError, t('grades.noPudimosCargarTusNotas'))); });
     return () => { active = false; };
-  }, [hallId, attempt]);
+    // `attempt` re-runs the load from the retry button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hallId, attempt]));
 
-  const all = (grades ?? []).map(grade => (done.includes(grade.evaluationId) ? { ...grade, seen: true } : grade));
-  const covered = (grades ?? []).filter(grade => !grade.seen && !done.includes(grade.evaluationId));
+  const all = grades ?? [];
+  const covered = all.filter(grade => !grade.seen);
   const seen = thisYear(all).filter(grade => grade.seen);
   const now = currentSemester();
   const semesters = (now === 2 ? [2, 1] : [1]) as (1 | 2)[];
@@ -75,7 +75,7 @@ export default function SubjectGradesScreen() {
 
   return (
     <FrostedScreen style={styles.screen}>
-      <ScrollView scrollEnabled={!scratching} contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <ThemedText style={styles.eyebrow}>{t('classhall.evaluation.notas')}</ThemedText>
           <ThemedText accessibilityRole="header" style={styles.title}>{subject || 'Asignatura'}</ThemedText>
@@ -106,20 +106,7 @@ export default function SubjectGradesScreen() {
               </View>
             </View>
 
-            {covered.length > 0 && (
-              <View style={styles.section}>
-                <ThemedText style={styles.label}>{t('components.classhall.gradesUi.notasNuevas', { count: covered.length })}</ThemedText>
-                {covered.map(grade => (
-                  <NewGradeCard
-                    key={grade.evaluationId}
-                    hallId={hallId}
-                    grade={grade}
-                    onScratching={setScratching}
-                    onSeen={id => setDone(list => (list.includes(id) ? list : [...list, id]))}
-                  />
-                ))}
-              </View>
-            )}
+            <NewGradesBanner hallId={hallId} subject={subject ?? ''} count={covered.length} />
 
             {grades.length === 0 && (
               <View style={styles.card}>

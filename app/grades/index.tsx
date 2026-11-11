@@ -105,7 +105,7 @@ export default function GradesScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('grades.tienesCountNotasPorDestapar', { count: pendingCount, subject: pending[0].subject })}
-            onPress={() => open(pending[0])}
+            onPress={() => router.push('/grades/reveal')}
             style={({ pressed }) => [styles.banner, pressed && styles.pressed]}
           >
             <Stripes />
