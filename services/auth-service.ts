@@ -132,6 +132,8 @@ export type MyProfile = {
   morningNotifications: boolean;
   /** The anniversary's flash tests and deadlines (on unless turned off). */
   anniversaryNotifications?: boolean;
+  /** Feed posts sent as a notification (on unless turned off). */
+  feedNotifications?: boolean;
 };
 
 export function getMyProfile() {

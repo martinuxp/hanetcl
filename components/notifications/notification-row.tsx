@@ -22,6 +22,7 @@ const ICONS: Record<NotificationKind, React.ComponentProps<typeof Ionicons>['nam
   grade: 'ribbon-outline',
   gradeCorrected: 'ribbon-outline',
   anniversary: 'trophy-outline',
+  feed: 'newspaper-outline',
   test: 'notifications-outline',
 };
 

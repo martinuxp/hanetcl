@@ -9,7 +9,7 @@ import type { AppIconId } from '@/services/app-icon';
 import { describeAuthError, getMyProfile, useSession } from '@/services/auth-service';
 import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
 import { gradesLockAvailable, setGradesLock, useGradesLock } from '@/services/grades-lock';
-import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveMorningNotifications } from '@/services/push-service';
+import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveFeedNotifications, saveMorningNotifications } from '@/services/push-service';
 import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,6 +49,7 @@ export default function SettingsScreen() {
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [savingLock, setSavingLock] = useState(false);
   const [anniversaryOn, setAnniversaryOn] = useState(true);
+  const [feedOn, setFeedOn] = useState(true);
   const [savingDay, setSavingDay] = useState(false);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function SettingsScreen() {
         setClasshallOn(profile.classhallNotifications !== false);
         setMorningOn(profile.morningNotifications !== false);
         setAnniversaryOn(profile.anniversaryNotifications !== false);
+        setFeedOn(profile.feedNotifications !== false);
         setPermission(await pushPermission());
       } catch (error) {
         if (active) setNotificationsError(describeAuthError(error, t('settings.noPudimosCargarTusAjustes')));
@@ -139,6 +141,23 @@ export default function SettingsScreen() {
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setAnniversaryOn(!on);
+      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
+    } finally {
+      setSavingDay(false);
+    }
+  };
+
+  const chooseFeed = async (on: boolean) => {
+    if (savingDay || on === feedOn) return;
+    setNotificationsError(null);
+    setSavingDay(true);
+    setFeedOn(on);
+    try {
+      await saveFeedNotifications(on);
+      if (on && permission === 'undetermined') setPermission(await enablePush());
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      setFeedOn(!on);
       setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
     } finally {
       setSavingDay(false);
@@ -271,6 +290,14 @@ export default function SettingsScreen() {
             disabled={savingDay || loadingNotifications}
           />
           <ThemedText style={styles.note}>{t('settings.lasPruebasFlashYLos')}</ThemedText>
+          <HanetChoice
+            label={t('layout.feed')}
+            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
+            value={feedOn ? 'on' : 'off'}
+            onChange={value => void chooseFeed(value === 'on')}
+            disabled={savingDay || loadingNotifications}
+          />
+          <ThemedText style={styles.note}>{t('settings.lasPublicacionesQueElLiceo')}</ThemedText>
         </Section>
 
         <Section title={t('settings.privacidad')} plain>

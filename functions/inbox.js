@@ -18,7 +18,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const KEEP = 40;
 // The list is trimmed once it passes this, so most reads write nothing.
 const TRIM_AT = 60;
-const KINDS = ["announcement", "material", "task", "taskTomorrow", "reviewed", "grade", "gradeCorrected", "anniversary", "test"];
+const KINDS = ["announcement", "material", "task", "taskTomorrow", "reviewed", "grade", "gradeCorrected", "anniversary", "feed", "test"];
 
 function identityDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-enrollmentdata");

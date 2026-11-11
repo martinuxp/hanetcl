@@ -48,6 +48,13 @@ function build(getAdminApp) {
       return { anniversaryNotifications: anniversary };
     }
 
+    // The switch for the Feed's posts sent as a notification.
+    if (typeof request.data?.feedNotifications === "boolean") {
+      const feed = request.data.feedNotifications;
+      await accountRef.set({ notifications: { feed } }, { merge: true });
+      return { feedNotifications: feed };
+    }
+
     const nameFont = request.data?.nameFont;
     if (!NAME_FONTS.includes(nameFont)) {
       throw new HttpsError("invalid-argument", "Esa letra no está disponible.");
@@ -100,6 +107,7 @@ function build(getAdminApp) {
       classhallNotifications: account.notifications?.classhall !== false,
       morningNotifications: account.notifications?.morning !== false,
       anniversaryNotifications: account.notifications?.anniversary !== false,
+      feedNotifications: account.notifications?.feed !== false,
       jornada: ["manana", "tarde"].includes(account.jornada) ? account.jornada : null,
     };
   });

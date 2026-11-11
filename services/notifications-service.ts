@@ -17,6 +17,7 @@ export type NotificationKind =
   | 'grade'
   | 'gradeCorrected'
   | 'anniversary'
+  | 'feed'
   | 'test';
 
 export type HnNotification = {
