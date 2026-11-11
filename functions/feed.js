@@ -469,16 +469,19 @@ function build(getAdminApp) {
       });
       const plain = plainText(body);
       const short = plain.length > 140 ? `${plain.slice(0, 139).trimEnd()}…` : plain;
-      // "Avisar a las alianzas": an aviso of the anniversary also goes out as a push.
+      // "Avisar a las alianzas": an aviso of the anniversary also goes out as a
+      // push. With no anniversary under way it goes out like any other post.
+      let sent = null;
       if (input.notify === true && tags.includes(ANNIVERSARY_TAG) && ANNOUNCE_SPACES.includes(space) && alliancesOn(institution)) {
-        await announceToAlliances(getAdminApp, profile.institutionId, fields.audience, {
+        sent = await announceToAlliances(getAdminApp, profile.institutionId, fields.audience, {
           title: spaceOut(space, institution).name,
           body: short || "Hay un aviso nuevo del aniversario.",
         });
-      } else if (input.notify === true) {
+      }
+      if (input.notify === true && sent === null) {
         // "Enviar como notificación": to everyone the post reaches.
         const courseId = space === "course" ? profile.courseId : null;
-        await announceFeedPost(getAdminApp, {
+        sent = await announceFeedPost(getAdminApp, {
           space,
           institutionId: space === "hanet" ? null : profile.institutionId,
           courseId,
@@ -486,6 +489,15 @@ function build(getAdminApp) {
         }, profile, {
           title: spaceOut(space, institution, courseId).name,
           body: short || (poll ? "Hay una votación nueva en el Feed." : "Hay una publicación nueva en el Feed."),
+          data: { url: "/feed" },
+        });
+      }
+      // Whoever posts is not told about their own post, so their list says
+      // how many it reached instead.
+      if (input.notify === true) {
+        await recordInbox(getAdminApp, [profile.uid], "feed", {
+          title: sent === 1 ? "Tu publicación le llegó a 1 persona" : `Tu publicación le llegó a ${sent || 0} personas`,
+          body: short || "Publicación sin texto.",
           data: { url: "/feed" },
         });
       }
