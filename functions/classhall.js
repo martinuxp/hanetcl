@@ -8,6 +8,7 @@ const { pdfWords, photoWords, docxWords, parseSpecTable } = require("./spec-tabl
 const { PLANS, findSubject, subjectKey } = require("./subjects");
 const { notifyHall, hallStudentUids } = require("./classhall-notify");
 const { avatarSeeds, avatarSeed } = require("./avatar");
+const { gradesOn, unseenGradesByHall, removeEvaluationGrades } = require("./grades");
 
 // ClassHall: one Hall per subject and course. Teachers create it and hand
 // out its code; students of that course join with the code.
@@ -52,7 +53,7 @@ const MAX_DOCUMENTS = 100;
 const MAX_SCANS_PER_DAY = 20;
 // Tasks: the teacher publishes one with a due date and students hand it in
 // with files, photos or links. Teachers mark a submission as reviewed and
-// can leave a comment; there are no grades (the school keeps them elsewhere).
+// can leave a comment. Grades go on evaluations (Notas, functions/grades.js).
 const MAX_TASKS = 80;
 const MAX_TASK_SUMMARIES = 40;
 const MAX_SUBMISSION_ITEMS = 6;
@@ -282,6 +283,7 @@ function evaluationOut(doc) {
     exigency: data.exigency ?? null,
     ...evaluationTable(data),
     prep: data.prep || "",
+    weight: data.weight ?? null,
     authorName: data.authorName,
     updatedAt: millis(data.updatedAt) ?? millis(data.createdAt),
   };
@@ -465,6 +467,12 @@ function build(getAdminApp) {
       hall.nextEvaluation = data ? { title: data.title, date: millis(data.date) } : null;
     }));
 
+    // A student's Halls say how many new grades wait to be uncovered.
+    if (!TEACHER_ROLES.includes(profile.role)) {
+      const unseen = await unseenGradesByHall(getAdminApp, profile.uid);
+      for (const hall of byId.values()) hall.newGrades = unseen[hall.id] || 0;
+    }
+
     return {
       halls: [...byId.values()].sort((a, b) => a.subject.localeCompare(b.subject, "es")),
       canCreate: TEACHER_ROLES.includes(profile.role),
@@ -644,10 +652,22 @@ function build(getAdminApp) {
         .map(({ id, day, start, end, room }) => ({ id, day, start, end, room }));
     }
     hall.teacherAvatarSeed = teacherAvatarSeed;
+    const institution = (await identityDb(getAdminApp).collection("institutions").doc(data.institutionId).get()).data();
+    hall.gradesOn = gradesOn(institution);
+    if (!isTeacher && hall.gradesOn) hall.newGrades = (await unseenGradesByHall(getAdminApp, profile.uid))[hallRef.id] || 0;
+    // Whoever teaches sees how far each evaluation's grades are.
+    const evaluationSummaries = evaluations.docs.map((doc) => {
+      const evaluation = evaluationOut(doc);
+      if (isTeacher) {
+        evaluation.gradesCount = doc.data().gradesCount || 0;
+        evaluation.gradesPublishedAt = millis(doc.data().gradesPublishedAt);
+      }
+      return evaluation;
+    });
     return {
       hall,
       announcements: announcements.docs.map(announcementOut),
-      evaluations: evaluations.docs.map(evaluationOut),
+      evaluations: evaluationSummaries,
       courseEvents,
       documents: documents.docs.map(documentOut),
       tasks: taskSummaries,
@@ -1052,6 +1072,7 @@ function build(getAdminApp) {
     const courses = (await evaluationRef.get()).data()?.calendarCourses || [data.courseId];
     const attached = await hallRef.collection("documents").where("evaluationId", "==", id).get();
     await removeDocuments(getAdminApp, attached.docs);
+    await removeEvaluationGrades(getAdminApp, hallRef.id, evaluationRef);
     const batch = calendarDb(getAdminApp).batch();
     for (const courseId of courses) batch.delete(calendarRef(getAdminApp, courseId, hallRef.id, id));
     await Promise.all([evaluationRef.delete(), batch.commit()]);

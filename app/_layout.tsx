@@ -227,6 +227,9 @@ export default function RootLayout() {
             <Stack.Screen name="tools/electividad/result" options={{ headerShown: false }} />
             <Stack.Screen name="tools/scale" options={{ headerShown: false }} />
             <Stack.Screen name="tools/grades" options={{ headerShown: false }} />
+            <Stack.Screen name="grades/index" options={{ headerShown: false }} />
+            <Stack.Screen name="grades/subject" options={{ headerShown: false }} />
+            <Stack.Screen name="grades/reveal" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
             <Stack.Screen name="classhall/index" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/join" options={sheetOptions('classhall/join')} />
             <Stack.Screen name="classhall/create" options={sheetOptions('classhall/create')} />
@@ -235,6 +238,7 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/announce" options={sheetOptions('classhall/announce')} />
             <Stack.Screen name="classhall/evaluation-new" options={sheetOptions('classhall/evaluation-new')} />
             <Stack.Screen name="classhall/evaluation-form" options={sheetOptions('classhall/evaluation-form')} />
+            <Stack.Screen name="classhall/grades" options={sheetOptions('classhall/grades')} />
             <Stack.Screen name="classhall/tasks" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/task" options={{ headerShown: false }} />
             <Stack.Screen name="classhall/task-form" options={sheetOptions('classhall/task-form')} />

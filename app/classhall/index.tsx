@@ -79,7 +79,17 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
           <ThemedText numberOfLines={1} style={styles.cardTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
         </View>
       </Pressable>
-      {!hall.isTeacher && !!hall.nextEvaluation && daysUntil(hall.nextEvaluation.date) <= 7 && (
+      {!hall.isTeacher && !!hall.newGrades && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('classhall.countNotasNuevasEnSubject', { count: hall.newGrades, subject: hall.subject })}
+          onPress={onOpen}
+          style={({ pressed }) => [styles.cardStrip, styles.gradeStrip, pressed && styles.pressed]}
+        >
+          <ThemedText numberOfLines={1} style={styles.gradeStripText}>{t('classhall.tienesCountNotasNuevas', { count: hall.newGrades })}</ThemedText>
+        </Pressable>
+      )}
+      {!hall.isTeacher && !hall.newGrades && !!hall.nextEvaluation && daysUntil(hall.nextEvaluation.date) <= 7 && (
         <Pressable
           accessibilityRole="button"
           onPress={onOpen}
@@ -457,6 +467,16 @@ const styles = StyleSheet.create({
     gap: AppSpacing.md,
     paddingHorizontal: AppSpacing.xl,
     backgroundColor: AppColors.surfaceSoft,
+  },
+  gradeStrip: {
+    backgroundColor: AppColors.accent,
+  },
+  gradeStripText: {
+    flex: 1,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
   },
   stripText: {
     flex: 1,

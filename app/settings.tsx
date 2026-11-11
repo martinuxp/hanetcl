@@ -8,6 +8,7 @@ import { APP_ICONS, canChangeAppIcon, currentAppIcon, setAppIcon } from '@/servi
 import type { AppIconId } from '@/services/app-icon';
 import { describeAuthError, getMyProfile, useSession } from '@/services/auth-service';
 import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
+import { gradesLockAvailable, setGradesLock, useGradesLock } from '@/services/grades-lock';
 import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveMorningNotifications } from '@/services/push-service';
 import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
@@ -43,11 +44,16 @@ export default function SettingsScreen() {
   // The 7:00 summary (saved with the account) and the evaluation reminders (this phone only).
   const [morningOn, setMorningOn] = useState(true);
   const [examsOn, setExamsOn] = useState(true);
+  // Notas behind the phone's lock: a setting of this phone.
+  const gradesLock = useGradesLock();
+  const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
+  const [savingLock, setSavingLock] = useState(false);
   const [anniversaryOn, setAnniversaryOn] = useState(true);
   const [savingDay, setSavingDay] = useState(false);
 
   useEffect(() => {
     void examRemindersEnabled().then(setExamsOn);
+    void gradesLockAvailable().then(setLockAvailable);
   }, []);
 
   useEffect(() => {
@@ -137,6 +143,13 @@ export default function SettingsScreen() {
     } finally {
       setSavingDay(false);
     }
+  };
+
+  const chooseGradesLock = async (on: boolean) => {
+    if (savingLock || on === gradesLock.enabled) return;
+    setSavingLock(true);
+    await setGradesLock(on, on ? t('settings.confirmaParaProtegerTusNotas') : t('settings.confirmaParaQuitarLaProteccion'));
+    setSavingLock(false);
   };
 
   const chooseExams = async (on: boolean) => {
@@ -258,6 +271,23 @@ export default function SettingsScreen() {
             disabled={savingDay || loadingNotifications}
           />
           <ThemedText style={styles.note}>{t('settings.lasPruebasFlashYLos')}</ThemedText>
+        </Section>
+
+        <Section title={t('settings.privacidad')} plain>
+          <HanetChoice
+            label={t('settings.protegerNotas')}
+            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
+            value={gradesLock.enabled ? 'on' : 'off'}
+            onChange={value => void chooseGradesLock(value === 'on')}
+            disabled={savingLock || !gradesLock.ready || !lockAvailable}
+          />
+          <ThemedText style={styles.note}>
+            {lockAvailable === false
+              ? Platform.OS === 'web'
+                ? t('settings.laProteccionDeNotasSe')
+                : t('settings.paraProtegerTusNotasEste')
+              : t('settings.paraVerTusNotasHanet')}
+          </ThemedText>
         </Section>
 
         <Section title={t('settings.cuenta')}>

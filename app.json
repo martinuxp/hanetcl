@@ -2,7 +2,7 @@
   "expo": {
     "name": "HaNet",
     "slug": "hanetcl",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hanetcl",
@@ -165,6 +165,12 @@
             "image/*",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           ]
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "HaNet usa Face ID para proteger tus notas en este teléfono."
         }
       ]
     ],

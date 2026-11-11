@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
+import { GradesTile } from '@/components/grades/grades-tile';
 import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
 import type { MyProfile, Treatment } from '@/services/auth-service';
 import { restoreCached, useCached } from '@/services/cache';
@@ -171,6 +172,7 @@ export default function HomeScreen() {
         )}
         {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
         <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
+        <GradesTile />
 
         {!user && (
           <HanetButton
