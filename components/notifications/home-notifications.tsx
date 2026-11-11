@@ -64,8 +64,8 @@ type PeekProps = {
 };
 
 /**
- * The Home's last block: at rest it is the Home's own background (also in
- * anniversary week), with the hint. Pulled past the end, the notifications
+ * The Home's last block: at rest it is empty, on the Home's own background
+ * (also in anniversary week); the hint shows only while pulling. Pulled past the end, the notifications
  * section's surface shows under it and the block takes that color as the
  * pull grows (decided by muxp 2026-11-11, instead of the Figma's grey at rest).
  * On iOS the bounce below it shows more of that surface.
@@ -87,6 +87,7 @@ export function NotificationsPeek({ pull, armed, threshold }: PeekProps) {
         pullLabel={t('components.notifications.homeNotifications.deslizaParaVerTusNotificaciones')}
         releaseLabel={t('components.notifications.homeNotifications.sueltaParaAbrirTusNotificaciones')}
         follow={{ rate: 0.5 }}
+        fade
         style={styles.hint}
       />
     </View>
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.surfaceMuted,
   },
   peek: {
-    height: TAB_BAR_CLEARANCE + 48,
+    height: TAB_BAR_CLEARANCE + 24,
   },
   tint: {
     position: 'absolute',
