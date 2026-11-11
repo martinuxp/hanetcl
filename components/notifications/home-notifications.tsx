@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { NotificationRow } from '@/components/notifications/notification-row';
@@ -63,13 +64,20 @@ type PeekProps = {
 };
 
 /**
- * The Home's last block: the notifications section's top, peeking above the
- * tab bar. On iOS the bounce below it shows more of the same surface.
+ * The Home's last block: at rest it is the Home's own background (also in
+ * anniversary week), with the hint. Pulled past the end, the notifications
+ * section's surface shows under it and the block takes that color as the
+ * pull grows (decided by muxp 2026-11-11, instead of the Figma's grey at rest).
+ * On iOS the bounce below it shows more of that surface.
  */
 export function NotificationsPeek({ pull, armed, threshold }: PeekProps) {
   const { height } = useWindowDimensions();
+  const tintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pull.get(), [0, threshold * 0.6], [0, 1], 'clamp'),
+  }));
   return (
     <View style={styles.peek}>
+      <Animated.View pointerEvents="none" style={[styles.tint, tintStyle]} />
       <View pointerEvents="none" style={[styles.below, { height: height * 2 }]} />
       <PullHint
         pull={pull}
@@ -129,6 +137,13 @@ const styles = StyleSheet.create({
   },
   peek: {
     height: TAB_BAR_CLEARANCE + 48,
+  },
+  tint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: AppColors.surface,
   },
   below: {
