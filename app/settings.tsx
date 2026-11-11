@@ -315,6 +315,9 @@ export default function SettingsScreen() {
   );
 }
 
+// Four fit side by side from 375 pt wide phones up.
+const ICON_SIZE = 64;
+
 function initialsOf(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('');
 }
@@ -341,8 +344,10 @@ const styles = StyleSheet.create({
   iconCard: { flexDirection: 'row', justifyContent: 'space-between', gap: AppSpacing.sm, padding: 14, borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
   iconCardOff: { opacity: 0.7 },
   iconOption: { flex: 1, alignItems: 'center', gap: AppSpacing.sm },
-  // The ring sits outside the icon so the artwork is never covered.
-  iconRing: { width: '100%', maxWidth: 68, aspectRatio: 1, padding: 3, borderRadius: 20, borderCurve: 'continuous', borderWidth: 2, borderColor: 'transparent' },
+  // The ring sits outside the icon so the artwork is never covered. A fixed
+  // size keeps it square: with a percentage width, aspectRatio took the
+  // height from the uncapped width and the icons came out tall.
+  iconRing: { width: ICON_SIZE, height: ICON_SIZE, padding: 3, borderRadius: 20, borderCurve: 'continuous', borderWidth: 2, borderColor: 'transparent' },
   iconRingSelected: { borderColor: AppColors.accent },
   iconImage: { flex: 1, borderRadius: 15, borderCurve: 'continuous' },
   iconLabel: { ...AppType.caption, color: AppColors.textSecondary, textAlign: 'center' },
