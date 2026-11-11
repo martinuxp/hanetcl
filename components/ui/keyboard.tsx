@@ -101,10 +101,10 @@ export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, onCont
     view.measureInWindow((_x, viewY, _width, viewHeight) => {
       input.measureInWindow((_ix, inputY, _iw, inputHeight) => {
         const visibleBottom = viewY + viewHeight;
-        // A tall field only needs its first lines in sight.
-        const fieldBottom = inputY + Math.min(inputHeight, 120);
-        const hidden = fieldBottom + FIELD_MARGIN - visibleBottom;
-        if (hidden > 0 && inputY > viewY) view.scrollTo({ y: offset.current + hidden, animated: true });
+        // As much of the field as fits, without pushing its top out of sight.
+        const fieldBottom = inputY + Math.min(inputHeight, Math.max(120, viewHeight - FIELD_MARGIN - AppSpacing.lg));
+        const hidden = Math.min(fieldBottom + FIELD_MARGIN - visibleBottom, inputY - viewY - AppSpacing.lg);
+        if (hidden > 0) view.scrollTo({ y: offset.current + hidden, animated: true });
       });
     });
   }, []);

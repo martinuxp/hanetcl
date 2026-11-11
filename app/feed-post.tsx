@@ -36,9 +36,9 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardScroll } from '@/components/ui/keyboard';
+import { KeyboardScroll, useKeyboardOverlap } from '@/components/ui/keyboard';
 import { t } from '@/i18n';
 
 // Publishing in the feed, after Substack's compose screen: the Espacio on top,
@@ -87,6 +87,12 @@ function sameAudience(a: FeedAudience, b: FeedAudience) {
 function FeedPostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboard = useKeyboardOverlap();
+  // With the keyboard up, a long text (editing a post) scrolls inside its
+  // field, which keeps the line being written in sight, instead of running
+  // under the keyboard.
+  const typingHeight = keyboard.shown ? Math.max(140, windowHeight - keyboard.overlap - insets.top - 220) : undefined;
   // `tag` starts a new post with it (the Aniversario's "Publicar aviso").
   const { id, eventId, tag } = useLocalSearchParams<{ id?: string; eventId?: string; tag?: string }>();
   const role = useRole();
@@ -324,7 +330,7 @@ function FeedPostScreen() {
         editable={!submitting}
         autoFocus={!original}
         selectionColor={AppColors.accent}
-        style={styles.input}
+        style={[styles.input, typingHeight !== undefined && { maxHeight: typingHeight }]}
       />
       )}
 
