@@ -1,6 +1,7 @@
 const { createHash } = require("node:crypto");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { recordInbox } = require("./inbox");
 
 // ClassHall's push notifications, sent through Expo's push service: a new
 // announcement, task or material reaches the Hall's students, the day before
@@ -143,9 +144,12 @@ async function notifyHall(getAdminApp, { kind, hallId, hall, item, onlyUids }) {
     const direct = DIRECT_KINDS.includes(kind);
     let uids = direct ? (onlyUids || []) : await hallStudentUids(getAdminApp, hall);
     if (onlyUids && !direct) uids = uids.filter(uid => onlyUids.includes(uid));
+    const message = messageFor(kind, hallId, hall, item);
+    // Kept for the notifications section, with or without a device to ring.
+    await recordInbox(getAdminApp, uids, kind, message);
     const tokens = await tokensFor(getAdminApp, uids);
     if (!tokens.length) return 0;
-    await sendPush(getAdminApp, tokens, messageFor(kind, hallId, hall, item));
+    await sendPush(getAdminApp, tokens, message);
     return tokens.length;
   } catch (error) {
     console.error("notifyHall", kind, hallId, error.message);
@@ -209,11 +213,14 @@ function build(getAdminApp) {
     const body = truncate(request.data?.body, 200) || "Si ves esto, las notificaciones funcionan.";
     const route = typeof request.data?.url === "string" && /^\/classhall\/(hall|task)\?[A-Za-z0-9_=&-]+$/.test(request.data.url) ? request.data.url : null;
 
+    const message = { title, body, ...(route ? { data: { url: route } } : {}) };
+    // It also lands in the notifications section, to try that without a phone.
+    await recordInbox(getAdminApp, [uid], "test", message);
     const snapshot = await db.collection("pushTokens").where("uid", "==", uid).get();
     const devices = snapshot.docs.map(doc => ({ id: doc.id, token: doc.data().token, platform: doc.data().platform || "unknown", updatedAt: doc.data().updatedAt?.toMillis() ?? null }));
     if (!devices.length) return { devices: [] };
 
-    const tickets = await sendPush(getAdminApp, devices, { title, body, ...(route ? { data: { url: route } } : {}) });
+    const tickets = await sendPush(getAdminApp, devices, message);
     return {
       devices: devices.map((device, index) => ({
         platform: device.platform,

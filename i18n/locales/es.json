@@ -1234,8 +1234,11 @@
       "abrirTitle": "Abrir {{title}}",
       "actividad": "actividad",
       "calendario": "Calendario",
+      "classhallYCalificaciones": "ClassHall y calificaciones",
       "countDias_one": "Mañana",
       "countDias_other": "{{count}} días",
+      "countNotasNuevas_one": "1 nota nueva",
+      "countNotasNuevas_other": "{{count}} notas nuevas",
       "diaDayDeTotal": "Día {{day}} de {{total}}",
       "empiezaHoy": "¡Empieza hoy!",
       "estamosDeAniversario": "¡Estamos de aniversario!",
@@ -1293,6 +1296,31 @@
     },
     "launchSplash": {
       "hanetAppversionlabelCargando": "HaNet {{appVersionLabel}}, cargando"
+    },
+    "notifications": {
+      "homeNotifications": {
+        "abreTusNotificaciones": "Abre tus notificaciones",
+        "deslizaHaciaArribaParaVer": "Desliza hacia arriba para ver tus notificaciones",
+        "deslizaParaVerTusNotificaciones": "Desliza para ver tus notificaciones",
+        "noTienesNotificacionesNuevas": "No tienes notificaciones nuevas",
+        "sueltaParaAbrirTusNotificaciones": "Suelta para abrir tus notificaciones",
+        "tienesCountNotificacionesNuevas_one": "Tienes 1 notificación nueva",
+        "tienesCountNotificacionesNuevas_other": "Tienes {{count}} notificaciones nuevas"
+      },
+      "notificationRow": {
+        "nueva": "Nueva"
+      },
+      "notificationsPanel": {
+        "anteriores": "Anteriores",
+        "aquiQuedanLosAnunciosTareas": "Aquí quedan los anuncios, tareas, materiales y notas nuevas de ClassHall, y los avisos del aniversario.",
+        "deslizaParaVolverAlInicio": "Desliza para volver al inicio",
+        "noPudimosCargarTusNotificaciones": "No pudimos cargar tus notificaciones",
+        "notificaciones": "Notificaciones",
+        "nuevas": "Nuevas",
+        "sueltaParaVolverAlInicio": "Suelta para volver al inicio",
+        "todaviaNoTienesNotificaciones": "Todavía no tienes notificaciones",
+        "volverAlInicio": "Volver al inicio"
+      }
     },
     "onboardingProgress": {
       "institucion": "Institución",
@@ -2143,6 +2171,9 @@
       "countMinutos_other": "{{count}} minutos",
       "hoy": "Hoy, ",
       "manana": "Mañana, "
+    },
+    "notificationsService": {
+      "haceHoursH": "Hace {{hours}} h"
     },
     "profileService": {
       "noPudimosGuardarLaFoto": "No pudimos guardar la foto. Inténtalo nuevamente.",

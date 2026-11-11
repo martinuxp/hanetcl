@@ -51,6 +51,9 @@ Object.assign(exports, require("./electividad").build(getAdminApp));
 // Push notifications: devices register their token here.
 Object.assign(exports, require("./classhall-notify").build(getAdminApp));
 
+// The Home's notifications section: what each account was told.
+Object.assign(exports, require("./inbox").build(getAdminApp));
+
 // The changing code of the HN-QR, for check-in at events.
 Object.assign(exports, require("./hanet-id").build(getAdminApp));
 

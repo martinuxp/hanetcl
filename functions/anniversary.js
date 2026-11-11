@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
+const { recordInbox } = require("./inbox");
 
 // Aniversario: the school's anniversary week, played by alianzas. Each
 // alianza groups whole courses; its points come from the activities' results
@@ -382,6 +383,10 @@ async function notify(getAdminApp, uids, message, { url = "/anniversary", keep =
     if (!unique.length) return 0;
     const db = identityDb(getAdminApp);
     const accounts = await db.getAll(...unique.map(uid => db.collection("accounts").doc(uid)));
+    // Everyone `keep` lets in keeps it in the notifications section; only
+    // those with the anniversary's pushes on get the push.
+    const kept = unique.filter((uid, index) => keep(accounts[index].data() || {}));
+    await recordInbox(getAdminApp, kept, "anniversary", { ...message, data: { url } });
     const wanted = unique.filter((uid, index) => {
       const account = accounts[index].data() || {};
       return account.notifications?.anniversary !== false && keep(account);
