@@ -1,12 +1,14 @@
 import { AppColors } from '@/constants/design-tokens';
 import { Image } from 'expo-image';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useFocusEffect, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
-import { GradesTile } from '@/components/grades/grades-tile';
 import { consumePendingWelcome, getGreetingProfile, getMyProfile, getOnboardingStep, isOnboardingKnownDone, routeForStep, useRole, useSession } from '@/services/auth-service';
 import type { MyProfile, Treatment } from '@/services/auth-service';
 import { restoreCached, useCached } from '@/services/cache';
@@ -22,6 +24,10 @@ import type { AnniversaryState } from '@/services/anniversary-service';
 import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
+import { HomeNotificationsPreview, NotificationsPeek } from '@/components/notifications/home-notifications';
+import { CLOSE_THRESHOLD, NotificationsPanel } from '@/components/notifications/notifications-panel';
+import { usePullDown } from '@/components/notifications/pull-down';
+import { loadNotifications, markNotificationsSeen, useNotifications } from '@/services/notifications-service';
 import { t } from '@/i18n';
 
 export default function HomeScreen() {
@@ -138,7 +144,82 @@ export default function HomeScreen() {
   );
 
   // During alianza week the top of the Home dresses up in the alianzas' colors.
-  const { width } = useWindowDimensions();
+  const { width, height: screenHeight } = useWindowDimensions();
+
+  // Notifications (Figma 11011:3217): the Home ends with the latest ones and
+  // the section's top peeking out. Pulling past the end, like Instagram's
+  // vanish mode, sends the Home up and brings the section up after it;
+  // pulling the section down past its top brings the Home back.
+  const notifications = useNotifications(linked);
+  const [notificationsError, setNotificationsError] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  // What was new when it opened stays marked as new while it is open.
+  const [seenBefore, setSeenBefore] = useState(0);
+  const open = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+  const refreshNotifications = useCallback(() => {
+    loadNotifications()
+      .then(() => setNotificationsError(false))
+      .catch(() => setNotificationsError(true));
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      if (contentLoaded && linked) refreshNotifications();
+    }, [contentLoaded, linked, refreshNotifications])
+  );
+  const move = useCallback((to: 0 | 1, done?: () => void) => {
+    const finish = (finished?: boolean) => {
+      'worklet';
+      if (finished && done) scheduleOnRN(done);
+    };
+    open.set(reduceMotion ? withTiming(to, { duration: 180 }, finish) : withSpring(to, OPEN_SPRING, finish));
+  }, [open, reduceMotion]);
+  const openRef = useRef<() => void>(() => undefined);
+  const closeRef = useRef<() => void>(() => undefined);
+  const triggerOpen = useCallback(() => openRef.current(), []);
+  const triggerClose = useCallback(() => closeRef.current(), []);
+  const homePull = usePullDown({ edge: 'end', threshold: OPEN_THRESHOLD, enabled: linked && !panelOpen, onTrigger: triggerOpen });
+  const closePull = usePullDown({ edge: 'start', threshold: CLOSE_THRESHOLD, enabled: panelOpen, onTrigger: triggerClose });
+  // Each pull resets once the Home has moved, so it starts again from zero.
+  const homeLift = homePull.pull;
+  const panelLift = closePull.pull;
+  const seenAt = notifications?.seenAt ?? 0;
+  useEffect(() => {
+    openRef.current = () => {
+      setSeenBefore(seenAt);
+      setPanelOpen(true);
+      move(1, () => homeLift.set(0));
+      void markNotificationsSeen();
+      refreshNotifications();
+    };
+    closeRef.current = () => {
+      setPanelOpen(false);
+      move(0, () => panelLift.set(0));
+    };
+  }, [homeLift, move, panelLift, refreshNotifications, seenAt]);
+  // Android's back button closes the section first.
+  useFocusEffect(
+    useCallback(() => {
+      if (!panelOpen) return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        closeRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [panelOpen])
+  );
+  // On Android the Home itself follows the finger up; iOS bounces the list.
+  const homeStyle = useAnimatedStyle(() => {
+    const progress = open.get();
+    const lift = homePull.translates ? homePull.pull.get() * (1 - progress) : 0;
+    return { transform: [{ translateY: -(lift + screenHeight * progress) }] };
+  });
+  const panelStyle = useAnimatedStyle(() => {
+    const progress = open.get();
+    const lift = homePull.translates ? homePull.pull.get() * (1 - progress) : 0;
+    return { transform: [{ translateY: screenHeight * (1 - progress) - lift }] };
+  });
+
   const festive = linked ? homeAnniversary(anniversary) : null;
   const openScore = () => router.push('/anniversary/score');
 
@@ -153,44 +234,71 @@ export default function HomeScreen() {
 
   return (
     <FrostedScreen style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <Animated.View
+        style={[styles.home, homeStyle]}
+        pointerEvents={panelOpen ? 'none' : 'auto'}
+        accessibilityElementsHidden={panelOpen}
+        importantForAccessibility={panelOpen ? 'no-hide-descendants' : 'auto'}
       >
-        {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} waving={festive.phase === 'during'} />}
-        <TopHeader transparent={!!festive} />
-        {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
-        {!!shownInstitution && (
-          <View style={[styles.banner, festive && styles.festiveBanner]}>
-            <InstitutionBanner
-              title={shownInstitution.name}
-              logoUrl={shownInstitution.logoUrl}
-              bannerUrl={shownInstitution.bannerUrl}
-              kicker={festive ? anniversaryKicker(festive.anniversary, festive.phase) : undefined}
-            />
-          </View>
-        )}
-        {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
-        <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
-        <GradesTile />
+        <GestureDetector gesture={homePull.gesture}>
+          <Animated.ScrollView
+            contentContainerStyle={[styles.scrollContent, !linked && styles.scrollEnd]}
+            showsVerticalScrollIndicator={false}
+            onScroll={homePull.onScroll}
+            scrollEventThrottle={16}
+            overScrollMode={linked ? 'never' : 'auto'}
+          >
+            {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} waving={festive.phase === 'during'} />}
+            <TopHeader transparent={!!festive} />
+            {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
+            {!!shownInstitution && (
+              <View style={[styles.banner, festive && styles.festiveBanner]}>
+                <InstitutionBanner
+                  title={shownInstitution.name}
+                  logoUrl={shownInstitution.logoUrl}
+                  bannerUrl={shownInstitution.bannerUrl}
+                  kicker={festive ? anniversaryKicker(festive.anniversary, festive.phase) : undefined}
+                />
+              </View>
+            )}
+            {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
+            <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
 
-        {!user && (
-          <HanetButton
-            label={t('common.iniciarSesion')}
-            onPress={() => router.push('/auth')}
-            style={styles.authButton}
-          />
-        )}
+            {!user && (
+              <HanetButton
+                label={t('common.iniciarSesion')}
+                onPress={() => router.push('/auth')}
+                style={styles.authButton}
+              />
+            )}
 
-        {isHnt && (
-          <HanetButton
-            label={t('index.panelHnt')}
-            variant="surface"
-            onPress={() => router.push('/hnt-admin')}
-            style={styles.uiCatalogButton}
-          />
-        )}
-      </ScrollView>
+            {isHnt && (
+              <HanetButton
+                label={t('index.panelHnt')}
+                variant="surface"
+                onPress={() => router.push('/hnt-admin')}
+                style={styles.uiCatalogButton}
+              />
+            )}
+
+            {linked && <HomeNotificationsPreview state={notifications} onOpen={triggerOpen} />}
+            {linked && <NotificationsPeek pull={homePull.pull} armed={homePull.armed} threshold={OPEN_THRESHOLD} />}
+          </Animated.ScrollView>
+        </GestureDetector>
+      </Animated.View>
+
+      {linked && (
+        <NotificationsPanel
+          state={notifications}
+          seenBefore={seenBefore}
+          error={notificationsError}
+          onRetry={refreshNotifications}
+          onClose={triggerClose}
+          close={closePull}
+          visible={panelOpen}
+          style={panelStyle}
+        />
+      )}
 
       <WelcomeCelebration
         visible={!!welcome}
@@ -203,8 +311,19 @@ export default function HomeScreen() {
   );
 }
 
+// How far past the Home's end a pull has to go to open the notifications.
+const OPEN_THRESHOLD = Platform.OS === 'ios' ? 110 : 96;
+// Critically damped, ~0.45 s: the Home leaves without bouncing back.
+const OPEN_SPRING = { stiffness: 200, damping: 28, mass: 1 };
+
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    // What shows past the Home's end: the notifications section's surface.
+    backgroundColor: AppColors.surface,
+    overflow: 'hidden',
+  },
+  home: {
     flex: 1,
     backgroundColor: AppColors.textOnLight,
   },
@@ -212,6 +331,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 760,
     alignSelf: 'center',
+  },
+  scrollEnd: {
     paddingBottom: 150,
   },
   banner: {

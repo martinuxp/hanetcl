@@ -1234,8 +1234,11 @@
       "abrirTitle": "Abrir {{title}}",
       "actividad": "actividad",
       "calendario": "Calendario",
+      "classhallYCalificaciones": "ClassHall y calificaciones",
       "countDias_one": "Mañana",
       "countDias_other": "{{count}} días",
+      "countNotasNuevas_one": "1 nota nueva",
+      "countNotasNuevas_other": "{{count}} notas nuevas",
       "diaDayDeTotal": "Día {{day}} de {{total}}",
       "empiezaHoy": "¡Empieza hoy!",
       "estamosDeAniversario": "¡Estamos de aniversario!",
@@ -1293,6 +1296,31 @@
     },
     "launchSplash": {
       "hanetAppversionlabelCargando": "HaNet {{appVersionLabel}}, cargando"
+    },
+    "notifications": {
+      "homeNotifications": {
+        "abreTusNotificaciones": "Abre tus notificaciones",
+        "deslizaHaciaArribaParaVer": "Desliza hacia arriba para ver tus notificaciones",
+        "deslizaParaVerTusNotificaciones": "Desliza para ver tus notificaciones",
+        "noTienesNotificacionesNuevas": "No tienes notificaciones nuevas",
+        "sueltaParaAbrirTusNotificaciones": "Suelta para abrir tus notificaciones",
+        "tienesCountNotificacionesNuevas_one": "Tienes 1 notificación nueva",
+        "tienesCountNotificacionesNuevas_other": "Tienes {{count}} notificaciones nuevas"
+      },
+      "notificationRow": {
+        "nueva": "Nueva"
+      },
+      "notificationsPanel": {
+        "anteriores": "Anteriores",
+        "aquiQuedanLosAnunciosTareas": "Aquí quedan los anuncios, tareas, materiales y notas nuevas de ClassHall, las publicaciones del Feed que te envían como notificación y los avisos del aniversario.",
+        "deslizaParaVolverAlInicio": "Desliza para volver al inicio",
+        "noPudimosCargarTusNotificaciones": "No pudimos cargar tus notificaciones",
+        "notificaciones": "Notificaciones",
+        "nuevas": "Nuevas",
+        "sueltaParaVolverAlInicio": "Suelta para volver al inicio",
+        "todaviaNoTienesNotificaciones": "Todavía no tienes notificaciones",
+        "volverAlInicio": "Volver al inicio"
+      }
     },
     "onboardingProgress": {
       "institucion": "Institución",
@@ -1789,6 +1817,7 @@
     "eligeHastaMaxfeedtagsAyudanA": "Elige hasta {{maxFeedTags}}. Ayudan a encontrar la publicación en el buscador.",
     "enlace": "Enlace",
     "enQueEspacioPublicas": "¿En qué Espacio publicas?",
+    "enviarComoNotificacion": "Enviar como notificación",
     "escribeLaPreguntaDeLa": "Escribe la pregunta de la votación",
     "fijarArriba": "Fijar arriba",
     "hastaMaxfeedimagesImagenes": "Hasta {{maxFeedImages}} imágenes",
@@ -2144,6 +2173,9 @@
       "hoy": "Hoy, ",
       "manana": "Mañana, "
     },
+    "notificationsService": {
+      "haceHoursH": "Hace {{hours}} h"
+    },
     "profileService": {
       "noPudimosGuardarLaFoto": "No pudimos guardar la foto. Inténtalo nuevamente.",
       "noPudimosSubirLaFoto": "No pudimos subir la foto. Revisa tu conexión.",
@@ -2190,6 +2222,7 @@
     "lasBibliotecasConQueEsta": "Las bibliotecas con que está hecha HaNet",
     "lasNotificacionesLleganALa": "Las notificaciones llegan a la app del teléfono, no a la web.",
     "lasPruebasFlashYLos": "Las pruebas flash y los plazos de tu alianza, cuando el CEE los manda.",
+    "lasPublicacionesQueElLiceo": "Las publicaciones que el liceo, el CEE o tu directiva envían como notificación. Aunque lo apagues, quedan en Notificaciones, al final del Inicio.",
     "losAvisosLleganALa": "Los avisos llegan a la app del teléfono, no a la web.",
     "n24Y4HorasAntes": "24 y 4 horas antes de cada prueba, con cuenta regresiva en la pantalla bloqueada. Solo en este teléfono.",
     "n24Y4HorasAntes2": "24 y 4 horas antes de cada prueba. Solo en este teléfono.",

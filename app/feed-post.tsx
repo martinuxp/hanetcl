@@ -36,9 +36,9 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardScroll } from '@/components/ui/keyboard';
+import { KeyboardScroll, useKeyboardOverlap } from '@/components/ui/keyboard';
 import { t } from '@/i18n';
 
 // Publishing in the feed, after Substack's compose screen: the Espacio on top,
@@ -87,6 +87,12 @@ function sameAudience(a: FeedAudience, b: FeedAudience) {
 function FeedPostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboard = useKeyboardOverlap();
+  // With the keyboard up, a long text (editing a post) scrolls inside its
+  // field, which keeps the line being written in sight, instead of running
+  // under the keyboard.
+  const typingHeight = keyboard.shown ? Math.max(140, windowHeight - keyboard.overlap - insets.top - 220) : undefined;
   // `tag` starts a new post with it (the Aniversario's "Publicar aviso").
   const { id, eventId, tag } = useLocalSearchParams<{ id?: string; eventId?: string; tag?: string }>();
   const role = useRole();
@@ -127,8 +133,11 @@ function FeedPostScreen() {
   const currentPinned = pinned ?? original?.pinned ?? false;
   const canPin = original ? original.canPin : role === 'HNT' || (role === 'Admin' && !!space && space.key !== 'hanet');
   const isSchool = !!space && spaceGroup(space.key) === 'school';
-  // A new aviso of the anniversary, from the school or the CEE, can also go out as a push.
-  const canNotify = !original && currentTags.includes(ANNIVERSARY_TAG) && !!space && ['school', 'cee'].includes(spaceGroup(space.key));
+  // A new post can also go out as a notification. An aviso of the anniversary,
+  // from the school or the CEE, goes to the alianzas; any other, to everyone
+  // the post reaches (and it stays in their Notificaciones).
+  const toAlliances = currentTags.includes(ANNIVERSARY_TAG) && !!space && ['school', 'cee'].includes(spaceGroup(space.key));
+  const canNotify = !original && !!space;
   const currentNotify = notify ?? startTag === ANNIVERSARY_TAG;
   const [poll, setPoll] = useState<PollDraft | null>(null);
   const canPoll = !original && !!space && (feed?.pollSpaces ?? []).includes(spaceGroup(space.key));
@@ -241,7 +250,7 @@ function FeedPostScreen() {
     !!poll && { key: 'pollLength', label: t('feedPost.laVotacionDura'), value: POLL_LENGTHS.find(item => item.days === poll.days)?.label ?? `${poll.days} días`, onPress: () => setDialog('pollLength') },
     !!poll && { key: 'pollResults', label: t('feedPost.resultados'), value: poll.results === 'live' ? 'Al votar' : 'Al cerrar', onPress: () => setPoll({ ...poll, results: poll.results === 'live' ? 'closed' : 'live' }) },
     canPin && { key: 'pin', label: t('feedPost.fijarArriba'), value: currentPinned ? 'Sí' : 'No', onPress: () => setPinned(!currentPinned) },
-    canNotify && { key: 'notify', label: t('feedPost.avisarALasAlianzas'), value: currentNotify ? 'Con notificación' : 'Sin notificación', onPress: () => setNotify(!currentNotify) },
+    canNotify && { key: 'notify', label: toAlliances ? t('feedPost.avisarALasAlianzas') : t('feedPost.enviarComoNotificacion'), value: currentNotify ? 'Con notificación' : 'Sin notificación', onPress: () => setNotify(!currentNotify) },
   ].filter((option): option is { key: string; label: string; value: string; onPress: () => void } => !!option);
 
   const top = (Platform.OS === 'android' ? 0 : insets.top) + AppSpacing.lg;
@@ -321,7 +330,7 @@ function FeedPostScreen() {
         editable={!submitting}
         autoFocus={!original}
         selectionColor={AppColors.accent}
-        style={styles.input}
+        style={[styles.input, typingHeight !== undefined && { maxHeight: typingHeight }]}
       />
       )}
 

@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
+const { recordInbox } = require("./inbox");
 
 // Aniversario: the school's anniversary week, played by alianzas. Each
 // alianza groups whole courses; its points come from the activities' results
@@ -376,12 +377,18 @@ async function audienceUids(getAdminApp, data, audience) {
 
 // Those who turned the anniversary's notifications off are left out, and so
 // is anyone `keep` (given the account) turns away.
-async function notify(getAdminApp, uids, message, { url = "/anniversary", keep = () => true } = {}) {
+// Answers how many devices got the push, or with `people` how many accounts
+// were told.
+async function notify(getAdminApp, uids, message, { url = "/anniversary", keep = () => true, people = false } = {}) {
   try {
     const unique = [...new Set(uids)];
     if (!unique.length) return 0;
     const db = identityDb(getAdminApp);
     const accounts = await db.getAll(...unique.map(uid => db.collection("accounts").doc(uid)));
+    // Everyone `keep` lets in keeps it in the notifications section; only
+    // those with the anniversary's pushes on get the push.
+    const kept = unique.filter((uid, index) => keep(accounts[index].data() || {}));
+    await recordInbox(getAdminApp, kept, "anniversary", { ...message, data: { url } });
     const wanted = unique.filter((uid, index) => {
       const account = accounts[index].data() || {};
       return account.notifications?.anniversary !== false && keep(account);
@@ -391,9 +398,8 @@ async function notify(getAdminApp, uids, message, { url = "/anniversary", keep =
       const snapshot = await db.collection("pushTokens").where("uid", "in", wanted.slice(start, start + 30)).get();
       for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
     }
-    if (!tokens.length) return 0;
-    await sendPush(getAdminApp, tokens, { ...message, data: { url } });
-    return tokens.length;
+    if (tokens.length) await sendPush(getAdminApp, tokens, { ...message, data: { url } });
+    return people ? kept.length : tokens.length;
   } catch (error) {
     console.error("anniversary notify", error.message);
     return 0;
@@ -405,12 +411,13 @@ async function notify(getAdminApp, uids, message, { url = "/anniversary", keep =
 // as the post says. Nothing happens without an anniversary armed.
 async function announceToAlliances(getAdminApp, institutionId, audience, message) {
   const ref = await currentRef(getAdminApp, institutionId);
-  if (!ref) return 0;
+  // No anniversary under way: the caller sends it as a plain post.
+  if (!ref) return null;
   const data = (await ref.get()).data() || {};
   let people = await studentsOf(getAdminApp, institutionId, (data.alliances || []).flatMap(alliance => alliance.courseIds || []));
   if (audience?.kind === "courses") people = people.filter(person => (audience.courseIds || []).includes(person.courseId));
   const keep = audience?.kind === "jornada" ? account => !account.jornada || account.jornada === audience.jornada : undefined;
-  return notify(getAdminApp, people.map(person => person.uid), message, { url: "/anniversary/notices", keep });
+  return notify(getAdminApp, people.map(person => person.uid), message, { url: "/anniversary/notices", keep, people: true });
 }
 
 function pointsListIn(value) {

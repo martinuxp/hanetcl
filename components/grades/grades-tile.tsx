@@ -7,13 +7,15 @@ import { getMyNewGradesCount } from '@/services/classhall-service';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '@/i18n';
 
-// Notas on the Home, under the grid: for students where the module is on.
+// Notas inside ClassHall ("ClassHall y calificaciones", decided 2026-11-11;
+// it was a tile on the Home): for students where the module is on.
 // When grades wait to be uncovered it carries the scratch card's stripes and
-// the count; it never shows a grade or an average, since the Home is what
-// people glance at over a shoulder.
+// the count; it never shows a grade or an average, since it is what people
+// glance at over a shoulder.
 
 type Badge = Awaited<ReturnType<typeof getMyNewGradesCount>>;
 
@@ -29,8 +31,12 @@ function GradesIcon() {
   );
 }
 
-export function GradesTile() {
-  const router = useRouter();
+/**
+ * For students where Notas is on: whether it is on and how many grades wait
+ * to be uncovered (what the phone kept, then a fresh count on each visit).
+ * null for staff, signed-out accounts and where the module is off.
+ */
+export function useGradesBadge() {
   const { user } = useSession();
   const role = useRole();
   const kept = useCached<Badge>(user ? 'gradesBadge' : null);
@@ -48,6 +54,14 @@ export function GradesTile() {
 
   const badge = fresh ?? kept;
   if (!user || !student || !badge?.on) return null;
+  return { newGrades: badge.newGrades };
+}
+
+/** Notas at the top of ClassHall ("ClassHall y calificaciones"). */
+export function GradesTile({ style }: { style?: StyleProp<ViewStyle> }) {
+  const router = useRouter();
+  const badge = useGradesBadge();
+  if (!badge) return null;
   const count = badge.newGrades;
 
   return (
@@ -55,7 +69,7 @@ export function GradesTile() {
       accessibilityRole="button"
       accessibilityLabel={count === 0 ? t('classhall.evaluation.notas') : t('components.grades.gradesTile.notasTienesCountNotasNuevas', { count })}
       onPress={() => router.push('/grades')}
-      style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.tile, style, pressed && styles.pressed]}
     >
       <GradesIcon />
       <View style={styles.text}>
@@ -76,9 +90,6 @@ export function GradesTile() {
 const styles = StyleSheet.create({
   tile: {
     minHeight: 84,
-    marginHorizontal: 20,
-    marginTop: -12,
-    marginBottom: 24,
     paddingLeft: 16,
     paddingRight: 10,
     paddingVertical: 10,

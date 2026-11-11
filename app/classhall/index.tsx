@@ -1,5 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { HallListSkeleton } from '@/components/skeletons';
+import { GradesTile } from '@/components/grades/grades-tile';
 import { daysUntil } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -218,6 +219,9 @@ export default function ClassHallScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* The student's grades, across every Hall. */}
+        <GradesTile />
 
         {/* Notifications are for students: teachers publish, they are not notified. */}
         {askPush && halls !== null && !canCreate && (

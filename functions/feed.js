@@ -4,6 +4,8 @@ const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-adm
 const { getStorage } = require("firebase-admin/storage");
 const { eventSummary } = require("./events");
 const { announceToAlliances } = require("./anniversary");
+const { sendPush } = require("./classhall-notify");
+const { recordInbox } = require("./inbox");
 
 // Feed y Comunidad: announcements published by Espacios (group accounts),
 // never by a person. Students only read and react; there are no comments and
@@ -35,6 +37,12 @@ const { announceToAlliances } = require("./anniversary");
 // The Aniversario's avisos are posts tagged #Aniversario: listFeed({ tag })
 // lists only those, and a new one of the school or the CEE can go out as a
 // push to the alianzas' students (saveFeedPost({ notify: true })).
+//
+// Any other new post can go out as a notification too ("Enviar como
+// notificación", decided by muxp 2026-11-11): it reaches exactly who the post
+// reaches (reaches()), lands in their notifications section, and rings the
+// phones of those who did not turn the Feed's pushes off
+// (accounts/{uid}.notifications.feed). Only when it is created, never on an edit.
 //
 // The module is per institution (institutions/{id}.modules). An institution
 // without that list yet keeps the feed on, so the pilot works before the
@@ -99,6 +107,50 @@ function plainText(markdown) {
     .replace(/(\*\*|__|\*|_|~~|`)/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function feedOn(institution) {
+  return !Array.isArray(institution?.modules) || institution.modules.includes(MODULE);
+}
+
+// "Enviar como notificación": everyone the post reaches, but its author.
+async function announceFeedPost(getAdminApp, post, author, message) {
+  try {
+    const db = identityDb(getAdminApp);
+    let docs;
+    if (post.space === "hanet") {
+      const institutions = (await db.collection("institutions").get()).docs.filter(doc => feedOn(doc.data()));
+      docs = (await Promise.all(institutions.map(doc => db.collection("users").where("institutionId", "==", doc.id).get()))).flatMap(snapshot => snapshot.docs);
+    } else if (post.space === "course") {
+      docs = (await db.collection("users").where("institutionId", "==", post.institutionId).where("courseId", "==", post.courseId).get()).docs;
+    } else {
+      docs = (await db.collection("users").where("institutionId", "==", post.institutionId).get()).docs;
+    }
+    const people = docs.map(doc => ({ uid: doc.id, ...doc.data() })).filter(person => person.uid !== author.uid);
+    const accounts = new Map();
+    for (let start = 0; start < people.length; start += 300) {
+      const chunk = people.slice(start, start + 300);
+      const snapshots = await db.getAll(...chunk.map(person => db.collection("accounts").doc(person.uid)));
+      snapshots.forEach((snapshot, index) => accounts.set(chunk[index].uid, snapshot.data() || {}));
+    }
+    const reached = people.filter(person => {
+      const account = accounts.get(person.uid) || {};
+      const jornada = ["manana", "tarde"].includes(account.jornada) ? account.jornada : null;
+      return reaches(post, person, jornada);
+    }).map(person => person.uid);
+    await recordInbox(getAdminApp, reached, "feed", message);
+    const wanted = reached.filter(uid => accounts.get(uid)?.notifications?.feed !== false);
+    const tokens = [];
+    for (let start = 0; start < wanted.length; start += 30) {
+      const snapshot = await db.collection("pushTokens").where("uid", "in", wanted.slice(start, start + 30)).get();
+      for (const doc of snapshot.docs) tokens.push({ id: doc.id, token: doc.data().token });
+    }
+    if (tokens.length) await sendPush(getAdminApp, tokens, message);
+    return reached.length;
+  } catch (error) {
+    console.error("announceFeedPost", post.space, error.message);
+    return 0;
+  }
 }
 
 function paragraph(value, max) {
@@ -415,12 +467,38 @@ function build(getAdminApp) {
         authorRole: profile.role,
         createdAt: FieldValue.serverTimestamp(),
       });
-      // "Avisar a las alianzas": an aviso of the anniversary also goes out as a push.
+      const plain = plainText(body);
+      const short = plain.length > 140 ? `${plain.slice(0, 139).trimEnd()}…` : plain;
+      // "Avisar a las alianzas": an aviso of the anniversary also goes out as a
+      // push. With no anniversary under way it goes out like any other post.
+      let sent = null;
       if (input.notify === true && tags.includes(ANNIVERSARY_TAG) && ANNOUNCE_SPACES.includes(space) && alliancesOn(institution)) {
-        const plain = plainText(body);
-        await announceToAlliances(getAdminApp, profile.institutionId, fields.audience, {
+        sent = await announceToAlliances(getAdminApp, profile.institutionId, fields.audience, {
           title: spaceOut(space, institution).name,
-          body: plain.length > 140 ? `${plain.slice(0, 139).trimEnd()}…` : plain || "Hay un aviso nuevo del aniversario.",
+          body: short || "Hay un aviso nuevo del aniversario.",
+        });
+      }
+      if (input.notify === true && sent === null) {
+        // "Enviar como notificación": to everyone the post reaches.
+        const courseId = space === "course" ? profile.courseId : null;
+        sent = await announceFeedPost(getAdminApp, {
+          space,
+          institutionId: space === "hanet" ? null : profile.institutionId,
+          courseId,
+          audience: fields.audience,
+        }, profile, {
+          title: spaceOut(space, institution, courseId).name,
+          body: short || (poll ? "Hay una votación nueva en el Feed." : "Hay una publicación nueva en el Feed."),
+          data: { url: "/feed" },
+        });
+      }
+      // Whoever posts is not told about their own post, so their list says
+      // how many it reached instead.
+      if (input.notify === true) {
+        await recordInbox(getAdminApp, [profile.uid], "feed", {
+          title: sent === 1 ? "Tu publicación le llegó a 1 persona" : `Tu publicación le llegó a ${sent || 0} personas`,
+          body: short || "Publicación sin texto.",
+          data: { url: "/feed" },
         });
       }
     }

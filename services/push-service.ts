@@ -159,6 +159,11 @@ export async function saveAnniversaryNotifications(on: boolean) {
   await httpsCallable(functions, 'updateMyProfile')({ anniversaryNotifications: on });
 }
 
+/** The Feed's switch (posts sent as a notification), saved with the account. */
+export async function saveFeedNotifications(on: boolean) {
+  await httpsCallable(functions, 'updateMyProfile')({ feedNotifications: on });
+}
+
 /** The ClassHall notifications switch, saved with the account. */
 export async function saveClasshallNotifications(on: boolean) {
   await httpsCallable(functions, 'updateMyProfile')({ classhallNotifications: on });
