@@ -93,6 +93,7 @@ Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, región `us-central1`
 
 - No hay credenciales de Firebase en la sesión. De Expo solo `EXPO_TOKEN`, para la rama `expo-go` de EAS Update (ver abajo).
 - Firebase se publica con GitHub Actions (`.github/workflows/firebase-deploy.yml`, secreto `FIREBASE_SERVICE_ACCOUNT`). Con el OK del usuario, él crea una release cuya etiqueta es `firebase-deploy-<qué>-<n>` (por ejemplo `firebase-deploy-functions-4`, `firebase-deploy-all-1`) sobre la rama de trabajo; el proxy de la nube no deja empujar etiquetas. Seguir la ejecución con las herramientas de GitHub y revisar el registro: una función sin cambios sale como "Skipped".
+- **App web:** sitio de Hosting `hanet-app` (aparte de `hanet-edu`), `npm run web:build` → `dist-web/`. Cada PR puede tener su preview temporal (`web-preview.yml`, si la variable `WEB_PREVIEWS` está en `on`); publicar en live es la release `firebase-deploy-web-<n>` y necesita el OK del usuario, como todo el hosting. En la web no hay push, avisos locales, widgets, Live Activity, vibración ni Compartir a HaNet.
 - Una función callable nueva queda cerrada en Cloud Run si la cuenta de servicio no puede abrirla. Comprobar con `curl -X POST .../<función>`: 401 es lo esperado; 403 significa que hay que permitir el acceso público en Cloud Run.
 - Comprobar antes de entregar: `npx tsc --noEmit` y `npx eslint app components services`.
 - El servidor de desarrollo se define en `.claude/launch.json` (`expo`, puerto 8081), pero el túnel de Expo (ngrok) no funciona tras el proxy de la nube.

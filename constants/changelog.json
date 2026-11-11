@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.7.2-beta",
+      "date": "2026-11-11",
+      "title": "",
+      "items": [
+        "HaNet ya se puede abrir desde el navegador. En el celular, agrégala a tu pantalla de inicio y se abre como una app, con su ícono."
+      ]
+    },
+    {
       "version": "0.7.1-beta",
       "date": "2026-11-11",
       "title": "",

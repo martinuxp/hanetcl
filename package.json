@@ -1,13 +1,14 @@
 {
   "name": "hanetcl",
   "main": "expo-router/entry",
-  "version": "0.7.1-beta",
+  "version": "0.7.2-beta",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:build": "expo export --platform web --output-dir dist-web && node -e \"require('fs').copyFileSync('dist-web/+not-found.html', 'dist-web/404.html')\"",
     "lint": "expo lint",
     "version:bump": "node ./scripts/version.js bump",
     "version:check": "node ./scripts/version.js check",
