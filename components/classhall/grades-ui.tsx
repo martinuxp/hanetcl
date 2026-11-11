@@ -1,5 +1,6 @@
 import { ScratchCard } from '@/components/classhall/scratch-card';
 import { hallDay } from '@/components/classhall/hall-ui';
+import { GradesLocked } from '@/components/grades/grades-lock';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
@@ -9,6 +10,7 @@ import { getMyGrades, markGradeSeen } from '@/services/classhall-service';
 import type { MyGrade } from '@/services/classhall-service';
 import { approximateAverage } from '@/services/grade-book';
 import { addGradeToCalculator, formatGrade } from '@/services/grades';
+import { useGradesLock } from '@/services/grades-lock';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -93,6 +95,7 @@ export function StudentGrades({ hallId, expected, onScratching }: { hallId: stri
   const [showAll, setShowAll] = useState(false);
   // Uncovered in this visit: they stay on their card until "Listo".
   const [done, setDone] = useState<string[]>([]);
+  const { locked } = useGradesLock();
 
   useEffect(() => {
     let active = true;
@@ -120,6 +123,7 @@ export function StudentGrades({ hallId, expected, onScratching }: { hallId: stri
     );
   }
   if (!grades.length) return null;
+  if (locked) return <GradesLocked />;
 
   const unseen = grades.filter(grade => !grade.seen && !done.includes(grade.evaluationId));
   const seen = grades.filter(grade => grade.seen || done.includes(grade.evaluationId));

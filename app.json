@@ -166,6 +166,12 @@
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           ]
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "HaNet usa Face ID para proteger tus notas en este teléfono."
+        }
       ]
     ],
     "experiments": {

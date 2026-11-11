@@ -2,13 +2,14 @@
   "releases": [
     {
       "version": "0.6.0-beta",
-      "date": "2026-11-07",
+      "date": "2026-11-11",
       "title": "Notas",
       "items": [
         "Nuevo módulo Notas: cuando tu docente publica una nota, te llega un aviso y la nota aparece tapada en el Hall. Ráspala con el dedo para verla, o toca \"Ver sin raspar\".",
         "El aviso nunca muestra la nota, tampoco en la pantalla bloqueada. Una vez que la ves, queda en \"Tus notas\" con tu promedio aproximado, y puedes agregarla a la Calculadora de notas.",
         "En ClassHall, el Hall con una nota nueva lo dice en su tarjeta.",
         "Notas también tiene su tile en el Inicio: ahí ves cuántas notas tienes por destapar y entras a todas tus asignaturas, con el promedio aproximado del 1er semestre, del 2° semestre o del año.",
+        "Nuevo en Configuraciones → Privacidad: Proteger Notas. Si lo activas, para ver tus notas HaNet pide Face ID, tu huella o el código de tu teléfono.",
         "Docentes: en cada evaluación hay una sección Notas. Escriben las notas del curso (62 queda 6,2), quedan como borrador y se publican cuando quieran. También se pueden cargar desde el panel web.",
         "El promedio oficial sigue siendo el del liceo."
       ]

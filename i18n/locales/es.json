@@ -1218,6 +1218,11 @@
       }
     },
     "grades": {
+      "gradesLock": {
+        "desbloqueaConFaceIdTu": "Desbloquea con Face ID, tu huella o el código de este teléfono.",
+        "desbloqueaParaVerTusNotas": "Desbloquea para ver tus notas",
+        "tusNotasEstanProtegidas": "Tus notas están protegidas"
+      },
       "gradesTile": {
         "notasTienesCountNotasNuevas_one": "Notas: tienes 1 nota nueva por destapar",
         "notasTienesCountNotasNuevas_other": "Notas: tienes {{count}} notas nuevas por destapar",
@@ -2161,6 +2166,8 @@
     "activados": "Activados",
     "anunciosTareasYMaterialNuevo": "Anuncios, tareas y material nuevo, recordatorios de entrega y cuando revisan lo que entregaste.",
     "avisosDePruebas": "Avisos de pruebas",
+    "confirmaParaProtegerTusNotas": "Confirma para proteger tus notas",
+    "confirmaParaQuitarLaProteccion": "Confirma para quitar la protección",
     "contacto": "Contacto",
     "cuenta": "Cuenta",
     "deLunesAViernesA": "De lunes a viernes a las 7:00: tu primera clase y las pruebas y entregas del día.",
@@ -2174,6 +2181,7 @@
     "fotoBlobatarYLetraDe": "Foto, blobatar y letra de tu nombre",
     "iconoDeLaApp": "Ícono de la app",
     "iconoLabelValue": "Ícono {{label}}{{value}}",
+    "laProteccionDeNotasSe": "La protección de Notas se activa desde la app en el teléfono.",
     "lasBibliotecasConQueEsta": "Las bibliotecas con que está hecha HaNet",
     "lasNotificacionesLleganALa": "Las notificaciones llegan a la app del teléfono, no a la web.",
     "lasPruebasFlashYLos": "Las pruebas flash y los plazos de tu alianza, cuando el CEE los manda.",
@@ -2186,8 +2194,12 @@
     "notificacionesDeClasshall": "Notificaciones de ClassHall",
     "novedades": "Novedades",
     "paraCambiarElIconoNecesitas": "Para cambiar el ícono necesitas la app de HaNet instalada; Expo Go no puede hacerlo.",
+    "paraProtegerTusNotasEste": "Para proteger tus notas, este teléfono necesita un bloqueo de pantalla (código, huella o Face ID).",
+    "paraVerTusNotasHanet": "Para ver tus notas, HaNet pide Face ID, tu huella o el código de este teléfono. Vale solo en este teléfono.",
     "permitirEnEsteTelefono": "Permitir en este teléfono",
     "predeterminado": ", predeterminado",
+    "privacidad": "Privacidad",
+    "protegerNotas": "Proteger Notas",
     "queCambioEnAppversionlabel": "Qué cambió en {{appVersionLabel}}",
     "resumenDeLas700": "Resumen de las 7:00",
     "sesionIniciadaComoEmail": "Sesión iniciada como {{email}}",

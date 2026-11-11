@@ -1,4 +1,5 @@
 import { gradeMeta, NewGradeCard } from '@/components/classhall/grades-ui';
+import { GradesLocked } from '@/components/grades/grades-lock';
 import { ThemedText } from '@/components/themed-text';
 import { HanetButton } from '@/components/ui/hanet-button';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
@@ -8,6 +9,7 @@ import { getMyGrades } from '@/services/classhall-service';
 import type { MyGrade } from '@/services/classhall-service';
 import { currentSemester, inSemester, subjectAverage, thisYear } from '@/services/grade-book';
 import { formatGrade } from '@/services/grades';
+import { useGradesLock } from '@/services/grades-lock';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -44,7 +46,9 @@ export default function SubjectGradesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hallId, subject, teacher } = useLocalSearchParams<{ hallId: string; subject?: string; teacher?: string }>();
-  const [grades, setGrades] = useState<MyGrade[] | null>(null);
+  const [loaded, setGrades] = useState<MyGrade[] | null>(null);
+  const { locked } = useGradesLock();
+  const grades = locked ? null : loaded;
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [scratching, setScratching] = useState(false);
@@ -78,8 +82,9 @@ export default function SubjectGradesScreen() {
           {!!teacher && <ThemedText style={styles.muted}>{t('grades.subject.docenteTeacher', { teacher })}</ThemedText>}
         </View>
 
-        {!grades && !error && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
-        {!grades && !!error && (
+        {locked && <GradesLocked auto />}
+        {!locked && !grades && !error && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
+        {!locked && !grades && !!error && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
             <HanetButton label={t('common.reintentar')} variant="surface" onPress={() => { setError(null); setAttempt(value => value + 1); }} />

@@ -1,3 +1,4 @@
+import { GradesLocked } from '@/components/grades/grades-lock';
 import { Stripes } from '@/components/grades/stripes';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
@@ -13,6 +14,7 @@ import type { GradeBook, GradeBookSubject } from '@/services/classhall-service';
 import { currentSemester, gradesIn, overallAverage, subjectAverage } from '@/services/grade-book';
 import type { Period } from '@/services/grade-book';
 import { formatGrade } from '@/services/grades';
+import { useGradesLock } from '@/services/grades-lock';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -55,7 +57,8 @@ export default function GradesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, attempt]));
 
-  const book = fresh ?? kept;
+  const { locked } = useGradesLock();
+  const book = locked ? undefined : fresh ?? kept;
   const period = PERIOD[choice];
   const subjects = book?.on ? book.subjects : [];
   const pending = subjects.filter(subject => unseenIn(subject) > 0);
@@ -84,8 +87,9 @@ export default function GradesScreen() {
           </View>
         )}
 
-        {!book && !error && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
-        {!book && !!error && (
+        {locked && <GradesLocked auto />}
+        {!locked && !book && !error && <ActivityIndicator color={AppColors.textSecondary} style={styles.loading} />}
+        {!locked && !book && !!error && (
           <View style={styles.card}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.body}>{error}</ThemedText>
             <HanetButton label={t('common.reintentar')} variant="surface" onPress={() => { setError(null); setAttempt(value => value + 1); }} />
