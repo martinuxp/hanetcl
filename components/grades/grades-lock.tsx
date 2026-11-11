@@ -17,7 +17,7 @@ export function GradesLocked({ auto = false }: { auto?: boolean }) {
 
   useEffect(() => {
     if (auto && ready && enabled) void unlockGrades(prompt);
-  }, [auto, ready, enabled]);
+  }, [auto, ready, enabled, prompt]);
 
   if (!ready) return null;
   return (
