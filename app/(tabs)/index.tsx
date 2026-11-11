@@ -29,6 +29,7 @@ import { CLOSE_THRESHOLD, NotificationsPanel } from '@/components/notifications/
 import { usePullDown } from '@/components/notifications/pull-down';
 import { loadNotifications, markNotificationsSeen, useNotifications } from '@/services/notifications-service';
 import { t } from '@/i18n';
+import { PushPermissionDialog } from '@/components/notifications/push-permission-dialog';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -299,6 +300,9 @@ export default function HomeScreen() {
           style={panelStyle}
         />
       )}
+
+      {/* After the splash and the welcome: the first visit asks for notifications. */}
+      <PushPermissionDialog ready={linked && contentLoaded && !welcome} />
 
       <WelcomeCelebration
         visible={!!welcome}
