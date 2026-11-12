@@ -3,9 +3,11 @@
     {
       "version": "0.7.2-beta",
       "date": "2026-11-11",
-      "title": "",
+      "title": "Configuraciones más simple",
       "items": [
-        "HaNet ya se puede abrir desde el navegador. En el celular, agrégala a tu pantalla de inicio y se abre como una app, con su ícono."
+        "Configuraciones se ordenó: tu cuenta arriba, todas las notificaciones juntas con un interruptor cada una, y después Privacidad, Ícono de la app y Acerca de HaNet.",
+        "Si el teléfono tiene bloqueadas las notificaciones, Configuraciones te avisa y te lleva a los ajustes para activarlas.",
+        "La primera vez que entras al Inicio, HaNet te pregunta si quieres activar las notificaciones, para que no tengas que buscarlas."
       ]
     },
     {
