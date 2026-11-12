@@ -29,13 +29,25 @@ declare const ScrollTimeline: {
 };
 
 /**
- * Browsers that move an animation with the page's scroll (Chrome 115+,
- * Safari 26+). Without it the list keeps scrolling inside the app, as before:
- * following the page from script lags behind the finger.
+ * Browsers that move an animation with the page's scroll, pixel for pixel
+ * (Chrome 115+, Safari 26+). Without it the list keeps scrolling inside the
+ * app, as before: following the page from script lags behind the finger.
  */
 export function scrollLinked() {
-  return typeof window !== 'undefined' && 'ScrollTimeline' in window;
+  return (
+    typeof window !== 'undefined' &&
+    'ScrollTimeline' in window &&
+    typeof CSS !== 'undefined' &&
+    CSS.supports('animation-range', '0px 1px')
+  );
 }
+
+// How far the content can follow the page. The animation maps each pixel of
+// the page's scroll to one pixel of the content up to here, so it never has
+// to change when the window or the list does (Safari resizes the window every
+// time its bar shows or hides, and remaking the animation flashed the list to
+// its top for a frame). The empty block under the app sets the real end.
+const FOLLOW = 1_000_000;
 
 /** Whether a screen's list is scrolling with the page right now. */
 export function pageScrolls() {
@@ -100,28 +112,31 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
 
     // The layout height, which a transform doesn't change (scrollHeight does).
     const range = () => Math.max(0, content.offsetHeight - node.clientHeight);
-    let animation: Animation | null = null;
+    // Run by the browser's compositor from the page's scroll, frame by
+    // frame with the finger: no script between the scroll and the content.
+    const animation = content.animate(
+      [{ transform: 'translateY(0px)' }, { transform: `translateY(${-FOLLOW}px)` }],
+      {
+        timeline: new ScrollTimeline({ source: document.scrollingElement ?? root, axis: 'block' }),
+        rangeStart: '0px',
+        rangeEnd: `${FOLLOW}px`,
+        fill: 'both',
+        easing: 'linear',
+      } as KeyframeAnimationOptions,
+    );
     let pending: number | null = start;
     let laidOut = -1;
     const layout = () => {
       // Hidden (leaving, or not back yet): nothing to measure.
       if (node.clientHeight === 0) return;
       const distance = range();
+      laidOut = distance;
       page.style.height = `${distance + window.innerHeight}px`;
       // Back where it was, once the screen has its height again.
       if (pending !== null && (distance > 0 || pending === 0)) {
         window.scrollTo(0, Math.min(pending, distance));
         pending = null;
       }
-      if (distance === laidOut && animation) return;
-      laidOut = distance;
-      animation?.cancel();
-      // Run by the browser's compositor from the page's scroll, frame by
-      // frame with the finger: no script between the scroll and the content.
-      animation = content.animate(
-        [{ transform: 'translateY(0px)' }, { transform: `translateY(${-distance}px)` }],
-        { timeline: new ScrollTimeline({ source: document.scrollingElement ?? root, axis: 'block' }), fill: 'both', easing: 'linear' },
-      );
     };
     layout();
 
@@ -136,7 +151,7 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
       // (By the last layout: a screen being left may already be hidden, with no height.)
       const kept = Math.min(Math.max(laidOut, 0), Math.max(0, window.scrollY));
       places.set(pathname, kept);
-      animation?.cancel();
+      animation.cancel();
       node.style.overflowY = '';
       node.scrollTop = kept;
       // Another screen may already hold the page.
