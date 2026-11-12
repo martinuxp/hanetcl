@@ -1076,9 +1076,6 @@
       }
     },
     "classhall": {
-      "hallGrid": {
-        "nadaAgendadoParaLosProximos": "Nada agendado para los próximos 7 días."
-      },
       "gradesUi": {
         "agregarALaCalculadora": "Agregar a la calculadora",
         "cargandoTusNotas": "Cargando tus notas…",
@@ -1097,6 +1094,9 @@
         "tusNotas": "Tus notas",
         "verLasSeencountNotas": "Ver las {{seenCount}} notas",
         "verSinRaspar": "Ver sin raspar"
+      },
+      "hallGrid": {
+        "nadaAgendadoParaLosProximos": "Nada agendado para los próximos 7 días."
       },
       "hallUi": {
         "planComun": "Plan común",
@@ -1122,6 +1122,9 @@
       "vinculaTuCorreoDelLiceo": "Vincula tu correo del liceo"
     },
     "errors": {
+      "appErrorLayer": {
+        "sinConexionVesLoUltimo": "Sin conexión. Ves lo último que guardaste."
+      },
       "appErrorScreens": {
         "abrirCorreo": "Abrir correo",
         "apelacionDeBloqueoEnHanet": "Apelación de bloqueo en HaNet",
@@ -1143,6 +1146,7 @@
         "siCreesQueEsUn": "Si crees que es un error, puedes apelar escribiéndonos.",
         "tuCuentaFueBloqueadaPor": "Tu cuenta fue bloqueada por",
         "upsAlgoFallo": "Ups, algo falló",
+        "verLoGuardado": "Ver lo guardado",
         "yCuentanosQueEstabasHaciendo": "y cuéntanos qué estabas haciendo. ¡Gracias por probar la beta!"
       }
     },
@@ -1281,8 +1285,9 @@
         "elMensajeEsDemasiadoLargo": "el mensaje es demasiado largo",
         "elPermisoDeNotificacionesNo": "El permiso de notificaciones no está concedido en este teléfono.",
         "elTelefonoYaNoRecibe": "el teléfono ya no recibe (se desinstaló la app o se quitó el permiso); se borró su token",
+        "enElIphoneLaWeb": "En el iPhone, la web recibe push solo con HaNet en la pantalla de inicio. Agrégala y ábrela desde ahí.",
         "enviarNotificacionDePrueba": "Enviar notificación de prueba",
-        "estasEnLaWebAqui": "Estás en la web: aquí no llegan push, pero puedes enviar a otra cuenta.",
+        "esteNavegadorNoRecibeNotificaciones": "Este navegador no recibe notificaciones push. Igual puedes mandar la prueba a otra cuenta.",
         "esteTelefonoQuedoRegistradoEn": "Este teléfono quedó registrado en tu cuenta.",
         "esteTelefonoTienePermisoPara": "Este teléfono tiene permiso para recibir notificaciones.",
         "esteTelefonoTodaviaNoHa": "Este teléfono todavía no ha dado permiso para notificaciones.",
@@ -1375,6 +1380,12 @@
       "pasoStepDeStepscountSteps": "Paso {{step}} de {{sTEPSCount}}: {{steps}}",
       "pasoStepDeStepscountSteps2": "Paso {{step}} de {{sTEPSCount}} · {{steps}}"
     },
+    "pushPermission": {
+      "activaLasNotificaciones": "Activa las notificaciones",
+      "activar": "Activar",
+      "ahoraNo": "Ahora no",
+      "teAvisamosDeLoNuevo": "Te avisamos de anuncios y tareas de ClassHall, tus pruebas, tus notas nuevas y lo que publica el liceo. Cada aviso se puede apagar en Configuraciones."
+    },
     "schedule": {
       "blockEditor": {
         "abreLaListaDeAsignaturas": "Abre la lista de asignaturas",
@@ -1446,6 +1457,13 @@
       "cargandoTuPerfil": "Cargando tu perfil",
       "cargandoTusClases": "Cargando tus clases"
     },
+    "system": {
+      "updatePrompt": {
+        "actualizando": "Actualizando…",
+        "actualizar": "Actualizar",
+        "hayUnaVersionNuevaDe": "Hay una versión nueva de HaNet."
+      }
+    },
     "topHeader": {
       "buscarEnHanetProximamente": "Buscar en HaNet, próximamente",
       "buscarProximamente": "Buscar · Próximamente",
@@ -1484,12 +1502,6 @@
       "tocaParaContinuar": "Toca para continuar",
       "valueGreetingTocaParaContinuar": "{{value}}{{greeting}}. Toca para continuar.",
       "yaEresParteDeInstitutionname": "Ya eres parte de {{institutionName}}."
-    },
-    "pushPermission": {
-      "activaLasNotificaciones": "Activa las notificaciones",
-      "teAvisamosDeLoNuevo": "Te avisamos de anuncios y tareas de ClassHall, tus pruebas, tus notas nuevas y lo que publica el liceo. Cada aviso se puede apagar en Configuraciones.",
-      "ahoraNo": "Ahora no",
-      "activar": "Activar"
     }
   },
   "createEvent": {
@@ -2261,11 +2273,13 @@
     "elIconoSeCambiaDesde": "El ícono se cambia desde la app del teléfono.",
     "enAndroidLasNotificacionesNecesitan": "En Android, las notificaciones necesitan la app de HaNet instalada; Expo Go no las recibe.",
     "estanBloqueadasEnEsteTelefono": "Las notificaciones están bloqueadas en este teléfono.",
+    "esteNavegadorNoRecibeNotificaciones": "Este navegador no recibe notificaciones. Lo que te avisamos igual queda en Notificaciones, al final del Inicio.",
+    "esteNavegadorTodaviaNoHa": "Este navegador todavía no ha permitido las notificaciones.",
     "esteTelefonoTodaviaNoLas": "Este teléfono todavía no ha permitido las notificaciones.",
     "iconoDeLaApp": "Ícono de la app",
     "iconoLabelValue": "Ícono {{label}}{{value}}",
     "laProteccionDeNotasSe": "La protección de Notas se activa desde la app en el teléfono.",
-    "lasNotificacionesLleganALa": "Las notificaciones llegan a la app del teléfono, no a la web.",
+    "lasNotificacionesEstanBloqueadasEn": "Las notificaciones están bloqueadas en este navegador. Desbloquéalas en los ajustes del sitio.",
     "n24Y4HorasAntesSolo": "24 y 4 horas antes, solo en este teléfono",
     "noPudimosCambiarElIcono": "No pudimos cambiar el ícono. Inténtalo nuevamente.",
     "noPudimosCargarTusAjustes": "No pudimos cargar tus ajustes. Revisa tu conexión.",
@@ -2274,6 +2288,7 @@
     "novedades": "Novedades",
     "paraCambiarElIconoNecesitas": "Para cambiar el ícono necesitas la app de HaNet instalada; Expo Go no puede hacerlo.",
     "paraProtegerTusNotasEste": "Para proteger tus notas, este teléfono necesita un bloqueo de pantalla (código, huella o Face ID).",
+    "paraRecibirNotificacionesEnEl": "Para recibir notificaciones en el iPhone, agrega HaNet a tu pantalla de inicio (Compartir, Agregar a inicio) y ábrela desde ahí.",
     "permitir": "Permitir",
     "pideFaceIdHuellaO": "Pide Face ID, huella o código para verlas",
     "predeterminado": ", predeterminado",

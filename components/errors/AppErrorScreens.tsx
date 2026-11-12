@@ -102,14 +102,18 @@ export function ServerScreen({ onDismiss, onRetry, retrying, signedIn, preview }
   );
 }
 
-export function OfflineScreen({ onDismiss, onRetry, retrying, signedIn, preview }: RetryProps) {
+/**
+ * No internet. With a session, "Ver lo guardado" goes on with what the phone
+ * kept from last time (onContinue), and a small notice stays up meanwhile.
+ */
+export function OfflineScreen({ onRetry, retrying, signedIn, onContinue }: RetryProps & { onContinue: () => void }) {
   return (
     <ErrorScreen
       icon={ERROR_ICONS.offline}
       title={t('components.errors.appErrorScreens.pareceQueNoHayInternet')}
       body={t('components.errors.appErrorScreens.revisaElWifiOLos')}
       primary={{ label: retrying ? t('components.errors.appErrorScreens.probando') : t('common.reintentar'), onPress: onRetry, disabled: retrying }}
-      secondary={signedIn ? { label: t('common.cerrarSesion'), onPress: () => endSession(onDismiss, preview) } : undefined}
+      secondary={signedIn ? { label: t('components.errors.appErrorScreens.verLoGuardado'), onPress: onContinue } : undefined}
     />
   );
 }

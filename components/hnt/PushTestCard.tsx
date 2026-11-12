@@ -3,7 +3,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError } from '@/services/auth-service';
 import { functions } from '@/services/firebase';
-import { enablePush, openNotificationSettings, pushPermission, pushSupport, registerDevice } from '@/services/push-service';
+import { canOpenNotificationSettings, enablePush, openNotificationSettings, pushPermission, pushSupport, registerDevice } from '@/services/push-service';
 import type { PushPermission } from '@/services/push-service';
 import { httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
@@ -78,7 +78,9 @@ export function PushTestCard() {
   };
 
   const status = support === 'web'
-    ? t('components.hnt.pushTestCard.estasEnLaWebAqui')
+    ? t('components.hnt.pushTestCard.esteNavegadorNoRecibeNotificaciones')
+    : support === 'web-install'
+      ? t('components.hnt.pushTestCard.enElIphoneLaWeb')
     : support === 'expo-go-android'
       ? t('components.hnt.pushTestCard.expoGoEnAndroidNo')
       : permission === 'granted'
@@ -94,7 +96,7 @@ export function PushTestCard() {
       {support === 'supported' && permission !== 'denied' && (
         <HanetButton label={busy === 'register' ? t('components.hnt.pushTestCard.registrando') : t('components.hnt.pushTestCard.registrarEsteTelefono')} variant="surface" disabled={!!busy} onPress={() => void registerThisPhone()} />
       )}
-      {support === 'supported' && permission === 'denied' && (
+      {support === 'supported' && permission === 'denied' && canOpenNotificationSettings && (
         <HanetButton label={t('common.abrirAjustes')} variant="surface" onPress={openNotificationSettings} />
       )}
 

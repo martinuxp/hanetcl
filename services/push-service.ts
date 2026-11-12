@@ -3,19 +3,22 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { httpsCallable } from 'firebase/functions';
 import { Linking, Platform } from 'react-native';
 import { functions } from './firebase';
+import { enableWebPush, listenToWebNotificationTaps, registerBrowser, unregisterBrowser, webPermission, webPushSupport } from './web-push';
 import { t } from '@/i18n';
 
 // ClassHall's push notifications (Expo's push service). The device's token is
 // registered with the backend (registerPushToken) after the person allows
 // notifications and again on each start; signing out takes it off.
 //
-// Expo Go on Android has no remote push since SDK 53, and the web is not
-// supported: there `pushSupport()` says so and nothing here touches the
-// notifications module, which only loads where it works.
+// Expo Go on Android has no remote push since SDK 53: there `pushSupport()`
+// says so and nothing here touches the notifications module, which only loads
+// where it works. The web app uses web push instead (services/web-push.ts),
+// behind the same functions; on iPhone it needs HaNet on the home screen
+// ('web-install') and some browsers don't have it at all ('web').
 
 type NotificationsModule = typeof import('expo-notifications');
 
-export type PushSupport = 'supported' | 'expo-go-android' | 'web';
+export type PushSupport = 'supported' | 'expo-go-android' | 'web' | 'web-install';
 export type PushPermission = 'granted' | 'denied' | 'undetermined';
 
 const ANDROID_CHANNEL = 'classhall';
@@ -24,7 +27,10 @@ export const AGENDA_CHANNEL = 'agenda';
 const PROMPT_DISMISSED_KEY = 'hanet.pushPromptDismissed';
 
 export function pushSupport(): PushSupport {
-  if (Platform.OS === 'web') return 'web';
+  if (Platform.OS === 'web') {
+    const web = webPushSupport();
+    return web === 'supported' ? 'supported' : web === 'install' ? 'web-install' : 'web';
+  }
   if (Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return 'expo-go-android';
   return 'supported';
 }
@@ -33,7 +39,7 @@ let notificationsModule: NotificationsModule | null = null;
 
 /** The notifications module where it works; null in Expo Go on Android and on the web. */
 export function notifications(): NotificationsModule | null {
-  if (pushSupport() !== 'supported') return null;
+  if (Platform.OS === 'web' || pushSupport() !== 'supported') return null;
   if (!notificationsModule) {
     // Loaded here and not at the top, so platforms without push never load it.
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- a lazy load on purpose
@@ -64,6 +70,7 @@ export async function ensureChannel(module: NotificationsModule) {
 }
 
 export async function pushPermission(): Promise<PushPermission> {
+  if (Platform.OS === 'web') return webPermission();
   const module = notifications();
   if (!module) return 'denied';
   const { status } = await module.getPermissionsAsync();
@@ -74,6 +81,7 @@ let registeredToken: string | null = null;
 
 /** Gets the device's token and gives it to the backend; quietly does nothing without permission. */
 export async function registerDevice() {
+  if (Platform.OS === 'web') return registerBrowser();
   const module = notifications();
   if (!module) return false;
   try {
@@ -93,6 +101,7 @@ export async function registerDevice() {
 
 /** Asks for permission (the system dialog) and registers the device. */
 export async function enablePush(): Promise<PushPermission> {
+  if (Platform.OS === 'web') return enableWebPush();
   const module = notifications();
   if (!module) return 'denied';
   await ensureChannel(module);
@@ -103,6 +112,7 @@ export async function enablePush(): Promise<PushPermission> {
 
 /** Before signing out: the device stops getting this account's notifications. */
 export async function unregisterDevice() {
+  if (Platform.OS === 'web') return unregisterBrowser();
   if (!registeredToken) return;
   try {
     await httpsCallable(functions, 'unregisterPushToken')({ token: registeredToken });
@@ -114,19 +124,28 @@ export async function unregisterDevice() {
 
 /** Calls `open` with the screen a tapped notification points to, now and for the cold start. */
 export function listenToNotificationTaps(open: (url: string) => void) {
+  const openScreen = (url: unknown) => {
+    if (isNotificationRoute(url)) open(url);
+  };
+  if (Platform.OS === 'web') return listenToWebNotificationTaps(openScreen);
   const module = notifications();
   if (!module) return () => {};
-  const handle = (data: unknown) => {
-    const url = (data as { url?: unknown } | undefined)?.url;
-    // Only HaNet's own screens: ClassHall, the timetable and the Calendar's events.
-    if (typeof url === 'string' && /^\/(classhall\/(hall|task)\?[A-Za-z0-9_=&-]+|schedule|calendar|anniversary|event-info\?[A-Za-z0-9_=&%-]+)$/.test(url)) open(url);
-  };
+  const handle = (data: unknown) => openScreen((data as { url?: unknown } | undefined)?.url);
   void module.getLastNotificationResponseAsync().then(response => {
     if (response) handle(response.notification.request.content.data);
   });
   const subscription = module.addNotificationResponseReceivedListener(response => handle(response.notification.request.content.data));
   return () => subscription.remove();
 }
+
+// Only HaNet's own screens: ClassHall, the timetable, the Calendar and its events, the Feed,
+// the anniversary and its notices.
+function isNotificationRoute(url: unknown): url is string {
+  return typeof url === 'string' && /^\/(classhall\/(hall|task)\?[A-Za-z0-9_=&-]+|schedule|calendar|feed|anniversary(\/notices)?|event-info\?[A-Za-z0-9_=&%-]+)$/.test(url);
+}
+
+/** Whether the system's settings can be opened to unblock notifications: the browser's can't. */
+export const canOpenNotificationSettings = Platform.OS !== 'web';
 
 export function openNotificationSettings() {
   void Linking.openSettings();

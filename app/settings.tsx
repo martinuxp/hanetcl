@@ -12,7 +12,7 @@ import { useCached } from '@/services/cache';
 import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
 import { gradesLockAvailable, setGradesLock, useGradesLock } from '@/services/grades-lock';
 import { getProfilePhotoUrl } from '@/services/profile-service';
-import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveFeedNotifications, saveMorningNotifications } from '@/services/push-service';
+import { canOpenNotificationSettings, enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveFeedNotifications, saveMorningNotifications } from '@/services/push-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -144,8 +144,11 @@ export default function SettingsScreen() {
   const name = profile?.fullName || keptProfile?.fullName || user?.email || 'HaNet ID';
   const avatarSeed = profile?.avatarSeed ?? keptProfile?.avatarSeed ?? null;
 
+  const onWeb = Platform.OS === 'web';
   const notificationsFooter = support === 'web'
-    ? t('settings.lasNotificacionesLleganALa')
+    ? t('settings.esteNavegadorNoRecibeNotificaciones')
+    : support === 'web-install'
+      ? t('settings.paraRecibirNotificacionesEnEl')
     : support === 'expo-go-android'
       ? t('settings.enAndroidLasNotificacionesNecesitan')
       : t('settings.elFeedIgualQuedaEn');
@@ -176,18 +179,22 @@ export default function SettingsScreen() {
             <View style={styles.banner}>
               <Ionicons name="notifications-off-outline" size={18} color={AppColors.errorText} />
               <ThemedText style={styles.bannerText}>
-                {permission === 'denied' ? t('settings.estanBloqueadasEnEsteTelefono') : t('settings.esteTelefonoTodaviaNoLas')}
+                {permission === 'denied'
+                  ? (onWeb ? t('settings.lasNotificacionesEstanBloqueadasEn') : t('settings.estanBloqueadasEnEsteTelefono'))
+                  : (onWeb ? t('settings.esteNavegadorTodaviaNoHa') : t('settings.esteTelefonoTodaviaNoLas'))}
               </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={permission === 'denied' ? openNotificationSettings : () => void enablePush().then(setPermission)}
-                style={({ pressed }) => pressed && styles.pressedText}
-              >
-                <ThemedText style={styles.bannerAction}>
-                  {permission === 'denied' ? t('common.abrirAjustes') : t('settings.permitir')}
-                </ThemedText>
-              </Pressable>
+              {(permission !== 'denied' || canOpenNotificationSettings) && (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={permission === 'denied' ? openNotificationSettings : () => void enablePush().then(setPermission)}
+                  style={({ pressed }) => pressed && styles.pressedText}
+                >
+                  <ThemedText style={styles.bannerAction}>
+                    {permission === 'denied' ? t('common.abrirAjustes') : t('settings.permitir')}
+                  </ThemedText>
+                </Pressable>
+              )}
             </View>
           )}
           <SettingsGroup
@@ -218,10 +225,10 @@ export default function SettingsScreen() {
             <SettingsToggleRow
               icon="hourglass-outline"
               label={t('settings.avisosDePruebas')}
-              detail={support === 'web' ? t('settings.soloEnLaAppDelTelefono') : t('settings.n24Y4HorasAntesSolo')}
+              detail={onWeb ? t('settings.soloEnLaAppDelTelefono') : t('settings.n24Y4HorasAntesSolo')}
               value={examsOn}
               onChange={on => void chooseExams(on)}
-              disabled={support === 'web'}
+              disabled={onWeb}
             />
             <SettingsToggleRow
               icon="flag-outline"

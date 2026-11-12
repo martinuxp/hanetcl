@@ -34,6 +34,39 @@ export function clearAppError() {
   emit();
 }
 
+// "Ver lo guardado" on the offline screen: the app goes on with what the
+// phone kept (services/cache.ts) and a small notice says it is offline until
+// the connection comes back.
+let offlineMode = false;
+const offlineListeners = new Set<() => void>();
+
+export function continueOffline() {
+  offlineMode = true;
+  offlineListeners.forEach(listener => listener());
+  clearAppError();
+}
+
+export function leaveOffline() {
+  if (!offlineMode) return;
+  offlineMode = false;
+  offlineListeners.forEach(listener => listener());
+}
+
+export function isOfflineMode() {
+  return offlineMode;
+}
+
+export function useOfflineMode() {
+  return useSyncExternalStore(
+    listener => {
+      offlineListeners.add(listener);
+      return () => { offlineListeners.delete(listener); };
+    },
+    () => offlineMode,
+    () => false,
+  );
+}
+
 export function useAppError() {
   return useSyncExternalStore(
     listener => {

@@ -1,10 +1,12 @@
 import { BlockedScreen, FatalScreen, OfflineScreen, ServerScreen } from '@/components/errors/AppErrorScreens';
-import { clearAppError, isAppErrorPreview, isBlockedError, showAppError, useAppError } from '@/services/app-error';
+import { TopNotice } from '@/components/system/top-notice';
+import { clearAppError, continueOffline, isAppErrorPreview, isBlockedError, isOfflineMode, leaveOffline, showAppError, useAppError, useOfflineMode } from '@/services/app-error';
 import { useSession } from '@/services/auth-service';
 import { checkConnection } from '@/services/connection';
+import { t } from '@/i18n';
 import React, { Component, useCallback, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 // A resume shortly after the last check does not check again.
@@ -14,10 +16,12 @@ const RECHECK_AFTER_MS = 60_000;
  * Watches for the problems that stop the app and draws their screen over
  * everything, the tab bar included: on launch and each time the app comes
  * back to the front it checks the connection and, with a session, whether the
- * HaNet ID was blocked.
+ * HaNet ID was blocked. After "Ver lo guardado" the app goes on offline with
+ * a small notice on top, until a check finds the connection again.
  */
 export function AppErrorLayer() {
   const kind = useAppError();
+  const offline = useOfflineMode();
   const { user } = useSession();
   const [retrying, setRetrying] = useState(false);
   const lastCheck = useRef(0);
@@ -25,10 +29,13 @@ export function AppErrorLayer() {
   const check = useCallback(async () => {
     lastCheck.current = Date.now();
     const status = await checkConnection();
+    // Already going on offline: the notice stays, no full screen again.
+    if (status === 'offline' && isOfflineMode()) return false;
     if (status !== 'ok') {
       showAppError(status);
       return false;
     }
+    leaveOffline();
     if (user) {
       try {
         // Asks Firebase Auth for the account; a blocked one is disabled there.
@@ -48,7 +55,13 @@ export function AppErrorLayer() {
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active' && Date.now() - lastCheck.current > RECHECK_AFTER_MS) void check();
     });
-    return () => subscription.remove();
+    // The browser says when the connection comes back.
+    const online = () => { if (isOfflineMode()) void check(); };
+    if (Platform.OS === 'web') window.addEventListener('online', online);
+    return () => {
+      subscription.remove();
+      if (Platform.OS === 'web') window.removeEventListener('online', online);
+    };
   }, [check]);
 
   const retry = async () => {
@@ -62,13 +75,21 @@ export function AppErrorLayer() {
     if (ok) clearAppError();
   };
 
-  if (!kind) return null;
+  if (!kind) {
+    return offline ? (
+      <TopNotice
+        icon="cloud-offline-outline"
+        text={t('components.errors.appErrorLayer.sinConexionVesLoUltimo')}
+        action={{ label: retrying ? t('components.errors.appErrorScreens.probando') : t('common.reintentar'), onPress: () => void retry(), disabled: retrying }}
+      />
+    ) : null;
+  }
   const common = { onDismiss: clearAppError, signedIn: !!user, preview: isAppErrorPreview() };
   return (
     <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={styles.layer}>
       {kind === 'blocked' && <BlockedScreen {...common} />}
       {kind === 'server' && <ServerScreen {...common} onRetry={retry} retrying={retrying} />}
-      {kind === 'offline' && <OfflineScreen {...common} onRetry={retry} retrying={retrying} />}
+      {kind === 'offline' && <OfflineScreen {...common} onRetry={retry} retrying={retrying} onContinue={continueOffline} />}
     </Animated.View>
   );
 }
