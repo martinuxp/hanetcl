@@ -22,6 +22,7 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated';
+import { EASE_OUT_CUBIC } from '@/constants/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 
@@ -91,7 +92,7 @@ function useCountUp(target: number, run: boolean) {
 function RevealArea({ area, place, animate }: { area: AreaScore; place: number; animate: boolean }) {
   const first = place === 0;
   const percent = useCountUp(area.percent, animate);
-  const enter = (delay: number) => (animate ? FadeInDown.delay(delay).duration(420).easing(Easing.out(Easing.cubic)) : undefined);
+  const enter = (delay: number) => (animate ? FadeInDown.delay(delay).duration(420).easing(EASE_OUT_CUBIC) : undefined);
 
   return (
     <View

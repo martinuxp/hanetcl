@@ -6,7 +6,7 @@ import Animated, { Easing, interpolate, useAnimatedStyle, useReducedMotion, useS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 import { SPRING_MOMENTUM, project, rubberband } from '@/constants/motion';
-import { sheetDetents } from '@/constants/sheets';
+import { cardHeight, sheetDetents } from '@/constants/sheets';
 import { t } from '@/i18n';
 
 const OPEN_MS = 280;
@@ -60,7 +60,7 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
 
   const detents = sheetDetents(route.name);
   const panelHeight = card
-    ? Math.min(Math.max(...detents) * windowHeight, windowHeight - CARD_MARGIN * 2)
+    ? Math.min(Math.max(...detents) * windowHeight, cardHeight(route.name), windowHeight - CARD_MARGIN * 2)
     : Math.min(Math.max(...detents) * windowHeight, windowHeight - insets.top - TOP_GAP);
   // Where the panel rests at each height, measured down from fully open.
   const stops = useMemo(

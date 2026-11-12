@@ -22,6 +22,8 @@ import { HomeSkeleton } from '@/components/skeletons';
 import { markLaunchContentReady } from '@/services/launch-ready';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
+import { DesktopHome } from '@/components/home/desktop-home';
+import { useSideNav } from '@/hooks/use-desktop-layout';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -138,6 +140,9 @@ export default function HomeScreen() {
 
   // During alianza week the top of the Home dresses up in the alianzas' colors.
   const { width } = useWindowDimensions();
+  // Beside the side navigation (wide web window) Home is a board of what
+  // each section holds, instead of the grid that opens them.
+  const desktop = useSideNav().width > 0 && !!user;
   const festive = linked ? homeAnniversary(anniversary) : null;
   const openScore = () => router.push('/anniversary/score');
 
@@ -153,9 +158,17 @@ export default function HomeScreen() {
   return (
     <FrostedScreen style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, desktop && styles.scrollContentWide]}
         showsVerticalScrollIndicator={false}
       >
+        {desktop ? (
+          <DesktopHome
+            institution={shownInstitution && { name: shownInstitution.name, logoUrl: shownInstitution.logoUrl, bannerUrl: shownInstitution.bannerUrl }}
+            promoted={promotedEvent}
+            anniversary={anniversary}
+          />
+        ) : (
+        <>
         {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} waving={festive.phase === 'during'} />}
         <TopHeader transparent={!!festive} />
         {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
@@ -171,6 +184,8 @@ export default function HomeScreen() {
         )}
         {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
         <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
+        </>
+        )}
 
         {!user && (
           <HanetButton
@@ -180,7 +195,7 @@ export default function HomeScreen() {
           />
         )}
 
-        {isHnt && (
+        {isHnt && !desktop && (
           <HanetButton
             label={t('index.panelHnt')}
             variant="surface"
@@ -211,6 +226,11 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     paddingBottom: 150,
+  },
+  // The board centers its own content; its header photo runs full width.
+  scrollContentWide: {
+    maxWidth: '100%',
+    paddingBottom: 48,
   },
   banner: {
     paddingHorizontal: 20,

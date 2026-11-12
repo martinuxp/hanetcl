@@ -1,7 +1,8 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { BlockEditor } from '@/components/schedule/block-editor';
 import { HallSkeleton } from '@/components/skeletons';
-import { DocumentTile, HALL_ICONS, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
+import { useSideNav } from '@/hooks/use-desktop-layout';
+import { DocumentTile, HALL_ICONS, HallBanner, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
 import { HanetAvatar } from '@/components/ui/hanet-avatar';
@@ -212,6 +213,7 @@ function CourseEventRow({ item, onPress }: { item: HallCourseEvent; onPress?: ()
 export default function HallScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const wide = useSideNav().width > 0;
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
 
@@ -384,12 +386,17 @@ export default function HallScreen() {
 
   return (
     <FrostedScreen style={styles.container}>
-      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={wide ? styles.wideContent : withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
+        {/* Beside the side navigation (wide web window) the theme runs across the top. */}
+        {wide && hall && <HallBanner hall={hall} />}
+        <View style={wide ? styles.wideInner : styles.stack}>
+        {!wide && (
         <View style={hallStyles.topBar}>
           <TopBarButton icon={HALL_ICONS.back} label={t('common.volver')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/classhall'))} />
           <Image source={HALL_ICONS.logotype} style={hallStyles.logotype} contentFit="contain" contentPosition="left" accessibilityLabel={t('common.hanetClasshall')} />
           <TopBarButton icon={HALL_ICONS.calendar} label={t('common.abrirElCalendarDelCurso')} wide onPress={() => router.navigate('/calendar')} />
         </View>
+        )}
 
         {!detail && !error && <HallSkeleton />}
 
@@ -402,9 +409,12 @@ export default function HallScreen() {
 
         {hall && (
           <>
-            <HallHero hall={hall} />
+            {!wide && <HallHero hall={hall} />}
 
-            <View style={styles.summary}>
+            {/* Wide: the Hall's tabs on the left and its summary beside them, on the right. */}
+            <View style={wide ? styles.wideColumns : styles.stack}>
+            <View style={wide ? styles.wideSide : styles.stack}>
+            <View style={[styles.summary, wide && styles.summaryWide]}>
               <HallTile
                 icon={HALL_ICONS.tasks}
                 tone="primary"
@@ -438,8 +448,10 @@ export default function HallScreen() {
                 onSaved={blocks => detail && setDetail({ ...detail, hall: { ...hall, blocks } })}
               />
             )}
+            </View>
 
-            <View style={styles.divider} />
+            <View style={wide ? styles.wideMain : styles.stack}>
+            {!wide && <View style={styles.divider} />}
 
             <HanetSegmented options={TABS} value={tab} onChange={setTab} accessibilityLabel={t('classhall.hall.seccionesDelHall')} background={AppColors.surface} />
 
@@ -554,8 +566,11 @@ export default function HallScreen() {
                 <HallPill label={t('classhall.create.editarHall')} tone="light" onPress={() => router.push({ pathname: '/classhall/create', params: { id: hall.id } })} />
               </View>
             )}
+            </View>
+            </View>
           </>
         )}
+        </View>
       </ScrollView>
 
       <HanetDialog
@@ -643,6 +658,40 @@ const styles = StyleSheet.create({
     borderRadius: AppRadii.xl,
     borderCurve: 'continuous',
     backgroundColor: AppColors.surface,
+  },
+  stack: {
+    gap: AppSpacing.md,
+  },
+  // Wide web window: full width, so the banner can run edge to edge.
+  wideContent: {
+    flexGrow: 1,
+    paddingBottom: TAB_BAR_CLEARANCE,
+  },
+  wideInner: {
+    width: '100%',
+    maxWidth: 1180,
+    alignSelf: 'center',
+    paddingHorizontal: 32,
+    paddingTop: AppSpacing.sm,
+    gap: AppSpacing.md,
+  },
+  wideColumns: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    gap: 22,
+  },
+  wideMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: AppSpacing.md,
+  },
+  wideSide: {
+    width: 340,
+    gap: AppSpacing.md,
+  },
+  // The two tiles stack in the narrow column.
+  summaryWide: {
+    flexDirection: 'column',
   },
   summaryTasks: {
     flex: 106,

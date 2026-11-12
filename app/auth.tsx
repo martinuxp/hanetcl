@@ -20,7 +20,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import { ENTRY_WIDE_CONTENT, useEntryAsideWidth } from '@/components/EntryAside';
+import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import { EASE_OUT_CUBIC } from '@/constants/motion';
 import { t } from '@/i18n';
 
 const ICONS = {
@@ -43,6 +45,8 @@ const MIN_PASSWORD = 8;
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
+  // Beside the brand panel on a wide web window, the form sits in the middle.
+  const wideEntry = useEntryAsideWidth() > 0;
   const router = useRouter();
   const { user } = useSession();
   const [mode, setMode] = useState<Mode>('login');
@@ -67,7 +71,7 @@ export default function AuthScreen() {
   // Switching between the two forms: what goes away fades out, what comes in
   // fades in, and everything else slides to its new place instead of jumping.
   const reduceMotion = useReducedMotion();
-  const moveLayout = reduceMotion ? undefined : LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
+  const moveLayout = reduceMotion ? undefined : LinearTransition.duration(220).easing(EASE_OUT_CUBIC);
   const appear = reduceMotion ? undefined : FadeIn.duration(180);
   const vanish = reduceMotion ? undefined : FadeOut.duration(120);
   // Sign-up creates the session before the profile is saved; the redirect
@@ -197,7 +201,7 @@ export default function AuthScreen() {
     <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={withTopInset(styles.scrollContent, insets.top)}
+          contentContainerStyle={withTopInset([styles.scrollContent, wideEntry && ENTRY_WIDE_CONTENT], insets.top)}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

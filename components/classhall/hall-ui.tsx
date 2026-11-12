@@ -6,7 +6,9 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { Image } from 'expo-image';
 import type { ImageSource } from 'expo-image';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { months, t } from '@/i18n';
 
@@ -89,6 +91,50 @@ export function HallHero({ hall }: { hall: Pick<Hall, 'subject' | 'courseId' | '
         <ThemedText numberOfLines={1} style={styles.heroCourse}>{hall.courseId}</ThemedText>
       </View>
       <ThemedText numberOfLines={1} style={styles.heroTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
+    </View>
+  );
+}
+
+const BANNER_HEIGHT = 250;
+
+/**
+ * The Hall's header on a wide (web) window: its theme across the whole
+ * width, fading into the page, with the subject large over it, the kind of
+ * class, the course and the teacher.
+ */
+export function HallBanner({ hall }: { hall: Pick<Hall, 'subject' | 'courseId' | 'teacherName' | 'theme' | 'plan' | 'memberCount'> }) {
+  const { width } = useWindowDimensions();
+  const plan = hall.plan === 'comun' ? t('components.classhall.hallUi.planComun') : hall.plan === 'dominio' ? t('common.dominio') : t('common.electivo');
+  return (
+    <View style={styles.banner} accessible accessibilityRole="header" accessibilityLabel={`${hall.subject}, ${hall.courseId}, ${hall.teacherName}`}>
+      <Image source={hallThemeImage(hall.theme)} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <Svg width={width} height={BANNER_HEIGHT} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id="hall-banner-fade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={AppColors.canvas} stopOpacity={0.1} />
+            <Stop offset="0.55" stopColor={AppColors.canvas} stopOpacity={0.55} />
+            <Stop offset="1" stopColor={AppColors.canvas} stopOpacity={1} />
+          </LinearGradient>
+        </Defs>
+        <Rect width={width} height={BANNER_HEIGHT} fill="url(#hall-banner-fade)" />
+      </Svg>
+      <View style={styles.bannerInner}>
+        <View style={styles.bannerChips}>
+          <View style={styles.bannerChip}><ThemedText style={styles.bannerChipText}>{plan}</ThemedText></View>
+          {hall.plan === 'comun' && <View style={styles.bannerChip}><ThemedText style={styles.bannerChipText}>{hall.courseId}</ThemedText></View>}
+          {hall.memberCount !== null && (
+            <View style={styles.bannerChip}>
+              <Ionicons name="people-outline" size={13} color={AppColors.textSecondary} />
+              <ThemedText style={styles.bannerChipText}>{t('classhall.hall.countEstudiantes', { count: hall.memberCount })}</ThemedText>
+            </View>
+          )}
+        </View>
+        <ThemedText numberOfLines={1} style={styles.bannerSubject}>{hall.subject}</ThemedText>
+        <View style={styles.bannerTeacher}>
+          <ThemedText numberOfLines={1} style={styles.bannerTeacherText}>{hall.teacherName}</ThemedText>
+          <Image source={HALL_ICONS.verified} style={styles.bannerVerified} contentFit="contain" tintColor={AppColors.accent} accessibilityLabel={t('classhall.hall.docenteVerificado')} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -198,6 +244,62 @@ const styles = StyleSheet.create({
   icon20: {
     width: 20,
     height: 20,
+  },
+  banner: {
+    height: BANNER_HEIGHT,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  bannerInner: {
+    width: '100%',
+    maxWidth: 1180,
+    alignSelf: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: AppSpacing.lg,
+    gap: 6,
+  },
+  bannerChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  bannerChip: {
+    height: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: AppRadii.pill,
+    backgroundColor: 'rgba(40, 40, 41, 0.6)',
+  },
+  bannerChipText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+    lineHeight: 16,
+    color: AppColors.textSecondary,
+  },
+  bannerSubject: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 48,
+    lineHeight: 56,
+    letterSpacing: -2,
+    color: AppColors.textPrimary,
+  },
+  bannerTeacher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bannerTeacherText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 15,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
+  },
+  bannerVerified: {
+    width: 16,
+    height: 16,
   },
   hero: {
     height: 144,

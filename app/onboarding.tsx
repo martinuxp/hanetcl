@@ -40,6 +40,10 @@ const ARROWS = {
   next: require('@/assets/onboarding/arrow-right-long.svg'),
 };
 
+// The pages on a wide (web) window: a phone-sized column in the middle.
+const FRAME_MAX_WIDTH = 520;
+const FRAME_MAX_HEIGHT = 900;
+
 /** The two welcome pages shown once, before signing in for the first time. */
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -47,7 +51,9 @@ export default function OnboardingScreen() {
   // changes nothing on this device.
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width: windowWidth, height } = useWindowDimensions();
+  // On a wide window the pages keep a phone's proportions, centered.
+  const width = Math.min(windowWidth, FRAME_MAX_WIDTH);
   const pagerRef = useRef<PagerView>(null);
   const webPagerRef = useRef<ScrollViewInstance>(null);
   // Page position as a continuous value (0 → 1 while swiping to the second).
@@ -118,7 +124,8 @@ export default function OnboardingScreen() {
   });
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + AppSpacing.md, paddingBottom: insets.bottom + AppSpacing.md }]}>
+    <View style={styles.backdrop}>
+    <View style={[styles.root, { width, paddingTop: insets.top + AppSpacing.md, paddingBottom: insets.bottom + AppSpacing.md }]}>
       {Platform.OS === 'web' ? (
         <ScrollView
           ref={webPagerRef}
@@ -154,12 +161,20 @@ export default function OnboardingScreen() {
         </Pressable>
       </View>
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.canvas,
+  },
   root: {
     flex: 1,
+    maxHeight: FRAME_MAX_HEIGHT,
     backgroundColor: AppColors.canvas,
     gap: AppSpacing.md,
   },

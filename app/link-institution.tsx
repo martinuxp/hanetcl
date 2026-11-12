@@ -23,6 +23,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { ENTRY_WIDE_CONTENT, useEntryAsideWidth } from '@/components/EntryAside';
 import { t } from '@/i18n';
 
 const ICONS = {
@@ -45,6 +46,8 @@ const SYNC_MIN_MS = 1600;
 
 export default function LinkInstitutionScreen() {
   const insets = useSafeAreaInsets();
+  // Beside the brand panel on a wide web window, the form sits in the middle.
+  const wideEntry = useEntryAsideWidth() > 0;
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
 
@@ -217,7 +220,7 @@ export default function LinkInstitutionScreen() {
   return (
     <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={withTopInset([styles.scrollContent, wideEntry && ENTRY_WIDE_CONTENT], insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             {step === 'methods' ? (
               <View style={styles.backButton} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

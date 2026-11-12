@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import { DarkTheme, Stack, ThemeProvider, usePathname, useRootNavigationState, useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +10,8 @@ import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_400Regular_Italic,
 import * as SplashScreen from 'expo-splash-screen';
 
 import { GlobalTabBar } from '@/components/AppTabBar';
+import { SideNav } from '@/components/SideNav';
+import { EntryAside } from '@/components/EntryAside';
 import { ShareIntake } from '@/components/share/share-intake';
 import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
@@ -185,6 +187,12 @@ export default function RootLayout() {
       <PaperProvider theme={paperTheme}>
         <ThemeProvider value={navigationTheme}>
           <FatalBoundary>
+          {/* On a wide web window the side navigation sits beside the screens,
+              and on the way in, the brand and the joining steps. */}
+          <View style={styles.shell}>
+          <EntryAside />
+          <SideNav />
+          <View style={styles.screens}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
@@ -241,6 +249,8 @@ export default function RootLayout() {
             <Stack.Screen name="classhall/submit" options={sheetOptions('classhall/submit')} />
             <Stack.Screen name="classhall/submission" options={sheetOptions('classhall/submission')} />
           </Stack>
+          </View>
+          </View>
           <GlobalTabBar />
           <ShareIntake ready={!!user && routed && navigationReady} />
           </FatalBoundary>
@@ -252,3 +262,16 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: AppColors.canvas,
+  },
+  screens: {
+    flex: 1,
+    // Keeps a screen's absolute layers (sheets, overlays) beside the navigation.
+    overflow: 'hidden',
+  },
+});
