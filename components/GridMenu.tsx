@@ -20,6 +20,8 @@ import { anniversaryDay, daysTo, formatPoints, phaseOf, ranking, todaysActivitie
 import { useWelcomeSeen } from '@/services/anniversary-welcome';
 import type { AnniversaryState } from '@/services/anniversary-service';
 import { t } from '@/i18n';
+import { Stripes } from '@/components/grades/stripes';
+import { useGradesBadge } from '@/components/grades/grades-tile';
 
 type SideBadge = { main: string; sub: string; label: string; onPress: () => void };
 
@@ -28,6 +30,8 @@ type GridItemProps = {
   IconComponent: React.ComponentType<any>;
   height: number;
   badgeText?: string;
+  /** The badge points to covered grades: the scratch card's stripes. */
+  badgeStripes?: boolean;
   layout?: 'default' | 'side-badge';
   sideBadge?: SideBadge | null;
   topStrip?: React.ReactNode;
@@ -35,7 +39,7 @@ type GridItemProps = {
   iconSize?: number;
 };
 
-function GridItem({ title, IconComponent, height, badgeText, layout = 'default', sideBadge, topStrip, href, iconSize }: GridItemProps) {
+function GridItem({ title, IconComponent, height, badgeText, badgeStripes, layout = 'default', sideBadge, topStrip, href, iconSize }: GridItemProps) {
   const isSideBadge = layout === 'side-badge';
   const router = useRouter();
 
@@ -76,7 +80,8 @@ function GridItem({ title, IconComponent, height, badgeText, layout = 'default',
           {topStrip}
           {badgeText && (
             <View style={styles.topBadge}>
-              <ThemedText style={styles.topBadgeText}>{badgeText}</ThemedText>
+              {badgeStripes && <Stripes />}
+              <ThemedText style={[styles.topBadgeText, badgeStripes && styles.topBadgeTextOnStripes]}>{badgeText}</ThemedText>
             </View>
           )}
           <View style={styles.iconContainerDefault}>
@@ -189,6 +194,10 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
   const running = anniversary?.anniversary && phaseOf(anniversary.anniversary, now) === 'during' ? anniversary.anniversary : null;
   const welcomeSeen = useWelcomeSeen(running?.id);
   const celebrate = running && welcomeSeen === false ? running : null;
+  // Notas lives inside ClassHall ("ClassHall y calificaciones", 2026-11-11);
+  // the tile says how many grades wait to be uncovered, never the grades.
+  const grades = useGradesBadge();
+  const newGrades = grades?.newGrades ?? 0;
   const openCalendarItem = (item: NextCalendarItem) => router.push({ pathname: '/event-info', params: { id: item.event.id, canEdit: '0' } });
   return (
     <View style={styles.container}>
@@ -197,15 +206,17 @@ export default function GridMenu({ nextCalendarItem, promotedEvent, anniversary 
         <GridItem
           title={t('layout.eventos')}
           IconComponent={SparklesIcon}
-          height={148}
+          height={118}
           href="/events"
           topStrip={promotedEvent ? <PromoStrip event={promotedEvent} /> : null}
         />
         <GridItem
-          title="ClassHall"
+          title={grades ? t('components.gridMenu.classhallYCalificaciones') : 'ClassHall'}
           IconComponent={GraduationCapIcon}
-          height={102}
+          height={132}
           href="/classhall"
+          badgeText={newGrades > 0 ? (t('components.gridMenu.countNotasNuevas', { count: newGrades })) : undefined}
+          badgeStripes
         />
         <GridItem
           title={t('common.herramientas')}
@@ -293,9 +304,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 32,
+    overflow: 'hidden',
     backgroundColor: AppColors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topBadgeTextOnStripes: {
+    color: AppColors.textPrimary,
   },
   topBadgeText: {
     fontSize: 12,

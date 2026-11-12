@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors } from '@/constants/design-tokens';
-import { SPRING_SMOOTH, EASE_OUT_CUBIC } from '@/constants/motion';
+import { SPRING_SMOOTH } from '@/constants/motion';
 import { eventBar, useEventBar } from '@/components/events/event-bar-store';
 import { useEventOptions } from '@/components/events/event-options';
 import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
@@ -22,9 +22,8 @@ import Animated, {
   Extrapolation,
   FadeIn,
   FadeOut,
-  LinearTransition,
+  Keyframe,
   interpolate,
-  interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
@@ -45,42 +44,75 @@ export const TAB_BAR_CLEARANCE = 112;
 // only up to a point (as the iOS tab bar does).
 const TAB_TEXT_MAX_SCALE = 1.3;
 
+const TAB_SPRING = { damping: 31, stiffness: 260, mass: 0.9 };
+const BACK_WIDTH = 70;
+
 /**
  * Adaptación local del patrón de expo-motion-tabs para el navegador existente.
  * Conserva la interacción de icono a píldora expandida usando Reanimated.
+ * With `back`, the same pill morphs into "Volver": it takes the back button's
+ * width and fill while the house gives way to the chevron, so changing screen
+ * never swaps the button for another one.
  */
-function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: MotionTabIcon; label: string; onPress: () => void }) {
+function MotionTab({ active, back = false, icon, label, onPress, onBack }: { active: boolean; back?: boolean; icon: MotionTabIcon; label: string; onPress: () => void; onBack?: () => void }) {
   const [labelWidth, setLabelWidth] = React.useState(0);
   const [focused, setFocused] = React.useState(false);
   const progress = useSharedValue(active ? 1 : 0);
+  const backness = useSharedValue(back ? 1 : 0);
   const reduceMotion = useReducedMotion();
 
   React.useEffect(() => {
     const destination = active ? 1 : 0;
-    progress.value = reduceMotion
-      ? withTiming(destination, { duration: 100 })
-      : withSpring(destination, { damping: 31, stiffness: 260, mass: 0.9 });
+    progress.value = reduceMotion ? withTiming(destination, { duration: 100 }) : withSpring(destination, TAB_SPRING);
   }, [active, progress, reduceMotion]);
 
-  const pillStyle = useAnimatedStyle(() => ({
-    width: 44 + progress.value * (labelWidth + 18),
-    backgroundColor: interpolateColor(progress.value, [0, 1], ['rgba(0,0,0,0)', AppColors.controlActive]),
+  React.useEffect(() => {
+    const destination = back ? 1 : 0;
+    backness.value = reduceMotion ? withTiming(destination, { duration: 100 }) : withSpring(destination, TAB_SPRING);
+  }, [back, backness, reduceMotion]);
+
+  const pillStyle = useAnimatedStyle(() => {
+    const tabWidth = 44 + progress.value * (labelWidth + 18);
+    return { width: tabWidth + (BACK_WIDTH - tabWidth) * backness.value };
+  });
+  // One fill for the active tab and for "Volver": going from one to the other it stays lit.
+  const fillStyle = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, progress.value + backness.value)) }));
+  const tabIconStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(backness.value, [0, 0.6], [1, 0], Extrapolation.CLAMP),
+    transform: [
+      { translateX: -8 * backness.value },
+      { scale: interpolate(backness.value, [0, 1], [1, 0.55], Extrapolation.CLAMP) },
+    ],
   }));
   const activeIconStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const inactiveIconStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }));
-  const labelStyle = useAnimatedStyle(() => ({
-    width: progress.value * (labelWidth + 18),
-    opacity: interpolate(progress.value, [0, 0.25, 1], [0, 0, 1]),
-    transform: [{ translateX: -6 * (1 - progress.value) }],
+  const backIconStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(backness.value, [0.35, 1], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      { translateX: 10 * (1 - backness.value) },
+      { scale: interpolate(backness.value, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+    ],
   }));
+  const labelStyle = useAnimatedStyle(() => {
+    const shown = progress.value * (1 - backness.value);
+    return {
+      width: shown * (labelWidth + 18),
+      opacity: interpolate(shown, [0, 0.25, 1], [0, 0, 1]),
+      transform: [{ translateX: -6 * (1 - shown) }],
+    };
+  });
 
   return (
     <Pressable
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
-      accessibilityHint={active ? undefined : t('components.appTabBar.cambiarALabel', { label })}
+      accessibilityRole={back ? 'button' : 'tab'}
+      accessibilityState={back ? undefined : { selected: active }}
+      accessibilityLabel={back ? t('common.volver') : label}
+      accessibilityHint={back || active ? undefined : t('components.appTabBar.cambiarALabel', { label })}
       onPress={() => {
+        if (back) {
+          onBack?.();
+          return;
+        }
         if (!active && Platform.OS === 'ios') void Haptics.selectionAsync();
         onPress();
       }}
@@ -90,17 +122,32 @@ function MotionTab({ active, icon, label, onPress }: { active: boolean; icon: Mo
     >
       <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
       <Animated.View style={[styles.motionTab, pillStyle]}>
-        <View style={styles.motionIconBox}>
+        <Animated.View pointerEvents="none" style={[styles.motionFill, fillStyle]} />
+        <Animated.View style={[styles.motionIconBox, tabIconStyle]}>
           <Animated.View style={[styles.motionIconLayer, inactiveIconStyle]}><CustomIcon name={icon} size={22} color={AppColors.textSecondary} /></Animated.View>
           <Animated.View style={[styles.motionIconLayer, activeIconStyle]}><CustomIcon name={icon} size={22} color={AppColors.controlOnActive} /></Animated.View>
-        </View>
+        </Animated.View>
         <Animated.View style={[styles.motionLabelWrap, labelStyle]}>
           <ThemedText numberOfLines={1} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionLabel}>{label}</ThemedText>
+        </Animated.View>
+        <Animated.View pointerEvents="none" style={[styles.motionBackIcon, backIconStyle]}>
+          <CustomIcon name="chevron-left" size={20} color={AppColors.textOnLight} />
         </Animated.View>
       </Animated.View>
     </Pressable>
   );
 }
+
+// The center action swaps by section: the new one grows in where the old one shrinks away.
+const CENTER_IN = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.8 }] },
+  65: { opacity: 1, transform: [{ scale: 1.03 }], easing: Easing.out(Easing.cubic) },
+  100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.inOut(Easing.quad) },
+}).duration(260);
+const CENTER_OUT = new Keyframe({
+  0: { opacity: 1, transform: [{ scale: 1 }] },
+  100: { opacity: 0, transform: [{ scale: 0.8 }], easing: Easing.in(Easing.cubic) },
+}).duration(150);
 
 export function HanetLogo() {
   return (
@@ -189,7 +236,7 @@ type AppTabBarProps = {
   active?: 'home' | 'profile' | null;
   /** Action of the current section; the HaNet logo when there is none. */
   center?: React.ReactNode;
-  /** Changes when the set of controls changes, to crossfade between them. */
+  /** Names what the center shows; when it changes, the new action grows in where the old one was. */
   controlsKey?: string;
   /** A search pill that expands over the whole bar (in the center unless `center` is given; then something there opens it). */
   search?: BarSearch;
@@ -370,35 +417,36 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
         {panel && <Animated.View pointerEvents="none" style={[styles.panelDivider, dividerStyle]} />}
         <Animated.View style={[styles.controlsRow, controlsRowStyle]}>
         <Animated.View style={[styles.controlsLayer, controlsStyle]} pointerEvents={open ? 'none' : 'auto'}>
-        <Animated.View
-          key={controlsKey}
-          entering={reduceMotion ? undefined : FadeIn.duration(180).easing(EASE_OUT_CUBIC)}
-          exiting={reduceMotion ? undefined : FadeOut.duration(120).easing(EASE_OUT_CUBIC)}
-          layout={reduceMotion ? undefined : LinearTransition.duration(220).easing(EASE_OUT_CUBIC)}
-          style={styles.tabControls}
-        >
-          {onBack ? (
+        <View style={styles.tabControls}>
+          {compact ? (onBack ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('common.volver')}
-              style={({ pressed }) => [styles.backButton, compact && styles.backButtonLabeled, pressed && styles.motionPressPressed]}
+              style={({ pressed }) => [styles.backButton, styles.backButtonLabeled, pressed && styles.motionPressPressed]}
               onPress={onBack}
             >
               <CustomIcon name="chevron-left" size={20} color={AppColors.textOnLight} />
-              {compact && <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>{t('common.volver')}</ThemedText>}
+              <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>{t('common.volver')}</ThemedText>
             </Pressable>
-          ) : compact ? null : (
-            <MotionTab active={active === 'home'} icon="home" label={t('layout.inicio')} onPress={onHome} />
+          ) : null) : (
+            <MotionTab active={active === 'home'} back={!!onBack} icon="home" label={t('layout.inicio')} onPress={onHome} onBack={onBack} />
           )}
 
           {(!compact || hasCenter) && (
             <View style={[styles.center, compact && !onBack && styles.centerAlone]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-              {center ?? searchPill ?? <HanetLogo />}
+              <Animated.View
+                key={controlsKey}
+                entering={reduceMotion ? undefined : CENTER_IN}
+                exiting={reduceMotion ? undefined : CENTER_OUT}
+                style={styles.centerSwap}
+              >
+                {center ?? searchPill ?? <HanetLogo />}
+              </Animated.View>
             </View>
           )}
 
           {!compact && <MotionTab active={active === 'profile'} icon="user" label={t('layout.perfil')} onPress={onProfile} />}
-        </Animated.View>
+        </View>
         </Animated.View>
 
         {search && (
@@ -545,7 +593,8 @@ export function GlobalTabBar() {
       active={pathname === '/' ? 'home' : pathname === '/explore' ? 'profile' : null}
       center={center}
       sideInset={side.width}
-      controlsKey={isTabRoot ? 'main' : ['/calendar', '/events', '/feed', '/event-detail', '/anniversary/notices'].includes(pathname) || organizing ? pathname : 'screen'}
+      // The same center on two screens (the logo, the search pill) stays put; a different one morphs in.
+      controlsKey={center ? pathname : SEARCH_PLACEHOLDERS[pathname] ? 'search' : 'logo'}
       search={SEARCH_PLACEHOLDERS[pathname]
         ? { open: bar.searchOpen, value: bar.query, placeholder: SEARCH_PLACEHOLDERS[pathname], onChangeText: eventBar.setQuery, onOpen: eventBar.openSearch, onClose: eventBar.closeSearch }
         : undefined}
@@ -729,12 +778,18 @@ const styles = StyleSheet.create({
   centerAlone: {
     marginHorizontal: 0,
   },
+  centerSwap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   motionMeasure: { position: 'absolute', left: -10000, top: -10000, opacity: 0, fontSize: 14, fontFamily: 'DMSans_700Bold' },
   motionPress: { borderRadius: 999, outlineStyle: 'none' as any },
   motionPressFocused: { borderWidth: 1, borderColor: AppColors.accent },
   motionPressPressed: { opacity: 0.82, transform: [{ scale: 0.96 }] },
   motionTab: { height: 45, borderRadius: 999, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  motionFill: { ...StyleSheet.absoluteFill, borderRadius: 999, backgroundColor: AppColors.controlActive },
   motionIconBox: { width: 44, height: 45 },
+  motionBackIcon: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   motionIconLayer: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   motionLabelWrap: { height: 45, justifyContent: 'center', overflow: 'hidden', paddingRight: 18 },
   motionLabel: { color: AppColors.controlOnActive, fontSize: 14, lineHeight: 20, fontFamily: 'DMSans_700Bold' },

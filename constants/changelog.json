@@ -1,6 +1,62 @@
 {
   "releases": [
     {
+      "version": "0.7.3-beta",
+      "date": "2026-11-12",
+      "title": "",
+      "items": [
+        "HaNet ya se puede abrir desde el navegador. En el celular, agrégala a tu pantalla de inicio y se abre como una app, con su ícono."
+      ]
+    },
+    {
+      "version": "0.7.2-beta",
+      "date": "2026-11-11",
+      "title": "Configuraciones más simple",
+      "items": [
+        "Configuraciones se ordenó: tu cuenta arriba, todas las notificaciones juntas con un interruptor cada una, y después Privacidad, Ícono de la app y Acerca de HaNet.",
+        "Si el teléfono tiene bloqueadas las notificaciones, Configuraciones te avisa y te lleva a los ajustes para activarlas.",
+        "La primera vez que entras al Inicio, HaNet te pregunta si quieres activar las notificaciones, para que no tengas que buscarlas."
+      ]
+    },
+    {
+      "version": "0.7.1-beta",
+      "date": "2026-11-11",
+      "title": "",
+      "items": [
+        "Al cambiar de pantalla, los botones de la barra de abajo ya no saltan: Inicio se transforma en Volver y el botón del centro cambia con una animación suave."
+      ]
+    },
+    {
+      "version": "0.7.0-beta",
+      "date": "2026-11-11",
+      "title": "Notificaciones",
+      "items": [
+        "Nueva sección Notificaciones: al final del Inicio, desliza hacia arriba y suelta cuando la flecha se dé vuelta. Ahí quedan los anuncios, tareas, materiales y notas nuevas de ClassHall, y los avisos del aniversario.",
+        "Aunque tengas los avisos apagados en el teléfono, lo que te llega queda guardado en Notificaciones.",
+        "El Inicio muestra tus dos notificaciones más recientes y cuántas tienes sin ver.",
+        "Para volver al Inicio, desliza hacia abajo o toca \"Inicio\".",
+        "Quienes publican en el Feed pueden enviar una publicación como notificación. Le llega a quienes ven esa publicación, y se apaga en Configuraciones.",
+        "Al enviar una publicación como notificación, en tus Notificaciones queda a cuántas personas les llegó.",
+        "Al escribir con el teclado abierto, el texto ya no queda tapado y puedes deslizar hasta el final del formulario.",
+        "Notas ahora está dentro de ClassHall. En el Inicio, el tile se llama ClassHall y calificaciones y te dice cuántas notas tienes por destapar."
+      ]
+    },
+    {
+      "version": "0.6.0-beta",
+      "date": "2026-11-11",
+      "title": "Notas",
+      "items": [
+        "Nuevo módulo Notas: cuando tu docente publica una nota, te llega un aviso y la destapas en pantalla completa. Ráspala con el dedo para verla, o toca \"Ver sin raspar\".",
+        "El raspe se siente como uno de verdad: la tapa brilla cuando mueves el teléfono, salta viruta al raspar y al final se rompe en pedazos.",
+        "El aviso nunca muestra la nota, tampoco en la pantalla bloqueada. Una vez que la ves, queda en \"Tus notas\" con tu promedio aproximado, y puedes agregarla a la Calculadora de notas.",
+        "En ClassHall, el Hall con una nota nueva lo dice en su tarjeta.",
+        "Notas también tiene su tile en el Inicio: ahí ves cuántas notas tienes por destapar y entras a todas tus asignaturas, con el promedio aproximado del 1er semestre, del 2° semestre o del año.",
+        "Nuevo en Configuraciones → Privacidad: Proteger Notas. Si lo activas, para ver tus notas HaNet pide Face ID, tu huella o el código de tu teléfono.",
+        "Docentes: en cada evaluación hay una sección Notas. Escriben las notas del curso (62 queda 6,2), quedan como borrador y se publican cuando quieran. También se pueden cargar desde el panel web.",
+        "El promedio oficial sigue siendo el del liceo."
+      ]
+    },
+    {
       "version": "0.5.0-beta",
       "date": "2026-11-04",
       "title": "Escala y calculadora de notas",

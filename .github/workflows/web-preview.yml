@@ -1,0 +1,63 @@
+name: Web preview
+
+# Publishes each PR's web build to a temporary Firebase Hosting preview channel
+# of the hanet-app site (https://hanet-app--pr-<n>-<hash>.web.app, expires in 7
+# days) and comments the link on the PR. It never touches the live site: that
+# is the firebase-deploy-web-<n> release (firebase-deploy.yml), with the
+# owner's OK.
+#
+# Off until the repository variable WEB_PREVIEWS is "on" (Settings → Secrets
+# and variables → Actions → Variables), so PRs stay green before the
+# hanet-app site exists.
+on:
+  pull_request:
+    paths-ignore:
+      - "functions/**"
+      - "docs/**"
+      - "**/*.md"
+      - "firestore.*.rules"
+      - "storage.rules"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: web-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Preview de la web
+    if: >-
+      vars.WEB_PREVIEWS == 'on' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the web app
+        run: npm run web:build
+
+      - name: Deploy to a preview channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: hanet-edu
+          target: hanet-app
+          expires: 7d

@@ -3,6 +3,7 @@ import { BlockEditor } from '@/components/schedule/block-editor';
 import { HallSkeleton } from '@/components/skeletons';
 import { useSideNav } from '@/hooks/use-desktop-layout';
 import { DocumentTile, HALL_ICONS, HallBanner, HallHero, HallPill, HallTile, TopBarButton, daysUntil, hallDay, hallLongDate, hallStyles, startOfToday } from '@/components/classhall/hall-ui';
+import { StudentGrades } from '@/components/classhall/grades-ui';
 import { ThemedText } from '@/components/themed-text';
 import { HanetSegmented } from '@/components/ui/hanet-auth-fields';
 import { HanetAvatar } from '@/components/ui/hanet-avatar';
@@ -238,6 +239,7 @@ export default function HallScreen() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   // The moment the screen opened, to tell open tasks from closed ones.
   const [now] = useState(() => Date.now());
+  // A finger on a covered grade: the page holds still meanwhile.
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -410,6 +412,11 @@ export default function HallScreen() {
         {hall && (
           <>
             {!wide && <HallHero hall={hall} />}
+
+            {/* Notas: a new grade comes covered, right at the top of the Hall. */}
+            {!isTeacher && hall.gradesOn && (
+              <StudentGrades hallId={hall.id} subject={hall.subject} expected={hall.newGrades ?? 0} />
+            )}
 
             {/* Wide: the Hall's tabs on the left and its summary beside them, on the right. */}
             <View style={wide ? styles.wideColumns : styles.stack}>

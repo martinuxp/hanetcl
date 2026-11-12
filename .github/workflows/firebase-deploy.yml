@@ -4,7 +4,10 @@ name: Deploy Firebase
 # computer: push a tag named firebase-deploy-<what>-<anything>, or run it by
 # hand. Every deploy still needs the owner's OK (CLAUDE.md); the tag is that OK.
 #   firebase-deploy-functions-storage-1   → --only functions,storage
-#   firebase-deploy-all-1                 → everything in firebase.json
+#   firebase-deploy-web-1                 → builds the web app and publishes it
+#                                           to the hanet-app site (live)
+#   firebase-deploy-hosting-1             → only the hanet-edu site (logos, terms, /vincular)
+#   firebase-deploy-all-1                 → everything in firebase.json (web app included)
 on:
   push:
     tags:
@@ -12,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "Qué publicar (functions, storage, firestore, hosting; separados por coma). Vacío = todo."
+        description: "Qué publicar (functions, storage, firestore, hosting, web; separados por coma). Vacío = todo."
         required: false
         default: "functions,storage"
 
@@ -37,7 +40,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
       - name: Install function dependencies
         run: npm ci
@@ -50,20 +55,36 @@ jobs:
           INPUT_ONLY: ${{ github.event.inputs.only }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            only="${INPUT_ONLY}"
+            parts="${INPUT_ONLY//,/ }"
+            [ -z "${parts// /}" ] && parts="all"
           else
             # firebase-deploy-functions-storage-3 → functions,storage ; firebase-deploy-all-1 → everything
             parts="${REF_NAME#firebase-deploy-}"
-            only=""
-            for part in ${parts//-/ }; do
-              case "$part" in
-                functions|storage|firestore|hosting) only="${only:+$only,}$part" ;;
-                all) only="" ; break ;;
-              esac
-            done
+            parts="${parts//-/ }"
           fi
+          only=""
+          web=false
+          for part in $parts; do
+            case "$part" in
+              functions|storage|firestore) only="${only:+$only,}$part" ;;
+              hosting) only="${only:+$only,}hosting:hanet-edu" ;;
+              web) only="${only:+$only,}hosting:hanet-app" ; web=true ;;
+              all) only="" ; web=true ; break ;;
+            esac
+          done
+          # Nothing named (or "all") deploys everything, the web app included.
+          [ -z "$only" ] && web=true
           echo "only=${only}" >> "$GITHUB_OUTPUT"
+          echo "web=${web}" >> "$GITHUB_OUTPUT"
           echo "Publicando: ${only:-todo}"
+
+      - name: Install app dependencies
+        if: steps.target.outputs.web == 'true'
+        run: npm ci
+
+      - name: Build the web app
+        if: steps.target.outputs.web == 'true'
+        run: npm run web:build
 
       - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v2

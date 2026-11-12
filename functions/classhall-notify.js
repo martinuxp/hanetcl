@@ -1,6 +1,7 @@
 const { createHash } = require("node:crypto");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { recordInbox } = require("./inbox");
 
 // ClassHall's push notifications, sent through Expo's push service: a new
 // announcement, task or material reaches the Hall's students, the day before
@@ -19,6 +20,8 @@ const TOKEN_PATTERN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,}\]$/;
 const MAX_TOKENS_PER_ACCOUNT = 10;
 // Android shows ClassHall's notifications in their own channel (services/push-service.ts).
 const ANDROID_CHANNEL = "classhall";
+// These go to the students named, already checked by whoever calls.
+const DIRECT_KINDS = ["reviewed", "grade", "gradeCorrected"];
 
 function identityDb(getAdminApp) {
   return getFirestore(getAdminApp(), "hn-enrollmentdata");
@@ -111,6 +114,14 @@ function messageFor(kind, hallId, hall, item) {
   if (kind === "task") {
     return { title: `Tarea nueva · ${subject}`, body: `${truncate(item.title, 80)} · Se entrega el ${dueText(item.dueAt)}.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
   }
+  if (kind === "grade" || kind === "gradeCorrected") {
+    // Never the grade itself: the student uncovers it in the Hall.
+    return {
+      title: `${kind === "grade" ? "Nueva nota" : "Nota corregida"} en ${subject}`,
+      body: `${truncate(item.title, 80)}. Ábrela para verla.`,
+      data: { url: `/classhall/hall?id=${hallId}` },
+    };
+  }
   if (kind === "taskTomorrow") {
     return { title: `Se entrega mañana · ${subject}`, body: `${truncate(item.title, 80)}. Todavía no la has entregado.`, data: { url: `/classhall/task?hallId=${hallId}&id=${item.id}` } };
   }
@@ -124,17 +135,21 @@ function messageFor(kind, hallId, hall, item) {
 
 /**
  * Notifies a Hall's students about something new.
- *   kind: "material" | "task" | "taskTomorrow" | "announcement" | "reviewed"
- *   onlyUids: the reminder's students who have not handed in, or the
- *   student whose submission was reviewed
+ *   kind: "material" | "task" | "taskTomorrow" | "announcement" | "reviewed" | "grade" | "gradeCorrected"
+ *   onlyUids: the reminder's students who have not handed in, the student
+ *   whose submission was reviewed, or those with a new or corrected grade
  */
 async function notifyHall(getAdminApp, { kind, hallId, hall, item, onlyUids }) {
   try {
-    let uids = kind === "reviewed" ? (onlyUids || []) : await hallStudentUids(getAdminApp, hall);
-    if (onlyUids && kind !== "reviewed") uids = uids.filter(uid => onlyUids.includes(uid));
+    const direct = DIRECT_KINDS.includes(kind);
+    let uids = direct ? (onlyUids || []) : await hallStudentUids(getAdminApp, hall);
+    if (onlyUids && !direct) uids = uids.filter(uid => onlyUids.includes(uid));
+    const message = messageFor(kind, hallId, hall, item);
+    // Kept for the notifications section, with or without a device to ring.
+    await recordInbox(getAdminApp, uids, kind, message);
     const tokens = await tokensFor(getAdminApp, uids);
     if (!tokens.length) return 0;
-    await sendPush(getAdminApp, tokens, messageFor(kind, hallId, hall, item));
+    await sendPush(getAdminApp, tokens, message);
     return tokens.length;
   } catch (error) {
     console.error("notifyHall", kind, hallId, error.message);
@@ -198,11 +213,14 @@ function build(getAdminApp) {
     const body = truncate(request.data?.body, 200) || "Si ves esto, las notificaciones funcionan.";
     const route = typeof request.data?.url === "string" && /^\/classhall\/(hall|task)\?[A-Za-z0-9_=&-]+$/.test(request.data.url) ? request.data.url : null;
 
+    const message = { title, body, ...(route ? { data: { url: route } } : {}) };
+    // It also lands in the notifications section, to try that without a phone.
+    await recordInbox(getAdminApp, [uid], "test", message);
     const snapshot = await db.collection("pushTokens").where("uid", "==", uid).get();
     const devices = snapshot.docs.map(doc => ({ id: doc.id, token: doc.data().token, platform: doc.data().platform || "unknown", updatedAt: doc.data().updatedAt?.toMillis() ?? null }));
     if (!devices.length) return { devices: [] };
 
-    const tickets = await sendPush(getAdminApp, devices, { title, body, ...(route ? { data: { url: route } } : {}) });
+    const tickets = await sendPush(getAdminApp, devices, message);
     return {
       devices: devices.map((device, index) => ({
         platform: device.platform,

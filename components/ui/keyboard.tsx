@@ -81,9 +81,10 @@ type KeyboardScrollProps = ScrollViewProps & {
  * the field being typed into above it, and shows "Bajar teclado" meanwhile.
  * On the web it is a plain ScrollView (the browser takes care of it).
  */
-export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, children, ...props }: KeyboardScrollProps) {
+export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, onContentSizeChange, children, ...props }: KeyboardScrollProps) {
   const scroll = useRef<ScrollHandle | null>(null);
   const offset = useRef(0);
+  const contentHeight = useRef(0);
   const { shown, overlap } = useKeyboardOverlap();
 
   const setRefs = useCallback((node: ScrollHandle | null) => {
@@ -100,10 +101,25 @@ export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, childr
     view.measureInWindow((_x, viewY, _width, viewHeight) => {
       input.measureInWindow((_ix, inputY, _iw, inputHeight) => {
         const visibleBottom = viewY + viewHeight;
-        // A tall field only needs its first lines in sight.
-        const fieldBottom = inputY + Math.min(inputHeight, 120);
-        const hidden = fieldBottom + FIELD_MARGIN - visibleBottom;
-        if (hidden > 0 && inputY > viewY) view.scrollTo({ y: offset.current + hidden, animated: true });
+        // As much of the field as fits, without pushing its top out of sight.
+        const fieldBottom = inputY + Math.min(inputHeight, Math.max(120, viewHeight - FIELD_MARGIN - AppSpacing.lg));
+        const hidden = Math.min(fieldBottom + FIELD_MARGIN - visibleBottom, inputY - viewY - AppSpacing.lg);
+        if (hidden > 0) view.scrollTo({ y: offset.current + hidden, animated: true });
+      });
+    });
+  }, []);
+
+  // Typing new lines makes a field (and the form) taller: while the field's
+  // end is under the keyboard, the form scrolls by as much as it grew, so the
+  // line being written stays where it was instead of sliding under it.
+  const follow = useCallback((grew: number) => {
+    const input = TextInput.State.currentlyFocusedInput();
+    const view = scroll.current;
+    if (!input || !view || grew <= 0) return;
+    view.measureInWindow((_x, viewY, _width, viewHeight) => {
+      input.measureInWindow((_ix, inputY, _iw, inputHeight) => {
+        const visibleBottom = viewY + viewHeight - FIELD_MARGIN;
+        if (inputY + inputHeight > visibleBottom) view.scrollTo({ y: offset.current + grew, animated: false });
       });
     });
   }, []);
@@ -135,8 +151,16 @@ export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, childr
             onLayout?.(event);
             if (shown) reveal();
           }}
+          onContentSizeChange={(width, height) => {
+            onContentSizeChange?.(width, height);
+            const grew = height - contentHeight.current;
+            contentHeight.current = height;
+            if (shown) follow(grew);
+          }}
         >
           {children}
+          {/* With the keyboard up, room to scroll the end of the form above "Bajar teclado". */}
+          {shown && <View style={styles.keyboardRoom} />}
         </ScrollView>
       </View>
       {shown && <KeyboardDismissButton bottom={overlap} />}
@@ -147,6 +171,9 @@ export function KeyboardScroll({ ref, containerStyle, onScroll, onLayout, childr
 const styles = StyleSheet.create({
   box: {
     flex: 1,
+  },
+  keyboardRoom: {
+    height: FIELD_MARGIN + AppSpacing.lg,
   },
   dismissLayer: {
     position: 'absolute',

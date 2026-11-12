@@ -6,7 +6,7 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDialog, HanetDialogActions, dialogStyles } from '@/components/ui/hanet-dialog';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { describeAuthError, useSession } from '@/services/auth-service';
-import { DocumentError, deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall, openHallDocument, pickHallDocument, skillAbbreviation, uploadHallDocument } from '@/services/classhall-service';
+import { DocumentError, deleteHallEvaluation, evaluationTotal, getHall, getLoadedHall, openHallDocument, pickHallDocument, publishEvaluationGrades, skillAbbreviation, uploadHallDocument } from '@/services/classhall-service';
 import type { HallDetail } from '@/services/classhall-service';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -56,6 +56,10 @@ export default function HallEvaluationScreen() {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Notas: publishing the evaluation's grades.
+  const [publishing, setPublishing] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initializing && !user) router.replace('/onboarding');
@@ -112,6 +116,25 @@ export default function HallEvaluationScreen() {
     } catch (removeError) {
       setDeleteError(describeAuthError(removeError, t('classhall.evaluation.noPudimosEliminarLaEvaluacion')));
       setDeleting(false);
+    }
+  };
+
+  const publish = async () => {
+    if (!hallId || !id || publishing) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await publishEvaluationGrades(hallId, id);
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDetail(current => current && {
+        ...current,
+        evaluations: current.evaluations.map(item => (item.id === id ? { ...item, gradesPublishedAt: Date.now() } : item)),
+      });
+      setConfirmPublish(false);
+    } catch (publishFailure) {
+      setPublishError(describeAuthError(publishFailure, t('classhall.evaluation.noPudimosPublicarLasNotas')));
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -259,6 +282,37 @@ export default function HallEvaluationScreen() {
               {t('classhall.evaluation.tambienApareceEnElCalendar')}
             </ThemedText>
 
+            {hall.isTeacher && hall.gradesOn !== false && (() => {
+              const count = evaluation.gradesCount ?? 0;
+              const expected = detail?.expectedSubmissions ?? null;
+              const published = !!evaluation.gradesPublishedAt;
+              const status = count === 0 ? t('classhall.evaluation.sinNotas') : published ? t('classhall.evaluation.publicadas') : t('classhall.evaluation.borrador');
+              return (
+                <View style={styles.infoCard}>
+                  <View style={styles.gradesHead}>
+                    <ThemedText style={styles.infoTitle}>{t('classhall.evaluation.notas')}</ThemedText>
+                    <View style={[styles.gradesStatus, published && styles.gradesStatusPublished]}>
+                      <ThemedText style={[styles.gradesStatusText, published && styles.gradesStatusTextPublished]}>{status}</ThemedText>
+                    </View>
+                  </View>
+                  <ThemedText style={styles.infoText}>
+                    {count === 0
+                      ? t('classhall.evaluation.escribeLasNotasDeEsta')
+                      : published
+                        ? t('classhall.evaluation.countvalueValueConNotaSi', { countValue: count, value: expected ? ` de ${expected}` : '' })
+                        : t('classhall.evaluation.countvalueValueConNotaLos', { countValue: count, value: expected ? ` de ${expected}` : '' })}
+                  </ThemedText>
+                  <HanetButton
+                    label={count === 0 ? t('classhall.evaluation.ponerNotas') : t('classhall.evaluation.editarNotas')}
+                    onPress={() => router.push({ pathname: '/classhall/grades', params: { hallId, id } })}
+                  />
+                  {count > 0 && !published && (
+                    <HanetButton label={t('classhall.evaluation.publicarNotas')} variant="accent" onPress={() => { setPublishError(null); setConfirmPublish(true); }} />
+                  )}
+                </View>
+              );
+            })()}
+
             {!!uploadError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{uploadError}</ThemedText>}
             {hall.isTeacher && (
               <View style={styles.teacherActions}>
@@ -270,6 +324,20 @@ export default function HallEvaluationScreen() {
           </>
         )}
       </ScrollView>
+
+      <HanetDialog
+        visible={confirmPublish}
+        onRequestClose={() => !publishing && setConfirmPublish(false)}
+        dismissOnBackdrop={!publishing}
+        title={t('classhall.evaluation.publicarGradescountNotas', { count: (evaluation?.gradesCount ?? 0), gradesCount: evaluation?.gradesCount ?? 0 })}
+        body={t('classhall.evaluation.cadaEstudianteRecibeUnAviso', { title: evaluation?.title ?? 'esta evaluación' })}
+      >
+        {!!publishError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{publishError}</ThemedText>}
+        <HanetDialogActions>
+          <HanetButton label={t('common.cancelar')} variant="surface" disabled={publishing} onPress={() => setConfirmPublish(false)} style={dialogStyles.action} />
+          <HanetButton label={publishing ? t('common.publicando') : t('common.publicar')} variant="accent" disabled={publishing} onPress={publish} style={dialogStyles.action} />
+        </HanetDialogActions>
+      </HanetDialog>
 
       <HanetDialog
         visible={confirming}
@@ -622,6 +690,31 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     letterSpacing: -0.44,
     color: AppColors.textPrimary,
+  },
+  gradesHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: AppSpacing.sm,
+  },
+  gradesStatus: {
+    height: 28,
+    justifyContent: 'center',
+    paddingHorizontal: AppSpacing.md,
+    borderRadius: AppRadii.pill,
+    backgroundColor: AppColors.surfaceMuted,
+  },
+  gradesStatusPublished: {
+    backgroundColor: AppColors.controlActive,
+  },
+  gradesStatusText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.textPrimary,
+  },
+  gradesStatusTextPublished: {
+    color: AppColors.controlOnActive,
   },
   teacherActions: {
     flexDirection: 'row',

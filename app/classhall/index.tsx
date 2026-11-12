@@ -1,5 +1,6 @@
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { HallListSkeleton } from '@/components/skeletons';
+import { GradesTile } from '@/components/grades/grades-tile';
 import { daysUntil } from '@/components/classhall/hall-ui';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors, AppRadii, AppSpacing, AppTouch } from '@/constants/design-tokens';
@@ -81,7 +82,17 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
           <ThemedText numberOfLines={1} style={styles.cardTeacher}>{hall.teacherName.toLocaleUpperCase('es')}</ThemedText>
         </View>
       </Pressable>
-      {!hall.isTeacher && !!hall.nextEvaluation && daysUntil(hall.nextEvaluation.date) <= 7 && (
+      {!hall.isTeacher && !!hall.newGrades && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('classhall.countNotasNuevasEnSubject', { count: hall.newGrades, subject: hall.subject })}
+          onPress={onOpen}
+          style={({ pressed }) => [styles.cardStrip, styles.gradeStrip, pressed && styles.pressed]}
+        >
+          <ThemedText numberOfLines={1} style={styles.gradeStripText}>{t('classhall.tienesCountNotasNuevas', { count: hall.newGrades })}</ThemedText>
+        </Pressable>
+      )}
+      {!hall.isTeacher && !hall.newGrades && !!hall.nextEvaluation && daysUntil(hall.nextEvaluation.date) <= 7 && (
         <Pressable
           accessibilityRole="button"
           onPress={onOpen}
@@ -217,6 +228,9 @@ export default function ClassHallScreen() {
           )}
         </View>
         </View>
+
+        {/* The student's grades, across every Hall. */}
+        <GradesTile />
 
         {/* Notifications are for students: teachers publish, they are not notified. */}
         {askPush && halls !== null && !canCreate && (
@@ -568,6 +582,16 @@ const styles = StyleSheet.create({
     gap: AppSpacing.md,
     paddingHorizontal: AppSpacing.xl,
     backgroundColor: AppColors.surfaceSoft,
+  },
+  gradeStrip: {
+    backgroundColor: AppColors.accent,
+  },
+  gradeStripText: {
+    flex: 1,
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 20,
+    color: AppColors.textPrimary,
   },
   stripText: {
     flex: 1,
