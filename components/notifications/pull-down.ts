@@ -6,6 +6,7 @@ import { useAnimatedScrollHandler, useSharedValue, withSpring } from 'react-nati
 import type { SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { SPRING_SMOOTH, rubberband } from '@/constants/motion';
+import { pageScrolls } from '@/hooks/use-document-scroll';
 
 // Pulling a list past one of its ends, like turning on Instagram's vanish
 // mode: one firm tap of the haptics when it crosses `threshold` ("armed"), a
@@ -136,7 +137,13 @@ export function usePullDown({ edge, threshold, enabled, onTrigger }: Options): P
         if (!vertical) return;
       }
       // Still scrolling toward the edge: the pull starts once it is there.
-      if (fromEdge.get() > 0.5) {
+      // (When the page scrolls for the list, the page tells where it is.)
+      const gap = pageScrolls()
+        ? edge === 'start'
+          ? window.scrollY
+          : document.documentElement.scrollHeight - window.innerHeight - window.scrollY
+        : fromEdge.get();
+      if (gap > 0.5) {
         at = null;
         if (pull.get() > 0) pull.set(0);
         return;
@@ -162,7 +169,7 @@ export function usePullDown({ edge, threshold, enabled, onTrigger }: Options): P
     };
     // The shared values and worklets are stable; `track` and `release` read `enabled`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, sign, threshold, onTrigger]);
+  }, [edge, enabled, sign, threshold, onTrigger]);
 
   // The web has no native gestures to join: nothing attaches to the list there.
   const native = Gesture.Native().enabled(!WEB);

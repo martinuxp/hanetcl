@@ -23,7 +23,6 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
-import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = [
   { value: 'regional', label: t('events.cercaDeMi'), accessibilityLabel: t('events.cercaDeMi') },
@@ -34,8 +33,6 @@ const TABS: { value: EventKind; label: string; accessibilityLabel: string }[] = 
 const CITY = { name: 'Temuco', region: 'Región de la Araucanía' }; // i18n-ignore
 
 export default function EventsScreen() {
-  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
-  const pageScroll = useDocumentScroll();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
@@ -222,7 +219,6 @@ export default function EventsScreen() {
   return (
     <FrostedScreen style={styles.container}>
       <FlatList
-        ref={pageScroll}
         data={visible}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (

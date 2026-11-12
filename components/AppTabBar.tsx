@@ -116,11 +116,13 @@ function MotionTab({ active, back = false, icon, label, onPress, onBack }: { act
         if (!active && Platform.OS === 'ios') void Haptics.selectionAsync();
         onPress();
       }}
-      onFocus={() => setFocused(true)}
+      // The ring is for the keyboard: a tap on the web focuses the button too.
+      onFocus={event => setFocused(Platform.OS !== 'web' || focusVisible(event.target))}
       onBlur={() => setFocused(false)}
       style={({ pressed }) => [styles.motionPress, focused && styles.motionPressFocused, pressed && styles.motionPressPressed]}
     >
-      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
+      {/* +1: the web reports whole pixels, and a label cut by a fraction ends in "…". */}
+      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width) + 1)} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
       <Animated.View style={[styles.motionTab, pillStyle]}>
         <Animated.View pointerEvents="none" style={[styles.motionFill, fillStyle]} />
         <Animated.View style={[styles.motionIconBox, tabIconStyle]}>
@@ -136,6 +138,15 @@ function MotionTab({ active, back = false, icon, label, onPress, onBack }: { act
       </Animated.View>
     </Pressable>
   );
+}
+
+function focusVisible(target: unknown) {
+  const element = target as { matches?: (selector: string) => boolean } | null;
+  try {
+    return element?.matches?.(':focus-visible') ?? true;
+  } catch {
+    return true;
+  }
 }
 
 // The center action swaps by section: the new one grows in where the old one shrinks away.
@@ -433,12 +444,12 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           )}
 
           {(!compact || hasCenter) && (
-            <View style={[styles.center, compact && !onBack && styles.centerAlone]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
+            <View style={[styles.center, compact && !onBack && styles.centerAlone, Platform.OS === 'web' && styles.centerWeb]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
               <Animated.View
                 key={controlsKey}
                 entering={reduceMotion ? undefined : CENTER_IN}
                 exiting={reduceMotion ? undefined : CENTER_OUT}
-                style={styles.centerSwap}
+                style={[styles.centerSwap, Platform.OS === 'web' && styles.centerSwapWeb]}
               >
                 {center ?? searchPill ?? <HanetLogo />}
               </Animated.View>
@@ -781,6 +792,20 @@ const styles = StyleSheet.create({
   centerSwap: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // On the web the swap animation leaves the action absolutely positioned,
+  // and Safari doesn't move an absolute box that sits where the flow put it
+  // when the slot changes size (the pill growing into "Inicio"): the logo
+  // stayed behind, under the pill. Pinned to the slot it follows it.
+  centerWeb: {
+    alignSelf: 'stretch',
+  },
+  centerSwapWeb: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   motionMeasure: { position: 'absolute', left: -10000, top: -10000, opacity: 0, fontSize: 14, fontFamily: 'DMSans_700Bold' },
   motionPress: { borderRadius: 999, outlineStyle: 'none' as any },

@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, usePathname } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
@@ -10,14 +10,37 @@ import { useDesktopNav } from '@/hooks/use-desktop-layout';
 // app draws every screen inside a box the size of the window, so on the
 // phone layout of the web the screen's main list lends its scroll to the
 // page: the app stays fixed over the whole window, an empty block under it
-// makes the page as tall as the list, and scrolling the page scrolls the
-// list to the same place. The list still sends its own scroll events, so
-// everything that reads them keeps working.
+// makes the page as tall as the list, and the list's content slides with
+// the page's scroll through a scroll-linked animation, which the browser
+// runs itself (moving it from script lagged a frame behind the finger).
+// The list doesn't scroll, so it sends no scroll events: only ScrollViews
+// whose screen doesn't read them use this (not virtualized FlatLists).
 //
 // Only one screen holds the page at a time: the one on screen. Wide windows
 // (side navigation) keep scrolling inside the box, as on a computer.
 
 let owner: symbol | null = null;
+// Where each screen's list was when it let go of the page, by route: a
+// hidden list forgets its place, and going back can draw the screen anew.
+const places = new Map<string, number>();
+
+declare const ScrollTimeline: {
+  new (options: { source: Element; axis?: 'block' | 'inline' | 'x' | 'y' }): AnimationTimeline;
+};
+
+/**
+ * Browsers that move an animation with the page's scroll (Chrome 115+,
+ * Safari 26+). Without it the list keeps scrolling inside the app, as before:
+ * following the page from script lags behind the finger.
+ */
+export function scrollLinked() {
+  return typeof window !== 'undefined' && 'ScrollTimeline' in window;
+}
+
+/** Whether a screen's list is scrolling with the page right now. */
+export function pageScrolls() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains(ROOT_CLASS);
+}
 
 type Scrollable = {
   getScrollableNode?: () => unknown;
@@ -39,6 +62,7 @@ function scrollNode(target: unknown): HTMLElement | null {
  */
 export function useDocumentScroll(enabled = true): (list: unknown) => void {
   const [list, setList] = useState<unknown>(null);
+  const pathname = usePathname();
   // (expo-router's focus effect also works where a screen is drawn outside a navigator.)
   const [focused, setFocused] = useState(false);
   useFocusEffect(
@@ -51,9 +75,10 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
   const active = Platform.OS === 'web' && enabled && focused && phoneLayout;
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !scrollLinked()) return;
     const node = scrollNode(list);
-    if (!node) return;
+    const content = node?.firstElementChild;
+    if (!node || !(content instanceof HTMLElement)) return;
     const id = Symbol('document-scroll');
     owner = id;
     const root = document.documentElement;
@@ -66,49 +91,52 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
     }
     const page = spacer;
 
-    const start = node.scrollTop;
+    const start = places.get(pathname) ?? node.scrollTop;
     root.classList.add(ROOT_CLASS);
-    // The finger moves the page, not the list (it still scrolls from code).
+    // The finger moves the page; the list itself stays at its top and its
+    // content slides with the page.
     node.style.overflowY = 'hidden';
+    node.scrollTop = 0;
 
-    const range = () => Math.max(0, node.scrollHeight - node.clientHeight);
-    const size = () => {
-      page.style.height = `${range() + window.innerHeight}px`;
+    // The layout height, which a transform doesn't change (scrollHeight does).
+    const range = () => Math.max(0, content.offsetHeight - node.clientHeight);
+    let animation: Animation | null = null;
+    let pending: number | null = start;
+    let laidOut = -1;
+    const layout = () => {
+      // Hidden (leaving, or not back yet): nothing to measure.
+      if (node.clientHeight === 0) return;
+      const distance = range();
+      page.style.height = `${distance + window.innerHeight}px`;
+      // Back where it was, once the screen has its height again.
+      if (pending !== null && (distance > 0 || pending === 0)) {
+        window.scrollTo(0, Math.min(pending, distance));
+        pending = null;
+      }
+      if (distance === laidOut && animation) return;
+      laidOut = distance;
+      animation?.cancel();
+      // Run by the browser's compositor from the page's scroll, frame by
+      // frame with the finger: no script between the scroll and the content.
+      animation = content.animate(
+        [{ transform: 'translateY(0px)' }, { transform: `translateY(${-distance}px)` }],
+        { timeline: new ScrollTimeline({ source: document.scrollingElement ?? root, axis: 'block' }), fill: 'both', easing: 'linear' },
+      );
     };
-    // Where `follow` last put the list, to tell its own moves from the screen's.
-    let placed = node.scrollTop;
-    const follow = () => {
-      const y = Math.min(range(), Math.max(0, window.scrollY));
-      placed = y;
-      if (Math.abs(node.scrollTop - y) >= 0.5) node.scrollTop = y;
-    };
-    size();
-    window.scrollTo(0, start);
-    follow();
+    layout();
 
-    // The screen scrolled its list from code ("Volver arriba"): the page goes along.
-    const lead = () => {
-      if (Math.abs(node.scrollTop - placed) < 1) return;
-      placed = node.scrollTop;
-      window.scrollTo(0, node.scrollTop);
-    };
-
-    window.addEventListener('scroll', follow, { passive: true });
-    node.addEventListener('scroll', lead, { passive: true });
-    window.addEventListener('resize', size);
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
-      size();
-      follow();
-    });
+    window.addEventListener('resize', layout);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(layout);
     observer?.observe(node);
-    for (const child of Array.from(node.children)) observer?.observe(child);
+    observer?.observe(content);
 
     return () => {
-      window.removeEventListener('scroll', follow);
-      node.removeEventListener('scroll', lead);
-      window.removeEventListener('resize', size);
+      window.removeEventListener('resize', layout);
       observer?.disconnect();
-      const kept = node.scrollTop;
+      // (By the last layout: a screen being left may already be hidden, with no height.)
+      const kept = Math.min(Math.max(laidOut, 0), Math.max(0, window.scrollY));
+      places.set(pathname, kept);
+      animation?.cancel();
       node.style.overflowY = '';
       node.scrollTop = kept;
       // Another screen may already hold the page.
@@ -118,7 +146,7 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
       page.style.height = '0px';
       window.scrollTo(0, 0);
     };
-  }, [active, list]);
+  }, [active, list, pathname]);
 
   return setList;
 }
