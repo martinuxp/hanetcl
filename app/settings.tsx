@@ -1,16 +1,18 @@
 import { useSecretTaps, VersionEasterEgg } from '@/components/settings/version-easter-egg';
+import { SettingsGroup, SettingsLinkRow, SettingsNote, SettingsToggleRow } from '@/components/settings/settings-list';
 import { ThemedText } from '@/components/themed-text';
-import { HanetButton } from '@/components/ui/hanet-button';
-import { HanetChoice } from '@/components/ui/hanet-select';
+import { HanetAvatar } from '@/components/ui/hanet-avatar';
 import { APP_RELEASE_STAGE, APP_VERSION, APP_VERSION_LABEL } from '@/constants/app-version';
 import { AppColors, AppPressed, AppRadii, AppSpacing, AppType } from '@/constants/design-tokens';
 import { APP_ICONS, canChangeAppIcon, currentAppIcon, setAppIcon } from '@/services/app-icon';
 import type { AppIconId } from '@/services/app-icon';
 import { describeAuthError, getMyProfile, useSession } from '@/services/auth-service';
+import type { MyProfile } from '@/services/auth-service';
+import { useCached } from '@/services/cache';
 import { examRemindersEnabled, setExamRemindersEnabled } from '@/services/exam-reminders';
 import { gradesLockAvailable, setGradesLock, useGradesLock } from '@/services/grades-lock';
+import { getProfilePhotoUrl } from '@/services/profile-service';
 import { enablePush, openNotificationSettings, pushPermission, pushSupport, saveAnniversaryNotifications, saveClasshallNotifications, saveFeedNotifications, saveMorningNotifications } from '@/services/push-service';
-import { widgetsAvailable } from '@/services/widget-service';
 import type { PushPermission } from '@/services/push-service';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -38,7 +40,6 @@ export default function SettingsScreen() {
   const [classhallOn, setClasshallOn] = useState(true);
   const [permission, setPermission] = useState<PushPermission | null>(null);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
-  const [savingNotifications, setSavingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const support = pushSupport();
   // The 7:00 summary (saved with the account) and the evaluation reminders (this phone only).
@@ -50,7 +51,10 @@ export default function SettingsScreen() {
   const [savingLock, setSavingLock] = useState(false);
   const [anniversaryOn, setAnniversaryOn] = useState(true);
   const [feedOn, setFeedOn] = useState(true);
-  const [savingDay, setSavingDay] = useState(false);
+  // The account card: what the phone kept shows until this visit's load answers.
+  const keptProfile = useCached<MyProfile>(user ? 'profile' : null);
+  const [profile, setProfile] = useState<MyProfile | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     void examRemindersEnabled().then(setExamsOn);
@@ -60,14 +64,17 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!user) return;
     let active = true;
+    // The photo is optional: failing to load it leaves the blobatar.
+    getProfilePhotoUrl(user.uid).then(url => { if (active) setPhotoUrl(url); }).catch(() => undefined);
     (async () => {
       try {
-        const profile = await getMyProfile();
+        const loaded = await getMyProfile();
         if (!active) return;
-        setClasshallOn(profile.classhallNotifications !== false);
-        setMorningOn(profile.morningNotifications !== false);
-        setAnniversaryOn(profile.anniversaryNotifications !== false);
-        setFeedOn(profile.feedNotifications !== false);
+        setProfile(loaded);
+        setClasshallOn(loaded.classhallNotifications !== false);
+        setMorningOn(loaded.morningNotifications !== false);
+        setAnniversaryOn(loaded.anniversaryNotifications !== false);
+        setFeedOn(loaded.feedNotifications !== false);
         setPermission(await pushPermission());
       } catch (error) {
         if (active) setNotificationsError(describeAuthError(error, t('settings.noPudimosCargarTusAjustes')));
@@ -95,72 +102,19 @@ export default function SettingsScreen() {
     }
   };
 
-  const chooseClasshall = async (on: boolean) => {
-    if (savingNotifications || on === classhallOn) return;
+  // Every account switch saves the same way: flip at once, undo if the save fails.
+  // Turning one on asks the phone too, if it has not been asked yet.
+  const saveSwitch = async (on: boolean, current: boolean, set: (on: boolean) => void, save: (on: boolean) => Promise<unknown>) => {
+    if (on === current) return;
     setNotificationsError(null);
-    setSavingNotifications(true);
-    setClasshallOn(on);
+    set(on);
     try {
-      await saveClasshallNotifications(on);
-      // Turning them on asks the phone too, if it has not been asked yet.
+      await save(on);
       if (on && permission === 'undetermined') setPermission(await enablePush());
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') void Haptics.selectionAsync();
     } catch (error) {
-      setClasshallOn(!on);
+      set(!on);
       setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
-    } finally {
-      setSavingNotifications(false);
-    }
-  };
-
-  const chooseMorning = async (on: boolean) => {
-    if (savingDay || on === morningOn) return;
-    setNotificationsError(null);
-    setSavingDay(true);
-    setMorningOn(on);
-    try {
-      await saveMorningNotifications(on);
-      if (on && permission === 'undetermined') setPermission(await enablePush());
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      setMorningOn(!on);
-      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
-    } finally {
-      setSavingDay(false);
-    }
-  };
-
-  const chooseAnniversary = async (on: boolean) => {
-    if (savingDay || on === anniversaryOn) return;
-    setNotificationsError(null);
-    setSavingDay(true);
-    setAnniversaryOn(on);
-    try {
-      await saveAnniversaryNotifications(on);
-      if (on && permission === 'undetermined') setPermission(await enablePush());
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      setAnniversaryOn(!on);
-      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
-    } finally {
-      setSavingDay(false);
-    }
-  };
-
-  const chooseFeed = async (on: boolean) => {
-    if (savingDay || on === feedOn) return;
-    setNotificationsError(null);
-    setSavingDay(true);
-    setFeedOn(on);
-    try {
-      await saveFeedNotifications(on);
-      if (on && permission === 'undetermined') setPermission(await enablePush());
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      setFeedOn(!on);
-      setNotificationsError(describeAuthError(error, t('settings.noPudimosGuardarElCambio')));
-    } finally {
-      setSavingDay(false);
     }
   };
 
@@ -172,31 +126,140 @@ export default function SettingsScreen() {
   };
 
   const chooseExams = async (on: boolean) => {
-    if (savingDay || on === examsOn) return;
-    setSavingDay(true);
+    if (on === examsOn) return;
     setExamsOn(on);
-    try {
-      if (on && permission === 'undetermined') setPermission(await enablePush());
-      await setExamRemindersEnabled(on);
-      if (Platform.OS !== 'web') void Haptics.selectionAsync();
-    } finally {
-      setSavingDay(false);
-    }
+    if (on && permission === 'undetermined') setPermission(await enablePush());
+    await setExamRemindersEnabled(on);
+    if (Platform.OS !== 'web') void Haptics.selectionAsync();
   };
 
   const [eggOpen, setEggOpen] = useState(false);
   const tapVersion = useSecretTaps(useCallback(() => setEggOpen(true), []));
 
+  // Any account notification on while the phone blocks or never asked: say so above the group.
+  const anyPushOn = classhallOn || morningOn || anniversaryOn || feedOn || examsOn;
+  const name = profile?.fullName || keptProfile?.fullName || user?.email || 'HaNet ID';
+  const avatarSeed = profile?.avatarSeed ?? keptProfile?.avatarSeed ?? null;
+
+  const notificationsFooter = support === 'web'
+    ? t('settings.lasNotificacionesLleganALa')
+    : support === 'expo-go-android'
+      ? t('settings.enAndroidLasNotificacionesNecesitan')
+      : t('settings.elFeedIgualQuedaEn');
+
   return (
     <FrostedScreen style={styles.screen}>
       <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText style={styles.eyebrow}>HaNet ID</ThemedText>
-          <ThemedText accessibilityRole="header" style={styles.title}>{t('common.configuraciones')}</ThemedText>
+        <ThemedText accessibilityRole="header" style={styles.title}>{t('common.configuraciones')}</ThemedText>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={user?.email ? `${name}, ${user.email}` : name}
+          accessibilityHint={t('editProfile.editarPerfil')}
+          onPress={() => router.push('/edit-profile')}
+          style={({ pressed }) => [styles.account, pressed && AppPressed]}
+        >
+          <HanetAvatar seed={avatarSeed} photoUrl={photoUrl} fallback={initialsOf(name)} width={56} radius={16} />
+          <View style={styles.accountCopy}>
+            <ThemedText numberOfLines={1} style={styles.accountName}>{name}</ThemedText>
+            {!!user?.email && <ThemedText numberOfLines={1} style={styles.accountDetail}>{user.email}</ThemedText>}
+            <ThemedText style={styles.accountAction}>{t('editProfile.editarPerfil')}</ThemedText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />
+        </Pressable>
+
+        <View style={styles.block}>
+          {support === 'supported' && anyPushOn && (permission === 'denied' || permission === 'undetermined') && (
+            <View style={styles.banner}>
+              <Ionicons name="notifications-off-outline" size={18} color={AppColors.errorText} />
+              <ThemedText style={styles.bannerText}>
+                {permission === 'denied' ? t('settings.estanBloqueadasEnEsteTelefono') : t('settings.esteTelefonoTodaviaNoLas')}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={permission === 'denied' ? openNotificationSettings : () => void enablePush().then(setPermission)}
+                style={({ pressed }) => pressed && styles.pressedText}
+              >
+                <ThemedText style={styles.bannerAction}>
+                  {permission === 'denied' ? t('common.abrirAjustes') : t('settings.permitir')}
+                </ThemedText>
+              </Pressable>
+            </View>
+          )}
+          <SettingsGroup
+            title={t('settings.notificaciones')}
+            footer={(
+              <>
+                {!!notificationsError && <SettingsNote error>{notificationsError}</SettingsNote>}
+                <SettingsNote>{notificationsFooter}</SettingsNote>
+              </>
+            )}
+          >
+            <SettingsToggleRow
+              icon="school-outline"
+              label="ClassHall"
+              detail={t('settings.anunciosTareasYRevisiones')}
+              value={classhallOn}
+              onChange={on => void saveSwitch(on, classhallOn, setClasshallOn, saveClasshallNotifications)}
+              disabled={loadingNotifications}
+            />
+            <SettingsToggleRow
+              icon="sunny-outline"
+              label={t('settings.resumenDeLas700')}
+              detail={t('settings.tuPrimeraClaseYLo')}
+              value={morningOn}
+              onChange={on => void saveSwitch(on, morningOn, setMorningOn, saveMorningNotifications)}
+              disabled={loadingNotifications}
+            />
+            <SettingsToggleRow
+              icon="hourglass-outline"
+              label={t('settings.avisosDePruebas')}
+              detail={support === 'web' ? t('settings.soloEnLaAppDelTelefono') : t('settings.n24Y4HorasAntesSolo')}
+              value={examsOn}
+              onChange={on => void chooseExams(on)}
+              disabled={support === 'web'}
+            />
+            <SettingsToggleRow
+              icon="flag-outline"
+              label={t('common.aniversario')}
+              detail={t('settings.pruebasFlashYPlazosDe')}
+              value={anniversaryOn}
+              onChange={on => void saveSwitch(on, anniversaryOn, setAnniversaryOn, saveAnniversaryNotifications)}
+              disabled={loadingNotifications}
+            />
+            <SettingsToggleRow
+              icon="newspaper-outline"
+              label={t('layout.feed')}
+              detail={t('settings.publicacionesEnviadasComoNotificacion')}
+              value={feedOn}
+              onChange={on => void saveSwitch(on, feedOn, setFeedOn, saveFeedNotifications)}
+              disabled={loadingNotifications}
+            />
+          </SettingsGroup>
         </View>
 
-        <Section title={t('settings.iconoDeLaApp')}>
-          <View accessibilityRole="radiogroup" style={styles.icons}>
+        <SettingsGroup
+          title={t('settings.privacidad')}
+          footer={lockAvailable === false
+            ? Platform.OS === 'web'
+              ? t('settings.laProteccionDeNotasSe')
+              : t('settings.paraProtegerTusNotasEste')
+            : t('settings.valeSoloEnEsteTelefono')}
+        >
+          <SettingsToggleRow
+            icon="lock-closed-outline"
+            label={t('settings.protegerNotas')}
+            detail={t('settings.pideFaceIdHuellaO')}
+            value={gradesLock.enabled}
+            onChange={on => void chooseGradesLock(on)}
+            disabled={savingLock || !gradesLock.ready || !lockAvailable}
+          />
+        </SettingsGroup>
+
+        <View style={styles.block}>
+          <ThemedText accessibilityRole="header" style={styles.groupTitle}>{t('settings.iconoDeLaApp')}</ThemedText>
+          <View accessibilityRole="radiogroup" style={[styles.iconCard, !iconsAvailable && styles.iconCardOff]}>
             {APP_ICONS.map(option => {
               const selected = iconsAvailable && option.id === icon;
               return (
@@ -211,200 +274,87 @@ export default function SettingsScreen() {
                 >
                   <View style={[styles.iconRing, selected && styles.iconRingSelected]}>
                     <Image source={option.preview} style={styles.iconImage} contentFit="cover" />
-                    {selected && (
-                      <View style={styles.iconCheck}>
-                        <Ionicons name="checkmark" size={14} color={AppColors.controlOnActive} />
-                      </View>
-                    )}
                   </View>
                   <ThemedText numberOfLines={1} style={[styles.iconLabel, selected && styles.iconLabelSelected]}>{option.label}</ThemedText>
                 </Pressable>
               );
             })}
           </View>
-          {!!iconError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{iconError}</ThemedText>}
-          <ThemedText style={styles.note}>
-            {iconsAvailable
-              ? t('settings.elIconoCambiaEnTu')
-              : Platform.OS === 'web'
-                ? t('settings.elIconoSeCambiaDesde')
-                : t('settings.paraCambiarElIconoNecesitas')}
-          </ThemedText>
-        </Section>
-
-        <Section title={t('settings.notificacionesDeClasshall')} plain>
-          <HanetChoice
-            label={t('settings.notificacionesDeClasshall')}
-            options={[{ value: 'on', label: t('settings.activadas') }, { value: 'off', label: t('settings.desactivadas') }]}
-            value={classhallOn ? 'on' : 'off'}
-            onChange={value => void chooseClasshall(value === 'on')}
-            disabled={savingNotifications || loadingNotifications}
-          />
-          {!!notificationsError && <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>{notificationsError}</ThemedText>}
-          <ThemedText style={styles.note}>
-            {support === 'web'
-              ? t('settings.lasNotificacionesLleganALa')
-              : support === 'expo-go-android'
-                ? t('settings.enAndroidLasNotificacionesNecesitan')
-                : t('settings.anunciosTareasYMaterialNuevo')}
-          </ThemedText>
-          {support === 'supported' && classhallOn && permission === 'denied' && (
-            <>
-              <ThemedText style={styles.note}>{t('settings.estanBloqueadasEnLosAjustes')}</ThemedText>
-              <HanetButton label={t('common.abrirAjustes')} variant="surface" onPress={openNotificationSettings} />
-            </>
+          {!!iconError && <SettingsNote error>{iconError}</SettingsNote>}
+          {!iconsAvailable && (
+            <SettingsNote>
+              {Platform.OS === 'web' ? t('settings.elIconoSeCambiaDesde') : t('settings.paraCambiarElIconoNecesitas')}
+            </SettingsNote>
           )}
-          {support === 'supported' && classhallOn && permission === 'undetermined' && (
-            <HanetButton label={t('settings.permitirEnEsteTelefono')} variant="surface" onPress={() => void enablePush().then(setPermission)} />
-          )}
-        </Section>
+        </View>
 
-        <Section title={t('settings.tuDiaYTusPruebas')} plain>
-          <HanetChoice
-            label={t('settings.resumenDeLas700')}
-            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
-            value={morningOn ? 'on' : 'off'}
-            onChange={value => void chooseMorning(value === 'on')}
-            disabled={savingDay || loadingNotifications}
-          />
-          <ThemedText style={styles.note}>{t('settings.deLunesAViernesA')}</ThemedText>
-          <HanetChoice
-            label={t('settings.avisosDePruebas')}
-            options={[{ value: 'on', label: t('settings.activados') }, { value: 'off', label: t('settings.desactivados') }]}
-            value={examsOn ? 'on' : 'off'}
-            onChange={value => void chooseExams(value === 'on')}
-            disabled={savingDay || support === 'web'}
-          />
-          <ThemedText style={styles.note}>
-            {support === 'web'
-              ? t('settings.losAvisosLleganALa')
-              : widgetsAvailable
-                ? t('settings.n24Y4HorasAntes')
-                : t('settings.n24Y4HorasAntes2')}
-          </ThemedText>
-          <HanetChoice
-            label={t('common.aniversario')}
-            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
-            value={anniversaryOn ? 'on' : 'off'}
-            onChange={value => void chooseAnniversary(value === 'on')}
-            disabled={savingDay || loadingNotifications}
-          />
-          <ThemedText style={styles.note}>{t('settings.lasPruebasFlashYLos')}</ThemedText>
-          <HanetChoice
-            label={t('layout.feed')}
-            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
-            value={feedOn ? 'on' : 'off'}
-            onChange={value => void chooseFeed(value === 'on')}
-            disabled={savingDay || loadingNotifications}
-          />
-          <ThemedText style={styles.note}>{t('settings.lasPublicacionesQueElLiceo')}</ThemedText>
-        </Section>
+        <SettingsGroup title={t('settings.acercaDeHanet')}>
+          <SettingsLinkRow icon="sparkles-outline" label={t('settings.novedades')} detail={APP_VERSION_LABEL} onPress={() => router.push('/whats-new')} />
+          <SettingsLinkRow icon="mail-outline" label={t('settings.contacto')} hint={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
+          <SettingsLinkRow icon="document-text-outline" label={t('licenses.licenciasDeCodigoAbierto')} onPress={() => router.push('/licenses')} />
+        </SettingsGroup>
 
-        <Section title={t('settings.privacidad')} plain>
-          <HanetChoice
-            label={t('settings.protegerNotas')}
-            options={[{ value: 'on', label: t('settings.activado') }, { value: 'off', label: t('settings.desactivado') }]}
-            value={gradesLock.enabled ? 'on' : 'off'}
-            onChange={value => void chooseGradesLock(value === 'on')}
-            disabled={savingLock || !gradesLock.ready || !lockAvailable}
-          />
-          <ThemedText style={styles.note}>
-            {lockAvailable === false
-              ? Platform.OS === 'web'
-                ? t('settings.laProteccionDeNotasSe')
-                : t('settings.paraProtegerTusNotasEste')
-              : t('settings.paraVerTusNotasHanet')}
-          </ThemedText>
-        </Section>
-
-        <Section title={t('settings.cuenta')}>
-          <Row icon="pencil-outline" label={t('editProfile.editarPerfil')} detail={t('settings.fotoBlobatarYLetraDe')} onPress={() => router.push('/edit-profile')} />
-          {!!user?.email && <Row icon="mail-outline" label={t('common.correo')} detail={user.email} />}
-        </Section>
-
-        <Section title={t('settings.acercaDeHanet')}>
-          <Row icon="information-circle-outline" label={t('settings.version')} detail={APP_VERSION_LABEL} onTap={tapVersion} />
-          <Row icon="sparkles-outline" label={t('settings.novedades')} detail={t('settings.queCambioEnAppversionlabel', { appVersionLabel: APP_VERSION_LABEL })} onPress={() => router.push('/whats-new')} />
-          <Row icon="chatbubble-ellipses-outline" label={t('settings.contacto')} detail={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
-          <Row icon="document-text-outline" label={t('licenses.licenciasDeCodigoAbierto')} detail={t('settings.lasBibliotecasConQueEsta')} onPress={() => router.push('/licenses')} />
-        </Section>
-
-        <HanetButton
-          label={t('common.cerrarSesion')}
-          variant="surface"
-          accessibilityHint={user?.email ? t('settings.sesionIniciadaComoEmail', { email: user.email }) : undefined}
-          onPress={() => void signOut()}
-        />
+        <View style={styles.block}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.cerrarSesion')}
+            accessibilityHint={user?.email ? t('settings.sesionIniciadaComoEmail', { email: user.email }) : undefined}
+            onPress={() => void signOut()}
+            style={({ pressed }) => [styles.signOut, pressed && AppPressed]}
+          >
+            <ThemedText style={styles.signOutText}>{t('common.cerrarSesion')}</ThemedText>
+          </Pressable>
+          {/* Looks like plain text; seven quick taps open the secret. */}
+          <Pressable accessibilityLabel={`${t('settings.version')} ${APP_VERSION_LABEL}`} onPress={tapVersion} style={styles.versionTap}>
+            <ThemedText style={styles.version}>HaNet {APP_VERSION_LABEL}</ThemedText>
+          </Pressable>
+        </View>
       </ScrollView>
       <VersionEasterEgg visible={eggOpen} version={APP_VERSION} stage={APP_RELEASE_STAGE} onClose={() => setEggOpen(false)} />
     </FrostedScreen>
   );
 }
 
-// `plain` drops the card, for chips: they share the card's color.
-function Section({ title, plain = false, children }: { title: string; plain?: boolean; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <ThemedText accessibilityRole="header" style={styles.sectionTitle}>{title}</ThemedText>
-      <View style={plain ? styles.plain : styles.card}>{children}</View>
-    </View>
-  );
-}
+// Four fit side by side from 375 pt wide phones up.
+const ICON_SIZE = 64;
 
-// `onTap` listens without looking tappable (no chevron, no press dip): for the version's secret.
-function Row({ icon, label, detail, onPress, onTap }: { icon: keyof typeof Ionicons.glyphMap; label: string; detail?: string; onPress?: () => void; onTap?: () => void }) {
-  const content = (
-    <>
-      <View style={styles.rowBadge}>
-        <Ionicons name={icon} size={18} color={AppColors.controlOnActive} />
-      </View>
-      <View style={styles.rowCopy}>
-        <ThemedText style={styles.rowLabel}>{label}</ThemedText>
-        {!!detail && <ThemedText numberOfLines={1} style={styles.rowDetail}>{detail}</ThemedText>}
-      </View>
-      {!!onPress && <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />}
-    </>
-  );
-  if (onTap) return <Pressable style={styles.row} accessibilityLabel={detail ? `${label}: ${detail}` : label} onPress={onTap}>{content}</Pressable>;
-  if (!onPress) return <View style={styles.row} accessible accessibilityLabel={detail ? `${label}: ${detail}` : label}>{content}</View>;
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={detail} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      {content}
-    </Pressable>
-  );
+function initialsOf(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('');
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: AppColors.canvas },
   page: { width: '100%', maxWidth: 430, alignSelf: 'center', paddingHorizontal: AppSpacing.lg, paddingBottom: 150, gap: AppSpacing.xl },
 
-  header: { paddingTop: AppSpacing.lg },
-  eyebrow: { ...AppType.caption, color: AppColors.textSecondary },
-  title: { ...AppType.largeTitle, color: AppColors.textPrimary },
+  title: { ...AppType.largeTitle, color: AppColors.textPrimary, paddingTop: AppSpacing.lg, paddingHorizontal: AppSpacing.xs },
+  block: { gap: AppSpacing.sm },
+  groupTitle: { ...AppType.footnote, fontFamily: 'DMSans_700Bold', color: AppColors.textSecondary, paddingHorizontal: AppSpacing.sm },
 
-  section: { gap: AppSpacing.sm },
-  sectionTitle: { ...AppType.headline, color: AppColors.textPrimary, paddingHorizontal: AppSpacing.xs },
-  plain: { gap: AppSpacing.md, paddingHorizontal: AppSpacing.xs },
-  card: { gap: AppSpacing.md, padding: AppSpacing.lg, borderRadius: AppRadii.xl, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  account: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  accountCopy: { flex: 1, minWidth: 0 },
+  accountName: { ...AppType.headline, fontSize: 17, color: AppColors.textPrimary },
+  accountDetail: { ...AppType.caption, color: AppColors.textSecondary, opacity: 0.8 },
+  accountAction: { ...AppType.caption, fontFamily: 'DMSans_700Bold', color: AppColors.errorText, marginTop: 2 },
 
-  icons: { flexDirection: 'row', justifyContent: 'space-between', gap: AppSpacing.sm },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md, paddingHorizontal: 14, paddingVertical: AppSpacing.md, borderRadius: AppRadii.md, borderCurve: 'continuous', backgroundColor: 'rgba(239,34,116,0.16)' },
+  bannerText: { ...AppType.footnote, flex: 1, color: AppColors.textPrimary },
+  bannerAction: { ...AppType.footnote, fontFamily: 'DMSans_700Bold', color: AppColors.errorText },
+  pressedText: { opacity: 0.6 },
+
+  iconCard: { flexDirection: 'row', justifyContent: 'space-between', gap: AppSpacing.sm, padding: 14, borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  iconCardOff: { opacity: 0.7 },
   iconOption: { flex: 1, alignItems: 'center', gap: AppSpacing.sm },
-  // The ring sits outside the icon so the artwork is never covered.
-  iconRing: { width: '100%', maxWidth: 76, aspectRatio: 1, padding: 3, borderRadius: 22, borderCurve: 'continuous', borderWidth: 2, borderColor: 'transparent' },
-  iconRingSelected: { borderColor: AppColors.controlActive },
-  iconImage: { flex: 1, borderRadius: 17, borderCurve: 'continuous' },
-  iconCheck: { position: 'absolute', right: -6, top: -6, width: 22, height: 22, borderRadius: AppRadii.pill, backgroundColor: AppColors.controlActive, alignItems: 'center', justifyContent: 'center' },
+  // The ring sits outside the icon so the artwork is never covered. A fixed
+  // size keeps it square: with a percentage width, aspectRatio took the
+  // height from the uncapped width and the icons came out tall.
+  iconRing: { width: ICON_SIZE, height: ICON_SIZE, padding: 3, borderRadius: 20, borderCurve: 'continuous', borderWidth: 2, borderColor: 'transparent' },
+  iconRingSelected: { borderColor: AppColors.accent },
+  iconImage: { flex: 1, borderRadius: 15, borderCurve: 'continuous' },
   iconLabel: { ...AppType.caption, color: AppColors.textSecondary, textAlign: 'center' },
   iconLabelSelected: { color: AppColors.textPrimary, fontFamily: 'DMSans_700Bold' },
 
-
-  row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: AppSpacing.md },
-  rowBadge: { width: 36, height: 36, borderRadius: AppRadii.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: AppColors.controlActive },
-  rowCopy: { flex: 1 },
-  rowLabel: { ...AppType.callout, color: AppColors.textPrimary },
-  rowDetail: { ...AppType.caption, color: AppColors.textSecondary },
-
-  note: { ...AppType.caption, color: AppColors.textSecondary, opacity: 0.85 },
-  error: { ...AppType.footnote, fontFamily: 'DMSans_700Bold', color: AppColors.errorText },
-  pressed: { opacity: 0.72 },
+  signOut: { minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: AppRadii.lg, borderCurve: 'continuous', backgroundColor: AppColors.surface },
+  signOutText: { ...AppType.callout, fontSize: 15, fontFamily: 'DMSans_700Bold', color: AppColors.errorText },
+  versionTap: { alignSelf: 'center', paddingVertical: AppSpacing.sm, paddingHorizontal: AppSpacing.lg },
+  version: { ...AppType.caption, color: AppColors.textSecondary, opacity: 0.6 },
 });

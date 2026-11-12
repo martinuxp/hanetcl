@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.7.2-beta",
+      "date": "2026-11-11",
+      "title": "Configuraciones más simple",
+      "items": [
+        "Configuraciones se ordenó: tu cuenta arriba, todas las notificaciones juntas con un interruptor cada una, y después Privacidad, Ícono de la app y Acerca de HaNet.",
+        "Si el teléfono tiene bloqueadas las notificaciones, Configuraciones te avisa y te lleva a los ajustes para activarlas.",
+        "La primera vez que entras al Inicio, HaNet te pregunta si quieres activar las notificaciones, para que no tengas que buscarlas."
+      ]
+    },
+    {
       "version": "0.7.1-beta",
       "date": "2026-11-11",
       "title": "",
