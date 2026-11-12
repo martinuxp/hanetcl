@@ -12,6 +12,10 @@ export const DOCUMENT_SCROLL_CSS = [
   // leaving an empty band at the bottom; in the browser it also spans what
   // the bars uncover once they shrink.
   '#root{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;}',
-  `html.${DOCUMENT_SCROLL_CLASS},html.${DOCUMENT_SCROLL_CLASS} body{height:auto;min-height:100%;overflow:visible;}`,
+  // The page is the same on every screen, whether or not one lends its list
+  // to the page's scroll: on an iPhone's home screen the window measured
+  // differently in each case, so between screens the app ended a band short
+  // of the bottom and the tab bar jumped.
+  'html,body{height:auto;min-height:100%;overflow:visible;}',
   `#${DOCUMENT_SCROLL_SPACER}{width:1px;pointer-events:none;}`,
 ].join('');
