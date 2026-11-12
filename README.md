@@ -93,8 +93,16 @@ firebase deploy --only firestore,storage --project hanet-edu
 ```
 
 ```bash
-firebase deploy --only hosting --project hanet-edu
+firebase deploy --only hosting:hanet-edu --project hanet-edu
 ```
+
+### App web (sitio `hanet-app`)
+
+La app también se publica como web en el sitio de Hosting `hanet-app` (https://hanet-app.web.app), aparte de `hanet-edu` (logos de los correos, términos y `/vincular`). `npm run web:build` la exporta a `dist-web/` (una página HTML por pantalla y `404.html`); como no hay rutas dinámicas, no hace falta reescribir todo a `index.html`. Si algún día se agrega una ruta `[id]`, sumar su `rewrite` en `firebase.json`.
+
+- **Preview por PR:** `.github/workflows/web-preview.yml` publica cada PR en un canal temporal (7 días) y comenta el link. Se activa con la variable del repositorio `WEB_PREVIEWS=on`.
+- **Live:** una release `firebase-deploy-web-<n>` (o `web` en "Run workflow" de `firebase-deploy.yml`). `firebase-deploy-all-<n>` también la incluye.
+- Desde un computador: `npm run web:build && firebase deploy --only hosting:hanet-app --project hanet-edu`.
 
 Agregar `--dry-run` compila y valida sin publicar. Las funciones que envían correos leen el secreto `RESEND_API_KEY`.
 

@@ -47,3 +47,4 @@ app-example
 
 # Local secrets (invitation codes, keys)
 .secrets/
+dist-web/
