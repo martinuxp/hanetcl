@@ -172,6 +172,29 @@
         {
           "faceIDPermission": "HaNet usa Face ID para proteger tus notas en este teléfono."
         }
+      ],
+      [
+        "expo-quick-actions",
+        {
+          "androidIcons": {
+            "calendar": {
+              "foregroundImage": "./assets/shortcuts/calendar.png",
+              "backgroundColor": "#282829"
+            },
+            "classhall": {
+              "foregroundImage": "./assets/shortcuts/classhall.png",
+              "backgroundColor": "#282829"
+            },
+            "events": {
+              "foregroundImage": "./assets/shortcuts/events.png",
+              "backgroundColor": "#282829"
+            },
+            "notifications": {
+              "foregroundImage": "./assets/shortcuts/notifications.png",
+              "backgroundColor": "#282829"
+            }
+          }
+        }
       ]
     ],
     "experiments": {

@@ -5,7 +5,7 @@ import { BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 're
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
@@ -201,6 +201,13 @@ export default function HomeScreen() {
       move(0, () => panelLift.set(0));
     };
   }, [homeLift, move, panelLift, refreshNotifications, seenAt]);
+  // A shortcut (the app icon's or the web app's) opens them right away.
+  const { abrir } = useLocalSearchParams<{ abrir?: string }>();
+  useEffect(() => {
+    if (abrir !== 'notificaciones' || !linked || !contentLoaded) return;
+    router.setParams({ abrir: undefined });
+    if (!panelOpen) openRef.current();
+  }, [abrir, contentLoaded, linked, panelOpen, router]);
   // Android's back button closes the section first.
   useFocusEffect(
     useCallback(() => {

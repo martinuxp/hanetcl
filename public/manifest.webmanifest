@@ -11,13 +11,46 @@
   "orientation": "any",
   "background_color": "#282829",
   "theme_color": "#282829",
-  "categories": [
-    "education"
-  ],
+  "categories": ["education"],
   "prefer_related_applications": false,
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/monochrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "url": "/calendar",
+      "icons": [
+        { "src": "/icons/shortcut-calendar.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+      ]
+    },
+    {
+      "name": "ClassHall",
+      "short_name": "ClassHall",
+      "url": "/classhall",
+      "icons": [
+        { "src": "/icons/shortcut-classhall.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+      ]
+    },
+    {
+      "name": "Eventos",
+      "short_name": "Eventos",
+      "url": "/events",
+      "icons": [
+        { "src": "/icons/shortcut-events.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+      ]
+    },
+    {
+      "name": "Notificaciones",
+      "short_name": "Notificaciones",
+      "url": "/?abrir=notificaciones",
+      "icons": [
+        { "src": "/icons/shortcut-notifications.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+      ]
+    }
   ]
 }
