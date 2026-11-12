@@ -149,6 +149,38 @@ function focusVisible(target: unknown) {
   }
 }
 
+/**
+ * On the web, when a custom (Keyframe) entering animation ends, Reanimated
+ * pins the view where it was at that moment: absolute, with a fixed top,
+ * left, width and height that it never takes off. The side buttons keep
+ * morphing after that (Inicio into Volver, Perfil opening), so the logo or
+ * pill stayed behind, off center and against a button. This box follows the
+ * slot and centers the swap, and lets go of the pin as soon as it's set. The
+ * copy that plays the exiting animation keeps its place until it's gone.
+ */
+const PINNED = ['position', 'top', 'left', 'width', 'height', 'margin'];
+
+function CenterStage({ children }: { children: React.ReactNode }) {
+  const stage = React.useRef<React.ComponentRef<typeof View>>(null);
+
+  React.useEffect(() => {
+    const node = stage.current as unknown as HTMLElement | null;
+    if (Platform.OS !== 'web' || !node || typeof MutationObserver === 'undefined') return;
+    const release = () => {
+      for (const child of Array.from(node.children) as (HTMLElement & { isDummy?: boolean })[]) {
+        if (child.isDummy || child.style.position !== 'absolute') continue;
+        for (const property of PINNED) child.style.removeProperty(property);
+      }
+    };
+    const observer = new MutationObserver(release);
+    observer.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    return () => observer.disconnect();
+  }, []);
+
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return <View ref={stage} style={styles.centerStage}>{children}</View>;
+}
+
 // The center action swaps by section: the new one grows in where the old one shrinks away.
 const CENTER_IN = new Keyframe({
   0: { opacity: 0, transform: [{ scale: 0.8 }] },
@@ -445,14 +477,16 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
           {(!compact || hasCenter) && (
             <View style={[styles.center, compact && !onBack && styles.centerAlone, Platform.OS === 'web' && styles.centerWeb]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-              <Animated.View
-                key={controlsKey}
-                entering={reduceMotion ? undefined : CENTER_IN}
-                exiting={reduceMotion ? undefined : CENTER_OUT}
-                style={[styles.centerSwap, Platform.OS === 'web' && styles.centerSwapWeb]}
-              >
-                {center ?? searchPill ?? <HanetLogo />}
-              </Animated.View>
+              <CenterStage>
+                <Animated.View
+                  key={controlsKey}
+                  entering={reduceMotion ? undefined : CENTER_IN}
+                  exiting={reduceMotion ? undefined : CENTER_OUT}
+                  style={styles.centerSwap}
+                >
+                  {center ?? searchPill ?? <HanetLogo />}
+                </Animated.View>
+              </CenterStage>
             </View>
           )}
 
@@ -793,19 +827,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // On the web the swap animation leaves the action absolutely positioned,
-  // and Safari doesn't move an absolute box that sits where the flow put it
-  // when the slot changes size (the pill growing into "Inicio"): the logo
-  // stayed behind, under the pill. Pinned to the slot it follows it.
+  // See CenterStage.
   centerWeb: {
     alignSelf: 'stretch',
   },
-  centerSwapWeb: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
+  centerStage: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   motionMeasure: { position: 'absolute', left: -10000, top: -10000, opacity: 0, fontSize: 14, fontFamily: 'DMSans_700Bold' },
   motionPress: { borderRadius: 999, outlineStyle: 'none' as any },
