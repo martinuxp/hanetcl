@@ -16,7 +16,7 @@ export const SIDEBAR_WIDTH = 248;
  */
 const NO_SIDE_NAV_ROUTES = [
   '/onboarding', '/auth', '/verify-email', '/join-beta', '/link-institution',
-  '/anniversary/welcome', '/tools/electividad/test', '/tools/electividad/reveal', '/event-checkin',
+  '/anniversary/welcome', '/tools/electividad/test', '/tools/electividad/reveal', '/event-checkin', '/grades/reveal',
 ];
 
 export type DesktopNav = 'bar' | 'rail' | 'sidebar';

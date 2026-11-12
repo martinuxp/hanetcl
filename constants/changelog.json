@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.8.0-beta",
+      "date": "2026-11-12",
+      "title": "HaNet en el computador",
+      "items": [
+        "En una pantalla ancha, HaNet usa una barra lateral con todas las secciones en vez de la barra de abajo.",
+        "El Inicio en el computador muestra tu día de un vistazo: la clase de ahora, lo que viene en el Calendar, eventos, el Feed y tus herramientas.",
+        "ClassHall en el computador muestra tus clases en una grilla con lo que viene esta semana al lado, y cada Hall con su portada a lo ancho.",
+        "Entrar o registrarte desde el computador muestra en qué paso vas, y el Calendar y las ventanas se ven bien en pantallas grandes."
+      ]
+    },
+    {
       "version": "0.7.3-beta",
       "date": "2026-11-12",
       "title": "",

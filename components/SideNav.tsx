@@ -51,7 +51,7 @@ const PanelIcon: NavIcon = ({ size = 22, color }) => (
 const MAIN_ITEMS: NavItem[] = [
   { key: 'home', label: t('layout.inicio'), href: '/', Icon: HomeIcon, match: pathname => pathname === '/' },
   { key: 'calendar', label: t('components.gridMenu.calendario'), href: '/calendar', Icon: CalendarDaysIcon, match: startsWith('/calendar', '/event-info', '/schedule') },
-  { key: 'classhall', label: 'ClassHall', href: '/classhall', Icon: GraduationCapIcon, match: startsWith('/classhall', '/share') },
+  { key: 'classhall', label: 'ClassHall', href: '/classhall', Icon: GraduationCapIcon, match: startsWith('/classhall', '/share', '/grades') },
   { key: 'events', label: t('layout.eventos'), href: '/events', Icon: SparklesIcon, match: startsWith('/events', '/event-detail') },
   { key: 'feed', label: t('layout.feed'), href: '/feed', Icon: MessageCircleIcon, match: startsWith('/feed') },
   { key: 'anniversary', label: t('common.aniversario'), href: '/anniversary', Icon: TrophyIcon, match: startsWith('/anniversary') },
