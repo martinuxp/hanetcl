@@ -23,6 +23,7 @@ import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View, type
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 function openLink(url: string) {
   if (url) void WebBrowser.openBrowserAsync(url);
@@ -51,6 +52,8 @@ function hostOf(url: string) {
 }
 
 export default function EventDetailScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
@@ -182,7 +185,7 @@ export default function EventDetailScreen() {
 
   return (
     <FrostedScreen style={styles.container}>
-      <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={list => { scroll.current = list; pageScroll(list); }} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
         <EventGlow position="top" colors={event.palette} />
         <EventGlow position="bottom" colors={event.palette} />
         <View style={styles.topBar}>

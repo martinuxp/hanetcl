@@ -1,14 +1,20 @@
 {
+  "id": "/",
   "name": "HaNet",
   "short_name": "HaNet",
   "description": "Tu liceo al día: Calendar, ClassHall, eventos y más.",
   "lang": "es-CL",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#282829",
   "theme_color": "#282829",
+  "categories": [
+    "education"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

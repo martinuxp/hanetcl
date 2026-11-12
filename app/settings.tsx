@@ -23,10 +23,13 @@ import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 const CONTACT = 'muxp@muxp.art';
 
 export default function SettingsScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut } = useSession();
@@ -149,7 +152,7 @@ export default function SettingsScreen() {
 
   return (
     <FrostedScreen style={styles.screen}>
-      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={pageScroll} contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <ThemedText accessibilityRole="header" style={styles.title}>{t('common.configuraciones')}</ThemedText>
 
         <Pressable

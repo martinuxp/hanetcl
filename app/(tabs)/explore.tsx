@@ -23,6 +23,7 @@ import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { months, t } from '@/i18n';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 const ICONS = {
   logo: require('@/assets/icons/auth/logo-mark.svg'),
@@ -48,6 +49,8 @@ function initialsOf(name: string) {
 }
 
 export default function ProfileScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
@@ -176,7 +179,7 @@ export default function ProfileScreen() {
 
   return (
     <FrostedScreen style={styles.screen}>
-      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={pageScroll} contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="HaNet ID">
             <Image source={ICONS.logo} style={styles.brandMark} contentFit="contain" />

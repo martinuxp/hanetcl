@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.8.1-beta",
+      "date": "2026-11-12",
+      "title": "",
+      "items": [
+        "En el navegador del celular ya puedes deslizar hacia arriba al final del Inicio para abrir tus notificaciones, igual que en la app.",
+        "En el navegador del celular, HaNet ocupa toda la pantalla y la barra del navegador se esconde al bajar."
+      ]
+    },
+    {
       "version": "0.8.0-beta",
       "date": "2026-11-12",
       "title": "HaNet en el computador",

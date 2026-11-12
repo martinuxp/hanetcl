@@ -22,6 +22,7 @@ import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { WeekPanel, WideHallCard, isNow } from '@/components/classhall/hall-grid';
 import { useSideNav } from '@/hooks/use-desktop-layout';
 import { t } from '@/i18n';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 function evaluationNotice(date: number) {
   const days = daysUntil(date);
@@ -124,6 +125,8 @@ function HallCard({ hall, onOpen, next }: { hall: Hall; onOpen: () => void; next
 }
 
 export default function ClassHallScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing } = useSession();
@@ -196,7 +199,7 @@ export default function ClassHallScreen() {
 
   return (
     <FrostedScreen style={styles.container} bottom>
-      <ScrollView contentContainerStyle={withTopInset([styles.content, wide && styles.contentWide], insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={pageScroll} contentContainerStyle={withTopInset([styles.content, wide && styles.contentWide], insets.top)} showsVerticalScrollIndicator={false}>
         {!wide && (
         <View style={styles.topBar}>
           <ThemedText style={styles.brand}>HaNet <ThemedText style={styles.brandSmall}>ClassHall</ThemedText></ThemedText>
