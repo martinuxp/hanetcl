@@ -5,6 +5,7 @@ import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider, MD3DarkTheme, configureFonts } from 'react-native-paper';
 import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_400Regular_Italic, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_700Bold_Italic } from '@expo-google-fonts/dm-sans';
 import * as SplashScreen from 'expo-splash-screen';
@@ -184,6 +185,7 @@ export default function RootLayout() {
   }
 
   return (
+    <WebSafeArea>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider theme={paperTheme}>
         <ThemeProvider value={navigationTheme}>
@@ -266,10 +268,26 @@ export default function RootLayout() {
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>
+    </WebSafeArea>
   );
 }
 
+/**
+ * Expo Router's own provider gives the web zero insets (so the static HTML
+ * hydrates without a mismatch): installed on a phone's home screen, HaNet ran
+ * under the clock and the battery and behind the home indicator. This one
+ * measures the screen's real edges once the page is up. The phone apps keep
+ * Expo Router's.
+ */
+function WebSafeArea({ children }: { children: React.ReactNode }) {
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return <SafeAreaProvider style={styles.fill}>{children}</SafeAreaProvider>;
+}
+
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   shell: {
     flex: 1,
     flexDirection: 'row',
