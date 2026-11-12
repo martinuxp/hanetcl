@@ -19,6 +19,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { WeekPanel, WideHallCard, isNow } from '@/components/classhall/hall-grid';
+import { useSideNav } from '@/hooks/use-desktop-layout';
 import { t } from '@/i18n';
 
 function evaluationNotice(date: number) {
@@ -125,6 +127,8 @@ export default function ClassHallScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, initializing } = useSession();
+  // Beside the side navigation (wide web window): a grid with the week beside it.
+  const wide = useSideNav().width > 0;
 
   const [loadedHalls, setHalls] = useState<Hall[] | null>(null);
   const [loadedCanCreate, setCanCreate] = useState<boolean | null>(null);
@@ -133,7 +137,8 @@ export default function ClassHallScreen() {
   const halls = loadedHalls ?? kept?.halls ?? null;
   // Each card says when the class meets next: an electivo's own blocks, or the course's Horario.
   const week = myWeek(useCached<CourseSchedule>(user ? 'schedule:mine' : null));
-  const nextOf = (hall: Hall) => nextBlockLine(hall.blocks?.length ? hall.blocks : week.filter(block => block.hallId === hall.id));
+  const blocksOf = (hall: Hall) => (hall.blocks?.length ? hall.blocks : week.filter(block => block.hallId === hall.id));
+  const nextOf = (hall: Hall) => nextBlockLine(blocksOf(hall));
   const courseHalls = halls?.filter(hall => hall.plan === 'comun') ?? [];
   const joinedHalls = halls?.filter(hall => hall.plan !== 'comun') ?? [];
   const open = (hall: Hall) => router.push({ pathname: '/classhall/hall', params: { id: hall.id } });
@@ -191,21 +196,24 @@ export default function ClassHallScreen() {
 
   return (
     <FrostedScreen style={styles.container} bottom>
-      <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={withTopInset([styles.content, wide && styles.contentWide], insets.top)} showsVerticalScrollIndicator={false}>
+        {!wide && (
         <View style={styles.topBar}>
           <ThemedText style={styles.brand}>HaNet <ThemedText style={styles.brandSmall}>ClassHall</ThemedText></ThemedText>
         </View>
+        )}
 
-        <View style={styles.heading}>
-          <ThemedText accessibilityRole="header" style={styles.title}>ClassHall</ThemedText>
-          <ThemedText style={styles.subtitle}>{t('classhall.misClasesYAsignaturas')}</ThemedText>
+        <View style={wide && styles.headingRow}>
+        <View style={[styles.heading, wide && styles.headingWide]}>
+          <ThemedText accessibilityRole="header" style={[styles.title, wide && styles.titleWide]}>ClassHall</ThemedText>
+          {!wide && <ThemedText style={styles.subtitle}>{t('classhall.misClasesYAsignaturas')}</ThemedText>}
         </View>
 
-        <View style={styles.actions}>
+        <View style={[styles.actions, wide && styles.actionsWide]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/classhall/join')}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.action, wide && styles.actionWide, pressed && styles.pressed]}
           >
             <ThemedText style={styles.actionText}>{t('classhall.unirseAUnHall')}</ThemedText>
           </Pressable>
@@ -213,11 +221,12 @@ export default function ClassHallScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push('/classhall/create')}
-              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.action, wide && styles.actionWide, pressed && styles.pressed]}
             >
               <ThemedText style={styles.actionText}>{t('classhall.create.crearUnHall')}</ThemedText>
             </Pressable>
           )}
+        </View>
         </View>
 
         {/* The student's grades, across every Hall. */}
@@ -268,10 +277,42 @@ export default function ClassHallScreen() {
         )}
 
         {/* The course's classes first, then the ones joined with a code. */}
-        {courseHalls.length > 0 && joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.tuCurso')}</ThemedText>}
-        {courseHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
-        {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.electivosYDominios')}</ThemedText>}
-        {joinedHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
+        {wide ? !!halls?.length && (
+          <View style={styles.split}>
+            <View style={styles.splitMain}>
+              {[
+                { key: 'course', list: courseHalls, label: t('classhall.tuCurso'), detail: courseHalls[0]?.courseId ?? null },
+                { key: 'joined', list: joinedHalls, label: t('classhall.electivosYDominios'), detail: null },
+              ]
+                .filter(group => group.list.length > 0)
+                .map(group => (
+                  <View key={group.key} style={styles.group}>
+                    <ThemedText accessibilityRole="header" style={styles.groupTitle}>
+                      {group.label}
+                      <ThemedText style={styles.groupDetail}>{` · ${[group.detail, t('classhall.countClases', { count: group.list.length })].filter(Boolean).join(' · ')}`}</ThemedText>
+                    </ThemedText>
+                    <View style={styles.grid}>
+                      {group.list.map(hall => (
+                        <View key={hall.id} style={styles.gridItem}>
+                          <WideHallCard hall={hall} next={nextOf(hall)} now={isNow(blocksOf(hall))} onOpen={() => open(hall)} />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+            </View>
+            <View style={styles.splitSide}>
+              <WeekPanel halls={halls ?? []} />
+            </View>
+          </View>
+        ) : (
+          <>
+            {courseHalls.length > 0 && joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.tuCurso')}</ThemedText>}
+            {courseHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
+            {joinedHalls.length > 0 && <ThemedText accessibilityRole="header" style={styles.groupLabel}>{t('classhall.electivosYDominios')}</ThemedText>}
+            {joinedHalls.map(hall => <HallCard key={hall.id} hall={hall} next={nextOf(hall)} onOpen={() => open(hall)} />)}
+          </>
+        )}
       </ScrollView>
     </FrostedScreen>
   );
@@ -290,6 +331,76 @@ const styles = StyleSheet.create({
     padding: AppSpacing.md,
     paddingBottom: TAB_BAR_CLEARANCE,
     gap: AppSpacing.md,
+  },
+  // Wide web window.
+  contentWide: {
+    maxWidth: 1180,
+    paddingHorizontal: 32,
+    paddingTop: 28,
+    gap: 18,
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: AppSpacing.lg,
+  },
+  headingWide: {
+    flex: 1,
+    paddingHorizontal: 0,
+  },
+  titleWide: {
+    fontSize: 40,
+    lineHeight: 46,
+    letterSpacing: -1.6,
+  },
+  actionsWide: {
+    padding: 0,
+    backgroundColor: 'transparent',
+  },
+  // Pills as wide as their label, on one line.
+  actionWide: {
+    flex: 0,
+    minHeight: 44,
+    paddingHorizontal: AppSpacing.xl,
+  },
+  split: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 22,
+  },
+  splitMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 26,
+  },
+  splitSide: {
+    width: 320,
+  },
+  group: {
+    gap: 12,
+  },
+  groupTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    color: AppColors.textPrimary,
+  },
+  groupDetail: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 16,
+    lineHeight: 22,
+    color: AppColors.textSecondary,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
+    rowGap: 16,
+  },
+  gridItem: {
+    width: '33.333%',
+    paddingHorizontal: 8,
   },
   topBar: {
     flexDirection: 'row',

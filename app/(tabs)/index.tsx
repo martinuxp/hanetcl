@@ -29,6 +29,8 @@ import { CLOSE_THRESHOLD, NotificationsPanel } from '@/components/notifications/
 import { usePullDown } from '@/components/notifications/pull-down';
 import { loadNotifications, markNotificationsSeen, useNotifications } from '@/services/notifications-service';
 import { t } from '@/i18n';
+import { DesktopHome } from '@/components/home/desktop-home';
+import { useSideNav } from '@/hooks/use-desktop-layout';
 import { PushPermissionDialog } from '@/components/notifications/push-permission-dialog';
 
 export default function HomeScreen() {
@@ -220,6 +222,9 @@ export default function HomeScreen() {
     const lift = homePull.translates ? homePull.pull.get() * (1 - progress) : 0;
     return { transform: [{ translateY: screenHeight * (1 - progress) - lift }] };
   });
+  // Beside the side navigation (wide web window) Home is a board of what
+  // each section holds, instead of the grid that opens them.
+  const desktop = useSideNav().width > 0 && !!user;
 
   const festive = linked ? homeAnniversary(anniversary) : null;
   const openScore = () => router.push('/anniversary/score');
@@ -243,12 +248,20 @@ export default function HomeScreen() {
       >
         <GestureDetector gesture={homePull.gesture}>
           <Animated.ScrollView
-            contentContainerStyle={[styles.scrollContent, !linked && styles.scrollEnd]}
+            contentContainerStyle={[styles.scrollContent, !linked && styles.scrollEnd, desktop && styles.scrollContentWide]}
             showsVerticalScrollIndicator={false}
             onScroll={homePull.onScroll}
             scrollEventThrottle={16}
             overScrollMode={linked ? 'never' : 'auto'}
           >
+            {desktop ? (
+              <DesktopHome
+                institution={shownInstitution && { name: shownInstitution.name, logoUrl: shownInstitution.logoUrl, bannerUrl: shownInstitution.bannerUrl }}
+                promoted={promotedEvent}
+                anniversary={anniversary}
+              />
+            ) : (
+            <>
             {festive && <AnniversaryGlow alliances={festive.anniversary.alliances} width={Math.min(width, 760)} waving={festive.phase === 'during'} />}
             <TopHeader transparent={!!festive} />
             {!!user && !institutionKnown && <HomeSkeleton grid={false} />}
@@ -264,6 +277,9 @@ export default function HomeScreen() {
             )}
             {festive && <AnniversaryCarousel anniversary={festive.anniversary} phase={festive.phase} onOpen={openScore} />}
             <GridMenu nextCalendarItem={nextCalendarItem} promotedEvent={promotedEvent} anniversary={anniversary} />
+            </>
+            )}
+
 
             {!user && (
               <HanetButton
@@ -273,7 +289,7 @@ export default function HomeScreen() {
               />
             )}
 
-            {isHnt && (
+            {isHnt && !desktop && (
               <HanetButton
                 label={t('index.panelHnt')}
                 variant="surface"
@@ -283,7 +299,7 @@ export default function HomeScreen() {
             )}
 
             {linked && <HomeNotificationsPreview state={notifications} onOpen={triggerOpen} />}
-            {linked && <NotificationsPeek pull={homePull.pull} armed={homePull.armed} threshold={OPEN_THRESHOLD} />}
+            {linked && !desktop && <NotificationsPeek pull={homePull.pull} armed={homePull.armed} threshold={OPEN_THRESHOLD} />}
           </Animated.ScrollView>
         </GestureDetector>
       </Animated.View>
@@ -338,6 +354,11 @@ const styles = StyleSheet.create({
   },
   scrollEnd: {
     paddingBottom: 150,
+  },
+  // The board centers its own content; its header photo runs full width.
+  scrollContentWide: {
+    maxWidth: '100%',
+    paddingBottom: 48,
   },
   banner: {
     paddingHorizontal: 20,

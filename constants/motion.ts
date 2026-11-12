@@ -3,6 +3,15 @@
  * Springs are given as stiffness/damping for mass 1: response r gives
  * stiffness (2π/r)², and damping ratio ζ gives damping 2ζ·√stiffness.
  */
+import { Easing } from 'react-native-reanimated';
+
+/**
+ * Ease-out cubic as a bezier curve, for layout animations (`entering`,
+ * `exiting`, `layout`). On the web Reanimated turns those into CSS and only
+ * understands named easings and `Easing.bezier`: `Easing.out(Easing.cubic)`
+ * falls back to linear there, with a warning.
+ */
+export const EASE_OUT_CUBIC = Easing.bezier(0.33, 1, 0.68, 1);
 
 /** Critically damped, ~0.3 s: moves without bouncing. */
 export const SPRING_SMOOTH = { stiffness: 440, damping: 42, mass: 1 };

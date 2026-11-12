@@ -11,6 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
+import { ENTRY_WIDE_CONTENT, useEntryAsideWidth } from '@/components/EntryAside';
 import { t } from '@/i18n';
 
 const ICONS = {
@@ -24,6 +25,8 @@ const RESEND_SECONDS = 60;
 
 export default function VerifyEmailScreen() {
   const insets = useSafeAreaInsets();
+  // Beside the brand panel on a wide web window, the form sits in the middle.
+  const wideEntry = useEntryAsideWidth() > 0;
   const router = useRouter();
   const { user, initializing, signOut } = useSession();
   const inputRef = useRef<TextInputInstance>(null);
@@ -129,7 +132,7 @@ export default function VerifyEmailScreen() {
   return (
     <FrostedScreen style={styles.container} bottom>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={withTopInset(styles.scrollContent, insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={withTopInset([styles.scrollContent, wideEntry && ENTRY_WIDE_CONTENT], insets.top)} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             {/* The account already exists: going back signs out to start over with another one. */}
             <Pressable

@@ -476,6 +476,8 @@
     "codigo": "Código",
     "copiar": "Copiar",
     "copiarElCodigoDelHall": "Copiar el código del Hall, {{join}}",
+    "countClases_one": "1 clase",
+    "countClases_other": "{{count}} clases",
     "countNotasNuevasEnSubject_one": "Nota nueva en {{subject}}. Abrir para verla",
     "countNotasNuevasEnSubject_other": "{{count}} notas nuevas en {{subject}}. Abrir para verlas",
     "create": {
@@ -1074,6 +1076,9 @@
       }
     },
     "classhall": {
+      "hallGrid": {
+        "nadaAgendadoParaLosProximos": "Nada agendado para los próximos 7 días."
+      },
       "gradesUi": {
         "agregarALaCalculadora": "Agregar a la calculadora",
         "cargandoTusNotas": "Cargando tus notas…",
@@ -1094,6 +1099,7 @@
         "verSinRaspar": "Ver sin raspar"
       },
       "hallUi": {
+        "planComun": "Plan común",
         "titleNameAbrir": "{{title}}, {{name}}. Abrir"
       },
       "taskUi": {
@@ -1105,6 +1111,15 @@
         "venceMananaTime": "Vence mañana, {{time}}",
         "vencioElHallday": "Venció el {{hallDay}}"
       }
+    },
+    "entryAside": {
+      "asiTeUnesAHanet": "Así te unes a HaNet",
+      "bienvenida": "Bienvenida",
+      "confirmaTuCorreo": "Confirma tu correo",
+      "creaTuCuentaOInicia": "Crea tu cuenta o inicia sesión",
+      "escribeElCodigoDeTu": "Escribe el código de tu institución",
+      "pasoNumberDeStepscount": "Paso {{number}} de {{sTEPSCount}}",
+      "vinculaTuCorreoDelLiceo": "Vincula tu correo del liceo"
     },
     "errors": {
       "appErrorScreens": {
@@ -1288,6 +1303,38 @@
         "siVesEstoLasNotificaciones": "Si ves esto, las notificaciones funcionan.",
         "targetNoTieneTelefonosRegistrados": "{{target}} no tiene teléfonos registrados. Hay que abrir la app con esa cuenta y permitir las notificaciones.",
         "tuCuenta": "tu cuenta"
+      }
+    },
+    "home": {
+      "desktopHome": {
+        "agendadasEnTuCurso": "agendadas en tu curso",
+        "aLasStart": "A las {{start}}",
+        "buenasNoches": "Buenas noches",
+        "buenasTardes": "Buenas tardes",
+        "buenosDias": "Buenos días",
+        "clasesHoy_one": "clase hoy",
+        "clasesHoy_other": "clases hoy",
+        "delAniversario": "del Aniversario",
+        "enDaysDias": "En {{days}} días",
+        "enRecreoDespues": "En recreo · después",
+        "enTuInstitucion": "En tu institución",
+        "esLaProximaPrueba": "es la próxima prueba",
+        "eventosHoy_one": "evento hoy",
+        "eventosHoy_other": "eventos hoy",
+        "hastaLasEnd": "Hasta las {{end}}",
+        "hoyNoHayClases": "Hoy no hay clases.",
+        "loQueSigue": "Lo que sigue",
+        "noHayEventosProximos": "No hay eventos próximos.",
+        "noHayNadaAgendadoPara": "No hay nada agendado para tu curso.",
+        "paraElAniversario": "para el Aniversario",
+        "paraLaProximaPrueba": "para la próxima prueba",
+        "signupcountVan": "{{signupCount}} van",
+        "sinPruebas": "Sin pruebas",
+        "tareasEstaSemana_one": "tarea esta semana",
+        "tareasEstaSemana_other": "tareas esta semana",
+        "todaviaNoHayPublicaciones": "Todavía no hay publicaciones.",
+        "tuCursoTodaviaNoTiene": "Tu curso todavía no tiene horario.",
+        "verFeed": "Ver feed"
       }
     },
     "institutionSync": {

@@ -30,7 +30,8 @@ import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import Animated, { Easing, FadeIn, FadeInRight, FadeOutLeft, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInRight, FadeOutLeft, useReducedMotion } from 'react-native-reanimated';
+import { EASE_OUT_CUBIC } from '@/constants/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 
@@ -274,8 +275,8 @@ export default function UiShowcaseScreen() {
     }
   };
 
-  const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(Easing.out(Easing.cubic));
-  const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(Easing.out(Easing.cubic));
+  const entering = reducedMotion ? undefined : FadeInRight.duration(220).easing(EASE_OUT_CUBIC);
+  const exiting = reducedMotion ? undefined : FadeOutLeft.duration(130).easing(EASE_OUT_CUBIC);
   return (
     <FrostedScreen style={styles.container}>
       <ScrollView contentContainerStyle={withTopInset(styles.content, insets.top)} showsVerticalScrollIndicator={false}>

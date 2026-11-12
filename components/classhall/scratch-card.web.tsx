@@ -157,7 +157,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cover: {
-    // @ts-expect-error react-native-web takes CSS transitions.
     transitionProperty: 'opacity',
   },
   gone: {

@@ -10,6 +10,7 @@ import { OrganizeMenu, OrganizePill, organizeBar, useOrganizeBar } from '@/compo
 import { FeedMenu, FeedMenuPill } from '@/components/feed/feed-menu';
 import { useAnniversaryState } from '@/services/anniversary-service';
 import { EVENT_EDITOR_ROLES, useRole, useSession } from '@/services/auth-service';
+import { useSideNav } from '@/hooks/use-desktop-layout';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
@@ -148,7 +149,7 @@ const CENTER_OUT = new Keyframe({
   100: { opacity: 0, transform: [{ scale: 0.8 }], easing: Easing.in(Easing.cubic) },
 }).duration(150);
 
-function HanetLogo() {
+export function HanetLogo() {
   return (
     <Svg width="75" height="29" viewBox="0 0 75 29" fill="none">
       <Path d="M0 0L6.87688 6.43605V13.1403L10.3153 13.5425V8.98366L19.3082 9.78816V19.1741L10.3153 19.9786V15.4197L6.87688 15.822V22.5262L0 28.9622V0Z" fill="#D9D9D9" />
@@ -241,10 +242,20 @@ type AppTabBarProps = {
   search?: BarSearch;
   /** A panel the center pill opens, growing out of the bar. */
   panel?: BarPanel;
+  /**
+   * Width of the side navigation on a wide web window. With one, Home and
+   * Profile live there: the bar only carries "Volver" and the section's
+   * action, centered over the content beside the navigation.
+   */
+  sideInset?: number;
 };
 
+// Without Home and Profile the bar is only as wide as what it carries.
+const BACK_LABELED_WIDTH = 108;
+const COMPACT_CENTER_WIDTH = 160;
+
 /** The one floating bar of the app: back or home, the section's action, profile. */
-export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main', search, panel }: AppTabBarProps) {
+export function AppTabBar({ onBack, onHome, onProfile, active = null, center, controlsKey = 'main', search, panel, sideInset = 0 }: AppTabBarProps) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
@@ -253,9 +264,15 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   const open = !!search?.open;
   const input = React.useRef<TextInputInstance>(null);
   const { width: windowWidth } = useWindowDimensions();
+  const compact = sideInset > 0;
+  const hasCenter = !!(center ?? search);
   // The bar is 90 % of the screen up to a cap; an open panel takes a little more.
-  const barWidth = Math.min(windowWidth * 0.9, BAR_MAX_WIDTH);
+  const barWidth = compact
+    ? 24 + (onBack ? BACK_LABELED_WIDTH : 0) + (hasCenter ? COMPACT_CENTER_WIDTH + (onBack ? 20 : 0) : 0)
+    : Math.min(windowWidth * 0.9, BAR_MAX_WIDTH);
   const panelWidth = Math.max(barWidth, Math.min(windowWidth - 24, PANEL_MAX_WIDTH));
+  // The compact bar is too short to type in: an open search widens it.
+  const searchWidth = compact && search ? Math.max(barWidth, Math.min(windowWidth - sideInset - 48, PANEL_MAX_WIDTH + 40)) : barWidth;
   const [centerFrame, setCenterFrame] = React.useState({ x: 0, width: 0 });
   const morph = useSharedValue(open ? 1 : 0);
   const keyboard = useKeyboardLift(open);
@@ -275,7 +292,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
 
   // Where the pill rests (in the middle slot) and the whole bar it grows to.
   const startLeft = 12 + centerFrame.x + (centerFrame.width - SEARCH_PILL_WIDTH) / 2;
-  const fullWidth = Math.max(barWidth - 2 - SEARCH_INSET * 2, SEARCH_PILL_WIDTH);
+  const fullWidth = Math.max(searchWidth - 2 - SEARCH_INSET * 2, SEARCH_PILL_WIDTH);
 
   const liftStyle = useAnimatedStyle(() => ({ bottom: Math.max(restingBottom, keyboard.value + 10) }));
   const controlsStyle = useAnimatedStyle(() => ({
@@ -317,7 +334,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   // Only plain values go into the worklets; `panel` carries React elements.
   const hasPanel = !!panel;
   const cardStyle = useAnimatedStyle(() => {
-    if (!hasPanel) return { width: barWidth, height: BAR_HEIGHT };
+    if (!hasPanel) return { width: interpolate(morph.value, [0, 1], [barWidth, searchWidth]), height: BAR_HEIGHT };
     return {
       width: interpolate(reveal.value, [0, 1], [barWidth, panelWidth]),
       height: BAR_HEIGHT + Math.max(0, reveal.value) * panelHeight,
@@ -338,7 +355,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
   }));
   // Back/home and profile ride out to the open card's edges with it.
   const controlsRowStyle = useAnimatedStyle(() => ({
-    width: (hasPanel ? interpolate(reveal.value, [0, 1], [barWidth, panelWidth]) : barWidth) - 2,
+    width: (hasPanel ? interpolate(reveal.value, [0, 1], [barWidth, panelWidth]) : interpolate(morph.value, [0, 1], [barWidth, searchWidth])) - 2,
   }));
   const dividerStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
@@ -368,7 +385,7 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
     <Animated.View
       entering={reduceMotion ? undefined : FadeIn.duration(180)}
       exiting={reduceMotion ? undefined : FadeOut.duration(120)}
-      style={[styles.tabBarWrapper, search ? liftStyle : { bottom: restingBottom }]}
+      style={[styles.tabBarWrapper, { left: sideInset }, search ? liftStyle : { bottom: restingBottom }]}
     >
       <Animated.View style={[styles.tabBarCard, cardStyle]}>
       <TabBarSurface
@@ -401,20 +418,34 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
         <Animated.View style={[styles.controlsRow, controlsRowStyle]}>
         <Animated.View style={[styles.controlsLayer, controlsStyle]} pointerEvents={open ? 'none' : 'auto'}>
         <View style={styles.tabControls}>
-          <MotionTab active={active === 'home'} back={!!onBack} icon="home" label={t('layout.inicio')} onPress={onHome} onBack={onBack} />
-
-          <View style={styles.center} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-            <Animated.View
-              key={controlsKey}
-              entering={reduceMotion ? undefined : CENTER_IN}
-              exiting={reduceMotion ? undefined : CENTER_OUT}
-              style={styles.centerSwap}
+          {compact ? (onBack ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.volver')}
+              style={({ pressed }) => [styles.backButton, styles.backButtonLabeled, pressed && styles.motionPressPressed]}
+              onPress={onBack}
             >
-              {center ?? searchPill ?? <HanetLogo />}
-            </Animated.View>
-          </View>
+              <CustomIcon name="chevron-left" size={20} color={AppColors.textOnLight} />
+              <ThemedText maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.createText}>{t('common.volver')}</ThemedText>
+            </Pressable>
+          ) : null) : (
+            <MotionTab active={active === 'home'} back={!!onBack} icon="home" label={t('layout.inicio')} onPress={onHome} onBack={onBack} />
+          )}
 
-          <MotionTab active={active === 'profile'} icon="user" label={t('layout.perfil')} onPress={onProfile} />
+          {(!compact || hasCenter) && (
+            <View style={[styles.center, compact && !onBack && styles.centerAlone]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
+              <Animated.View
+                key={controlsKey}
+                entering={reduceMotion ? undefined : CENTER_IN}
+                exiting={reduceMotion ? undefined : CENTER_OUT}
+                style={styles.centerSwap}
+              >
+                {center ?? searchPill ?? <HanetLogo />}
+              </Animated.View>
+            </View>
+          )}
+
+          {!compact && <MotionTab active={active === 'profile'} icon="user" label={t('layout.perfil')} onPress={onProfile} />}
         </View>
         </Animated.View>
 
@@ -464,6 +495,9 @@ const BAR_ROUTES = [
   '/tools', '/tools/electividad', '/tools/electividad/result', '/tools/scale', '/tools/grades',
 ];
 
+/** With the side navigation, the screens it opens directly. */
+const SIDE_NAV_ROOTS = [...TAB_ROOTS, '/calendar', '/events', '/feed', '/classhall', '/anniversary', '/tools', '/settings', '/hnt-admin'];
+
 /** The feed's screens: for those who publish, their search lives in a menu with "Crear". */
 const FEED_ROUTES = ['/feed', '/anniversary/notices'];
 
@@ -484,6 +518,7 @@ export function GlobalTabBar() {
   const calendar = useCalendarBar();
   const organize = useOrganizeBar();
   const anniversary = useAnniversaryState();
+  const side = useSideNav();
 
   // The search belongs to the screen it was opened on: changing screen closes it.
   const searchRoute = React.useRef(pathname);
@@ -543,14 +578,21 @@ export function GlobalTabBar() {
     center = <FeedMenuPill label={pathname === '/feed' ? t('layout.feed') : t('components.appTabBar.avisos')} open={bar.menuOpen} />;
   }
 
+  // Beside the side navigation a section's first screen with no action of its
+  // own needs no bar: Home and Profile are in the navigation.
+  // The sections the navigation opens are first screens too: no "Volver" there.
+  const isRoot = side.width > 0 ? SIDE_NAV_ROOTS.includes(pathname) : isTabRoot;
+  if (side.width > 0 && isRoot && !center && !SEARCH_PLACEHOLDERS[pathname]) return null;
+
   return (
     <>
     <AppTabBar
-      onBack={isTabRoot ? undefined : goBack}
+      onBack={isRoot ? undefined : goBack}
       onHome={() => goToTab('/')}
       onProfile={() => goToTab('/explore')}
       active={pathname === '/' ? 'home' : pathname === '/explore' ? 'profile' : null}
       center={center}
+      sideInset={side.width}
       // The same center on two screens (the logo, the search pill) stays put; a different one morphs in.
       controlsKey={center ? pathname : SEARCH_PLACEHOLDERS[pathname] ? 'search' : 'logo'}
       search={SEARCH_PLACEHOLDERS[pathname]
@@ -633,6 +675,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 70,
+    height: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 360,
+    backgroundColor: AppColors.controlActive,
+  },
+  // Beside the side navigation there is room to say it.
+  backButtonLabeled: {
+    width: BACK_LABELED_WIDTH,
+    flexDirection: 'row',
+    gap: 4,
+    paddingRight: 6,
   },
   centerPill: {
     height: 45,
@@ -717,6 +774,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 10,
+  },
+  centerAlone: {
+    marginHorizontal: 0,
   },
   centerSwap: {
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import { AppColors, AppSpacing, AppType } from '@/constants/design-tokens';
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, useWindowDimensions, type ScrollViewInstance, type ViewInstance } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Platform, RefreshControl, type ScrollViewInstance, type ViewInstance } from 'react-native';
 import { FrostedScreen, useFrostedInset, withTopInset } from '@/components/ui/frosted-screen';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -11,7 +11,7 @@ import { CalendarDaySkeleton } from '@/components/skeletons';
 import Animated, { Easing, FadeIn, FadeInLeft, FadeInRight, FadeOut, Keyframe, SlideInLeft, SlideInRight, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
-import { SPRING_MOMENTUM, SPRING_SMOOTH, project } from '@/constants/motion';
+import { SPRING_MOMENTUM, SPRING_SMOOTH, project, EASE_OUT_CUBIC } from '@/constants/motion';
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { MONTH_NAMES, MonthView, WeekView, YearView } from '@/components/calendar/MonthYearViews';
 import { calendarBar, useCalendarBar } from '@/components/calendar/calendar-bar-store';
@@ -28,6 +28,7 @@ import {
   CalendarEvent,
 } from '@/services/ical-service';
 import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/services/auth-service';
+import { useContentWidth } from '@/hooks/use-desktop-layout';
 import { sameSubject, subjectName } from '@/constants/subjects';
 import { useCached } from '@/services/cache';
 import { blocksOn, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
@@ -76,7 +77,8 @@ export default function CalendarScreen() {
   const webPagerRef = useRef<ScrollViewInstance>(null);
   const { user, initializing } = useSession();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  // The pages are as wide as the space beside the side navigation (wide web window).
+  const width = useContentWidth();
   const reduceMotion = useReducedMotion();
 
   // The token's role is what the rules check, so it decides what is shown.
@@ -114,7 +116,7 @@ export default function CalendarScreen() {
     : reduceMotion
       ? CROSSFADE.enter
       : monthSlide.bySwipe
-        ? (monthSlide.direction > 0 ? SlideInRight : SlideInLeft).duration(240).easing(Easing.out(Easing.cubic))
+        ? (monthSlide.direction > 0 ? SlideInRight : SlideInLeft).duration(240).easing(EASE_OUT_CUBIC)
         : (monthSlide.direction > 0 ? FadeInRight : FadeInLeft).duration(200);
   // The pager holds the week plus a neighbour day on each side (the previous
   // Sunday and the next Monday); landing on one of those moves to that week.

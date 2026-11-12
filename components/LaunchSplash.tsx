@@ -3,7 +3,7 @@ import { APP_VERSION_LABEL } from '@/constants/app-version';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -35,7 +35,10 @@ export function LaunchSplash({ ready, quick = false }: { ready: boolean; quick?:
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const [gone, setGone] = useState(false);
-  const [cardWidth, setCardWidth] = useState(0);
+  const [card, setCard] = useState({ width: 0, height: 0 });
+  // A wide web window lays the two cards side by side and lets the word grow.
+  const { width: windowWidth } = useWindowDimensions();
+  const wide = Platform.OS === 'web' && windowWidth >= 1024;
   const [shownAt] = useState(() => Date.now());
   const exit = useSharedValue(0);
 
@@ -57,20 +60,21 @@ export function LaunchSplash({ ready, quick = false }: { ready: boolean; quick?:
 
   if (gone) return null;
 
-  // Narrow phones shrink the wordmark so it keeps its padding.
-  const scale = cardWidth ? Math.min(1, (cardWidth - CARD_PADDING * 2) / WORD_WIDTH) : 1;
+  // Narrow phones shrink the wordmark so it keeps its padding; a wide window grows it to fill the card.
+  const fit = card.width ? (card.width - CARD_PADDING * 2) / WORD_WIDTH : 1;
+  const scale = wide && card.height ? Math.min(2.4, fit, (card.height - CARD_PADDING * 2 - 32) / 305) : Math.min(1, fit);
 
   return (
     <Animated.View
       accessible
       accessibilityLabel={t('components.launchSplash.hanetAppversionlabelCargando', { appVersionLabel: APP_VERSION_LABEL })}
-      style={[styles.root, { paddingTop: insets.top + AppSpacing.xl, paddingBottom: insets.bottom + AppSpacing.md }, style]}
+      style={[styles.root, wide && styles.rootWide, { paddingTop: insets.top + (wide ? AppSpacing.md : AppSpacing.xl), paddingBottom: insets.bottom + AppSpacing.md }, style]}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, wide && styles.headerWide]}>
         <ThemedText style={styles.version}>{`HaNet\n${APP_VERSION_LABEL}`}</ThemedText>
         <Image source={ASSETS.logotype} style={styles.logotype} contentFit="contain" />
       </View>
-      <View style={styles.wordCard} onLayout={event => setCardWidth(event.nativeEvent.layout.width)}>
+      <View style={styles.wordCard} onLayout={event => setCard({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
         <Image source={ASSETS.ha} style={{ width: 147 * scale, height: 256 * scale }} contentFit="contain" />
         <View style={[styles.netSlot, { width: 125 * scale, height: 305 * scale }]}>
           <Image source={ASSETS.net} style={{ width: 305 * scale, height: 125 * scale, transform: [{ rotate: '-90deg' }] }} contentFit="contain" />
@@ -87,6 +91,15 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.canvas,
     paddingHorizontal: AppSpacing.md,
     gap: AppSpacing.md,
+  },
+  rootWide: {
+    flexDirection: 'row',
+  },
+  headerWide: {
+    width: 360,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   header: {
     minHeight: 157,

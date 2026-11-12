@@ -33,3 +33,17 @@ export const SHEET_DETENTS: Record<string, number[]> = {
 export function sheetDetents(route: string) {
   return SHEET_DETENTS[route] ?? [1.0];
 }
+
+/**
+ * On a wide web window a sheet is a centered card. A card as tall as the
+ * window leaves short forms floating in empty space, so it gets a height
+ * of its own: these, or at most CARD_MAX_HEIGHT.
+ */
+export const CARD_MAX_HEIGHT = 820;
+const CARD_HEIGHTS: Record<string, number> = {
+  'classhall/join': 500,
+};
+
+export function cardHeight(route: string) {
+  return CARD_HEIGHTS[route] ?? CARD_MAX_HEIGHT;
+}
