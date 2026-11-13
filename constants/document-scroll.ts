@@ -19,5 +19,13 @@ export const DOCUMENT_SCROLL_CSS = [
   // The page itself never stretches: with overflow visible, the iPhone let
   // the finger pull the whole app (tab bar included) and it sprang back.
   'html,body{height:auto;min-height:100%;overflow:visible;overscroll-behavior:none;}',
+  // The empty block is always there and the page is always a little taller
+  // than the window: on an iPhone's home screen the window only reached the
+  // bottom on screens whose page was taller (Inicio, Perfil and
+  // Configuraciones, which lend it their long lists). Elsewhere the app ended
+  // a band short and the tab bar sat higher. A screen lending its scroll sets
+  // its own height over this one.
+  // (Only on touch screens: on a computer the extra pixel would show a scroll bar.)
   `#${DOCUMENT_SCROLL_SPACER}{width:1px;pointer-events:none;}`,
+  `@media (pointer:coarse){#${DOCUMENT_SCROLL_SPACER}{height:calc(100vh + 1px);}}`,
 ].join('');
