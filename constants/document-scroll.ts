@@ -16,6 +16,8 @@ export const DOCUMENT_SCROLL_CSS = [
   // to the page's scroll: on an iPhone's home screen the window measured
   // differently in each case, so between screens the app ended a band short
   // of the bottom and the tab bar jumped.
-  'html,body{height:auto;min-height:100%;overflow:visible;}',
+  // The page itself never stretches: with overflow visible, the iPhone let
+  // the finger pull the whole app (tab bar included) and it sprang back.
+  'html,body{height:auto;min-height:100%;overflow:visible;overscroll-behavior:none;}',
   `#${DOCUMENT_SCROLL_SPACER}{width:1px;pointer-events:none;}`,
 ].join('');
