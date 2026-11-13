@@ -1,6 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import app, { functions } from './firebase';
 import { registerServiceWorker, serviceWorkerSupported } from './service-worker';
+import { isAppleMobile, isInstalled } from './web-install';
 
 // Web push for the web app: the browser's Firebase Cloud Messaging token is
 // registered with the same backend as the phones (registerPushToken, platform
@@ -14,26 +15,16 @@ import { registerServiceWorker, serviceWorkerSupported } from './service-worker'
 // Project settings → Cloud Messaging → Web configuration). Public on purpose:
 // the private half stays with Firebase. Without one, Firebase's default key is
 // used, which Safari and Firefox take but Chrome may not.
-const VAPID_KEY = '';
+// i18n-ignore-next-line: a key, not text
+const VAPID_KEY = 'BAzOa2p1BiK05oAJf7lt_LVa-BFmiNXmweNgDLfgeIIzuG8s1-cfGjXynVtRGKwqzeFzYRKzVXrhzCY_OCDbcUI';
 
 export type WebPushSupport = 'supported' | 'install' | 'unsupported';
 export type WebPermission = 'granted' | 'denied' | 'undetermined';
 
-function isAppleMobile() {
-  const { userAgent, maxTouchPoints } = navigator;
-  // iPadOS says it is a Mac; the touch screen gives it away.
-  return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
-}
-
-function installed() {
-  // i18n-ignore-next-line: a CSS media query
-  return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-}
-
 export function webPushSupport(): WebPushSupport {
   if (!serviceWorkerSupported()) return 'unsupported';
   const capable = 'PushManager' in window && 'Notification' in window;
-  if (isAppleMobile() && !installed()) return 'install';
+  if (isAppleMobile() && !isInstalled()) return 'install';
   return capable ? 'supported' : 'unsupported';
 }
 

@@ -1495,6 +1495,39 @@
         "cargando": "Cargando"
       }
     },
+    "web": {
+      "installGuide": {
+        "agregaHanetATuInicio": "Agrega HaNet a tu inicio",
+        "bajaYEligeAgregarA": "Baja y elige “Agregar a inicio”.",
+        "confirmaYAbreHanetDesde": "Confirma y abre HaNet desde tu pantalla de inicio.",
+        "eligeAgregarAInicio": "Elige “Agregar a inicio”.",
+        "eligeAgregarALaPantalla": "Elige “Agregar a la pantalla de inicio”.",
+        "eligeAgregarALaPantalla2": "Elige “Agregar a la pantalla principal” o “Instalar app”.",
+        "eligeAgregarAlDock": "Elige “Agregar al Dock”.",
+        "eligeAgregarPaginaAY": "Elige “Agregar página a” y después “Pantalla de inicio”.",
+        "eligeAplicacionesYDespuesInstalar": "Elige “Aplicaciones” y después “Instalar este sitio como una aplicación”.",
+        "enLaBarraDeMenus": "En la barra de menús, abre “Archivo”.",
+        "hazClicEnAgregarHanet": "Haz clic en “Agregar”. HaNet queda en el Dock.",
+        "hazClicEnElIcono": "Haz clic en el ícono de instalar, al final de la barra de direcciones.",
+        "hazClicEnElMenu": "Haz clic en el menú ···, arriba a la derecha.",
+        "hazClicEnInstalarHanet": "Haz clic en “Instalar”. HaNet queda en el menú de inicio o en el Launchpad.",
+        "hazClicEnInstalarHanet2": "Haz clic en “Instalar”. HaNet se abre en su propia ventana.",
+        "instalaHanetEnTuComputador": "Instala HaNet en tu computador",
+        "instalando": "Instalando…",
+        "instalar": "Instalar",
+        "seAbreComoUnaApp": "Se abre como una app, a pantalla completa, y así te llegan las notificaciones: en el iPhone solo llegan a HaNet en tu inicio.",
+        "seAbreComoUnaApp2": "Se abre como una app, a pantalla completa, y te llegan las notificaciones.",
+        "seAbreEnSuPropia": "Se abre en su propia ventana, como una app, y te llegan las notificaciones.",
+        "siNoApareceMenuTransmitir": "Si no aparece: menú ⋮, “Transmitir, guardar y compartir”, “Instalar página como app”.",
+        "tocaAgregarYAbreHanet": "Toca “Agregar” y abre HaNet desde tu pantalla de inicio.",
+        "tocaElBotonCompartirDel": "Toca el botón Compartir del navegador, junto a la dirección o en su menú.",
+        "tocaElBotonCompartirEn": "Toca el botón Compartir. En iOS 26 está dentro del botón ··· de la barra.",
+        "tocaElMenuAbajoA": "Toca el menú ≡, abajo a la derecha.",
+        "tocaElMenuArribaA": "Toca el menú ⋮, arriba a la derecha.",
+        "tocaElMenuDelNavegador": "Toca el menú ⋮ del navegador.",
+        "tocaInstalarYAbreHanet": "Toca “Instalar” y abre HaNet desde tu pantalla de inicio."
+      }
+    },
     "welcomeCelebration": {
       "bienvenidaAHanet": "Bienvenida a HaNet",
       "bienvenidoAHanet": "Bienvenido a HaNet",
@@ -2263,6 +2296,7 @@
   },
   "settings": {
     "acercaDeHanet": "Acerca de HaNet",
+    "agregarHanetATuInicio": "Agregar HaNet a tu inicio",
     "anunciosTareasYRevisiones": "Anuncios, tareas y entregas revisadas",
     "avisosDePruebas": "Avisos de pruebas",
     "confirmaParaProtegerTusNotas": "Confirma para proteger tus notas",
@@ -2276,6 +2310,7 @@
     "esteNavegadorNoRecibeNotificaciones": "Este navegador no recibe notificaciones. Lo que te avisamos igual queda en Notificaciones, al final del Inicio.",
     "esteNavegadorTodaviaNoHa": "Este navegador todavía no ha permitido las notificaciones.",
     "esteTelefonoTodaviaNoLas": "Este teléfono todavía no ha permitido las notificaciones.",
+    "hanetWeb": "HaNet web",
     "iconoDeLaApp": "Ícono de la app",
     "iconoLabelValue": "Ícono {{label}}{{value}}",
     "laProteccionDeNotasSe": "La protección de Notas se activa desde la app en el teléfono.",

@@ -24,6 +24,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen, withTopInset } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
 import { useDocumentScroll } from '@/hooks/use-document-scroll';
+import { InstallGuideDialog } from '@/components/web/install-guide';
+import { installGuideKind, isInstalled } from '@/services/web-install';
 
 const CONTACT = 'muxp@muxp.art';
 
@@ -136,6 +138,9 @@ export default function SettingsScreen() {
     if (Platform.OS !== 'web') void Haptics.selectionAsync();
   };
 
+  // Web only: how to add HaNet to the home screen, for whoever closed the Home's guide.
+  const [installGuideAvailable] = useState(() => Platform.OS === 'web' && !isInstalled() && installGuideKind() !== 'unsupported');
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [eggOpen, setEggOpen] = useState(false);
   const tapVersion = useSecretTaps(useCallback(() => setEggOpen(true), []));
 
@@ -298,6 +303,12 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {installGuideAvailable && (
+          <SettingsGroup title={t('settings.hanetWeb')}>
+            <SettingsLinkRow icon="add-circle-outline" label={t('settings.agregarHanetATuInicio')} onPress={() => setInstallGuideOpen(true)} />
+          </SettingsGroup>
+        )}
+
         <SettingsGroup title={t('settings.acercaDeHanet')}>
           <SettingsLinkRow icon="sparkles-outline" label={t('settings.novedades')} detail={APP_VERSION_LABEL} onPress={() => router.push('/whats-new')} />
           <SettingsLinkRow icon="mail-outline" label={t('settings.contacto')} hint={CONTACT} onPress={() => void Linking.openURL(`mailto:${CONTACT}`)} />
@@ -321,6 +332,7 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
       <VersionEasterEgg visible={eggOpen} version={APP_VERSION} stage={APP_RELEASE_STAGE} onClose={() => setEggOpen(false)} />
+      <InstallGuideDialog visible={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
     </FrostedScreen>
   );
 }
