@@ -1,10 +1,12 @@
 import * as Haptics from 'expo-haptics';
+import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { useAnimatedScrollHandler, useSharedValue, withSpring } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { SPRING_SMOOTH, rubberband } from '@/constants/motion';
+import { pageScrolls } from '@/hooks/use-document-scroll';
 
 // Pulling a list past one of its ends, like turning on Instagram's vanish
 // mode: one firm tap of the haptics when it crosses `threshold` ("armed"), a
@@ -16,7 +18,10 @@ import { SPRING_SMOOTH, rubberband } from '@/constants/motion';
 // iOS keeps its own bounce: how far it went is read from the scroll offset.
 // Android lists stop at their ends, so a pan running alongside the list's
 // own scroll measures the pull instead (`pull`, which the screen applies as
-// a translation, `translates`). The web has neither and uses buttons.
+// a translation, `translates`). Phone browsers do the same with the finger's
+// touches (their lists don't report a bounce, and on the phone layout the
+// page scrolls instead, see hooks/use-document-scroll.ts); a mouse still
+// opens it with the buttons.
 
 export type PullEdge = 'start' | 'end';
 
@@ -35,6 +40,9 @@ export type PullDown = {
 
 const IOS = Platform.OS === 'ios';
 const ANDROID = Platform.OS === 'android';
+const WEB = Platform.OS === 'web';
+// A touch decides whether it is a pull once it has moved this far.
+const SLOP = 10;
 // How far an Android pull can stretch before it barely follows.
 const STRETCH = 420;
 
@@ -97,7 +105,74 @@ export function usePullDown({ edge, threshold, enabled, onTrigger }: Options): P
     },
   }, [edge, enabled, threshold, onTrigger]);
 
-  const native = Gesture.Native();
+  // Phone browsers: the same as Android's pan, from the touches themselves.
+  useEffect(() => {
+    if (!WEB || !enabled || typeof window === 'undefined') return;
+    let startX = 0;
+    let startY = 0;
+    // null: not decided yet; then whether this touch is a vertical drag.
+    let vertical: boolean | null = null;
+    let at: number | null = null;
+    const reset = () => {
+      at = null;
+      vertical = null;
+    };
+    const onStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        vertical = false;
+        return;
+      }
+      reset();
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    };
+    const onMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch || vertical === false) return;
+      if (vertical === null) {
+        const dx = Math.abs(touch.clientX - startX);
+        const dy = Math.abs(touch.clientY - startY);
+        if (dx < SLOP && dy < SLOP) return;
+        vertical = dy > dx;
+        if (!vertical) return;
+      }
+      // Still scrolling toward the edge: the pull starts once it is there.
+      // (When the page scrolls for the list, the page tells where it is.)
+      const gap = pageScrolls()
+        ? edge === 'start'
+          ? window.scrollY
+          : document.documentElement.scrollHeight - window.innerHeight - window.scrollY
+        : fromEdge.get();
+      if (gap > 0.5) {
+        at = null;
+        if (pull.get() > 0) pull.set(0);
+        return;
+      }
+      if (at === null) at = touch.clientY;
+      const distance = Math.max(0, rubberband((touch.clientY - at) * sign, STRETCH));
+      pull.set(distance);
+      track(distance);
+    };
+    const onEnd = () => {
+      if (vertical && !release()) pull.set(withSpring(0, SPRING_SMOOTH));
+      reset();
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onEnd);
+    };
+    // The shared values and worklets are stable; `track` and `release` read `enabled`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edge, enabled, sign, threshold, onTrigger]);
+
+  // The web has no native gestures to join: nothing attaches to the list there.
+  const native = Gesture.Native().enabled(!WEB);
   const pan = Gesture.Pan()
     .enabled(ANDROID && enabled)
     .activeOffsetY(edge === 'start' ? 10 : -10)
@@ -123,5 +198,5 @@ export function usePullDown({ edge, threshold, enabled, onTrigger }: Options): P
       if (!release()) pull.set(withSpring(0, SPRING_SMOOTH));
     });
 
-  return { pull, armed, onScroll, gesture: Gesture.Simultaneous(pan, native), translates: ANDROID };
+  return { pull, armed, onScroll, gesture: Gesture.Simultaneous(pan, native), translates: ANDROID || WEB };
 }

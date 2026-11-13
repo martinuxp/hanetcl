@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "version": "0.8.1-beta",
+      "date": "2026-11-12",
+      "title": "",
+      "items": [
+        "En el navegador del celular ya puedes deslizar hacia arriba al final del Inicio para abrir tus notificaciones, igual que en la app.",
+        "En el navegador del celular, HaNet ocupa toda la pantalla y la barra del navegador se esconde al bajar.",
+        "Si agregaste HaNet a tu pantalla de inicio, ahora respeta la hora y la barra de abajo del teléfono, y ya no queda una franja vacía al final.",
+        "Mantén apretado el ícono de HaNet para ir directo al Calendar, ClassHall, Eventos o tus notificaciones. En el teléfono llega con la próxima versión de la app."
+      ]
+    },
+    {
       "version": "0.8.0-beta",
       "date": "2026-11-12",
       "title": "HaNet en el computador",

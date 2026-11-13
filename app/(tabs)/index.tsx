@@ -5,7 +5,7 @@ import { BackHandler, Platform, StyleSheet, View, useWindowDimensions } from 're
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import TopHeader from '@/components/TopHeader';
 import InstitutionBanner from '@/components/InstitutionBanner';
 import GridMenu from '@/components/GridMenu';
@@ -31,6 +31,7 @@ import { loadNotifications, markNotificationsSeen, useNotifications } from '@/se
 import { t } from '@/i18n';
 import { DesktopHome } from '@/components/home/desktop-home';
 import { useSideNav } from '@/hooks/use-desktop-layout';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 import { PushPermissionDialog } from '@/components/notifications/push-permission-dialog';
 
 export default function HomeScreen() {
@@ -200,6 +201,13 @@ export default function HomeScreen() {
       move(0, () => panelLift.set(0));
     };
   }, [homeLift, move, panelLift, refreshNotifications, seenAt]);
+  // A shortcut (the app icon's or the web app's) opens them right away.
+  const { abrir } = useLocalSearchParams<{ abrir?: string }>();
+  useEffect(() => {
+    if (abrir !== 'notificaciones' || !linked || !contentLoaded) return;
+    router.setParams({ abrir: undefined });
+    if (!panelOpen) openRef.current();
+  }, [abrir, contentLoaded, linked, panelOpen, router]);
   // Android's back button closes the section first.
   useFocusEffect(
     useCallback(() => {
@@ -225,6 +233,9 @@ export default function HomeScreen() {
   // Beside the side navigation (wide web window) Home is a board of what
   // each section holds, instead of the grid that opens them.
   const desktop = useSideNav().width > 0 && !!user;
+  // On a phone's browser the page scrolls, so its bars shrink (not while the
+  // notifications are open: they scroll on their own).
+  const homeScroll = useDocumentScroll(gateOpen && !panelOpen);
 
   const festive = linked ? homeAnniversary(anniversary) : null;
   const openScore = () => router.push('/anniversary/score');
@@ -248,6 +259,7 @@ export default function HomeScreen() {
       >
         <GestureDetector gesture={homePull.gesture}>
           <Animated.ScrollView
+            ref={homeScroll}
             contentContainerStyle={[styles.scrollContent, !linked && styles.scrollEnd, desktop && styles.scrollContentWide]}
             showsVerticalScrollIndicator={false}
             onScroll={homePull.onScroll}

@@ -23,6 +23,7 @@ import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View, type
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FrostedScreen } from '@/components/ui/frosted-screen';
 import { t } from '@/i18n';
+import { pageScrolls, useDocumentScroll } from '@/hooks/use-document-scroll';
 
 function openLink(url: string) {
   if (url) void WebBrowser.openBrowserAsync(url);
@@ -51,6 +52,8 @@ function hostOf(url: string) {
 }
 
 export default function EventDetailScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, initializing } = useSession();
@@ -182,7 +185,7 @@ export default function EventDetailScreen() {
 
   return (
     <FrostedScreen style={styles.container}>
-      <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={list => { scroll.current = list; pageScroll(list); }} contentContainerStyle={[styles.content, { paddingTop: insets.top }]} showsVerticalScrollIndicator={false}>
         <EventGlow position="top" colors={event.palette} />
         <EventGlow position="bottom" colors={event.palette} />
         <View style={styles.topBar}>
@@ -352,7 +355,7 @@ export default function EventDetailScreen() {
           </View>
         )}
 
-        <Pressable accessibilityRole="button" accessibilityLabel={t('eventDetail.volverArriba')} onPress={() => scroll.current?.scrollTo({ y: 0, animated: true })} style={({ pressed }) => [styles.toTop, pressed && AppPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('eventDetail.volverArriba')} onPress={() => { scroll.current?.scrollTo({ y: 0, animated: true }); if (pageScrolls()) window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={({ pressed }) => [styles.toTop, pressed && AppPressed]}>
           <Image source={require('@/assets/icons/event/arrow-left-long.svg')} style={[styles.icon24, styles.arrowUp]} contentFit="contain" tintColor={AppColors.textPrimary} />
         </Pressable>
         <ThemedText style={styles.disclaimer}>{EVENTS_DISCLAIMER}</ThemedText>

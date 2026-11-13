@@ -5,6 +5,7 @@ import type { Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaFrameContext, SafeAreaInsetsContext, type EdgeInsets, type Rect } from 'react-native-safe-area-context';
 import { PaperProvider, MD3DarkTheme, configureFonts } from 'react-native-paper';
 import { useFonts, DMSans_300Light, DMSans_400Regular, DMSans_400Regular_Italic, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_700Bold_Italic } from '@expo-google-fonts/dm-sans';
 import * as SplashScreen from 'expo-splash-screen';
@@ -183,6 +184,7 @@ export default function RootLayout() {
   }
 
   return (
+    <WebSafeArea>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider theme={paperTheme}>
         <ThemeProvider value={navigationTheme}>
@@ -264,10 +266,73 @@ export default function RootLayout() {
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>
+    </WebSafeArea>
+  );
+}
+
+/**
+ * Expo Router's own provider gives the web zero insets (so the static HTML
+ * hydrates without a mismatch): installed on a phone's home screen, HaNet ran
+ * under the clock and the battery and behind the home indicator. This one
+ * reads the screen's real edges once the page is up. The phone apps keep
+ * Expo Router's.
+ *
+ * The edges are the screen's, as they are: the library's web provider trims
+ * them by where its view ends against window.innerHeight, and on an iPhone
+ * those two disagree depending on whether the page scrolls, so the bottom
+ * edge came and went between screens and the tab bar jumped with it.
+ */
+const NO_EDGES: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+function WebSafeArea({ children }: { children: React.ReactNode }) {
+  const [insets, setInsets] = useState<EdgeInsets>(NO_EDGES);
+  const [frame, setFrame] = useState<Rect>({ x: 0, y: 0, width: 0, height: 0 });
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText =
+      'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;' +
+      'padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);';
+    document.body.appendChild(probe);
+    const read = () => {
+      const style = window.getComputedStyle(probe);
+      const next = {
+        top: parseFloat(style.paddingTop) || 0,
+        right: parseFloat(style.paddingRight) || 0,
+        bottom: parseFloat(style.paddingBottom) || 0,
+        left: parseFloat(style.paddingLeft) || 0,
+      };
+      setInsets(now => (now.top === next.top && now.right === next.right && now.bottom === next.bottom && now.left === next.left ? now : next));
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setFrame(now => (now.width === width && now.height === height ? now : { x: 0, y: 0, width, height }));
+    };
+    read();
+    window.addEventListener('resize', read);
+    window.addEventListener('orientationchange', read);
+    return () => {
+      window.removeEventListener('resize', read);
+      window.removeEventListener('orientationchange', read);
+      probe.remove();
+    };
+  }, []);
+
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return (
+    <SafeAreaFrameContext.Provider value={frame}>
+      <SafeAreaInsetsContext.Provider value={insets}>
+        <View style={styles.fill}>{children}</View>
+      </SafeAreaInsetsContext.Provider>
+    </SafeAreaFrameContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   shell: {
     flex: 1,
     flexDirection: 'row',

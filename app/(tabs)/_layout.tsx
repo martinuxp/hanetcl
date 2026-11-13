@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { useQuickActions } from '@/components/quick-actions';
 import { t } from '@/i18n';
 
 // The bar is drawn once by the root layout (GlobalTabBar), not by the tabs.
@@ -8,6 +9,8 @@ import { t } from '@/i18n';
 const noTabBar = () => null;
 
 export default function TabLayout() {
+  // Inside the navigator: a shortcut from the app's icon opens its screen.
+  useQuickActions();
   return (
     <Tabs
       tabBar={noTabBar}

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
@@ -78,7 +78,9 @@ export function NotificationsPeek({ pull, armed, threshold }: PeekProps) {
   return (
     <View style={styles.peek}>
       <Animated.View pointerEvents="none" style={[styles.tint, tintStyle]} />
-      <View pointerEvents="none" style={[styles.below, { height: height * 2 }]} />
+      {/* For iOS's bounce. On the web it would lengthen the page instead (a
+          browser counts it in the scroll), and the Home moves up there anyway. */}
+      {Platform.OS !== 'web' && <View pointerEvents="none" style={[styles.below, { height: height * 2 }]} />}
       <PullHint
         pull={pull}
         armed={armed}

@@ -116,11 +116,13 @@ function MotionTab({ active, back = false, icon, label, onPress, onBack }: { act
         if (!active && Platform.OS === 'ios') void Haptics.selectionAsync();
         onPress();
       }}
-      onFocus={() => setFocused(true)}
+      // The ring is for the keyboard: a tap on the web focuses the button too.
+      onFocus={event => setFocused(Platform.OS !== 'web' || focusVisible(event.target))}
       onBlur={() => setFocused(false)}
       style={({ pressed }) => [styles.motionPress, focused && styles.motionPressFocused, pressed && styles.motionPressPressed]}
     >
-      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
+      {/* +1: the web reports whole pixels, and a label cut by a fraction ends in "…". */}
+      <ThemedText onLayout={(event: LayoutChangeEvent) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width) + 1)} maxFontSizeMultiplier={TAB_TEXT_MAX_SCALE} style={styles.motionMeasure}>{label}</ThemedText>
       <Animated.View style={[styles.motionTab, pillStyle]}>
         <Animated.View pointerEvents="none" style={[styles.motionFill, fillStyle]} />
         <Animated.View style={[styles.motionIconBox, tabIconStyle]}>
@@ -136,6 +138,47 @@ function MotionTab({ active, back = false, icon, label, onPress, onBack }: { act
       </Animated.View>
     </Pressable>
   );
+}
+
+function focusVisible(target: unknown) {
+  const element = target as { matches?: (selector: string) => boolean } | null;
+  try {
+    return element?.matches?.(':focus-visible') ?? true;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * On the web, when a custom (Keyframe) entering animation ends, Reanimated
+ * pins the view where it was at that moment: absolute, with a fixed top,
+ * left, width and height that it never takes off. The side buttons keep
+ * morphing after that (Inicio into Volver, Perfil opening), so the logo or
+ * pill stayed behind, off center and against a button. This box follows the
+ * slot and centers the swap, and lets go of the pin as soon as it's set. The
+ * copy that plays the exiting animation keeps its place until it's gone.
+ */
+const PINNED = ['position', 'top', 'left', 'width', 'height', 'margin'];
+
+function CenterStage({ children }: { children: React.ReactNode }) {
+  const stage = React.useRef<React.ComponentRef<typeof View>>(null);
+
+  React.useEffect(() => {
+    const node = stage.current as unknown as HTMLElement | null;
+    if (Platform.OS !== 'web' || !node || typeof MutationObserver === 'undefined') return;
+    const release = () => {
+      for (const child of Array.from(node.children) as (HTMLElement & { isDummy?: boolean })[]) {
+        if (child.isDummy || child.style.position !== 'absolute') continue;
+        for (const property of PINNED) child.style.removeProperty(property);
+      }
+    };
+    const observer = new MutationObserver(release);
+    observer.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    return () => observer.disconnect();
+  }, []);
+
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return <View ref={stage} style={styles.centerStage}>{children}</View>;
 }
 
 // The center action swaps by section: the new one grows in where the old one shrinks away.
@@ -433,15 +476,17 @@ export function AppTabBar({ onBack, onHome, onProfile, active = null, center, co
           )}
 
           {(!compact || hasCenter) && (
-            <View style={[styles.center, compact && !onBack && styles.centerAlone]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
-              <Animated.View
-                key={controlsKey}
-                entering={reduceMotion ? undefined : CENTER_IN}
-                exiting={reduceMotion ? undefined : CENTER_OUT}
-                style={styles.centerSwap}
-              >
-                {center ?? searchPill ?? <HanetLogo />}
-              </Animated.View>
+            <View style={[styles.center, compact && !onBack && styles.centerAlone, Platform.OS === 'web' && styles.centerWeb]} onLayout={(event: LayoutChangeEvent) => setCenterFrame({ x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}>
+              <CenterStage>
+                <Animated.View
+                  key={controlsKey}
+                  entering={reduceMotion ? undefined : CENTER_IN}
+                  exiting={reduceMotion ? undefined : CENTER_OUT}
+                  style={styles.centerSwap}
+                >
+                  {center ?? searchPill ?? <HanetLogo />}
+                </Animated.View>
+              </CenterStage>
             </View>
           )}
 
@@ -779,6 +824,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   centerSwap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // See CenterStage.
+  centerWeb: {
+    alignSelf: 'stretch',
+  },
+  centerStage: {
+    flex: 1,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
   },

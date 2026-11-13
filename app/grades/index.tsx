@@ -21,6 +21,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
+import { useDocumentScroll } from '@/hooks/use-document-scroll';
 
 // Notas: every subject of the student with its approximate average, by
 // semester or for the year, and the grades still covered on top. Reached from
@@ -35,6 +36,8 @@ function unseenIn(subject: GradeBookSubject) {
 }
 
 export default function GradesScreen() {
+  // On a phone's browser the page scrolls with it, so the browser's bars shrink.
+  const pageScroll = useDocumentScroll();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
@@ -71,7 +74,7 @@ export default function GradesScreen() {
 
   return (
     <FrostedScreen style={styles.screen}>
-      <ScrollView contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={pageScroll} contentContainerStyle={withTopInset(styles.page, insets.top)} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <ThemedText style={styles.eyebrow}>ClassHall</ThemedText>
           <ThemedText accessibilityRole="header" style={styles.title}>{t('classhall.evaluation.notas')}</ThemedText>
