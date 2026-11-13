@@ -4,7 +4,7 @@
 // standalone mode and the dark status bar color.
 import { ScrollViewStyleReset, useServerDocumentContext } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
-import { DOCUMENT_SCROLL_CSS } from '@/constants/document-scroll';
+import { DOCUMENT_SCROLL_CSS, DOCUMENT_SCROLL_SPACER } from '@/constants/document-scroll';
 
 const BACKGROUND = '#282829';
 
@@ -34,6 +34,8 @@ export default function Root({ children }: PropsWithChildren) {
       </head>
       <body {...bodyAttributes}>
         {children}
+        {/* Keeps the page taller than the window (see constants/document-scroll.ts). */}
+        <div id={DOCUMENT_SCROLL_SPACER} aria-hidden="true" />
         {bodyNodes}
       </body>
     </html>

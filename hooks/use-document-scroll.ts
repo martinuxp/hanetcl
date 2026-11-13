@@ -131,7 +131,7 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
       if (node.clientHeight === 0) return;
       const distance = range();
       laidOut = distance;
-      page.style.height = `${distance + window.innerHeight}px`;
+      page.style.height = `${Math.max(distance, 1) + window.innerHeight}px`;
       // Back where it was, once the screen has its height again.
       if (pending !== null && (distance > 0 || pending === 0)) {
         window.scrollTo(0, Math.min(pending, distance));
@@ -158,7 +158,8 @@ export function useDocumentScroll(enabled = true): (list: unknown) => void {
       if (owner !== id) return;
       owner = null;
       root.classList.remove(ROOT_CLASS);
-      page.style.height = '0px';
+      // Back to the resting height of the stylesheet.
+      page.style.height = '';
       window.scrollTo(0, 0);
     };
   }, [active, list, pathname]);
