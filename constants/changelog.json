@@ -1,13 +1,25 @@
 {
   "releases": [
     {
-      "version": "0.9.2-beta",
+      "version": "0.10.1-beta",
       "date": "2026-11-14",
       "title": "",
       "items": [
         "Si suscribiste el calendario de tu curso (iCal), las pruebas y eventos ahora salen a su hora. Antes aparecían 3 horas más tarde.",
         "En Android, \"Suscribir mi calendario\" ahora agrega el calendario de tu curso a Google Calendar.",
         "Los eventos cancelados salen como \"Cancelado\" en el calendario suscrito."
+      ]
+    },
+    {
+      "version": "0.10.0-beta",
+      "date": "2026-11-14",
+      "title": "Días sin clases y salidas anticipadas",
+      "items": [
+        "Cuando el liceo suspende las clases o adelanta la salida, el Calendar lo muestra en el día: las clases que no se hacen quedan tachadas y una línea marca la hora de salida.",
+        "Las pruebas de esas horas pasan solas a la clase siguiente de su asignatura, y se ve desde qué día se movieron.",
+        "El aviso de las 7:00 y los widgets cuentan el día real: \"Hoy no hay clases\" o \"Hoy sales a las 12:30\".",
+        "La administración del liceo suspende clases o adelanta la salida desde el menú del Calendar, para todo el liceo o algunos cursos, y puede avisar en el momento.",
+        "Al crear un evento en el Calendar, eliges la clase del horario en que va (toma su hora de inicio y de término) o una hora exacta. Parte en el día que tienes seleccionado en el Calendar."
       ]
     },
     {

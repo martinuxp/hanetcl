@@ -2,6 +2,7 @@ import { TAB_BAR_CLEARANCE } from '@/components/AppTabBar';
 import { BlockEditor } from '@/components/schedule/block-editor';
 import type { BlockKind } from '@/components/schedule/block-editor';
 import { NowNextCard } from '@/components/schedule/now-next-card';
+import { DayChangeList } from '@/components/calendar/day-change-banner';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -59,7 +60,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
       const result = await getCourseSchedule(courseId);
       setLoaded(result);
       setError(null);
-      if (!courseId) void syncHomeWidget(myWeek(result));
+      if (!courseId) void syncHomeWidget(myWeek(result), result.changes ?? []);
     } catch (loadError) {
       setError(describeAuthError(loadError, t('components.schedule.scheduleView.noPudimosCargarElHorario')));
     }
@@ -73,7 +74,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
   // While editing, only the course's own blocks; otherwise the whole week.
   const dayBlocks = blocksOn(edited ? blocks : myWeek(schedule), day);
   const isToday = day === scheduleDay(now);
-  const { current, next } = nowAndNext(myWeek(schedule), now);
+  const { current, next } = nowAndNext(myWeek(schedule), now, schedule?.changes);
   const days = SCHEDULE_DAYS.filter(item => item.day < 6 || edited || blocks.some(block => block.day === 6));
 
   const save = async () => {
@@ -156,6 +157,7 @@ export function ScheduleView({ embedded = false }: { embedded?: boolean }) {
         {!!schedule?.courseId && (
           <>
             {!edited && <NowNextCard current={current} next={next} />}
+            {!edited && !!schedule.changes?.length && <DayChangeList changes={schedule.changes} />}
 
             <View style={styles.days} accessibilityRole="tablist">
               {days.map(item => (

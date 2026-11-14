@@ -23,6 +23,24 @@ export type ScheduleBlock = {
   plan?: 'electivo' | 'dominio';
 };
 
+/**
+ * A suspension of classes or an early dismissal (functions/day-changes.js),
+ * on top of the weekly timetable for some dates. Dates are Chile's, "YYYY-MM-DD".
+ */
+export type DayChange = {
+  id: string;
+  kind: 'suspended' | 'early';
+  from: string;
+  to: string;
+  /** "12:30", for an early dismissal. */
+  endsAt: string | null;
+  scope: 'school' | 'courses';
+  courses: string[];
+  reason: string;
+  byName: string;
+  at: number | null;
+};
+
 export type CourseSchedule = {
   courseId: string | null;
   blocks: ScheduleBlock[];
@@ -32,6 +50,10 @@ export type CourseSchedule = {
   canEdit: boolean;
   /** For the administration: the courses it can pick. */
   courses: string[];
+  /** The course's suspensions and early dismissals that have not ended. */
+  changes?: DayChange[];
+  /** Admin and HNT suspend classes and set early dismissals. */
+  canChangeDays?: boolean;
 };
 
 // Monday to Saturday, with the letter and the name of each day.
@@ -86,9 +108,42 @@ export async function saveHallSchedule(hallId: string, blocks: ScheduleBlock[]) 
 
 export const isBreak = (block: ScheduleBlock) => block.kind === 'break';
 
+/** A day as "YYYY-MM-DD", in the phone's time zone. */
+export function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** The change a date has: a suspension before an early dismissal, the earliest dismissal first. */
+export function changeOn(changes: DayChange[] | null | undefined, date: Date) {
+  const key = dateKey(date);
+  const found = (changes ?? []).filter(change => change.from <= key && key <= change.to);
+  return found.find(change => change.kind === 'suspended')
+    ?? found.filter(change => change.kind === 'early' && change.endsAt).sort((a, b) => minutesOf(a.endsAt!) - minutesOf(b.endsAt!))[0]
+    ?? null;
+}
+
+/** What happens to a block on a day with that change: it stays, ends earlier, or is lost. */
+export function blockFate(block: ScheduleBlock, change: DayChange | null): 'normal' | 'cut' | 'lost' {
+  if (!change) return 'normal';
+  if (change.kind === 'suspended' || !change.endsAt) return 'lost';
+  const cut = minutesOf(change.endsAt);
+  if (minutesOf(block.start) >= cut) return 'lost';
+  return minutesOf(block.end) > cut ? 'cut' : 'normal';
+}
+
+/** The blocks that do happen on a date, the last one ending at the dismissal. */
+export function classesOn(blocks: ScheduleBlock[], changes: DayChange[] | null | undefined, date: Date) {
+  const change = changeOn(changes, date);
+  return blocksOn(blocks, scheduleDay(date)).flatMap(block => {
+    const fate = blockFate(block, change);
+    if (fate === 'lost') return [];
+    return fate === 'cut' ? [{ ...block, end: change!.endsAt! }] : [block];
+  });
+}
+
 /** The block going on now (a recreo too) and the next class, today. */
-export function nowAndNext(blocks: ScheduleBlock[], now = new Date()) {
-  const today = blocksOn(blocks, scheduleDay(now));
+export function nowAndNext(blocks: ScheduleBlock[], now = new Date(), changes?: DayChange[] | null) {
+  const today = classesOn(blocks, changes, now);
   const minute = now.getHours() * 60 + now.getMinutes();
   const current = today.find(block => minutesOf(block.start) <= minute && minute < minutesOf(block.end)) ?? null;
   const next = today.find(block => !isBreak(block) && minutesOf(block.start) > minute) ?? null;

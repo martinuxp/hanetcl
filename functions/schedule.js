@@ -3,6 +3,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
 const { subjectKey } = require("./subjects");
+const { loadChanges, changesForCourse, changeOn, minutesOf: changeMinutes } = require("./day-changes");
 
 // The course's weekly timetable (Horario) and the morning summary.
 //
@@ -154,12 +155,27 @@ function truncate(value, max) {
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
-/** The morning notification for a course, or null when its day is empty. */
-function morningMessage(blocks, events, now) {
+/**
+ * The morning notification for a course, or null when its day is empty.
+ *   change: the day's suspension or early dismissal for the course (day-changes.js), if any
+ */
+function morningMessage(blocks, events, now, change = null) {
   const { weekday } = chileDay(now);
-  const today = blocks.filter(block => block.day === weekday && block.kind !== "break")
+  const day = new Intl.DateTimeFormat("es-CL", { timeZone: TIME_ZONE, day: "numeric", month: "long" }).format(new Date(now));
+  if (change?.kind === "suspended") {
+    return {
+      title: `Hoy no hay clases · ${WEEKDAYS[weekday]} ${day}`,
+      body: truncate(change.reason || "Clases suspendidas.", 220),
+      data: { url: "/calendar" },
+      channelId: ANDROID_CHANNEL,
+    };
+  }
+  // After an early dismissal, nothing of the day is left.
+  const cutoff = change?.kind === "early" ? changeMinutes(change.endsAt) : Infinity;
+  const today = blocks.filter(block => block.day === weekday && block.kind !== "break" && minutes(block.start) < cutoff)
     .sort((a, b) => minutes(a.start) - minutes(b.start));
-  const live = events.filter(event => event.cancelled !== true && !String(event.title || "").toUpperCase().includes("CANCELADA"));
+  const beforeCutoff = event => cutoff === Infinity || minutes(clock(event.startDate.toMillis())) < cutoff;
+  const live = events.filter(event => event.cancelled !== true && !String(event.title || "").toUpperCase().includes("CANCELADA") && beforeCutoff(event));
   const evaluations = live.filter(event => String(event.type || "").toLocaleLowerCase("es").startsWith("evaluación"));
   const tasks = live.filter(event => String(event.type || "").toLocaleLowerCase("es") === "tarea");
   const lines = [
@@ -167,8 +183,8 @@ function morningMessage(blocks, events, now) {
     ...tasks.map(event => `Se entrega: ${event.title}`),
   ];
   if (today.length) lines.push(`Entras a las ${today[0].start} con ${today[0].subject}`);
+  if (change?.kind === "early") lines.unshift(`Hoy sales a las ${change.endsAt}${change.reason ? ` (${change.reason})` : ""}`);
   if (!lines.length) return null;
-  const day = new Intl.DateTimeFormat("es-CL", { timeZone: TIME_ZONE, day: "numeric", month: "long" }).format(new Date(now));
   return {
     title: evaluations.length ? `Hoy tienes ${evaluations.length === 1 ? "una prueba" : `${evaluations.length} pruebas`} · ${WEEKDAYS[weekday]} ${day}` : `Tu día · ${WEEKDAYS[weekday]} ${day}`,
     body: truncate(lines.join(" · "), 220),
@@ -189,6 +205,7 @@ function build(getAdminApp) {
         : null,
     ]);
     const data = doc?.data();
+    const changes = await loadChanges(getAdminApp, profile.institutionId);
     const hallsDb = classhallDb(getAdminApp).collection("halls");
     const [halls, courseHalls] = await Promise.all([
       // On their own timetable, the electivos and dominios this person is in.
@@ -210,6 +227,9 @@ function build(getAdminApp) {
       }),
       hallBlocks: halls ? halls.docs.filter(hall => HALL_PLANS.includes(hall.data().plan)).flatMap(hallBlocksOut) : [],
       updatedAt: data?.updatedAt?.toMillis?.() ?? null,
+      // Suspensions and early dismissals of this course that have not ended.
+      changes: courseId ? changesForCourse(changes, courseId) : [],
+      canChangeDays: ["Admin", "HNT"].includes(profile.role),
       canEdit: !!courseId && canEdit(profile, courseId),
       courses: roster ? [...new Set(roster.docs.map(item => item.data().curso).filter(validCourse))].sort((a, b) => a.localeCompare(b, "es")) : [],
     };
@@ -263,7 +283,7 @@ function build(getAdminApp) {
       const { institutionId, courseId } = doc.data();
       if (!institutionId || !validCourse(courseId)) continue;
       const key = scheduleId(institutionId, courseId);
-      if (!courses.has(key)) courses.set(key, { courseId, uids: [] });
+      if (!courses.has(key)) courses.set(key, { institutionId, courseId, uids: [] });
       courses.get(key).uids.push(doc.id);
     }
 
@@ -279,9 +299,15 @@ function build(getAdminApp) {
       }
     }
 
+    // Each institution's suspensions and early dismissals, read once.
+    const changesOf = new Map();
+    const todayDate = chileDay(now).date;
+
     let sent = 0;
-    for (const [key, { courseId, uids }] of courses) {
+    for (const [key, { institutionId, courseId, uids }] of courses) {
       try {
+        if (!changesOf.has(institutionId)) changesOf.set(institutionId, await loadChanges(getAdminApp, institutionId));
+        const change = changeOn(changesOf.get(institutionId), courseId, todayDate);
         const [scheduleDoc, events] = await Promise.all([
           calendar.collection(COLLECTION).doc(key).get(),
           calendar.collection(`HNC-LCH.${courseId}`)
@@ -302,7 +328,7 @@ function build(getAdminApp) {
           groups.get(group).uids.push(uid);
         }
         for (const group of groups.values()) {
-          const message = morningMessage([...courseBlocks, ...group.blocks], dayEvents, now);
+          const message = morningMessage([...courseBlocks, ...group.blocks], dayEvents, now, change);
           if (!message) continue;
           const tokens = [];
           for (let index = 0; index < group.uids.length; index += 30) {

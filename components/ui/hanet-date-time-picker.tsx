@@ -23,6 +23,8 @@ type Props = {
   value: Date;
   onChange: (date: Date) => void;
   style?: StyleProp<ViewStyle>;
+  /** Only the day: no hour and minute wheels. */
+  dateOnly?: boolean;
 };
 
 type ModalProps = {
@@ -30,26 +32,27 @@ type ModalProps = {
   value: Date;
   onConfirm: (date: Date) => void;
   onCancel: () => void;
+  dateOnly?: boolean;
 };
 
 // Dialog version: edits a draft and only reports it on "Listo".
-export function HanetDateTimePickerModal({ visible, value, onConfirm, onCancel }: ModalProps) {
+export function HanetDateTimePickerModal({ visible, value, onConfirm, onCancel, dateOnly }: ModalProps) {
   return (
     <AlertModal visible={visible} onRequestClose={onCancel}>
-      {visible && <PickerDialog value={value} onConfirm={onConfirm} onCancel={onCancel} />}
+      {visible && <PickerDialog value={value} onConfirm={onConfirm} onCancel={onCancel} dateOnly={dateOnly} />}
     </AlertModal>
   );
 }
 
-function PickerDialog({ value, onConfirm, onCancel }: Omit<ModalProps, 'visible'>) {
+function PickerDialog({ value, onConfirm, onCancel, dateOnly }: Omit<ModalProps, 'visible'>) {
   const [draft, setDraft] = useState(value);
 
   return (
     <View style={styles.backdrop}>
       <Pressable accessibilityLabel={t('components.ui.hanetDateTimePicker.cerrarSinCambiarLaFecha')} style={StyleSheet.absoluteFill} onPress={onCancel} />
       <View style={styles.dialog} accessibilityViewIsModal accessibilityRole="alert">
-        <ThemedText style={styles.dialogTitle}>{t('createEvent.fechaYHora')}</ThemedText>
-        <HanetDateTimePicker value={draft} onChange={setDraft} style={styles.dialogPicker} />
+        <ThemedText style={styles.dialogTitle}>{dateOnly ? t('eventInfo.fecha') : t('createEvent.fechaYHora')}</ThemedText>
+        <HanetDateTimePicker value={draft} onChange={setDraft} style={styles.dialogPicker} dateOnly={dateOnly} />
         <View style={styles.dialogActions}>
           <HanetButton label={t('common.cancelar')} variant="surface" onPress={onCancel} style={styles.dialogButton} />
           <HanetButton label={t('common.listo')} onPress={() => onConfirm(draft)} style={styles.dialogButton} />
@@ -77,7 +80,7 @@ function buildMonthCells(year: number, month: number): (Date | null)[] {
   return cells;
 }
 
-export function HanetDateTimePicker({ value, onChange, style }: Props) {
+export function HanetDateTimePicker({ value, onChange, style, dateOnly = false }: Props) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(value.getFullYear(), value.getMonth(), 1));
   const today = useMemo(() => new Date(), []);
   const cells = useMemo(
@@ -160,16 +163,16 @@ export function HanetDateTimePicker({ value, onChange, style }: Props) {
         })}
       </View>
 
-      <View style={styles.divider} />
+      {!dateOnly && <View style={styles.divider} />}
 
-      <View style={styles.timeRow}>
+      {!dateOnly && <View style={styles.timeRow}>
         <ThemedText style={styles.timeLabel}>{t('components.ui.hanetDateTimePicker.hora')}</ThemedText>
         <View style={styles.timeControls}>
           <Wheel label={t('components.ui.hanetDateTimePicker.hora')} values={HOURS} selectedIndex={value.getHours()} onSelect={index => setHours(HOURS[index])} />
           <ThemedText style={styles.timeColon}>:</ThemedText>
           <Wheel label={t('components.ui.hanetDateTimePicker.minutos')} values={MINUTES} selectedIndex={minuteIndex} onSelect={index => setMinutes(MINUTES[index])} />
         </View>
-      </View>
+      </View>}
     </View>
   );
 }

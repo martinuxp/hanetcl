@@ -212,6 +212,7 @@ export default function RootLayout() {
             <Stack.Screen name="feed-post" options={sheetOptions('feed-post')} />
             <Stack.Screen name="ui-showcase" options={{ headerShown: false }} />
             <Stack.Screen name="create-event" options={sheetOptions('create-event')} />
+            <Stack.Screen name="day-change" options={sheetOptions('day-change')} />
             <Stack.Screen name="edit-profile" options={sheetOptions('edit-profile')} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen name="licenses" options={{ headerShown: false }} />

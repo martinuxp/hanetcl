@@ -9,6 +9,7 @@ export const SHEET_DETENTS: Record<string, number[]> = {
   'event-options': [0.5],
   'feed-post': [1.0],
   'create-event': [0.5, 1.0],
+  'day-change': [1.0],
   'edit-profile': [0.75, 1.0],
   'classhall/join': [0.75, 1.0],
   'classhall/create': [0.75, 1.0],

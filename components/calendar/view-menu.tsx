@@ -3,7 +3,7 @@ import { CustomIcon } from '@/components/ui/custom-icon';
 import { AppColors, AppRadii, AppSpacing } from '@/constants/design-tokens';
 import { useSession } from '@/services/auth-service';
 import { peekCached, useCached } from '@/services/cache';
-import { isBreak, minutesOf, myWeek, nowAndNext } from '@/services/schedule-service';
+import { changeOn, isBreak, minutesOf, myWeek, nowAndNext } from '@/services/schedule-service';
 import type { CourseSchedule } from '@/services/schedule-service';
 import { CALENDAR_VIEWS, calendarBar, useCalendarBar, viewLabel } from '@/components/calendar/calendar-bar-store';
 import type { CalendarView } from '@/components/calendar/calendar-bar-store';
@@ -72,19 +72,22 @@ export function CalendarViewPill({ view, open, onPress }: { view: CalendarView; 
 export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
   const router = useRouter();
   const { user } = useSession();
-  const { view, menuOpen } = useCalendarBar();
+  const { view, menuOpen, day } = useCalendarBar();
   const key = user ? 'schedule:mine' : null;
   const kept = useCached<CourseSchedule>(key);
   const schedule = (key ? peekCached<CourseSchedule>(key) : undefined) ?? kept;
 
   // Read again each time the menu opens, so "Ahora" is about now.
   const now = React.useMemo(() => new Date(), [menuOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { current, next } = nowAndNext(myWeek(schedule), now);
+  const { current, next } = nowAndNext(myWeek(schedule), now, schedule?.changes);
+  const change = changeOn(schedule?.changes, now);
   const live = current && !isBreak(current) ? current : null;
   const minute = now.getHours() * 60 + now.getMinutes();
   const elapsed = live ? (minute - minutesOf(live.start)) / Math.max(1, minutesOf(live.end) - minutesOf(live.start)) : 0;
 
-  const today = live
+  const today = change?.kind === 'suspended'
+    ? { label: t('common.hoy2'), title: t('services.widgetService.sinClases'), meta: change.reason || 'Clases suspendidas' }
+    : live
     ? { label: t('common.ahora'), title: live.subject, meta: t('common.hastaLasEndValue', { end: live.end, value: live.room ? ` · ${live.room}` : '' }) }
     : next
       ? { label: t('common.despues'), title: next.subject, meta: t('components.calendar.viewMenu.aLasStartValue', { start: next.start, value: next.room ? ` · ${next.room}` : '' }) }
@@ -137,15 +140,15 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
             </Pressable>
           );
         })}
+        {(canCreate || !!schedule?.canChangeDays) && <View style={styles.separator} />}
         {canCreate && (
           <>
-            <View style={styles.separator} />
             <Pressable
               accessibilityRole="menuitem"
               accessibilityLabel={t('components.calendar.viewMenu.crearEvento')}
               onPress={() => {
                 calendarBar.closeMenu();
-                router.navigate('/create-event');
+                router.navigate(day ? { pathname: '/create-event', params: { day } } : '/create-event');
               }}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
@@ -153,6 +156,20 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
               <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.rowText}>{t('components.calendar.viewMenu.crearEvento')}</ThemedText>
             </Pressable>
           </>
+        )}
+        {!!schedule?.canChangeDays && (
+          <Pressable
+            accessibilityRole="menuitem"
+            accessibilityLabel={t('components.calendar.viewMenu.suspenderClasesOAdelantarLa')}
+            onPress={() => {
+              calendarBar.closeMenu();
+              router.navigate(day ? { pathname: '/day-change', params: { date: day } } : '/day-change');
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <CustomIcon name="clock" size={20} color={AppColors.textSecondary} />
+            <ThemedText maxFontSizeMultiplier={MAX_SCALE} style={styles.rowText}>{t('components.calendar.viewMenu.suspenderClasesOAdelantarLa')}</ThemedText>
+          </Pressable>
         )}
       </View>
     </View>
