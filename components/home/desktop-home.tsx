@@ -22,7 +22,7 @@ import { feedWhen, listFeed } from '@/services/feed-service';
 import type { Feed, FeedPost } from '@/services/feed-service';
 import { fetchCalendarEvents, restoreCalendarEvents } from '@/services/ical-service';
 import type { CalendarEvent } from '@/services/ical-service';
-import { blocksOn, getCourseSchedule, isBreak, minutesOf, myWeek, nowAndNext, restoreCourseSchedule, scheduleDay } from '@/services/schedule-service';
+import { classesOn, getCourseSchedule, isBreak, minutesOf, myWeek, nowAndNext, restoreCourseSchedule } from '@/services/schedule-service';
 import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 
 // Home on a wide web window (the side navigation opens every section, so the
@@ -205,8 +205,8 @@ function StatRow({ stats }: { stats: Stat[] }) {
 function TodayPanel({ schedule, loaded, evaluationsToday, now }: { schedule: CourseSchedule | null; loaded: boolean; evaluationsToday: CalendarEvent[]; now: Date }) {
   const router = useRouter();
   const blocks = myWeek(schedule);
-  const today = blocksOn(blocks, scheduleDay(now)).filter(block => !isBreak(block));
-  const { current, next } = nowAndNext(blocks, now);
+  const today = classesOn(blocks, schedule?.changes, now).filter(block => !isBreak(block));
+  const { current, next } = nowAndNext(blocks, now, schedule?.changes);
   const minute = now.getHours() * 60 + now.getMinutes();
   const inClass = current && !isBreak(current) ? current : null;
   const shown = inClass ?? next;
@@ -473,7 +473,7 @@ export function DesktopHome({ institution, promoted, anniversary }: Props) {
   const institutionUpcoming = (institutionEvents.value?.events ?? []).filter(event => (event.endsAt ?? event.startsAt) >= nowMs);
   const eventsToday = [...institutionUpcoming, ...(cityEvents.value?.events ?? [])]
     .filter(event => daysUntil(event.startsAt, now) === 0 && (event.endsAt ?? event.startsAt) >= nowMs);
-  const classesToday = blocksOn(myWeek(schedule.value), scheduleDay(now)).filter(block => !isBreak(block));
+  const classesToday = classesOn(myWeek(schedule.value), schedule.value?.changes, now).filter(block => !isBreak(block));
 
   // The row on top: only what is known, with the pink for what is near.
   const stats: Stat[] = [];

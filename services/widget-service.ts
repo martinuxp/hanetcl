@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
-import { blocksOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
-import type { ScheduleBlock } from './schedule-service';
+import { blocksOn, changeOn, classesOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
+import type { DayChange, ScheduleBlock } from './schedule-service';
 import { calendarWidgetTimeline } from './calendar-widget';
 import type { WidgetEvent } from './calendar-widget';
 import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
@@ -71,6 +71,8 @@ export function examActivities() {
 let lastBlocks: ScheduleBlock[] | null = null;
 let lastExam: { subject: string; startsAt: number } | null = null;
 let lastEvents: WidgetEvent[] | null = null;
+// The course's suspensions and early dismissals, which come with the timetable.
+let lastChanges: DayChange[] = [];
 
 const DAY_NAMES = weekdays();
 
@@ -89,8 +91,14 @@ function examLine(exam: { subject: string; startsAt: number } | null, at: Date) 
 /** What the widget shows at a given moment. */
 function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
   const exam = examLine(lastExam, at);
-  const today = blocksOn(blocks, scheduleDay(at));
+  const today = classesOn(blocks, lastChanges, at);
   const minute = at.getHours() * 60 + at.getMinutes();
+  // A suspended day says so until the time its classes would have ended.
+  const change = changeOn(lastChanges, at);
+  const usual = blocksOn(blocks, scheduleDay(at));
+  if (change?.kind === 'suspended' && usual.length && minute < minutesOf(usual[usual.length - 1].end)) {
+    return { label: t('common.hoy2'), subject: t('services.widgetService.sinClases'), detail: change.reason || 'Clases suspendidas', exam };
+  }
   const current = today.find(block => minutesOf(block.start) <= minute && minute < minutesOf(block.end));
   if (current) return { label: t('common.ahora'), subject: current.subject, detail: t('common.hastaLasEndValue', { end: current.end, value: current.room ? ` · ${current.room}` : '' }), exam };
   const next = today.find(block => !isBreak(block) && minutesOf(block.start) > minute);
@@ -99,7 +107,7 @@ function propsAt(blocks: ScheduleBlock[], at: Date): HomeWidgetProps {
   for (let offset = 1; offset <= 7; offset += 1) {
     const day = new Date(at);
     day.setDate(day.getDate() + offset);
-    const first = blocksOn(blocks, scheduleDay(day)).find(block => !isBreak(block));
+    const first = classesOn(blocks, lastChanges, day).find(block => !isBreak(block));
     if (first) {
       return { label: offset === 1 ? t('common.manana') : DAY_NAMES[day.getDay()].replace(/^./, letter => letter.toUpperCase()), subject: first.subject, detail: t('services.widgetService.entrasALasStart', { start: first.start }), exam };
     }
@@ -126,7 +134,8 @@ function publish() {
   for (const offset of [0, 1]) {
     const day = new Date(now);
     day.setDate(day.getDate() + offset);
-    for (const block of blocksOn(blocks, scheduleDay(day))) {
+    // The usual times too: a suspended day changes when its classes would have ended.
+    for (const block of [...blocksOn(blocks, scheduleDay(day)), ...classesOn(blocks, lastChanges, day)]) {
       for (const time of [block.start, block.end]) {
         const moment = new Date(day);
         const [hours, minutes] = time.split(':').map(Number);
@@ -155,15 +164,16 @@ function publishCalendar() {
   if (!lastBlocks) return;
   try {
     const widget = calendar();
-    widget?.updateTimeline(calendarWidgetTimeline(lastBlocks, lastEvents ?? []));
+    widget?.updateTimeline(calendarWidgetTimeline(lastBlocks, lastEvents ?? [], new Date(), lastChanges));
   } catch (error) {
     console.warn('syncCalendarWidget', error instanceof Error ? error.message : error);
   }
 }
 
 /** The course's timetable changed or loaded. */
-export function syncHomeWidget(blocks: ScheduleBlock[]) {
+export function syncHomeWidget(blocks: ScheduleBlock[], changes?: DayChange[] | null) {
   lastBlocks = blocks;
+  if (changes) lastChanges = changes;
   publish();
   publishCalendar();
 }

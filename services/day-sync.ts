@@ -27,13 +27,13 @@ export async function refreshDayWidgets(user: User) {
       syncCalendarWidget(keptEvents);
       void syncExamReminders(keptEvents);
     }
-    if (keptSchedule) syncHomeWidget(myWeek(keptSchedule));
+    if (keptSchedule) syncHomeWidget(myWeek(keptSchedule), keptSchedule.changes ?? []);
     const [events, schedule] = await Promise.allSettled([fetchCalendarEvents(courseId), getCourseSchedule()]);
     if (events.status === 'fulfilled') {
       syncCalendarWidget(events.value);
       void syncExamReminders(events.value);
     }
-    if (schedule.status === 'fulfilled') syncHomeWidget(myWeek(schedule.value));
+    if (schedule.status === 'fulfilled') syncHomeWidget(myWeek(schedule.value), schedule.value.changes ?? []);
   } catch (error) {
     console.warn('refreshDayWidgets', error instanceof Error ? error.message : error);
   }

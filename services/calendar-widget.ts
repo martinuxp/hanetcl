@@ -1,7 +1,7 @@
 import { sameSubject } from '@/constants/subjects';
 import type { CalendarWidgetProps } from '@/widgets/calendar-widget';
-import { blocksOn, isBreak, minutesOf, scheduleDay } from './schedule-service';
-import type { ScheduleBlock } from './schedule-service';
+import { changeOn, classesOn, isBreak, minutesOf } from './schedule-service';
+import type { DayChange, ScheduleBlock } from './schedule-service';
 import { capitalize, monthsShort, t, weekdays, weekdaysShort } from '@/i18n';
 
 // What the Lock Screen widget "Calendar" (widgets/calendar-widget.tsx) shows
@@ -64,8 +64,9 @@ function tagOf(events: WidgetEvent[]) {
 }
 
 /** One day's entries in order: its classes, with the events due in them, and the loose events. */
-function dayEntries(blocks: ScheduleBlock[], events: WidgetEvent[], day: Date): Entry[] {
-  const classes = blocksOn(blocks, scheduleDay(day)).filter(block => !isBreak(block));
+function dayEntries(blocks: ScheduleBlock[], events: WidgetEvent[], day: Date, changes?: DayChange[] | null): Entry[] {
+  // A suspension or an early dismissal takes away the classes it covers.
+  const classes = classesOn(blocks, changes, day).filter(block => !isBreak(block));
   const next = addDays(day, 1).getTime();
   const todays = events
     .map(event => ({ event, start: new Date(event.startDate), end: event.endDate ? new Date(event.endDate) : null }))
@@ -113,9 +114,9 @@ function withEntry(base: Pick<CalendarWidgetProps, 'weekday' | 'day' | 'testToda
 }
 
 /** What the widget shows at `now`. */
-export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[], now: Date): CalendarWidgetProps {
+export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[], now: Date, changes?: DayChange[] | null): CalendarWidgetProps {
   const today = startOfDay(now);
-  const todays = dayEntries(blocks, events, today);
+  const todays = dayEntries(blocks, events, today, changes);
   const base = {
     weekday: DAYS[now.getDay()].toLocaleUpperCase('es'),
     day: String(now.getDate()),
@@ -126,7 +127,7 @@ export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[],
   if (current) return withEntry(base, 'now', current);
   const next = todays.find(entry => entry.start.getTime() > now.getTime());
   if (next) return withEntry(base, 'today', next);
-  const tomorrow = dayEntries(blocks, events, addDays(today, 1))[0];
+  const tomorrow = dayEntries(blocks, events, addDays(today, 1), changes)[0];
   if (tomorrow) return withEntry(base, 'tomorrow', tomorrow);
 
   const date = dateText(now);
@@ -137,12 +138,16 @@ export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[],
   if (todays.length) {
     // The day is over and tomorrow is free: when classes come back.
     for (let offset = 2; offset <= 7; offset += 1) {
-      const first = dayEntries(blocks, events, addDays(today, offset))[0];
+      const first = dayEntries(blocks, events, addDays(today, offset), changes)[0];
       if (first) {
         return { ...empty, state: 'empty', title: t('services.calendarWidget.sinMasClasesHoy'), note: t('services.calendarWidget.elDaynamesALasClock', { dayNames: DAY_NAMES[first.start.getDay()], clock: clock(first.start) }), inline: t('services.calendarWidget.sinMasClasesHoy') };
       }
     }
     return { ...empty, state: 'empty', title: t('services.calendarWidget.sinMasClasesHoy'), note: t('services.calendarWidget.tienesElRestoDelDia'), inline: t('services.calendarWidget.sinMasClasesHoy') };
+  }
+  const change = changeOn(changes, now);
+  if (change?.kind === 'suspended') {
+    return { ...empty, state: 'empty', title: t('services.calendarWidget.sinClasesHoy'), note: change.reason || 'Clases suspendidas', inline: t('services.calendarWidget.sinClasesHoy') };
   }
   return { ...empty, state: 'empty', title: t('services.calendarWidget.sinClasesHoy'), note: t('services.calendarWidget.tienesElDiaLibre'), inline: t('services.calendarWidget.sinClasesHoy') };
 }
@@ -151,12 +156,12 @@ export function calendarWidgetAt(blocks: ScheduleBlock[], events: WidgetEvent[],
  * The widget's timeline: an entry now and at every start and end of a class
  * or event, plus each midnight, for the next week. Opening HaNet rewrites it.
  */
-export function calendarWidgetTimeline(blocks: ScheduleBlock[], events: WidgetEvent[], now = new Date()) {
+export function calendarWidgetTimeline(blocks: ScheduleBlock[], events: WidgetEvent[], now = new Date(), changes?: DayChange[] | null) {
   const moments = new Set<number>([now.getTime()]);
   const today = startOfDay(now);
   for (let offset = 0; offset < 7; offset += 1) {
     const day = addDays(today, offset);
-    for (const entry of dayEntries(blocks, events, day)) {
+    for (const entry of dayEntries(blocks, events, day, changes)) {
       for (const moment of [entry.start, entry.end]) {
         if (moment.getTime() > now.getTime()) moments.add(moment.getTime());
       }
@@ -165,5 +170,5 @@ export function calendarWidgetTimeline(blocks: ScheduleBlock[], events: WidgetEv
   }
   return [...moments]
     .sort((a, b) => a - b)
-    .map(time => ({ date: new Date(time), props: calendarWidgetAt(blocks, events, new Date(time)) }));
+    .map(time => ({ date: new Date(time), props: calendarWidgetAt(blocks, events, new Date(time), changes) }));
 }

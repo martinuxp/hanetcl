@@ -60,6 +60,9 @@ Object.assign(exports, require("./hanet-id").build(getAdminApp));
 // The course's timetable and the 7:00 summary.
 Object.assign(exports, require("./schedule").build(getAdminApp));
 
+// Class suspensions and early dismissals, on top of the timetable.
+Object.assign(exports, require("./day-changes").build(getAdminApp));
+
 // Data for the profile screen.
 Object.assign(exports, require("./profile").build(getAdminApp));
 

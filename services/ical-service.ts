@@ -26,6 +26,11 @@ export interface CalendarEvent {
   evaluationId?: string;
   /** A task of that Hall. */
   taskId?: string;
+  /**
+   * Moved by a suspension of classes or an early dismissal to the next class
+   * of its subject (functions/day-changes.js): where it was, in ms.
+   */
+  moved?: { from: number; kind: 'suspended' | 'early' };
 }
 
 function toDate(value: unknown, fallback: Date) {
@@ -65,6 +70,10 @@ function toCalendarEvent(id: string, data: DocumentData): CalendarEvent {
     hallId: data.source === 'classhall' && typeof data.hallId === 'string' ? data.hallId : undefined,
     evaluationId: typeof data.evaluationId === 'string' ? data.evaluationId : undefined,
     taskId: typeof data.taskId === 'string' ? data.taskId : undefined,
+    // Only while it is still where the change put it.
+    moved: data.moved && toDate(data.moved.to, new Date(0)).getTime() === startDate.getTime()
+      ? { from: toDate(data.moved.from, startDate).getTime(), kind: data.moved.kind === 'early' ? 'early' : 'suspended' }
+      : undefined,
   };
 }
 

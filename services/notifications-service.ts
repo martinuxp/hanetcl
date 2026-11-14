@@ -18,7 +18,8 @@ export type NotificationKind =
   | 'gradeCorrected'
   | 'anniversary'
   | 'feed'
-  | 'test';
+  | 'test'
+  | 'dayChange';
 
 export type HnNotification = {
   id: string;

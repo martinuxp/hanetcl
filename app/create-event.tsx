@@ -1,6 +1,6 @@
 import { withSheetFrame } from '@/components/ui/sheet-frame';
 import { AppColors } from '@/constants/design-tokens';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Platform, TextInput, Pressable, type ScrollViewInstance } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -18,6 +18,10 @@ import { HanetButton } from '@/components/ui/hanet-button';
 import { HanetDateTimePickerModal } from '@/components/ui/hanet-date-time-picker';
 import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
 import { KeyboardScroll } from '@/components/ui/keyboard';
+import { HanetChip } from '@/components/ui/hanet-chip';
+import { useCached } from '@/services/cache';
+import { atTime, classesOn, getCourseSchedule, isBreak, myWeek } from '@/services/schedule-service';
+import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
 import { t } from '@/i18n';
 
 // New events start on the next 5-minute mark, matching the picker's step.
@@ -25,6 +29,15 @@ function nextRoundedTime() {
   const date = new Date();
   date.setMinutes(Math.ceil(date.getMinutes() / 5) * 5, 0, 0);
   return date;
+}
+
+/** A new event starts on the day selected in the Calendar: soon if it is today, at 8:00 otherwise. */
+function startOn(day?: string) {
+  const soon = nextRoundedTime();
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return soon;
+  const [year, month, date] = day.split('-').map(Number);
+  if (soon.getFullYear() === year && soon.getMonth() === month - 1 && soon.getDate() === date) return soon;
+  return new Date(year, month - 1, date, 8, 0, 0, 0);
 }
 
 // Errors whose message is already written for the person using the form.
@@ -49,7 +62,7 @@ function CreateEventScreen() {
 
   const [title, setTitle] = useState((params.title as string) || '');
   const [description, setDescription] = useState((params.description as string) || '');
-  const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : nextRoundedTime());
+  const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : startOn(params.day as string | undefined));
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
   // Older events may carry another name for the same subject; the form shows the shared one.
@@ -58,6 +71,30 @@ function CreateEventScreen() {
   const [location, setLocation] = useState((params.location as string) || '');
   const [loading, setLoading] = useState(false);
   const [requestVerification, setRequestVerification] = useState(false);
+  // The time can be a class of the timetable (it takes its start and end) or an exact hour.
+  const [timeMode, setTimeMode] = useState<'block' | 'time'>(isEditing ? 'time' : 'block');
+  const [blockEnd, setBlockEnd] = useState<Date | null>(null);
+  const [isDayPickerVisible, setDayPickerVisibility] = useState(false);
+  const keptSchedule = useCached<CourseSchedule>(user ? 'schedule:mine' : null);
+  const [loadedSchedule, setLoadedSchedule] = useState<CourseSchedule | null>(null);
+  const schedule = loadedSchedule ?? keptSchedule ?? null;
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    getCourseSchedule().then(result => { if (live) setLoadedSchedule(result); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [user]);
+  const hasTimetable = myWeek(schedule).some(block => !isBreak(block));
+  const mode = hasTimetable ? timeMode : 'time';
+  // The classes of the chosen day, without the ones a suspension or an early dismissal takes away.
+  const dayClasses = classesOn(myWeek(schedule), schedule?.changes, startDate).filter(block => !isBreak(block));
+  const chosenBlock = blockEnd ? dayClasses.find(block => atTime(block.start, startDate).getTime() === startDate.getTime() && atTime(block.end, startDate).getTime() === blockEnd.getTime()) : undefined;
+  const pickBlock = (block: ScheduleBlock) => {
+    setStartDate(atTime(block.start, startDate));
+    setBlockEnd(atTime(block.end, startDate));
+    // The class says the subject, if it is one of the catalog's.
+    if (!subject && subjectsList.includes(subjectName(block.subject))) setSubject(subjectName(block.subject));
+  };
   const [showErrors, setShowErrors] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -83,6 +120,7 @@ function CreateEventScreen() {
   const missingTitle = !title.trim();
   const missingSubject = !subject;
   const missingType = !eventType;
+  const missingBlock = mode === 'block' && !chosenBlock;
 
   // The description sits at the end of the form; once the keyboard is up,
   // bring it back into view.
@@ -103,7 +141,7 @@ function CreateEventScreen() {
 
   const handleSubmit = async () => {
     setSaveError(null);
-    if (missingTitle || missingSubject || missingType) {
+    if (missingTitle || missingSubject || missingType || missingBlock) {
       setShowErrors(true);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
@@ -123,7 +161,8 @@ function CreateEventScreen() {
 
       await ensureClaims(user);
 
-      const endDate = new Date(startDate.getTime() + 90 * 60 * 1000); // 1.5 horas por defecto
+      // A class ends when its block does; an exact hour lasts 1.5 hours by default.
+      const endDate = mode === 'block' && chosenBlock && blockEnd ? blockEnd : new Date(startDate.getTime() + 90 * 60 * 1000);
 
       if (isEditing) {
         const docRef = doc(calendarDb, `HNC-LCH.${courseId}`, eventId);
@@ -211,6 +250,59 @@ function CreateEventScreen() {
 
         <View style={styles.modalSection}>
           <ThemedText style={styles.modalLabel}>{t('createEvent.fechaYHora')}</ThemedText>
+          {hasTimetable && (
+            <View style={styles.modeRow}>
+              <HanetChip label={t('createEvent.bloqueDelHorario')} compact selected={mode === 'block'} onPress={() => setTimeMode('block')} accessibilityRole="radio" />
+              <HanetChip label={t('createEvent.horaExacta')} compact selected={mode === 'time'} onPress={() => { setTimeMode('time'); setBlockEnd(null); }} accessibilityRole="radio" />
+            </View>
+          )}
+          {mode === 'block' ? (
+            <>
+              <TouchableRipple
+                accessibilityRole="button"
+                accessibilityLabel={t('createEvent.elegirElDia')}
+                style={styles.datePickerBtn}
+                onPress={() => setDayPickerVisibility(true)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <ThemedText style={styles.datePickerText}>
+                    {startDate.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </ThemedText>
+                  <CustomIcon name="calendar" size={20} color={AppColors.textSecondary} />
+                </View>
+              </TouchableRipple>
+              {dayClasses.length > 0 ? (
+                <View style={styles.blockRow}>
+                  {dayClasses.map(block => (
+                    <HanetChip
+                      key={block.id}
+                      label={`${block.start} · ${block.subject}`}
+                      selected={chosenBlock?.id === block.id}
+                      onPress={() => pickBlock(block)}
+                      accessibilityRole="radio"
+                    />
+                  ))}
+                </View>
+              ) : (
+                <ThemedText style={styles.blockHint}>{t('createEvent.eseDiaNoTienesClases')}</ThemedText>
+              )}
+              {showErrors && missingBlock && dayClasses.length > 0 && <ThemedText accessibilityLiveRegion="polite" style={styles.fieldError}>{t('createEvent.eligeElBloqueDeLa')}</ThemedText>}
+              <HanetDateTimePickerModal
+                dateOnly
+                visible={isDayPickerVisible}
+                value={startDate}
+                onConfirm={(date) => {
+                  const day = new Date(date);
+                  day.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0);
+                  setStartDate(day);
+                  setBlockEnd(null);
+                  setDayPickerVisibility(false);
+                }}
+                onCancel={() => setDayPickerVisibility(false)}
+              />
+            </>
+          ) : (
+          <>
           <TouchableRipple
             accessibilityRole="button"
             accessibilityLabel={t('createEvent.elegirFechaYHora')}
@@ -232,6 +324,8 @@ function CreateEventScreen() {
             onConfirm={(date) => { setStartDate(date); setDatePickerVisibility(false); }}
             onCancel={() => setDatePickerVisibility(false)}
           />
+          </>
+          )}
         </View>
 
         <View style={styles.modalSection}>
@@ -352,6 +446,9 @@ const styles = StyleSheet.create({
   datePickerBtn: { backgroundColor: AppColors.surface, borderRadius: 16, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   datePickerText: { fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontSize: 13 },
   modalFooter: { flexDirection: 'row', gap: 10, width: '100%' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  blockRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  blockHint: { fontSize: 13, lineHeight: 18, color: AppColors.surface, fontFamily: 'DMSans_500Medium', marginTop: 10 },
   footerButton: { flex: 1 },
 });
 
