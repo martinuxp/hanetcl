@@ -33,6 +33,8 @@ import { DesktopHome } from '@/components/home/desktop-home';
 import { useSideNav } from '@/hooks/use-desktop-layout';
 import { useDocumentScroll } from '@/hooks/use-document-scroll';
 import { PushPermissionDialog } from '@/components/notifications/push-permission-dialog';
+import { HomeInstallGuide } from '@/components/web/install-guide';
+import { shouldOfferInstallGuide } from '@/services/web-install';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -81,6 +83,8 @@ export default function HomeScreen() {
   const { nextCalendarItem, promotedEvent, loaded: highlightsLoaded } = useHomeHighlights();
 
   const [welcome, setWelcome] = useState<{ firstName: string; treatment: Treatment; institutionName?: string } | null>(null);
+  // On the web, the "Agregar a inicio" guide goes first; the notifications question waits for it.
+  const [installGuidePending, setInstallGuidePending] = useState(shouldOfferInstallGuide);
 
   // Arriving right after the link was completed: play the welcome once.
   useFocusEffect(
@@ -329,8 +333,10 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* After the splash and the welcome: the first visit asks for notifications. */}
-      <PushPermissionDialog ready={linked && contentLoaded && !welcome} />
+      {/* After the splash and the welcome: on the web, how to add HaNet to the
+          home screen; then the first visit asks for notifications. */}
+      <HomeInstallGuide ready={linked && contentLoaded && !welcome} onDone={() => setInstallGuidePending(false)} />
+      <PushPermissionDialog ready={linked && contentLoaded && !welcome && !installGuidePending} />
 
       <WelcomeCelebration
         visible={!!welcome}

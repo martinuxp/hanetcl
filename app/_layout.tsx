@@ -16,6 +16,7 @@ import { EntryAside } from '@/components/EntryAside';
 import { ShareIntake } from '@/components/share/share-intake';
 import { LaunchSplash } from '@/components/LaunchSplash';
 import { AppErrorLayer, FatalBoundary } from '@/components/errors/AppErrorLayer';
+import { UpdatePrompt } from '@/components/system/update-prompt';
 import { AppColors } from '@/constants/design-tokens';
 import { sheetDetents } from '@/constants/sheets';
 import { useSession } from '@/services/auth-service';
@@ -263,6 +264,7 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <LaunchSplash ready={routed && (!signedInAtLaunch || contentReady || waitedEnough)} quick={returning} />
           <AppErrorLayer />
+          <UpdatePrompt />
         </ThemeProvider>
       </PaperProvider>
     </GestureHandlerRootView>

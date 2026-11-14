@@ -1,5 +1,6 @@
 const { createHash } = require("node:crypto");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { recordInbox } = require("./inbox");
 
@@ -10,13 +11,22 @@ const { recordInbox } = require("./inbox");
 //
 // Each device registers its Expo push token in hn-enrollmentdata
 // pushTokens/{sha256(token)} with the uid signed in on it; signing in with
-// another account moves the device to that account. Whoever turned ClassHall
+// another account moves the device to that account. The web app registers a
+// Firebase Cloud Messaging token in the same collection (platform "web"):
+// sendPush tells them apart by their shape and sends those through FCM, which
+// the browser's service worker shows (public/sw.js). Whoever turned ClassHall
 // notifications off (accounts/{uid}.notifications.classhall = false) is left
 // out. A failure is logged and never undoes what the teacher saved.
 
 const STAFF_ROLES = ["Profesor", "Admin", "HNT"];
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const TOKEN_PATTERN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,}\]$/;
+const EXPO_TOKEN_PATTERN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,}\]$/;
+// What getToken() of firebase/messaging gives a browser.
+const WEB_TOKEN_PATTERN = /^[A-Za-z0-9_:-]{100,400}$/;
+// A web notification waits up to a day for a browser that is off.
+const WEB_TTL_SECONDS = 86400;
+// FCM's answers that mean the browser is gone or the token is not valid any more.
+const WEB_GONE = ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"];
 const MAX_TOKENS_PER_ACCOUNT = 10;
 // Android shows ClassHall's notifications in their own channel (services/push-service.ts).
 const ANDROID_CHANNEL = "classhall";
@@ -77,11 +87,17 @@ async function tokensFor(getAdminApp, uids) {
   return tokens;
 }
 
+function isWebToken(token) {
+  return !EXPO_TOKEN_PATTERN.test(token) && WEB_TOKEN_PATTERN.test(token);
+}
+
+function validToken(token, platform) {
+  return platform === "web" ? WEB_TOKEN_PATTERN.test(token) : EXPO_TOKEN_PATTERN.test(token);
+}
+
 // Sends through Expo, 100 per request. A device that no longer takes
-// notifications (the app was removed) loses its token. Returns Expo's ticket
-// for each token, in order.
-async function sendPush(getAdminApp, tokens, message) {
-  const db = identityDb(getAdminApp);
+// notifications (the app was removed) loses its token.
+async function sendExpo(db, tokens, message) {
   const all = [];
   for (let start = 0; start < tokens.length; start += 100) {
     const chunk = tokens.slice(start, start + 100);
@@ -99,6 +115,51 @@ async function sendPush(getAdminApp, tokens, message) {
         : null
     )));
   }
+  return all;
+}
+
+// Sends to browsers through FCM, 500 per request, as data only: the service
+// worker draws the notification itself, the same on every browser. Answers
+// tickets shaped like Expo's, so whoever calls reads both the same way.
+async function sendWeb(getAdminApp, db, tokens, message) {
+  const all = [];
+  const data = {
+    title: String(message.title || ""),
+    body: String(message.body || ""),
+    url: typeof message.data?.url === "string" ? message.data.url : "",
+  };
+  for (let start = 0; start < tokens.length; start += 500) {
+    const chunk = tokens.slice(start, start + 500);
+    const { responses } = await getMessaging(getAdminApp()).sendEach(chunk.map(item => ({
+      token: item.token,
+      data,
+      webpush: { headers: { Urgency: "high", TTL: String(WEB_TTL_SECONDS) } },
+    })));
+    const tickets = responses.map(response => (response.success
+      ? { status: "ok" }
+      : { status: "error", message: response.error?.message, details: { error: WEB_GONE.includes(response.error?.code) ? "DeviceNotRegistered" : (response.error?.code || "Error") } }));
+    all.push(...tickets);
+    await Promise.all(tickets.map((ticket, index) => (
+      ticket.details?.error === "DeviceNotRegistered" ? db.collection("pushTokens").doc(chunk[index].id).delete() : null
+    )));
+  }
+  return all;
+}
+
+// Sends to phones through Expo and to browsers through FCM. Returns a ticket
+// for each token, in order.
+async function sendPush(getAdminApp, tokens, message) {
+  const db = identityDb(getAdminApp);
+  const web = [];
+  const phones = [];
+  tokens.forEach((item, index) => (isWebToken(item.token) ? web : phones).push({ ...item, index }));
+  const [phoneTickets, webTickets] = await Promise.all([
+    phones.length ? sendExpo(db, phones, message) : [],
+    web.length ? sendWeb(getAdminApp, db, web, message) : [],
+  ]);
+  const all = new Array(tokens.length);
+  phones.forEach((item, index) => { all[item.index] = phoneTickets[index]; });
+  web.forEach((item, index) => { all[item.index] = webTickets[index]; });
   return all;
 }
 
@@ -163,8 +224,8 @@ function build(getAdminApp) {
   const registerPushToken = onCall({ invoker: "public" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
     const token = typeof request.data?.token === "string" ? request.data.token.trim() : "";
-    if (!TOKEN_PATTERN.test(token)) throw new HttpsError("invalid-argument", "Ese token de notificaciones no es válido.");
     const platform = ["ios", "android", "web"].includes(request.data?.platform) ? request.data.platform : "unknown";
+    if (!validToken(token, platform)) throw new HttpsError("invalid-argument", "Ese token de notificaciones no es válido.");
 
     const db = identityDb(getAdminApp);
     const uid = request.auth.uid;
@@ -185,7 +246,7 @@ function build(getAdminApp) {
   const unregisterPushToken = onCall({ invoker: "public" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
     const token = typeof request.data?.token === "string" ? request.data.token.trim() : "";
-    if (!TOKEN_PATTERN.test(token)) return { ok: true };
+    if (!EXPO_TOKEN_PATTERN.test(token) && !WEB_TOKEN_PATTERN.test(token)) return { ok: true };
     const ref = identityDb(getAdminApp).collection("pushTokens").doc(tokenId(token));
     const doc = await ref.get();
     if (doc.exists && doc.data().uid === request.auth.uid) await ref.delete();
