@@ -24,6 +24,7 @@ const ICONS: Record<NotificationKind, React.ComponentProps<typeof Ionicons>['nam
   anniversary: 'trophy-outline',
   feed: 'newspaper-outline',
   test: 'notifications-outline',
+  dayChange: 'calendar-clear-outline',
 };
 
 const GRADE_KINDS: NotificationKind[] = ['grade', 'gradeCorrected'];

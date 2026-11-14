@@ -32,8 +32,9 @@ import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/service
 import { useContentWidth } from '@/hooks/use-desktop-layout';
 import { sameSubject, subjectName } from '@/constants/subjects';
 import { useCached } from '@/services/cache';
-import { blocksOn, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
-import type { CourseSchedule, ScheduleBlock } from '@/services/schedule-service';
+import { blockFate, blocksOn, changeOn, classesOn, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
+import type { CourseSchedule, DayChange, ScheduleBlock } from '@/services/schedule-service';
+import { DayChangeBanner, DismissalLine, changeDayLabel } from '@/components/calendar/day-change-banner';
 import { db } from '@/services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { HanetButton } from '@/components/ui/hanet-button';
@@ -202,6 +203,9 @@ export default function CalendarScreen() {
   const keptSchedule = useCached<CourseSchedule>(user ? 'schedule:mine' : null);
   const [schedule, setSchedule] = useState<CourseSchedule | null>(null);
   const week = myWeek(schedule ?? keptSchedule);
+  // Suspensions and early dismissals of the course, on top of the week.
+  const changes = (schedule ?? keptSchedule)?.changes ?? [];
+  const canChangeDays = !!(schedule ?? keptSchedule)?.canChangeDays;
 
   const loadEvents = useCallback(async (silent = false) => {
     if (initializing) return;
@@ -578,12 +582,13 @@ export default function CalendarScreen() {
           const isSelected = selectedPageIndex === index;
           const dayEvents = getEventsForDate(allEvents, day.dateObj);
           const hasEvents = dayEvents.length > 0;
+          const dayChange = changeOn(changes, day.dateObj);
           const isToday = isSameDay(day.dateObj, today);
           return (
             <Pressable
               key={index}
               accessibilityRole="button"
-              accessibilityLabel={`${day.dayName} ${day.date}${isToday ? t('common.hoy') : ''}${hasEvents ? t('calendar.conEventos') : ''}`}
+              accessibilityLabel={`${day.dayName} ${day.date}${isToday ? t('common.hoy') : ''}${hasEvents ? t('calendar.conEventos') : ''}${dayChange ? (dayChange.kind === 'suspended' ? t('calendar.sinClases') : t('calendar.salidaALasEndsat', { endsAt: dayChange.endsAt })) : ''}`}
               accessibilityState={{ selected: isSelected }}
               style={({ pressed }) => [styles.dayChip, isToday && styles.dayChipToday, isSelected && styles.dayChipSelected, pressed && styles.pressed]}
               onLayout={event => recordChipFrame(index, { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width })}
@@ -591,7 +596,7 @@ export default function CalendarScreen() {
             >
               <ThemedText style={[styles.dayName, isSelected && styles.dayNameSelected]}>{day.dayName}</ThemedText>
               <ThemedText style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>{day.date}</ThemedText>
-              {hasEvents && <View style={styles.eventDot} />}
+              {dayChange ? <View style={[styles.eventDot, styles.changeDot]} /> : hasEvents && <View style={styles.eventDot} />}
             </Pressable>
           );
         })}
@@ -636,7 +641,7 @@ export default function CalendarScreen() {
             <WeekView
               days={weekDays.map(day => day.dateObj)}
               events={allEvents}
-              blocksOn={date => blocksOn(week, scheduleDay(date))}
+              blocksOn={date => classesOn(week, changes, date)}
               selectedDate={currentDayInfo.dateObj}
               bottomInset={TAB_BAR_CLEARANCE}
               onPickDay={pickDay}
@@ -703,6 +708,8 @@ export default function CalendarScreen() {
                       isAdmin={canAddEvents}
                       events={getEventsForDate(allEvents, date)}
                       blocks={blocksOn(week, scheduleDay(date))}
+                      change={changeOn(changes, date)}
+                      canManageChanges={canChangeDays}
                       refreshing={refreshing}
                       onRefresh={onRefresh}
                       lastUpdated={lastUpdated}
@@ -733,6 +740,8 @@ export default function CalendarScreen() {
                       isAdmin={canAddEvents}
                       events={getEventsForDate(allEvents, date)}
                       blocks={blocksOn(week, scheduleDay(date))}
+                      change={changeOn(changes, date)}
+                      canManageChanges={canChangeDays}
                       refreshing={refreshing}
                       onRefresh={onRefresh}
                       lastUpdated={lastUpdated}
@@ -779,9 +788,9 @@ function dayItems(events: CalendarEvent[], blocks: ScheduleBlock[]): TimelineIte
   ].sort((a, b) => a.minute - b.minute || (a.kind === 'event' ? -1 : 1));
 }
 
-function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[]; blocks: ScheduleBlock[]; refreshing: boolean; onRefresh: () => void; lastUpdated: Date | null }) {
+function DailyTimeline({ isAdmin, events, blocks, change, canManageChanges, refreshing, onRefresh, lastUpdated }: { isAdmin: boolean; events: CalendarEvent[]; blocks: ScheduleBlock[]; change: DayChange | null; canManageChanges: boolean; refreshing: boolean; onRefresh: () => void; lastUpdated: Date | null }) {
   const top = useFrostedInset();
-  if (events.length === 0 && blocks.length === 0) {
+  if (events.length === 0 && blocks.length === 0 && !change) {
     return (
       <ScrollView
         contentContainerStyle={withTopInset([styles.timelineScroll, styles.emptyContainer], top)}
@@ -796,16 +805,25 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
     );
   }
 
+  // Recreos of the hours that are lost go away; the lost classes stay, crossed out.
+  const items = dayItems(events, blocks.filter(block => !(isBreak(block) && blockFate(block, change) === 'lost')));
+  // An early dismissal draws its line before the first thing that starts at that time or later.
+  const cut = change?.kind === 'early' && change.endsAt ? minutesOf(change.endsAt) : null;
+  const cutIndex = cut === null ? -1 : items.findIndex(item => item.minute >= cut);
+
   return (
     <ScrollView
       contentContainerStyle={withTopInset(styles.timelineScroll, top)}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.success} colors={[AppColors.success]} progressViewOffset={top} />}
     >
-      {dayItems(events, blocks).map((item, index) => (
-        <View key={item.kind === 'event' ? item.event.id : `block-${item.block.id}`} style={[styles.timelineRow, item.kind === 'block' && isBreak(item.block) && styles.timelineRowBreak]}>
+      {!!change && <DayChangeBanner change={change} canManage={canManageChanges} />}
+      {items.map((item, index) => (
+        <React.Fragment key={item.kind === 'event' ? item.event.id : `block-${item.block.id}`}>
+        {index === cutIndex && !!change?.endsAt && <DismissalLine endsAt={change.endsAt} />}
+        <View style={[styles.timelineRow, item.kind === 'block' && isBreak(item.block) && styles.timelineRowBreak, item.kind === 'block' && blockFate(item.block, change) === 'lost' && styles.timelineRowLost]}>
           <View style={styles.timeColumn}>
-            <View style={[styles.timeBadge, index === 0 && styles.timeBadgeSolid, item.kind === 'block' && isBreak(item.block) && styles.timeBadgeGhost]}>
+            <View style={[styles.timeBadge, index === 0 && styles.timeBadgeSolid, item.kind === 'block' && (isBreak(item.block) || blockFate(item.block, change) === 'lost') && styles.timeBadgeGhost]}>
               <ThemedText style={[styles.timeText, index === 0 && { color: AppColors.textSecondary }]}>
                 {item.kind === 'event' ? formatTime(new Date(item.event.startDate)) : item.block.start}
               </ThemedText>
@@ -813,7 +831,7 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
           </View>
           <View style={styles.eventColumn}>
             {item.kind === 'block' ? (
-              <BlockCard block={item.block} events={item.events} isAdmin={isAdmin} />
+              <BlockCard block={item.block} events={item.events} isAdmin={isAdmin} fate={blockFate(item.block, change)} endsAt={change?.endsAt ?? null} />
             ) : (
               <ClassCard
                 id={item.event.id}
@@ -833,7 +851,9 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
             )}
           </View>
         </View>
+        </React.Fragment>
       ))}
+      {cutIndex === -1 && !!change?.endsAt && blocks.some(block => blockFate(block, change) === 'cut') && <DismissalLine endsAt={change.endsAt} />}
 
       <ThemedText style={styles.footerDisclaimer}>
         {t('calendar.valueDeslizaHaciaAbajoPara', { value: lastUpdated ? t('calendar.actualizadoALasTime', { time: formatTime(lastUpdated) }) : '' })}
@@ -845,16 +865,27 @@ function DailyTimeline({ isAdmin, events, blocks, refreshing, onRefresh, lastUpd
   );
 }
 
+function dateKeyOf(ms: number) {
+  const date = new Date(ms);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 /** A class of the timetable, with the evaluations and tasks it has that day. */
-function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: CalendarEvent[]; isAdmin: boolean }) {
+function BlockCard({ block, events, isAdmin, fate = 'normal', endsAt = null }: { block: ScheduleBlock; events: CalendarEvent[]; isAdmin: boolean; fate?: 'normal' | 'cut' | 'lost'; endsAt?: string | null }) {
   const router = useRouter();
   if (isBreak(block)) {
-    return <ThemedText style={styles.breakText}>{t('calendar.subjectHastaLasEnd', { subject: block.subject, end: block.end })}</ThemedText>;
+    if (fate === 'lost') return null;
+    return <ThemedText style={styles.breakText}>{t('calendar.subjectHastaLasEnd', { subject: block.subject, end: fate === 'cut' && endsAt ? endsAt : block.end })}</ThemedText>;
   }
-  const meta = [`${block.start} – ${block.end}`, block.kind === 'hall' ? (block.plan === 'dominio' ? t('common.dominio') : t('common.electivo')) : null, block.room || null].filter(Boolean).join(' · ');
+  const meta = [
+    `${block.start} – ${fate === 'cut' && endsAt ? endsAt : block.end}`,
+    fate === 'cut' ? t('calendar.terminaAntes') : fate === 'lost' ? t('calendar.sinClase') : null,
+    block.kind === 'hall' ? (block.plan === 'dominio' ? t('common.dominio') : t('common.electivo')) : null,
+    block.room || null,
+  ].filter(Boolean).join(' · ');
   const hallId = block.hallId;
   return (
-    <View style={styles.blockCard}>
+    <View style={[styles.blockCard, fate === 'lost' && styles.blockCardLost]}>
       <Pressable
         accessibilityRole={hallId ? 'button' : undefined}
         accessibilityLabel={`${block.subject}, ${meta}`}
@@ -864,7 +895,7 @@ function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: C
         style={({ pressed }) => [styles.blockHeader, pressed && { opacity: 0.75 }]}
       >
         <View style={styles.blockHeaderText}>
-          <ThemedText style={styles.blockSubject} numberOfLines={2}>{block.subject}</ThemedText>
+          <ThemedText style={[styles.blockSubject, fate === 'lost' && styles.blockSubjectLost]} numberOfLines={2}>{block.subject}</ThemedText>
           <ThemedText style={styles.blockMeta}>{meta}</ThemedText>
         </View>
         {!!hallId && <CustomIcon name="chevron-right" size={18} color={AppColors.textSecondary} />}
@@ -879,7 +910,14 @@ function BlockCard({ block, events, isAdmin }: { block: ScheduleBlock; events: C
           style={({ pressed }) => [styles.blockEvent, event.outstanding && styles.blockEventOutstanding, pressed && { opacity: 0.75 }]}
         >
           <ThemedText style={styles.blockEventType}>{(event.eventType || 'Evento').split(/[.\s]/)[0]}</ThemedText>
-          <ThemedText style={[styles.blockEventTitle, event.cancelled && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{event.title}</ThemedText>
+          <View style={styles.blockEventText}>
+            <ThemedText style={[styles.blockEventTitle, event.cancelled && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{event.title}</ThemedText>
+            {!!event.moved && (
+              <ThemedText style={styles.blockEventMoved} numberOfLines={1}>
+                {event.moved.kind === 'suspended' ? t('calendar.seMovioDesdeElChangedaylabel', { changeDayLabel: changeDayLabel(dateKeyOf(event.moved.from)) }) : t('calendar.seMovioDesdeElChangedaylabel2', { changeDayLabel: changeDayLabel(dateKeyOf(event.moved.from)) })}
+              </ThemedText>
+            )}
+          </View>
           <CustomIcon name="chevron-right" size={16} color={AppColors.textSecondary} />
         </Pressable>
       ))}
@@ -1199,6 +1237,33 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: AppColors.surface,
+  },
+  // A class lost to a suspension or an early dismissal.
+  blockCardLost: {
+    borderStyle: 'dashed',
+    borderColor: AppColors.surfaceMuted,
+  },
+  blockSubjectLost: {
+    color: AppColors.textSecondary,
+    fontFamily: 'DMSans_500Medium',
+    textDecorationLine: 'line-through',
+  },
+  timelineRowLost: {
+    opacity: 0.7,
+  },
+  changeDot: {
+    width: 6,
+    height: 6,
+  },
+  blockEventText: {
+    flex: 1,
+    gap: 1,
+  },
+  blockEventMoved: {
+    color: AppColors.textSecondary,
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: 'DMSans_500Medium',
   },
   blockHeader: {
     flexDirection: 'row',
