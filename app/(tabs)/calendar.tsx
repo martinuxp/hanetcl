@@ -32,7 +32,7 @@ import { EVENT_EDITOR_ROLES, ensureClaims, useRole, useSession } from '@/service
 import { useContentWidth } from '@/hooks/use-desktop-layout';
 import { sameSubject, subjectName } from '@/constants/subjects';
 import { useCached } from '@/services/cache';
-import { blockFate, blocksOn, changeOn, classesOn, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
+import { blockFate, blocksOn, changeOn, classesOn, dateKey, getCourseSchedule, isBreak, minutesOf, myWeek, scheduleDay } from '@/services/schedule-service';
 import type { CourseSchedule, DayChange, ScheduleBlock } from '@/services/schedule-service';
 import { DayChangeBanner, DismissalLine, changeDayLabel } from '@/components/calendar/day-change-banner';
 import { db } from '@/services/firebase';
@@ -458,6 +458,10 @@ export default function CalendarScreen() {
   const currentDayInfo = weekDays[selectedPageIndex];
   const today = new Date();
   const isTodaySelected = isSameDay(currentDayInfo.dateObj, today);
+  // Creating an event from the menu starts on the day on screen.
+  const selectedKey = dateKey(currentDayInfo.dateObj);
+  useEffect(() => { calendarBar.setDay(selectedKey); }, [selectedKey]);
+  useEffect(() => () => calendarBar.setDay(null), []);
 
   // The header (and the day strip under it) float over the content as
   // frosted glass: what scrolls under them shows through, blurred.

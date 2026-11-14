@@ -31,6 +31,15 @@ function nextRoundedTime() {
   return date;
 }
 
+/** A new event starts on the day selected in the Calendar: soon if it is today, at 8:00 otherwise. */
+function startOn(day?: string) {
+  const soon = nextRoundedTime();
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return soon;
+  const [year, month, date] = day.split('-').map(Number);
+  if (soon.getFullYear() === year && soon.getMonth() === month - 1 && soon.getDate() === date) return soon;
+  return new Date(year, month - 1, date, 8, 0, 0, 0);
+}
+
 // Errors whose message is already written for the person using the form.
 class FormError extends Error {}
 
@@ -53,7 +62,7 @@ function CreateEventScreen() {
 
   const [title, setTitle] = useState((params.title as string) || '');
   const [description, setDescription] = useState((params.description as string) || '');
-  const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : nextRoundedTime());
+  const [startDate, setStartDate] = useState(() => params.startDate ? new Date(params.startDate as string) : startOn(params.day as string | undefined));
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
   // Older events may carry another name for the same subject; the form shows the shared one.

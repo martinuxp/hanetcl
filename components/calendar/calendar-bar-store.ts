@@ -23,9 +23,11 @@ type ChooseHandler = (view: CalendarView, today: boolean) => void;
 type State = {
   view: CalendarView;
   menuOpen: boolean;
+  /** The day selected on screen ("YYYY-MM-DD"), so what the menu opens starts there. */
+  day: string | null;
 };
 
-let state: State = { view: 'day', menuOpen: false };
+let state: State = { view: 'day', menuOpen: false, day: null };
 let chooser: ChooseHandler | null = null;
 const listeners = new Set<() => void>();
 
@@ -45,6 +47,7 @@ export function useCalendarBar() {
 
 export const calendarBar = {
   setView: (view: CalendarView) => { if (view !== state.view) set({ view }); },
+  setDay: (day: string | null) => { if (day !== state.day) set({ day }); },
   openMenu: () => set({ menuOpen: true }),
   closeMenu: () => { if (state.menuOpen) set({ menuOpen: false }); },
   toggleMenu: () => set({ menuOpen: !state.menuOpen }),

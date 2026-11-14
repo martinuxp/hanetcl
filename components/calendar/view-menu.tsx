@@ -72,7 +72,7 @@ export function CalendarViewPill({ view, open, onPress }: { view: CalendarView; 
 export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
   const router = useRouter();
   const { user } = useSession();
-  const { view, menuOpen } = useCalendarBar();
+  const { view, menuOpen, day } = useCalendarBar();
   const key = user ? 'schedule:mine' : null;
   const kept = useCached<CourseSchedule>(key);
   const schedule = (key ? peekCached<CourseSchedule>(key) : undefined) ?? kept;
@@ -148,7 +148,7 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
               accessibilityLabel={t('components.calendar.viewMenu.crearEvento')}
               onPress={() => {
                 calendarBar.closeMenu();
-                router.navigate('/create-event');
+                router.navigate(day ? { pathname: '/create-event', params: { day } } : '/create-event');
               }}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
@@ -163,7 +163,7 @@ export function CalendarViewMenu({ canCreate }: { canCreate: boolean }) {
             accessibilityLabel={t('components.calendar.viewMenu.suspenderClasesOAdelantarLa')}
             onPress={() => {
               calendarBar.closeMenu();
-              router.navigate('/day-change');
+              router.navigate(day ? { pathname: '/day-change', params: { date: day } } : '/day-change');
             }}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
