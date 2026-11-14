@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.10.1-beta",
+      "date": "2026-11-14",
+      "title": "",
+      "items": [
+        "Si suscribiste el calendario de tu curso (iCal), las pruebas y eventos ahora salen a su hora. Antes aparecían 3 horas más tarde.",
+        "En Android, \"Suscribir mi calendario\" ahora agrega el calendario de tu curso a Google Calendar.",
+        "Los eventos cancelados salen como \"Cancelado\" en el calendario suscrito."
+      ]
+    },
+    {
       "version": "0.10.0-beta",
       "date": "2026-11-14",
       "title": "Días sin clases y salidas anticipadas",

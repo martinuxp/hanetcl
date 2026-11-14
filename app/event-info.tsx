@@ -204,7 +204,8 @@ export default function EventInfoScreen() {
 
       const query = `?courseId=${encodeURIComponent(courseId)}`;
       if (Platform.OS === 'android') {
-        await Linking.openURL(`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`https://${ICAL_HOST}${query}`)}`);
+        // Google Calendar only subscribes to an outside feed when cid is a webcal:// link.
+        await Linking.openURL(`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(`webcal://${ICAL_HOST}${query}`)}`);
       } else {
         await Linking.openURL(`webcal://${ICAL_HOST}${query}`);
       }
