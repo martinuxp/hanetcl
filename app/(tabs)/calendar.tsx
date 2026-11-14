@@ -20,6 +20,7 @@ import { ScheduleView } from '@/components/schedule/schedule-view';
 import type { ScreenPoint } from '@/components/calendar/MonthYearViews';
 import {
   fetchCalendarEvents,
+  keptCalendarCourse,
   restoreCalendarEvents,
   getEventsForDate,
   getWeekDays,
@@ -216,6 +217,17 @@ export default function CalendarScreen() {
       // The claims sync starts with the profile read instead of after it.
       const claims = ensureClaims(user);
       claims.catch(() => undefined);
+      // What the phone kept from last time shows at once, before the profile
+      // read that says the course: without internet that read never answers.
+      if (!hasEventsRef.current) {
+        const keptCourse = await keptCalendarCourse();
+        const kept = keptCourse ? await restoreCalendarEvents(keptCourse) : undefined;
+        if (kept && !hasEventsRef.current) {
+          setAllEvents(kept);
+          hasEventsRef.current = true;
+          setLoading(false);
+        }
+      }
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const courseId = userDoc.data()?.courseId;
       if (courseId) {

@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
-import { cached, restoreCached } from './cache';
+import { cached, putCached, restoreCached } from './cache';
 import { calendarDb } from './firebase';
 import { capitalize, months, t } from '@/i18n';
 
@@ -85,6 +85,23 @@ function revive(stored: StoredCalendarEvent[]): CalendarEvent[] {
   return events;
 }
 
+// The course whose Calendar was loaded last, kept with its events so the
+// Calendar opens without internet: the profile read that says the course
+// needs the network.
+const COURSE_KEY = 'calendar:course';
+
+/** The course of the Calendar the phone kept, if any. */
+export async function keptCalendarCourse(): Promise<string | undefined> {
+  return restoreCached<string>(COURSE_KEY);
+}
+
+/** An event of the Calendar the phone kept, for opening it without internet. */
+export async function findKeptCalendarEvent(eventId: string): Promise<CalendarEvent | null> {
+  const courseId = await keptCalendarCourse();
+  const kept = courseId ? await restoreCalendarEvents(courseId) : undefined;
+  return kept?.find(event => event.id === eventId) ?? null;
+}
+
 // Throws on failure: an empty list means the course really has no events.
 export async function fetchCalendarEvents(courseId: string): Promise<CalendarEvent[]> {
   const stored = await cached<StoredCalendarEvent[]>(`calendar:${courseId}`, async () => {
@@ -94,6 +111,7 @@ export async function fetchCalendarEvents(courseId: string): Promise<CalendarEve
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
       .map(event => ({ ...event, startDate: event.startDate.getTime(), endDate: event.endDate.getTime() }));
   });
+  putCached(COURSE_KEY, courseId);
   return revive(stored);
 }
 

@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCached } from '@/services/cache';
+import { useOfflineMode } from '@/services/app-error';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -196,6 +197,7 @@ export default function ClassHallScreen() {
   }, [user, attempt]));
 
   const loading = halls === null && !error;
+  const offline = useOfflineMode();
 
   return (
     <FrostedScreen style={styles.container} bottom>
@@ -255,7 +257,8 @@ export default function ClassHallScreen() {
 
         {loading && <HallListSkeleton />}
 
-        {!!error && (
+        {/* Offline with the classes the phone kept: the notice on top already says so. */}
+        {!!error && !(offline && halls?.length) && (
           <View style={styles.notice}>
             <ThemedText accessibilityLiveRegion="polite" style={styles.noticeText}>{error}</ThemedText>
             <Pressable

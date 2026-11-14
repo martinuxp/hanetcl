@@ -18,6 +18,7 @@ import { db } from '@/services/firebase';
 import {
   deleteCalendarEvent,
   fetchCalendarEvent,
+  findKeptCalendarEvent,
   formatDuration,
   formatLongDate,
   formatTime,
@@ -113,6 +114,9 @@ export default function EventInfoScreen() {
         if (active) setEvent(loaded);
       } catch (e) {
         console.error(e);
+        // Without internet: the event as the phone kept it with the Calendar.
+        const kept = await findKeptCalendarEvent(params.id as string);
+        if (active && kept) setEvent(kept);
       } finally {
         if (active) setLoading(false);
       }
