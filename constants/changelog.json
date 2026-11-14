@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.9.1-beta",
+      "date": "2026-11-14",
+      "title": "",
+      "items": [
+        "Sin internet, el Calendar muestra tus pruebas, tareas y eventos como los viste la última vez, y puedes abrir cada uno.",
+        "En ClassHall, sin internet ya no sale el error encima de tus clases guardadas."
+      ]
+    },
+    {
       "version": "0.9.0-beta",
       "date": "2026-11-12",
       "title": "HaNet web, también sin internet",
