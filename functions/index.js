@@ -166,11 +166,18 @@ exports.syncMyClaims = onCall(async (request) => {
   return { role, courseId, changed };
 });
 
+// Subscription feed of a course's Calendar (webcal), for Apple Calendar,
+// Google Calendar and Outlook.
+//
+// Dates go out in UTC ("…Z"). Before, the feed set a calendar timezone
+// without a VTIMEZONE block, so ical-generator wrote the UTC clock time
+// with no zone and every app read it as local time: each event showed up
+// 3 hours late (4 in winter) in Chile.
 exports.icalFeed = onRequest(async (req, res) => {
-  const courseId = req.query.courseId;
-  
-  if (!courseId) {
-    res.status(400).send("Falta el parámetro courseId. Uso: ?courseId=2k");
+  const courseId = typeof req.query.courseId === "string" ? req.query.courseId.trim() : "";
+
+  if (!courseId || courseId.length > 64 || courseId.includes("/")) {
+    res.status(400).send("Falta el parámetro courseId. Uso: ?courseId=Segundo%20Medio%20K");
     return;
   }
 
@@ -178,44 +185,54 @@ exports.icalFeed = onRequest(async (req, res) => {
     const adminApp = getAdminApp();
     // Access the specifically named database for events
     const db = getFirestore(adminApp, "hn-calendar");
-    const eventsRef = db.collection(`HNC-LCH.${courseId}`);
-    const snapshot = await eventsRef.get();
+    const snapshot = await db.collection(`HNC-LCH.${courseId}`).get();
 
     const calendar = ical({
-      name: `HaNet Calendar - ${courseId.toUpperCase()}`,
-      description: `Calendar de HaNet del curso ${courseId}`,
-      timezone: "America/Santiago",
+      name: `HaNet · ${courseId}`,
+      description: `Calendar de HaNet de ${courseId}`,
+      prodId: { company: "HaNet", product: "Calendar", language: "ES" },
     });
 
-    // We add a TTL (Time To Live) so Apple Calendar natively knows how often to sync
+    // How often Apple Calendar and Outlook should check for changes.
     calendar.ttl(60 * 60); // 1 hour
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      const start = data.startDate ? data.startDate.toDate() : new Date();
-      const end = data.endDate ? data.endDate.toDate() : new Date(start.getTime() + 90 * 60000);
+      const title = typeof data.title === "string" ? data.title.trim() : "";
+      const start = data.startDate && typeof data.startDate.toDate === "function" ? data.startDate.toDate() : null;
+      // An event without a title or a date is half-written data: leave it out.
+      if (!title || !start || Number.isNaN(start.getTime())) return;
+
+      const parsedEnd = data.endDate && typeof data.endDate.toDate === "function" ? data.endDate.toDate() : null;
+      const end = parsedEnd && parsedEnd > start ? parsedEnd : new Date(start.getTime() + 90 * 60000);
 
       const type = data.type === "Off Topic" ? "Otro" : data.type;
-      const typeIndicator = type ? `[${type}] ` : '';
-      const subjectInd = data.subject ? ` (${data.subject})` : '';
-      
+      const typeIndicator = type ? `[${type}] ` : "";
+      const subject = typeof data.subject === "string" ? data.subject.trim() : "";
+      // Titles copied from ClassHall already end in "· <asignatura>".
+      const subjectInd = subject && !title.includes(subject) ? ` (${subject})` : "";
+      const cancelled = data.cancelled === true;
+      const updated = data.updatedAt && typeof data.updatedAt.toDate === "function" ? data.updatedAt.toDate() : null;
+
       calendar.createEvent({
         id: doc.id,
-        start: start,
-        end: end,
-        summary: `${typeIndicator}${data.title}${subjectInd}`,
+        start,
+        end,
+        summary: `${cancelled ? "Cancelado: " : ""}${typeIndicator}${title}${subjectInd}`,
         description: data.description || undefined,
         location: data.location || "Liceo",
-        // Apple Calendar support tweaks
-        sequence: 0,
-        status: data.cancelled ? 'CANCELLED' : 'CONFIRMED'
+        // A higher sequence tells calendar apps the event changed.
+        sequence: updated ? Math.floor(updated.getTime() / 1000) : 0,
+        lastModified: updated || undefined,
+        status: cancelled ? "CANCELLED" : "CONFIRMED",
       });
     });
 
+    const fileName = courseId.normalize("NFD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "curso";
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="hanet-${courseId}.ics"`);
+    res.setHeader("Content-Disposition", `inline; filename="hanet-${fileName}.ics"`);
+    res.setHeader("Cache-Control", "public, max-age=300");
     res.send(calendar.toString());
-
   } catch (error) {
     console.error("Error al generar Node-iCal:", error);
     res.status(500).send("No pudimos generar el calendario.");
