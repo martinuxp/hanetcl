@@ -1,4 +1,3 @@
-import { SheetActions, SheetBody, TextField, formStyles as styles } from '@/components/anniversary/anniversary-form';
 import { changeDates, changeDayLabel, changeScope, changeTitle } from '@/components/calendar/day-change-banner';
 import { ThemedText } from '@/components/themed-text';
 import { CustomIcon } from '@/components/ui/custom-icon';
@@ -17,7 +16,10 @@ import { dateKey, getCourseSchedule, timeOf } from '@/services/schedule-service'
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardScroll } from '@/components/ui/keyboard';
 import { t } from '@/i18n';
 
 // Suspending classes or setting an early dismissal, for the school's
@@ -48,6 +50,7 @@ function moment(ms: number) {
 
 function DayChangeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ date?: string }>();
   const today = dateKey(new Date());
   const start = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && params.date >= today ? params.date : today;
@@ -145,136 +148,172 @@ function DayChangeScreen() {
   });
 
   return (
-    <SheetBody title={t('dayChange.cambiarUnDiaDeClases')} lead={t('dayChange.suspendeLasClasesOAdelanta')}>
-      {existing === null && !loadError && <ActivityIndicator color={AppColors.textSecondary} />}
-      {!!loadError && (
-        <View style={styles.field}>
-          <ThemedText style={styles.error}>{loadError}</ThemedText>
-          <HanetButton label={t('calendar.intentarDeNuevo')} variant="surface" onPress={load} />
-        </View>
-      )}
-      {!!existing?.length && (
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>{t('dayChange.proximosCambios')}</ThemedText>
-          {existing.map(item => (
-            <View key={item.id} style={local.card}>
-              <View style={local.cardText}>
-                <ThemedText style={local.cardMeta}>{changeDates(item)} · {changeScope(item)}</ThemedText>
-                <ThemedText style={local.cardTitle}>{changeTitle(item)}</ThemedText>
-                {!!item.reason && <ThemedText style={local.cardBody}>{item.reason}</ThemedText>}
-                {item.moved > 0 && <ThemedText style={local.cardBody}>{t('dayChange.movioCountPruebas', { count: item.moved })}</ThemedText>}
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('dayChange.quitarChangetitleChangedates', { changeTitle: changeTitle(item), changeDates: changeDates(item) })}
-                onPress={() => setRemoving(item)}
-                style={({ pressed }) => [local.remove, pressed && AppPressed]}
-              >
-                <ThemedText style={local.removeText}>{t('common.quitar')}</ThemedText>
-              </Pressable>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>{t('dayChange.quePasa')}</ThemedText>
-        <HanetChoice
-          label={t('dayChange.quePasa')}
-          options={[{ value: 'suspended', label: t('dayChange.suspensionDeClases') }, { value: 'early', label: t('dayChange.salidaAnticipada') }]}
-          value={form.kind}
-          onChange={kind => update({ kind: kind as Form['kind'] })}
-          disabled={submitting}
-        />
-      </View>
-
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>{form.kind === 'suspended' ? t('dayChange.desde') : t('components.calendar.calendarBarStore.dia')}</ThemedText>
-        <DateButton value={form.from} onPress={() => setPicking('from')} disabled={submitting} />
-      </View>
-      {form.kind === 'suspended' && (
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>{t('anniversary.deadline.hasta')}</ThemedText>
-          <DateButton value={input.to} onPress={() => setPicking('to')} disabled={submitting} />
-          {input.to === input.from && <ThemedText style={styles.hint}>{t('dayChange.unSoloDiaEligeOtra')}</ThemedText>}
-        </View>
-      )}
-      {form.kind === 'early' && (
-        <View style={styles.field}>
-          <ThemedText style={styles.label}>{t('dayChange.horaDeSalida')}</ThemedText>
-          <View style={local.wheels}>
-            <HanetTimeWheels minutes={form.endsAt} onChange={endsAt => update({ endsAt })} label={t('dayChange.horaDeSalida')} />
-          </View>
-          <ThemedText style={styles.hint}>{t('dayChange.lasClasesQueEmpiezanA')}</ThemedText>
-        </View>
-      )}
-
-      <View style={styles.field}>
-        <ThemedText style={styles.label}>{t('dayChange.aQuienes')}</ThemedText>
-        <HanetChoice
-          label={t('dayChange.aQuienes')}
-          options={[{ value: 'school', label: t('services.feedService.todoElLiceo') }, { value: 'courses', label: t('dayChange.algunosCursos') }]}
-          value={form.scope}
-          onChange={scope => update({ scope: scope as Form['scope'] })}
-          disabled={submitting}
-        />
-        {form.scope === 'courses' && (
-          courses.length ? (
-            <View style={local.courses}>
-              {courses.map(course => (
-                <HanetChip key={course} label={course} compact selected={form.courses.includes(course)} onPress={() => toggleCourse(course)} disabled={submitting} accessibilityRole="checkbox" />
-              ))}
-            </View>
-          ) : (
-            existing !== null && <ThemedText style={styles.hint}>{t('dayChange.noHayCursosEnLa')}</ThemedText>
-          )
-        )}
-      </View>
-
-      <TextField label={t('anniversary.points.motivo')} optional value={form.reason} onChange={reason => update({ reason })} placeholder={t('dayChange.elLiceoSeraLocalDe')} maxLength={120} disabled={submitting} />
-      <ThemedText style={[styles.hint, local.reasonHint]}>{t('dayChange.loVenEstudiantesYDocentes')}</ThemedText>
-
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: form.notify }}
-        onPress={() => update({ notify: !form.notify })}
-        style={({ pressed }) => [local.notify, pressed && AppPressed]}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardScroll
+        style={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustsScrollIndicatorInsets={false}
+        contentContainerStyle={styles.content}
       >
-        <View style={[local.box, form.notify && local.boxOn]}>
-          {form.notify && <CustomIcon name="check-circle" size={16} color={AppColors.textPrimary} />}
+        <View style={styles.header}>
+          <Image source={require('@/assets/images/HanetCalendarvector.svg')} style={styles.logo} contentFit="contain" />
         </View>
-        <View style={local.notifyText}>
-          <ThemedText style={styles.label}>{t('dayChange.avisarAhora')}</ThemedText>
-          <ThemedText style={styles.hint}>{t('dayChange.lesLlegaUnaNotificacionSi')}</ThemedText>
-        </View>
-      </Pressable>
+        <ThemedText accessibilityRole="header" style={styles.title}>{t('dayChange.cambiarUnDiaDeClases')}</ThemedText>
+        <View style={styles.separator} />
+        <ThemedText style={styles.lead}>{t('dayChange.suspendeLasClasesOAdelanta')}</ThemedText>
 
-      {ready && (
-        <View style={local.plan} accessibilityLiveRegion="polite">
-          {planning && !plan ? (
-            <ThemedText style={styles.hint}>{t('dayChange.revisandoLasPruebasDeEsos')}</ThemedText>
-          ) : plan ? (
-            <>
-              <ThemedText style={local.planTitle}>
-                {t('dayChange.llegaACountPersonasValue', { count: plan.reach, value: plan.moves.length === 0 ? t('dayChange.noHayPruebasQueMover') : t('dayChange.countPruebasPasanASu', { count: plan.moves.length }) })}
-              </ThemedText>
-              {plan.moves.slice(0, 8).map((move, index) => (
-                <ThemedText key={`${move.title}-${index}`} style={styles.hint}>
-                  {move.subject}: {move.title}. {moment(move.from)} → {moment(move.to)}
-                </ThemedText>
+        {existing === null && !loadError && <ActivityIndicator color={AppColors.textOnLight} style={styles.loading} />}
+        {!!loadError && (
+          <View style={styles.section}>
+            <ThemedText style={styles.fieldError}>{loadError}</ThemedText>
+            <HanetButton label={t('calendar.intentarDeNuevo')} variant="surface" onPress={load} />
+          </View>
+        )}
+        {!!existing?.length && (
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{t('dayChange.proximosCambios')}</ThemedText>
+            <View style={styles.cards}>
+              {existing.map(item => (
+                <View key={item.id} style={styles.card}>
+                  <View style={styles.cardText}>
+                    <ThemedText style={styles.cardMeta}>{changeDates(item)} · {changeScope(item)}</ThemedText>
+                    <ThemedText style={styles.cardTitle}>{changeTitle(item)}</ThemedText>
+                    {!!item.reason && <ThemedText style={styles.cardBody}>{item.reason}</ThemedText>}
+                    {item.moved > 0 && <ThemedText style={styles.cardBody}>{t('dayChange.movioCountPruebas', { count: item.moved })}</ThemedText>}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('dayChange.quitarChangetitleChangedates', { changeTitle: changeTitle(item), changeDates: changeDates(item) })}
+                    onPress={() => setRemoving(item)}
+                    style={({ pressed }) => [styles.remove, pressed && AppPressed]}
+                  >
+                    <ThemedText style={styles.removeText}>{t('common.quitar')}</ThemedText>
+                  </Pressable>
+                </View>
               ))}
-              {plan.moves.length > 8 && <ThemedText style={styles.hint}>{t('dayChange.yMovescountMas', { movesCount: plan.moves.length - 8 })}</ThemedText>}
-              {plan.unmoved.length > 0 && (
-                <ThemedText style={styles.hint}>
-                  {t('dayChange.countPruebasNoTienenClase', { count: plan.unmoved.length, title: plan.unmoved[0].title })}
-                </ThemedText>
-              )}
-            </>
-          ) : null}
-        </View>
-      )}
+            </View>
+          </View>
+        )}
 
-      <SheetActions label={label} busyLabel={t('common.guardando')} ready={ready && !submitting} busy={submitting} onSubmit={() => void submit()} error={error} />
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>{t('dayChange.quePasa')}</ThemedText>
+          <HanetChoice
+            label={t('dayChange.quePasa')}
+            options={[{ value: 'suspended', label: t('dayChange.suspensionDeClases') }, { value: 'early', label: t('dayChange.salidaAnticipada') }]}
+            value={form.kind}
+            onChange={kind => update({ kind: kind as Form['kind'] })}
+            disabled={submitting}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>{form.kind === 'suspended' ? t('dayChange.desde') : t('components.calendar.calendarBarStore.dia')}</ThemedText>
+          <DateButton value={form.from} onPress={() => setPicking('from')} disabled={submitting} />
+        </View>
+        {form.kind === 'suspended' && (
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{t('anniversary.deadline.hasta')}</ThemedText>
+            <DateButton value={input.to} onPress={() => setPicking('to')} disabled={submitting} />
+            {input.to === input.from && <ThemedText style={styles.hint}>{t('dayChange.unSoloDiaEligeOtra')}</ThemedText>}
+          </View>
+        )}
+        {form.kind === 'early' && (
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{t('dayChange.horaDeSalida')}</ThemedText>
+            <View style={styles.wheels}>
+              <HanetTimeWheels minutes={form.endsAt} onChange={endsAt => update({ endsAt })} label={t('dayChange.horaDeSalida')} />
+            </View>
+            <ThemedText style={styles.hint}>{t('dayChange.lasClasesQueEmpiezanA')}</ThemedText>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>{t('dayChange.aQuienes')}</ThemedText>
+          <HanetChoice
+            label={t('dayChange.aQuienes')}
+            options={[{ value: 'school', label: t('services.feedService.todoElLiceo') }, { value: 'courses', label: t('dayChange.algunosCursos') }]}
+            value={form.scope}
+            onChange={scope => update({ scope: scope as Form['scope'] })}
+            disabled={submitting}
+          />
+          {form.scope === 'courses' && (
+            courses.length ? (
+              <View style={styles.courses}>
+                {courses.map(course => (
+                  <HanetChip key={course} label={course} compact selected={form.courses.includes(course)} onPress={() => toggleCourse(course)} disabled={submitting} accessibilityRole="checkbox" />
+                ))}
+              </View>
+            ) : (
+              existing !== null && <ThemedText style={styles.hint}>{t('dayChange.noHayCursosEnLa')}</ThemedText>
+            )
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>{t('anniversary.points.motivo')}</ThemedText>
+          <TextInput
+            accessibilityLabel={t('anniversary.points.motivo')}
+            placeholder={t('dayChange.elLiceoSeraLocalDe')}
+            placeholderTextColor="rgba(62,62,58,0.6)"
+            value={form.reason}
+            onChangeText={reason => update({ reason })}
+            maxLength={120}
+            editable={!submitting}
+            style={styles.reason}
+          />
+          <ThemedText style={styles.hint}>{t('dayChange.loVenEstudiantesYDocentes')}</ThemedText>
+        </View>
+
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: form.notify }}
+          onPress={() => update({ notify: !form.notify })}
+          style={({ pressed }) => [styles.notify, pressed && styles.pressed]}
+        >
+          <View style={[styles.box, form.notify && styles.boxOn]}>
+            {form.notify && <CustomIcon name="check-circle" size={16} color={AppColors.textPrimary} />}
+          </View>
+          <View style={styles.notifyText}>
+            <ThemedText style={styles.notifyTitle}>{t('dayChange.avisarAhora')}</ThemedText>
+            <ThemedText style={styles.notifyBody}>{t('dayChange.lesLlegaUnaNotificacionSi')}</ThemedText>
+          </View>
+        </Pressable>
+
+        {ready && (
+          <View style={styles.plan} accessibilityLiveRegion="polite">
+            {planning && !plan ? (
+              <ThemedText style={styles.planBody}>{t('dayChange.revisandoLasPruebasDeEsos')}</ThemedText>
+            ) : plan ? (
+              <>
+                <ThemedText style={styles.planTitle}>
+                  {t('dayChange.llegaACountPersonasValue', { count: plan.reach, value: plan.moves.length === 0 ? t('dayChange.noHayPruebasQueMover') : t('dayChange.countPruebasPasanASu', { count: plan.moves.length }) })}
+                </ThemedText>
+                {plan.moves.slice(0, 8).map((move, index) => (
+                  <ThemedText key={`${move.title}-${index}`} style={styles.planBody}>
+                    {move.subject}: {move.title}. {moment(move.from)} → {moment(move.to)}
+                  </ThemedText>
+                ))}
+                {plan.moves.length > 8 && <ThemedText style={styles.planBody}>{t('dayChange.yMovescountMas', { movesCount: plan.moves.length - 8 })}</ThemedText>}
+                {plan.unmoved.length > 0 && (
+                  <ThemedText style={styles.planBody}>
+                    {t('dayChange.countPruebasNoTienenClase', { count: plan.unmoved.length, title: plan.unmoved[0].title })}
+                  </ThemedText>
+                )}
+              </>
+            ) : null}
+          </View>
+        )}
+
+        {!!error && <ThemedText accessibilityLiveRegion="assertive" style={styles.saveError}>{error}</ThemedText>}
+        <View style={styles.footer}>
+          <HanetButton label={t('common.cancelar')} variant="surface" onPress={() => router.back()} disabled={submitting} style={styles.footerButton} />
+          <HanetButton label={submitting ? t('common.guardando') : label} onPress={() => void submit()} disabled={!ready || submitting} style={styles.footerButton} />
+        </View>
+        <View style={{ height: Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 40 }} />
+      </KeyboardScroll>
 
       <HanetDateTimePickerModal
         dateOnly
@@ -303,7 +342,7 @@ function DayChangeScreen() {
         </HanetDialogActions>
       </HanetDialog>
       {dialog}
-    </SheetBody>
+    </SafeAreaView>
   );
 }
 
@@ -315,114 +354,112 @@ function DateButton({ value, onPress, disabled }: { value: string; onPress: () =
       accessibilityLabel={t('dayChange.labelCambiar', { label })}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.input, local.dateButton, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.dateButton, pressed && styles.pressed]}
     >
-      <ThemedText numberOfLines={1} style={local.dateText}>{label.charAt(0).toUpperCase() + label.slice(1)}</ThemedText>
-      <ThemedText style={local.dateAction}>{t('common.cambiar')}</ThemedText>
+      <ThemedText numberOfLines={1} style={styles.dateText}>{label.charAt(0).toUpperCase() + label.slice(1)}</ThemedText>
+      <CustomIcon name="calendar" size={18} color={AppColors.textSecondary} />
     </Pressable>
   );
 }
 
-const local = StyleSheet.create({
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.neutral2,
+    borderTopLeftRadius: Platform.OS === 'android' ? 50 : 0,
+    borderTopRightRadius: Platform.OS === 'android' ? 50 : 0,
+    overflow: 'hidden',
+  },
+  scroll: { flex: 1, width: '100%' },
+  content: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 0 },
+  header: { paddingBottom: 16 },
+  logo: { width: 148, height: 36, marginLeft: 5 },
+  title: { fontSize: 32, lineHeight: 38, fontFamily: 'DMSans_700Bold', letterSpacing: -2, color: AppColors.textOnLight, paddingBottom: 10 },
+  separator: { height: 2, backgroundColor: AppColors.textOnLight, marginBottom: 12 },
+  lead: { fontSize: 14, lineHeight: 20, fontFamily: 'DMSans_500Medium', color: AppColors.surface, marginBottom: 25 },
+  loading: { marginBottom: 20 },
+  section: { marginBottom: 20 },
+  label: { color: AppColors.textOnLight, fontFamily: 'DMSans_700Bold', fontSize: 15, marginBottom: 10 },
+  hint: { fontSize: 13, lineHeight: 18, color: AppColors.surface, fontFamily: 'DMSans_500Medium', marginTop: 10 },
+  fieldError: { color: AppColors.errorTextOnLight, fontFamily: 'DMSans_700Bold', fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  saveError: { color: AppColors.errorTextOnLight, fontFamily: 'DMSans_700Bold', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+  pressed: { opacity: 0.75 },
+  cards: { gap: 8 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: AppSpacing.md,
-    padding: AppSpacing.lg,
-    borderRadius: AppRadii.md,
+    padding: 16,
+    borderRadius: 16,
     borderCurve: 'continuous',
-    backgroundColor: AppColors.canvas,
+    backgroundColor: AppColors.surface,
   },
-  cardText: {
-    flex: 1,
-    gap: 2,
-  },
-  cardMeta: {
-    ...AppType.caption,
-    color: AppColors.textSecondary,
-  },
-  cardTitle: {
-    ...AppType.headline,
-    color: AppColors.textPrimary,
-  },
-  cardBody: {
-    ...AppType.footnote,
-    color: AppColors.textSecondary,
-  },
+  cardText: { flex: 1, gap: 2 },
+  cardMeta: { ...AppType.caption, color: AppColors.textSecondary },
+  cardTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15, lineHeight: 20, color: AppColors.textPrimary },
+  cardBody: { ...AppType.footnote, color: AppColors.textSecondary },
   remove: {
     paddingHorizontal: AppSpacing.md,
     paddingVertical: AppSpacing.sm,
     borderRadius: AppRadii.pill,
     backgroundColor: AppColors.surfaceMuted,
   },
-  removeText: {
-    ...AppType.caption,
-    fontFamily: 'DMSans_700Bold',
-    color: AppColors.textPrimary,
-  },
+  removeText: { ...AppType.caption, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: AppSpacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
   },
-  dateText: {
-    flex: 1,
-    ...AppType.callout,
-    color: AppColors.textPrimary,
-  },
-  dateAction: {
-    ...AppType.callout,
-    fontFamily: 'DMSans_700Bold',
-    color: AppColors.textSecondary,
-  },
+  dateText: { flex: 1, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary, fontSize: 13 },
   wheels: {
     alignSelf: 'flex-start',
     padding: AppSpacing.sm,
-    borderRadius: AppRadii.md,
-    backgroundColor: AppColors.canvas,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    backgroundColor: AppColors.surface,
   },
-  courses: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: AppSpacing.sm,
+  courses: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  reason: {
+    fontSize: 16,
+    color: AppColors.textOnLight,
+    paddingVertical: 8,
+    borderBottomWidth: 1.5,
+    borderBottomColor: AppColors.textOnLight,
+    fontFamily: 'DMSans_400Regular',
+    outlineStyle: 'none' as any,
   },
-  reasonHint: {
-    marginTop: -AppSpacing.lg,
-  },
-  notify: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: AppSpacing.md,
-  },
+  notify: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },
   box: {
     width: 24,
     height: 24,
-    marginTop: 2,
+    marginTop: 1,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.canvas,
+    backgroundColor: AppColors.surface,
   },
-  boxOn: {
-    backgroundColor: AppColors.accent,
-  },
-  notifyText: {
-    flex: 1,
-    gap: 2,
-  },
+  boxOn: { backgroundColor: AppColors.accent },
+  notifyText: { flex: 1, gap: 2 },
+  notifyTitle: { fontSize: 15, lineHeight: 20, fontFamily: 'DMSans_700Bold', color: AppColors.textOnLight },
+  notifyBody: { fontSize: 13, lineHeight: 18, fontFamily: 'DMSans_500Medium', color: AppColors.surface },
   plan: {
     gap: AppSpacing.xs,
-    padding: AppSpacing.lg,
-    borderRadius: AppRadii.md,
+    padding: 16,
+    marginBottom: 24,
+    borderRadius: 16,
     borderCurve: 'continuous',
-    backgroundColor: AppColors.canvas,
+    backgroundColor: AppColors.surface,
   },
-  planTitle: {
-    ...AppType.callout,
-    fontFamily: 'DMSans_700Bold',
-    color: AppColors.textPrimary,
-  },
+  planTitle: { fontSize: 14, lineHeight: 20, fontFamily: 'DMSans_700Bold', color: AppColors.textPrimary },
+  planBody: { ...AppType.footnote, color: AppColors.textSecondary },
+  footer: { flexDirection: 'row', gap: 10, width: '100%' },
+  footerButton: { flex: 1 },
 });
 
-export default withSheetFrame(DayChangeScreen, AppColors.surface);
+export default withSheetFrame(DayChangeScreen, AppColors.neutral2);
