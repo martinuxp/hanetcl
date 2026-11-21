@@ -1,6 +1,6 @@
 const { Buffer } = require("node:buffer");
 const { createHash, randomBytes, randomInt, timingSafeEqual } = require("node:crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { readIdQr, codeFor, STEP_MS, STEPS_BEHIND, STEPS_AHEAD } = require("./hanet-id");
 const { sendPush } = require("./classhall-notify");
@@ -252,9 +252,6 @@ async function organizedEvent(getAdminApp, profile, value, { door = false } = {}
 // (a scanner removed by who organizes stops within that minute), the ticket
 // and its key come in one read, the "used" mark is a single conditional
 // write, and "Llegaron" is refreshed in the background every few seconds.
-// The door's functions also run in Santiago, next to the database; the
-// Iowa copy stays for app versions that still call it.
-const DOOR_REGIONS = ["us-central1", "southamerica-west1"];
 const SESSION_MS = 60 * 1000;
 const COUNT_FRESH_MS = 8 * 1000;
 const sessions = new Map();
@@ -509,7 +506,7 @@ function build(getAdminApp) {
   // An organizer scans a ticket's QR, a printed one, a typed code, or a
   // HN-QR (that answers with the account's tickets for this event). With
   // `ticketId` it validates that ticket directly, after a HN-QR.
-  const validateTicket = onCall({ invoker: "public", region: DOOR_REGIONS }, async (request) => {
+  const validateTicket = onCall({ invoker: "public" }, async (request) => {
     const session = await doorSession(getAdminApp, request, request.data?.eventId);
     const { profile, id: eventId, event } = session;
     if (!doorOpen(event)) throw new HttpsError("failed-precondition", "La puerta se abre 3 horas antes del evento y se cierra un día después.");

@@ -1,5 +1,5 @@
 const { randomInt, randomUUID } = require("node:crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, SCHEDULE_REGION } = require("./regions");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
@@ -1350,7 +1350,7 @@ function build(getAdminApp) {
 
   // Every afternoon, students who have not handed in a task due tomorrow get
   // a reminder on their phone. Each task is reminded once.
-  const remindTasksDueTomorrow = onSchedule({ schedule: "0 18 * * *", timeZone: "America/Santiago", memory: "512MiB", timeoutSeconds: 300 }, async () => {
+  const remindTasksDueTomorrow = onSchedule({ region: SCHEDULE_REGION, schedule: "0 18 * * *", timeZone: "America/Santiago", memory: "512MiB", timeoutSeconds: 300 }, async () => {
     const from = Timestamp.fromMillis(santiagoDayStart(1));
     const to = Timestamp.fromMillis(santiagoDayStart(2));
     const halls = await classhallDb(getAdminApp).collection("halls").get();

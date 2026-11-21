@@ -1,5 +1,5 @@
 const { randomUUID } = require("node:crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, SCHEDULE_REGION } = require("./regions");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
@@ -881,7 +881,7 @@ function build(getAdminApp) {
 
   // Every 30 minutes: deadlines due within a day, and within two hours, get
   // their reminder once each.
-  const remindAnniversaryDeadlines = onSchedule({ schedule: "every 30 minutes", timeZone: TIME_ZONE, timeoutSeconds: 120 }, async () => {
+  const remindAnniversaryDeadlines = onSchedule({ region: SCHEDULE_REGION, schedule: "every 30 minutes", timeZone: TIME_ZONE, timeoutSeconds: 120 }, async () => {
     const now = Date.now();
     const snapshot = await calendarDb(getAdminApp).collection(COLLECTION).where("finished", "==", false).get();
     let sent = 0;

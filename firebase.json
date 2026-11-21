@@ -47,7 +47,7 @@
           "source": "/vincular",
           "function": {
             "functionId": "confirmInstitutionalLink",
-            "region": "us-central1"
+            "region": "southamerica-west1"
           }
         }
       ],

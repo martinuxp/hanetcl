@@ -1,6 +1,6 @@
 const { Buffer } = require("node:buffer");
 const { createHash, randomBytes, timingSafeEqual } = require("node:crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 // The HN-QR of the profile: "hanet://id/<username>?c=<code>". The code

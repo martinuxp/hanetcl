@@ -1,6 +1,6 @@
 const TIMEOUT_MS = 8000;
 // Any callable answers a request without a session with 401 when the servers are up.
-const SERVER_PROBE = 'https://us-central1-hanet-edu.cloudfunctions.net/syncMyClaims';
+const SERVER_PROBE = 'https://southamerica-west1-hanet-edu.cloudfunctions.net/syncMyClaims';
 // Answers whenever there is internet at all.
 const INTERNET_PROBE = 'https://www.gstatic.com/generate_204';
 

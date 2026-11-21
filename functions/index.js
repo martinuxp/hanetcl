@@ -1,4 +1,4 @@
-const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError, SANTIAGO, IOWA } = require("./regions");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -182,7 +182,9 @@ exports.syncMyClaims = onCall(async (request) => {
 // without a VTIMEZONE block, so ical-generator wrote the UTC clock time
 // with no zone and every app read it as local time: each event showed up
 // 3 hours late (4 in winter) in Chile.
-exports.icalFeed = onRequest(async (req, res) => {
+// Also in Iowa, for good: calendars that subscribed before the move to
+// Santiago keep the Iowa address (see regions.js).
+exports.icalFeed = onRequest({ region: [SANTIAGO, IOWA] }, async (req, res) => {
   const courseId = typeof req.query.courseId === "string" ? req.query.courseId.trim() : "";
 
   if (!courseId || courseId.length > 64 || courseId.includes("/")) {

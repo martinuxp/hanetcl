@@ -44,7 +44,7 @@ const ICONS = {
   verified: require('@/assets/icons/event/badge-check.svg'),
 };
 
-const ICAL_HOST = 'us-central1-hanet-edu.cloudfunctions.net/icalFeed';
+const ICAL_HOST = 'southamerica-west1-hanet-edu.cloudfunctions.net/icalFeed';
 
 type EventParams = {
   id?: string;

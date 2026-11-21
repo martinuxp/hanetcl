@@ -44,11 +44,9 @@ const calendarDb = getFirestore(app, "hn-calendar");
 // Create this Firestore database before enabling the Events screen in production.
 const eventsDb = getFirestore(app, "hn-events");
 
-const functions = getFunctions(app);
-// The door's functions (scanning tickets, Pasar lista) also run in Santiago,
-// next to the database: see services/door.ts.
-const doorFunctions = getFunctions(app, 'southamerica-west1');
+// The functions run in Santiago, next to the databases (functions/regions.js).
+const functions = getFunctions(app, 'southamerica-west1');
 const storage = getStorage(app);
 
-export { auth, db, calendarDb, eventsDb, functions, doorFunctions, storage };
+export { auth, db, calendarDb, eventsDb, functions, storage };
 export default app;

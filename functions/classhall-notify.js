@@ -1,7 +1,7 @@
 const { createHash } = require("node:crypto");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { recordInbox } = require("./inbox");
 
 // ClassHall's push notifications, sent through Expo's push service: a new

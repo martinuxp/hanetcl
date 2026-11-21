@@ -76,7 +76,7 @@ App de Expo/React Native para liceos chilenos. Piloto: Liceo Camilo Henríquez d
 
 ## Backend
 
-Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, región `us-central1`. Firestore con bases con nombre, en `southamerica-west1`:
+Proyecto de Firebase `hanet-edu`. Funciones v2 en Node 22, en **Santiago** (`southamerica-west1`, junto a Firestore; decidido por muxp 2026-11-21, corte directo: se borraron las de `us-central1` y los testers actualizaron). La región sale de `functions/regions.js`: las callable y HTTP importan `onCall`/`onRequest` de ahí (no de `firebase-functions/v2/https`). `icalFeed` queda también en `us-central1` para siempre (los calendarios suscritos tienen esa URL). Las programadas (`onSchedule`) van en São Paulo (`southamerica-east1`) porque Cloud Scheduler no existe en Santiago. La app y el panel llaman a Santiago (`getFunctions(app, 'southamerica-west1')`) y el rewrite `/vincular` de hosting también. Una build nativa de antes de v0.14.3 ya no funciona: necesita una build nueva. Santiago es Tier 2 (~40 % más por segundo), pero cada llamada dura menos y sale más barata. Firestore con bases con nombre, en `southamerica-west1`:
 
 | Base | Contenido | Acceso desde la app |
 | --- | --- | --- |

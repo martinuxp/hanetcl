@@ -1,4 +1,4 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { avatarSeed, newSeed } = require("./avatar");

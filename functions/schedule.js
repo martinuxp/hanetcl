@@ -1,4 +1,4 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, SCHEDULE_REGION } = require("./regions");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { sendPush } = require("./classhall-notify");
@@ -270,7 +270,7 @@ function build(getAdminApp) {
     return { blocks };
   });
 
-  const sendMorningSummary = onSchedule({ schedule: "0 7 * * 1-5", timeZone: TIME_ZONE, memory: "512MiB", timeoutSeconds: 300 }, async () => {
+  const sendMorningSummary = onSchedule({ region: SCHEDULE_REGION, schedule: "0 7 * * 1-5", timeZone: TIME_ZONE, memory: "512MiB", timeoutSeconds: 300 }, async () => {
     const now = Date.now();
     const identity = identityDb(getAdminApp);
     const calendar = calendarDb(getAdminApp);

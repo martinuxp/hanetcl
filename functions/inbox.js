@@ -1,6 +1,6 @@
 const { randomUUID } = require("node:crypto");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 
 // The notifications section of the Home: what each account was told, kept so
 // it can be read again later. Every push the backend sends to someone is

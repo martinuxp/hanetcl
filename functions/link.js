@@ -1,6 +1,6 @@
 const { Buffer } = require("node:buffer");
 const crypto = require("node:crypto");
-const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("./regions");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { RESEND_API_KEY, sendEmail, magicLinkEmail, alreadyLinkedEmail, escapeHtml } = require("./email");

@@ -1,5 +1,5 @@
 const { randomUUID } = require("node:crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const { eventSummary } = require("./events");

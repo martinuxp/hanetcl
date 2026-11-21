@@ -1,6 +1,6 @@
 const { randomUUID } = require("node:crypto");
 const { Buffer } = require("node:buffer");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./regions");
 const { getFirestore, FieldValue, FieldPath, Timestamp } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const { readIdQr } = require("./hanet-id");
@@ -221,9 +221,7 @@ function eventSummary(doc, institutionId) {
 
 // Pasar lista, fast (muxp 2026-11-19): who scans and the event are kept a
 // minute per instance, the person and their check-in are read together, and
-// the count is refreshed in the background. It also runs in Santiago, next
-// to the database (see DOOR_REGIONS in tickets.js).
-const DOOR_REGIONS = ["us-central1", "southamerica-west1"];
+// the count is refreshed in the background.
 const LIST_SESSION_MS = 60 * 1000;
 const LIST_COUNT_FRESH_MS = 8 * 1000;
 const listSessions = new Map();
@@ -743,7 +741,7 @@ function build(getAdminApp) {
 
   // An organizer scans an attendee's HN-QR at the door. Only people of the
   // event's institution count; scanning someone twice is harmless.
-  const checkInEventAttendee = onCall({ invoker: "public", region: DOOR_REGIONS }, async (request) => {
+  const checkInEventAttendee = onCall({ invoker: "public" }, async (request) => {
     const session = await listSession(getAdminApp, request, request.data?.id);
     const { profile, ref, event } = session;
     if (!checkinOpen(event)) throw new HttpsError("failed-precondition", "La lista se abre 3 horas antes del evento y se cierra un día después.");
