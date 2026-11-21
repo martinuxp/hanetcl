@@ -77,6 +77,11 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
   const [blockedAttempts, setBlockedAttempts] = useState(0);
   // The height it rests at, kept across window resizes on the web.
   const stopIndex = useSharedValue(0);
+  // The same height for the layout: the screen inside gets only the part of
+  // the panel that is on screen, so whatever ends its scroll (a button, the
+  // last row) can be reached at a lower height too, as in the iOS sheet.
+  const [restIndex, setRestIndex] = useState(0);
+  const visibleHeight = card ? panelHeight : panelHeight - (stops[Math.min(restIndex, stops.length - 1)] ?? 0);
 
   const goBack = useCallback(() => router.back(), [router]);
 
@@ -145,6 +150,7 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
       const top = stops.length - 1;
       if (closing.get() || stopIndex.get() === top) return;
       stopIndex.set(top);
+      setRestIndex(top);
       offset.set(withSpring(stops[top], SPRING_MOMENTUM));
     });
     return () => subscription.remove();
@@ -199,6 +205,7 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
         if (Math.abs(stops[index] - resting) < Math.abs(stops[nearest] - resting)) nearest = index;
       }
       stopIndex.set(nearest);
+      scheduleOnRN(setRestIndex, nearest);
       offset.set(withSpring(stops[nearest], { ...SPRING_MOMENTUM, velocity: event.velocityY }));
     });
 
@@ -224,7 +231,9 @@ function HanetSheet({ backgroundColor, children }: { backgroundColor: string; ch
           panelStyle,
         ]}
       >
-        <SheetGuardContext.Provider value={guard}>{children}</SheetGuardContext.Provider>
+        <View style={{ height: visibleHeight }}>
+          <SheetGuardContext.Provider value={guard}>{children}</SheetGuardContext.Provider>
+        </View>
         {!card && (
           <GestureDetector gesture={drag}>
             <View accessible accessibilityRole="button" accessibilityLabel={t('components.ui.sheetFrame.cerrarHoja')} onAccessibilityTap={close} style={styles.grabberZone}>
